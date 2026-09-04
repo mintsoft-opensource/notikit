@@ -45,6 +45,8 @@ export const projects = pgTable("projects", {
   quietEndHour: integer("quiet_end_hour"),
   // Firebase service account JSON — AES-256-GCM 암호문
   firebaseCredentialsEnc: text("firebase_credentials_enc"),
+  // 카카오 알림톡 설정(provider_url/api_key/sender_key) — AES-256-GCM 암호문
+  kakaoConfigEnc: text("kakao_config_enc"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   apiKeyIdx: uniqueIndex("projects_api_key_idx").on(t.apiKey),
@@ -68,6 +70,7 @@ export const pushUsers = pgTable("push_users", {
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   externalId: text("external_id").notNull(), // 고객 시스템의 유저 ID
   attributes: jsonb("attributes").$type<Record<string, unknown>>().default({}),
+  phone: text("phone"), // 카카오 알림톡 폴백용
   locale: text("locale"),
   timezone: text("timezone"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -161,6 +164,9 @@ export const pushLogs = pgTable("push_logs", {
   // A/B 변형 (있으면 수신자를 해시로 변형에 배정) + 변형별 집계
   variants: jsonb("variants").$type<{ title: string; body: string }[]>(),
   variantStats: jsonb("variant_stats").$type<Record<string, { sent: number; success: number }>>(),
+  // 카카오 알림톡 폴백 (단건 발송에서 device 실패/부재 시 phone 으로)
+  kakaoFallback: boolean("kakao_fallback").notNull().default(false),
+  kakaoCount: integer("kakao_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("push_logs_project_idx").on(t.projectId, t.createdAt),

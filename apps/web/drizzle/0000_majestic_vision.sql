@@ -60,6 +60,7 @@ CREATE TABLE "projects" (
 	"quiet_start_hour" integer,
 	"quiet_end_hour" integer,
 	"firebase_credentials_enc" text,
+	"kakao_config_enc" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -82,6 +83,8 @@ CREATE TABLE "push_logs" (
 	"scheduled_at" timestamp with time zone,
 	"variants" jsonb,
 	"variant_stats" jsonb,
+	"kakao_fallback" boolean DEFAULT false NOT NULL,
+	"kakao_count" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -90,6 +93,7 @@ CREATE TABLE "push_users" (
 	"project_id" uuid NOT NULL,
 	"external_id" text NOT NULL,
 	"attributes" jsonb DEFAULT '{}'::jsonb,
+	"phone" text,
 	"locale" text,
 	"timezone" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL

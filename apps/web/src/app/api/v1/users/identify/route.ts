@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 const schema = z.object({
   external_id: z.string().min(1).max(255),
   identity_hash: z.string().max(128).optional(),
+  phone: z.string().max(32).optional(),
   attributes: z
     .record(z.unknown())
     .optional()
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
       projectId: project.id,
       externalId: b.external_id,
       attributes: b.attributes ?? {},
+      phone: b.phone,
       locale: b.locale,
       timezone: b.timezone,
     })
@@ -58,6 +60,7 @@ export async function POST(req: Request) {
       set: {
         externalId: b.external_id,
         ...(b.attributes !== undefined ? { attributes: b.attributes } : {}),
+        ...(b.phone !== undefined ? { phone: b.phone } : {}),
         locale: b.locale,
         timezone: b.timezone,
       },

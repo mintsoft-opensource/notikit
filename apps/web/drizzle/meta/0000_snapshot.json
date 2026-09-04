@@ -1,5 +1,5 @@
 {
-  "id": "c0abaead-3e94-4588-bbc6-bd046d519d0e",
+  "id": "4c4789d4-1e57-4da5-8bc0-610cbcc2970f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -559,6 +559,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "kakao_config_enc": {
+          "name": "kakao_config_enc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -738,6 +744,20 @@
           "primaryKey": false,
           "notNull": false
         },
+        "kakao_fallback": {
+          "name": "kakao_fallback",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "kakao_count": {
+          "name": "kakao_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -840,6 +860,12 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'{}'::jsonb"
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "locale": {
           "name": "locale",

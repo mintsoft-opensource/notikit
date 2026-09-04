@@ -25,6 +25,7 @@ const schema = z.object({
     .min(2)
     .max(5)
     .optional(),
+  kakao_fallback: z.boolean().optional(),
 });
 
 /**
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
       deepLink: b.deep_link,
       data: b.data,
       variants: b.variants,
+      kakaoFallback: b.kakao_fallback ?? false,
       scheduledAt,
       status: isScheduled ? "scheduled" : "queued",
     })

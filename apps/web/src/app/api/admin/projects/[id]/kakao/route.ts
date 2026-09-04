@@ -1,0 +1,39 @@
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db/client";
+import { projects } from "@/db/schema";
+import { ok, fail } from "@/lib/api-response";
+import { requireAdmin, encryptSecret } from "@/lib/keys";
+import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
+import { parseKakaoConfig } from "@/lib/kakao";
+
+export const dynamic = "force-dynamic";
+
+/** [Web Admin] 카카오 알림톡 설정 업로드 (웹) — 검증 후 암호화 저장 */
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  if (!requireAdmin(req)) return fail("Unauthorized", 401);
+  const { id } = await ctx.params;
+
+  let payload: unknown;
+  try {
+    payload = await readJsonLimited(req);
+  } catch (e) {
+    return e instanceof PayloadTooLargeError ? fail("Payload too large", 413) : fail("Invalid JSON", 400);
+  }
+
+  let config;
+  try {
+    const raw = (payload as { config?: unknown })?.config ?? payload;
+    config = parseKakaoConfig(raw);
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Invalid config", 422);
+  }
+
+  const db = getDb();
+  const updated = await db
+    .update(projects)
+    .set({ kakaoConfigEnc: encryptSecret(JSON.stringify(config)) })
+    .where(eq(projects.id, id))
+    .returning({ id: projects.id });
+  if (updated.length === 0) return fail("Project not found", 404);
+  return ok({ configured: true });
+}

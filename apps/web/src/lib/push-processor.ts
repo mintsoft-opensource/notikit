@@ -6,6 +6,7 @@ import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
 import { emitWebhook } from "@/lib/webhooks";
+import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -234,10 +235,10 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       .returning({ id: pushLogs.id });
     if (finalized.length === 0) return reload(db, logId); // stale 재클레임에 의해 대체됨 → 부작용 스킵
 
-    // In-app 인박스: 단건(유저 타겟) 발송은 알림 이력 저장 (소유 확인 후 1회)
+    // In-app 인박스 + 카카오 폴백: 단건(유저 타겟) 발송 (소유 확인 후 1회)
     if (log.type === "single" && log.target) {
       const u = (
-        await db.select({ id: pushUsers.id }).from(pushUsers)
+        await db.select({ id: pushUsers.id, phone: pushUsers.phone }).from(pushUsers)
           .where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.externalId, log.target))).limit(1)
       )[0];
       if (u) {
@@ -249,6 +250,16 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
           deepLink: log.deepLink,
           data: log.data,
         });
+        // 카카오 알림톡 폴백: device 발송 성공 0 + phone + 설정 존재 시
+        if (log.kakaoFallback && u.phone && project?.kakaoConfigEnc && success === 0) {
+          try {
+            const cfg = parseKakaoConfig(decryptSecret(project.kakaoConfigEnc));
+            const r = await sendAlimtalk(cfg, u.phone, `${log.title}\n${log.body}`);
+            if (r.ok) await db.update(pushLogs).set({ kakaoCount: 1 }).where(eq(pushLogs.id, logId));
+          } catch {
+            /* 폴백 실패는 무시 */
+          }
+        }
       }
     }
 
