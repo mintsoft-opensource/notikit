@@ -136,6 +136,44 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(res.status()).toBe(403);
   });
 
+  test("발송 파이프라인: log-only 큐 처리 → 대상 해석·기록", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", {
+      headers: { "x-admin-token": ADMIN },
+      data: { name: `flow-${Date.now()}` },
+    });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const projectId = cj.data.project.id as string;
+    const ext = "flow-user";
+    const hash = idHash(ext, apiSecret);
+    const token = `flow-tok-${Date.now()}`;
+
+    // 유저 연결 디바이스 등록
+    const reg = await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token, platform: "web", external_id: ext, identity_hash: hash },
+    });
+    expect(reg.status()).toBe(201);
+
+    // 발송 큐잉
+    const send = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "t", body: "b", type: "single", target: ext },
+    });
+    expect(send.status()).toBe(202);
+
+    // 큐 처리 (Firebase 미구성 → log-only, 대상 1건 기록)
+    const proc = await request.post(`/api/admin/projects/${projectId}/process-queue`, {
+      headers: { "x-admin-token": ADMIN },
+      data: {},
+    });
+    expect(proc.status()).toBe(200);
+    const pj = await proc.json();
+    expect(pj.data.processed).toBeGreaterThanOrEqual(1);
+    expect(pj.data.failed).toBe(0);
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {

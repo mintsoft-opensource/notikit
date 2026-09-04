@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getApps, initializeApp, cert, type App } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import type { ServiceAccount } from "./firebase-credentials";
@@ -16,9 +17,14 @@ export interface FcmResult {
   invalidTokens: string[];
 }
 
-/** 프로젝트별 firebase-admin App 재사용 (이름 = notikit-<projectId>) */
+/** 크레덴셜 지문 — 회전 시 새 App 이 만들어지도록 이름에 포함 */
+function credFingerprint(sa: ServiceAccount): string {
+  return createHash("sha256").update(`${sa.client_email}:${sa.private_key}`).digest("hex").slice(0, 12);
+}
+
+/** 프로젝트+크레덴셜별 firebase-admin App 재사용 (크레덴셜 회전 시 자동 갱신) */
 function appForProject(projectId: string, sa: ServiceAccount): App {
-  const name = `notikit-${projectId}`;
+  const name = `notikit-${projectId}-${credFingerprint(sa)}`;
   const existing = getApps().find((a) => a.name === name);
   if (existing) return existing;
   return initializeApp(
@@ -36,10 +42,10 @@ function buildData(msg: FcmMessage): Record<string, string> {
   return data;
 }
 
+// 토큰 자체가 무효인 경우만 (payload 오류인 invalid-argument 는 제외 — 정상 토큰 오삭제 방지)
 const INVALID_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
-  "messaging/invalid-argument",
 ]);
 
 /** 최대 500개 토큰에 멀티캐스트 전송 → 성공/실패/무효토큰 반환 */

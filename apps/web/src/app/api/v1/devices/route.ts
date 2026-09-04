@@ -53,7 +53,8 @@ export async function POST(req: Request) {
       .values({ projectId: project.id, externalId: b.external_id, locale: b.locale, timezone: b.timezone })
       .onConflictDoUpdate({
         target: [pushUsers.projectId, pushUsers.externalId],
-        set: { locale: b.locale, timezone: b.timezone },
+        // externalId 항상 포함 → set 이 비지 않음(drizzle "No values to set" 방지)
+        set: { externalId: b.external_id, locale: b.locale, timezone: b.timezone },
       })
       .returning();
     userId = u[0]?.id ?? null;

@@ -24,6 +24,11 @@ test.describe("smoke", () => {
     await expect(page.getByRole("heading", { name: /사용자·계정 레이어/ })).toBeVisible();
   });
 
+  test("tester page loads", async ({ page }) => {
+    await page.goto("/tester");
+    await expect(page.getByRole("heading", { name: /API 테스터/ })).toBeVisible();
+  });
+
   test("docs page loads (Scalar)", async ({ request }) => {
     const res = await request.get("/docs");
     expect(res.status()).toBe(200);

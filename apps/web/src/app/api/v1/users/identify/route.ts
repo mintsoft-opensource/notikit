@@ -54,7 +54,9 @@ export async function POST(req: Request) {
     })
     .onConflictDoUpdate({
       target: [pushUsers.projectId, pushUsers.externalId],
+      // externalId 항상 포함(빈 set 방지) + attributes 미제공 시 기존 값 유지
       set: {
+        externalId: b.external_id,
         ...(b.attributes !== undefined ? { attributes: b.attributes } : {}),
         locale: b.locale,
         timezone: b.timezone,

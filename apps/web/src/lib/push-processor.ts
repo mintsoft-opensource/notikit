@@ -36,7 +36,6 @@ async function resolveTokens(db: ReturnType<typeof getDb>, log: PushLog): Promis
     return rows.map((r) => r.token);
   }
 
-  // single: target = 유저 external_id
   if (log.target) {
     const user = (
       await db.select().from(pushUsers).where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.externalId, log.target))).limit(1)
@@ -51,32 +50,57 @@ async function resolveTokens(db: ReturnType<typeof getDb>, log: PushLog): Promis
   return [];
 }
 
-/** 억제 리스트(token/externalId) 제외 */
+/** 억제 리스트(token + external_id 유저의 디바이스) 제외 */
 async function filterSuppressed(db: ReturnType<typeof getDb>, projectId: string, tokens: string[]): Promise<string[]> {
   if (tokens.length === 0) return tokens;
-  const sup = await db.select({ token: suppressions.token }).from(suppressions).where(eq(suppressions.projectId, projectId));
-  const blocked = new Set(sup.map((s) => s.token).filter(Boolean) as string[]);
-  return tokens.filter((t) => !blocked.has(t));
+  const sup = await db.select().from(suppressions).where(eq(suppressions.projectId, projectId));
+  const blockedTokens = new Set(sup.map((s) => s.token).filter(Boolean) as string[]);
+  const blockedExtIds = sup.map((s) => s.externalId).filter(Boolean) as string[];
+
+  const blockedByUser = new Set<string>();
+  if (blockedExtIds.length) {
+    const rows = await db
+      .select({ token: devices.token })
+      .from(devices)
+      .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+      .where(and(eq(devices.projectId, projectId), inArray(pushUsers.externalId, blockedExtIds)));
+    for (const r of rows) blockedByUser.add(r.token);
+  }
+  return tokens.filter((t) => !blockedTokens.has(t) && !blockedByUser.has(t));
+}
+
+async function reload(db: ReturnType<typeof getDb>, logId: string): Promise<PushLog | undefined> {
+  return (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
 }
 
 /**
- * 큐잉된 푸시 로그 1건을 실제 발송 처리.
- * 크레덴셜 복호화 → 토큰 해석 → 억제 필터 → FCM 배치 발송 → 카운트 갱신 + 무효토큰 비활성화.
+ * 큐잉된 푸시 로그 1건 처리. **원자적 클레임**으로 중복 발송 방지.
+ * - Firebase 크레덴셜 없음 → **log-only**(status="logged": 실제 발송 없이 대상만 기록)
+ * - 있으면 실제 FCM 배치 발송 + 무효토큰 비활성화.
  */
 export async function processPushLog(logId: string): Promise<PushLog | undefined> {
   const db = getDb();
-  const log = (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
-  if (!log || log.status !== "queued") return log;
 
-  const project = (await db.select().from(projects).where(eq(projects.id, log.projectId)).limit(1))[0];
-  await db.update(pushLogs).set({ status: "processing" }).where(eq(pushLogs.id, logId));
+  // 원자적 클레임: queued → processing (경쟁 워커 중복 방지)
+  const claimed = await db
+    .update(pushLogs)
+    .set({ status: "processing" })
+    .where(and(eq(pushLogs.id, logId), eq(pushLogs.status, "queued")))
+    .returning();
+  if (claimed.length === 0) return reload(db, logId); // 이미 다른 워커가 처리
+  const log = claimed[0];
 
   try {
-    if (!project?.firebaseCredentialsEnc) throw new Error("Firebase credentials not configured for project");
+    const project = (await db.select().from(projects).where(eq(projects.id, log.projectId)).limit(1))[0];
+    const tokens = await filterSuppressed(db, log.projectId, await resolveTokens(db, log));
+
+    // log-only 모드 — 실발송 없이 대상 수만 기록 (Firebase 미구성/테스트)
+    if (!project?.firebaseCredentialsEnc) {
+      await db.update(pushLogs).set({ status: "logged", totalCount: tokens.length }).where(eq(pushLogs.id, logId));
+      return reload(db, logId);
+    }
+
     const sa = parseServiceAccount(decryptSecret(project.firebaseCredentialsEnc));
-
-    const tokens = await filterSuppressed(db, project.id, await resolveTokens(db, log));
-
     let success = 0;
     let failure = 0;
     const invalid: string[] = [];
@@ -108,10 +132,10 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     throw e;
   }
 
-  return (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
+  return reload(db, logId);
 }
 
-/** 프로젝트의 큐잉된 로그를 일괄 처리 (worker/cron 진입점). 처리 건수 반환. */
+/** 프로젝트의 큐잉된 로그를 일괄 처리 (worker/cron 진입점). */
 export async function drainQueue(projectId: string, limit = 50): Promise<{ processed: number; failed: number }> {
   const db = getDb();
   const queued = await db
