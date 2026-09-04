@@ -359,6 +359,33 @@ test.describe("App SDK API 전체 플로우", () => {
     expect((await idf.json()).data.user.phone).toBe("01012345678");
   });
 
+  test("저니: 다단계(send→wait→send) 진행", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `jny-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+
+    await request.post(`/api/admin/projects/${pid}/journeys`, {
+      headers: { "x-admin-token": ADMIN },
+      data: { name: "welcome", steps: [{ type: "send", title: "J1", body: "b" }, { type: "wait", hours: 24 }, { type: "send", title: "J2", body: "b" }] },
+    });
+
+    const ext = "j-user";
+    const hash = idHash(ext, apiSecret);
+    const enroll = await request.post("/api/v1/journeys/enroll", { headers: { "api-key": apiKey }, data: { journey: "welcome", external_id: ext, identity_hash: hash } });
+    expect(enroll.status()).toBe(201);
+
+    const proc = (n: string) => request.post(`/api/admin/projects/${pid}/journeys/process`, { headers: { "x-admin-token": ADMIN }, data: {} }).then((r) => r.json());
+    expect((await proc("1")).data.processed).toBe(1); // step0 send
+    expect((await proc("2")).data.processed).toBe(1); // step1 wait
+    expect((await proc("3")).data.processed).toBe(0); // wait 24h → not due
+
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    const titles = (await logs.json()).data.logs.map((l: { title: string }) => l.title);
+    expect(titles).toContain("J1");
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {

@@ -200,6 +200,32 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   whIdx: index("webhook_deliveries_wh_idx").on(t.webhookId, t.status),
 }));
 
+/** 저니(워크플로우) — 다단계 자동 발송 정의 */
+export const journeys = pgTable("journeys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  // 스텝: [{type:'send', title, body} | {type:'wait', hours}]
+  steps: jsonb("steps").$type<Array<{ type: "send" | "wait"; title?: string; body?: string; hours?: number }>>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  nameIdx: uniqueIndex("journeys_name_idx").on(t.projectId, t.name),
+}));
+
+/** 저니 실행 — 유저별 진행 상태 */
+export const journeyRuns = pgTable("journey_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  journeyId: uuid("journey_id").notNull().references(() => journeys.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => pushUsers.id, { onDelete: "cascade" }),
+  currentStep: integer("current_step").notNull().default(0),
+  status: text("status").notNull().default("active"), // active | completed
+  nextRunAt: timestamp("next_run_at", { withTimezone: true }).defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  dueIdx: index("journey_runs_due_idx").on(t.projectId, t.status, t.nextRunAt),
+}));
+
 /** 세그먼트 — 유저 속성 규칙 기반 오디언스 */
 export const segments = pgTable("segments", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -31,6 +31,25 @@ CREATE TABLE "devices" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "journey_runs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"journey_id" uuid NOT NULL,
+	"project_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"current_step" integer DEFAULT 0 NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"next_run_at" timestamp with time zone DEFAULT now(),
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "journeys" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"project_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"steps" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "notifications" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"project_id" uuid NOT NULL,
@@ -164,6 +183,10 @@ ALTER TABLE "admin_users" ADD CONSTRAINT "admin_users_org_id_organizations_id_fk
 ALTER TABLE "apps" ADD CONSTRAINT "apps_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "devices" ADD CONSTRAINT "devices_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "devices" ADD CONSTRAINT "devices_user_id_push_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."push_users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "journey_runs" ADD CONSTRAINT "journey_runs_journey_id_journeys_id_fk" FOREIGN KEY ("journey_id") REFERENCES "public"."journeys"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "journey_runs" ADD CONSTRAINT "journey_runs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "journey_runs" ADD CONSTRAINT "journey_runs_user_id_push_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."push_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "journeys" ADD CONSTRAINT "journeys_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_push_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."push_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -182,6 +205,8 @@ CREATE INDEX "apps_project_idx" ON "apps" USING btree ("project_id");--> stateme
 CREATE UNIQUE INDEX "devices_token_idx" ON "devices" USING btree ("project_id","token");--> statement-breakpoint
 CREATE INDEX "devices_user_idx" ON "devices" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "devices_project_idx" ON "devices" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX "journey_runs_due_idx" ON "journey_runs" USING btree ("project_id","status","next_run_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "journeys_name_idx" ON "journeys" USING btree ("project_id","name");--> statement-breakpoint
 CREATE INDEX "notifications_user_idx" ON "notifications" USING btree ("project_id","user_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "projects_api_key_idx" ON "projects" USING btree ("api_key");--> statement-breakpoint
 CREATE INDEX "projects_org_idx" ON "projects" USING btree ("org_id");--> statement-breakpoint
