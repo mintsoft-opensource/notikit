@@ -81,6 +81,41 @@ importers:
         specifier: ^4.1.5
         version: 4.1.11(@types/node@20.19.43)(vite@8.2.2)
 
+  packages/sdk-react:
+    dependencies:
+      '@notikit/core':
+        specifier: workspace:*
+        version: link:../sdk-core
+      '@notikit/web-sdk':
+        specifier: workspace:*
+        version: link:../sdk-web
+    devDependencies:
+      '@types/react':
+        specifier: ^19
+        version: 19.2.18
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.11(@types/node@20.19.43)(vite@8.2.2)
+
+  packages/sdk-web:
+    dependencies:
+      '@notikit/core':
+        specifier: workspace:*
+        version: link:../sdk-core
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.11(@types/node@20.19.43)(vite@8.2.2)
+
 packages:
 
   /@alloc/quick-lru@5.3.0:
@@ -1977,7 +2012,6 @@ packages:
   /react@19.2.4:
     resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
     engines: {node: '>=0.10.0'}
-    dev: false
 
   /resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
