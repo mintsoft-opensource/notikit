@@ -152,10 +152,39 @@ export const pushLogs = pgTable("push_logs", {
   readCount: integer("read_count").notNull().default(0),
   // 워커 클레임 시각 — 크래시로 'processing' 에 멈춘 로그 복구용
   lockedAt: timestamp("locked_at", { withTimezone: true }),
+  // 예약 발송 — 미래면 status='scheduled', 워커가 도래 시 처리
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("push_logs_project_idx").on(t.projectId, t.createdAt),
   statusIdx: index("push_logs_status_idx").on(t.projectId, t.status),
+}));
+
+/** 아웃바운드 웹훅 엔드포인트 */
+export const webhooks = pgTable("webhooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(), // HMAC 서명용
+  events: jsonb("events").$type<string[]>().notNull().default([]), // 구독 이벤트 (빈배열=전체)
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  projIdx: index("webhooks_project_idx").on(t.projectId),
+}));
+
+/** 웹훅 전송 로그 (재시도/관측) */
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  webhookId: uuid("webhook_id").notNull().references(() => webhooks.id, { onDelete: "cascade" }),
+  event: text("event").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  status: text("status").notNull().default("pending"), // pending | delivered | failed
+  attempts: integer("attempts").notNull().default(0),
+  lastStatusCode: integer("last_status_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  whIdx: index("webhook_deliveries_wh_idx").on(t.webhookId, t.status),
 }));
 
 export type Project = typeof projects.$inferSelect;

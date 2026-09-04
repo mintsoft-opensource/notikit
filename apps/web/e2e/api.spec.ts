@@ -174,6 +174,39 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(pj.data.failed).toBe(0);
   });
 
+  test("예약 발송: 미래=scheduled(처리 스킵), 과거=즉시 처리", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `sch-${Date.now()}` } });
+    const cj = await created.json();
+    const { apiKey } = { apiKey: cj.data.project.apiKey as string };
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const auth = { "api-key": apiKey, "api-secret": apiSecret };
+
+    const future = await request.post("/api/v1/messages", { headers: auth, data: { title: "f", body: "b", type: "broadcast", scheduled_at: new Date(Date.now() + 3_600_000).toISOString() } });
+    expect((await future.json()).data.message.status).toBe("scheduled");
+    const proc1 = await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    expect((await proc1.json()).data.processed).toBe(0);
+
+    const past = await request.post("/api/v1/messages", { headers: auth, data: { title: "p", body: "b", type: "broadcast", scheduled_at: new Date(Date.now() - 1000).toISOString() } });
+    expect((await past.json()).data.message.status).toBe("queued");
+    const proc2 = await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    expect((await proc2.json()).data.processed).toBeGreaterThanOrEqual(1);
+  });
+
+  test("웹훅: 등록 시 secret 1회, 목록엔 secret 제외", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `wh-${Date.now()}` } });
+    const pid = (await created.json()).data.project.id;
+
+    const wh = await request.post(`/api/admin/projects/${pid}/webhooks`, { headers: { "x-admin-token": ADMIN }, data: { url: "https://example.com/hook", events: ["message.sent"] } });
+    expect(wh.status()).toBe(201);
+    expect((await wh.json()).data.secret).toMatch(/^whsec_/);
+
+    const list = await request.get(`/api/admin/projects/${pid}/webhooks`, { headers: { "x-admin-token": ADMIN } });
+    const lj = await list.json();
+    expect(lj.data.webhooks[0].url).toBe("https://example.com/hook");
+    expect(lj.data.webhooks[0].secret).toBeUndefined();
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {

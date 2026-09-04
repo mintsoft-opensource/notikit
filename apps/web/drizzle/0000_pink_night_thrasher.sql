@@ -64,6 +64,7 @@ CREATE TABLE "push_logs" (
 	"failure_count" integer DEFAULT 0 NOT NULL,
 	"read_count" integer DEFAULT 0 NOT NULL,
 	"locked_at" timestamp with time zone,
+	"scheduled_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -109,6 +110,27 @@ CREATE TABLE "topics" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "webhook_deliveries" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"webhook_id" uuid NOT NULL,
+	"event" text NOT NULL,
+	"payload" jsonb NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"last_status_code" integer,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "webhooks" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"project_id" uuid NOT NULL,
+	"url" text NOT NULL,
+	"secret" text NOT NULL,
+	"events" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "admin_users" ADD CONSTRAINT "admin_users_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "apps" ADD CONSTRAINT "apps_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "devices" ADD CONSTRAINT "devices_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -121,6 +143,8 @@ ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_device_id_devices_id_f
 ALTER TABLE "suppressions" ADD CONSTRAINT "suppressions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "templates" ADD CONSTRAINT "templates_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "topics" ADD CONSTRAINT "topics_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_deliveries" ADD CONSTRAINT "webhook_deliveries_webhook_id_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."webhooks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhooks" ADD CONSTRAINT "webhooks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "admin_users_email_idx" ON "admin_users" USING btree ("email");--> statement-breakpoint
 CREATE INDEX "apps_project_idx" ON "apps" USING btree ("project_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "devices_token_idx" ON "devices" USING btree ("project_id","token");--> statement-breakpoint
@@ -133,4 +157,6 @@ CREATE INDEX "push_logs_status_idx" ON "push_logs" USING btree ("project_id","st
 CREATE UNIQUE INDEX "push_users_ext_idx" ON "push_users" USING btree ("project_id","external_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "subscriptions_uniq_idx" ON "subscriptions" USING btree ("topic_id","device_id");--> statement-breakpoint
 CREATE INDEX "suppressions_project_idx" ON "suppressions" USING btree ("project_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "topics_name_idx" ON "topics" USING btree ("project_id","name");
+CREATE UNIQUE INDEX "topics_name_idx" ON "topics" USING btree ("project_id","name");--> statement-breakpoint
+CREATE INDEX "webhook_deliveries_wh_idx" ON "webhook_deliveries" USING btree ("webhook_id","status");--> statement-breakpoint
+CREATE INDEX "webhooks_project_idx" ON "webhooks" USING btree ("project_id");

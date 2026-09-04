@@ -13,6 +13,7 @@ const schema = z.object({
   body: z.string().min(1).max(4000),
   type: z.enum(["single", "broadcast", "topic"]),
   target: z.string().max(255).optional(),
+  scheduled_at: z.string().datetime().optional(),
   deep_link: z.string().url().max(2048).optional(),
   data: z
     .record(z.unknown())
@@ -43,6 +44,9 @@ export async function POST(req: Request) {
     return fail("target is required unless type=broadcast", 422);
   }
 
+  const scheduledAt = b.scheduled_at ? new Date(b.scheduled_at) : null;
+  const isScheduled = !!scheduledAt && scheduledAt.getTime() > Date.now();
+
   const db = getDb();
   const rows = await db
     .insert(pushLogs)
@@ -54,10 +58,10 @@ export async function POST(req: Request) {
       body: b.body,
       deepLink: b.deep_link,
       data: b.data,
-      status: "queued",
+      scheduledAt,
+      status: isScheduled ? "scheduled" : "queued",
     })
     .returning();
 
-  // TODO(worker): enqueue fan-out job (BullMQ) — 현재는 큐 레코드만 생성
-  return ok({ message: rows[0] }, { queued: true }, 202);
+  return ok({ message: rows[0] }, { scheduled: isScheduled }, 202);
 }

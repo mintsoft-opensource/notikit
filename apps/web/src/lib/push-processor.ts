@@ -1,9 +1,10 @@
-import { and, eq, or, lt, gt, isNull, inArray } from "drizzle-orm";
+import { and, eq, or, lt, lte, gt, isNull, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
+import { emitWebhook } from "@/lib/webhooks";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -109,13 +110,18 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
   const db = getDb();
   const staleBefore = new Date(Date.now() - STALE_MS);
 
+  const now = new Date();
   const claimed = await db
     .update(pushLogs)
-    .set({ status: "processing", lockedAt: new Date() })
+    .set({ status: "processing", lockedAt: now })
     .where(
       and(
         eq(pushLogs.id, logId),
-        or(eq(pushLogs.status, "queued"), and(eq(pushLogs.status, "processing"), or(isNull(pushLogs.lockedAt), lt(pushLogs.lockedAt, staleBefore))))
+        or(
+          eq(pushLogs.status, "queued"),
+          and(eq(pushLogs.status, "scheduled"), lte(pushLogs.scheduledAt, now)),
+          and(eq(pushLogs.status, "processing"), or(isNull(pushLogs.lockedAt), lt(pushLogs.lockedAt, staleBefore)))
+        )
       )
     )
     .returning();
@@ -161,10 +167,20 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
         .where(and(eq(devices.projectId, project!.id), inArray(devices.token, c)));
     }
 
+    const finalStatus = logOnly ? "logged" : "completed";
     await db
       .update(pushLogs)
-      .set({ status: logOnly ? "logged" : "completed", totalCount: total, successCount: success, failureCount: failure })
+      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure })
       .where(eq(pushLogs.id, logId));
+
+    // 웹훅 발행 (논블로킹)
+    void emitWebhook(log.projectId, "message.sent", {
+      message_id: logId,
+      status: finalStatus,
+      total,
+      success,
+      failure,
+    }).catch(() => {});
   } catch (e) {
     await db.update(pushLogs).set({ status: "failed" }).where(eq(pushLogs.id, logId));
     throw e;
@@ -183,7 +199,11 @@ export async function drainQueue(projectId: string, limit = 50): Promise<{ proce
     .where(
       and(
         eq(pushLogs.projectId, projectId),
-        or(eq(pushLogs.status, "queued"), and(eq(pushLogs.status, "processing"), lt(pushLogs.lockedAt, staleBefore)))
+        or(
+          eq(pushLogs.status, "queued"),
+          and(eq(pushLogs.status, "scheduled"), lte(pushLogs.scheduledAt, new Date())),
+          and(eq(pushLogs.status, "processing"), lt(pushLogs.lockedAt, staleBefore))
+        )
       )
     )
     .limit(limit);
