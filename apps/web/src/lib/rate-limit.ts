@@ -5,7 +5,7 @@
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 
-export function rateLimit(key: string, limit = 120, windowMs = 60_000): boolean {
+export function rateLimit(key: string, limit = 600, windowMs = 60_000): boolean {
   const now = Date.now();
   const b = buckets.get(key);
   if (!b || now > b.resetAt) {
@@ -17,8 +17,11 @@ export function rateLimit(key: string, limit = 120, windowMs = 60_000): boolean 
   return true;
 }
 
-export function clientKey(req: Request, projectId: string): string {
-  // EB/프록시 뒤 실제 클라 IP
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  return `${projectId}:${ip}`;
+/**
+ * rate limit 키 = **인증된 projectId**(스푸핑 불가).
+ * client IP(x-forwarded-for)는 위조 가능하므로 신뢰 앵커로 쓰지 않는다.
+ * 프로덕션에서 per-IP 세분화가 필요하면 신뢰 프록시 뒤에서만 IP 를 추가하고 Redis 리미터로 교체.
+ */
+export function clientKey(projectId: string): string {
+  return `proj:${projectId}`;
 }

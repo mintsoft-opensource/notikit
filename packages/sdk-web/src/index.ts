@@ -76,6 +76,7 @@ export class NotikitWeb {
   identify(externalId: string, attributes?: Record<string, unknown>) {
     return this.client.identify({
       externalId,
+      identityHash: this.config.identityHash,
       attributes,
       locale: typeof navigator !== "undefined" ? navigator.language : undefined,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

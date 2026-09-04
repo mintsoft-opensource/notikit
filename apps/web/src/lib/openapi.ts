@@ -25,7 +25,7 @@ export const openapi = {
       post: {
         tags: ["App SDK"],
         summary: "디바이스/토큰 등록·업서트",
-        security: [{ apiKey: [], apiSecret: [] }],
+        security: [{ apiKey: [] }],
         requestBody: {
           required: true,
           content: {
@@ -58,7 +58,7 @@ export const openapi = {
       post: {
         tags: ["App SDK"],
         summary: "유저 식별 (identity)",
-        security: [{ apiKey: [], apiSecret: [] }],
+        security: [{ apiKey: [] }],
         requestBody: {
           required: true,
           content: {
@@ -84,7 +84,7 @@ export const openapi = {
       post: {
         tags: ["App SDK"],
         summary: "토픽 구독",
-        security: [{ apiKey: [], apiSecret: [] }],
+        security: [{ apiKey: [] }],
         requestBody: {
           required: true,
           content: {

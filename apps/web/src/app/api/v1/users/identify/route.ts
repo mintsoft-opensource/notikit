@@ -24,7 +24,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(req, project.id))) return fail("Rate limit exceeded", 429);
+  if (!rateLimit(clientKey(project.id))) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {
