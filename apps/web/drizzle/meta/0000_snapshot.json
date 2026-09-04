@@ -1,5 +1,5 @@
 {
-  "id": "122a81be-7163-473f-a9e8-5f32c49ae536",
+  "id": "9c7d9bd4-f0de-4b75-8d48-f98e22f7288f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -417,6 +417,27 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "journey_runs_uniq_idx": {
+          "name": "journey_runs_uniq_idx",
+          "columns": [
+            {
+              "expression": "journey_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}

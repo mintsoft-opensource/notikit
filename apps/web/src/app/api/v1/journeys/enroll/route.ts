@@ -32,7 +32,8 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  if (project.requireIdentityVerification && (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc))) {
+  // enroll 은 타 유저 대상 지정 위험 → identity_hash 항상 필수
+  if (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc)) {
     return fail("identity_hash invalid or missing", 403);
   }
 
@@ -48,9 +49,19 @@ export async function POST(req: Request) {
       .returning({ id: pushUsers.id })
   )[0];
 
+  // 멱등: 이미 등록됐으면 새 run 생성 안 함
   const run = (
-    await db.insert(journeyRuns).values({ journeyId: journey.id, projectId: project.id, userId: user.id, currentStep: 0, status: "active", nextRunAt: new Date() }).returning({ id: journeyRuns.id })
+    await db.insert(journeyRuns)
+      .values({ journeyId: journey.id, projectId: project.id, userId: user.id, currentStep: 0, status: "active", nextRunAt: new Date() })
+      .onConflictDoNothing({ target: [journeyRuns.journeyId, journeyRuns.userId] })
+      .returning({ id: journeyRuns.id })
   )[0];
 
+  if (!run) {
+    const existing = (
+      await db.select({ id: journeyRuns.id }).from(journeyRuns).where(and(eq(journeyRuns.journeyId, journey.id), eq(journeyRuns.userId, user.id))).limit(1)
+    )[0];
+    return ok({ enrolled: false, run_id: existing?.id, note: "already enrolled" });
+  }
   return ok({ enrolled: true, run_id: run.id }, undefined, 201);
 }

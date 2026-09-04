@@ -224,6 +224,8 @@ export const journeyRuns = pgTable("journey_runs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   dueIdx: index("journey_runs_due_idx").on(t.projectId, t.status, t.nextRunAt),
+  // 멱등성: 한 유저는 한 저니에 1회만 등록
+  uniqRun: uniqueIndex("journey_runs_uniq_idx").on(t.journeyId, t.userId),
 }));
 
 /** 세그먼트 — 유저 속성 규칙 기반 오디언스 */

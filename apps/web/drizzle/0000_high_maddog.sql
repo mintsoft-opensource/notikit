@@ -206,6 +206,7 @@ CREATE UNIQUE INDEX "devices_token_idx" ON "devices" USING btree ("project_id","
 CREATE INDEX "devices_user_idx" ON "devices" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "devices_project_idx" ON "devices" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "journey_runs_due_idx" ON "journey_runs" USING btree ("project_id","status","next_run_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "journey_runs_uniq_idx" ON "journey_runs" USING btree ("journey_id","user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "journeys_name_idx" ON "journeys" USING btree ("project_id","name");--> statement-breakpoint
 CREATE INDEX "notifications_user_idx" ON "notifications" USING btree ("project_id","user_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "projects_api_key_idx" ON "projects" USING btree ("api_key");--> statement-breakpoint

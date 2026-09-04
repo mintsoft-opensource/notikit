@@ -5,6 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { requireAdmin, encryptSecret } from "@/lib/keys";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { parseKakaoConfig } from "@/lib/kakao";
+import { assertSafeWebhookUrl } from "@/lib/webhooks";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const raw = (payload as { config?: unknown })?.config ?? payload;
     config = parseKakaoConfig(raw);
+    await assertSafeWebhookUrl(config.provider_url); // SSRF 방어 (provider_url)
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Invalid config", 422);
   }
