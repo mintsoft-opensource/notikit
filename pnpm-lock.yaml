@@ -25,6 +25,9 @@ importers:
       firebase-admin:
         specifier: ^13.0.2
         version: 13.10.0
+      ipaddr.js:
+        specifier: ^2.2.0
+        version: 2.5.0
       lucide-react:
         specifier: ^1.11.0
         version: 1.41.0(react@19.2.4)
@@ -3546,6 +3549,11 @@ packages:
   /ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
     engines: {node: '>= 0.10'}
+    dev: false
+
+  /ipaddr.js@2.5.0:
+    resolution: {integrity: sha512-aq+t5NAc+cS6rZQQVWC2x98CPqGtKKTMDd4Gaodv0wShnItdKg/51djkGJ1hqH+Oy0ivDftCbSLCQob8zso01w==}
+    engines: {node: '>= 10'}
     dev: false
 
   /is-docker@2.2.1:
