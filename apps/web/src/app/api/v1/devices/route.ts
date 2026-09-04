@@ -1,8 +1,9 @@
-import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { devices, pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
-import { readJsonLimited } from "@/lib/read-json";
+import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
+import { verifyIdentity } from "@/lib/keys";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -12,6 +13,7 @@ const schema = z.object({
   token: z.string().min(1).max(4096),
   platform: z.enum(["android", "ios", "web", "webview", "electron", "flutter", "react-native"]),
   external_id: z.string().max(255).optional(),
+  identity_hash: z.string().max(128).optional(),
   app_version: z.string().max(64).optional(),
   os_version: z.string().max(64).optional(),
   locale: z.string().max(35).optional(),
@@ -19,20 +21,28 @@ const schema = z.object({
   country: z.string().max(8).optional(),
 });
 
-/** 디바이스/토큰 등록·업서트 (+ external_id 있으면 유저 연결) */
+/** 디바이스/토큰 등록·업서트 (public: api-key). external_id 바인딩은 identity 검증 필요. */
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
+  if (!rateLimit(clientKey(req, project.id))) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {
     payload = await readJsonLimited(req);
-  } catch {
-    return fail("Payload too large", 413);
+  } catch (e) {
+    return e instanceof PayloadTooLargeError ? fail("Payload too large", 413) : fail("Invalid JSON", 400);
   }
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
+
+  // external_id 바인딩 시 identity 검증(HMAC) — 타 유저 사칭 방지
+  if (b.external_id && project.requireIdentityVerification) {
+    if (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc)) {
+      return fail("identity_hash invalid or missing for external_id binding", 403);
+    }
+  }
 
   const db = getDb();
 
@@ -66,7 +76,6 @@ export async function POST(req: Request) {
     })
     .onConflictDoUpdate({
       target: [devices.projectId, devices.token],
-      // external_id 가 없으면 기존 userId 를 유지(덮어쓰지 않음)
       set: {
         platform: b.platform,
         ...(b.external_id ? { userId } : {}),

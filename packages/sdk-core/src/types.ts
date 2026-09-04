@@ -25,6 +25,8 @@ export interface RegisterDeviceInput {
   token: string;
   platform: Platform;
   externalId?: string;
+  /** external_id 바인딩 시 identity 검증 해시 = HMAC-SHA256(externalId, apiSecret). 고객 서버가 계산해 전달. */
+  identityHash?: string;
   appVersion?: string;
   osVersion?: string;
   locale?: string;
@@ -34,6 +36,7 @@ export interface RegisterDeviceInput {
 
 export interface IdentifyInput {
   externalId: string;
+  identityHash?: string;
   attributes?: Record<string, unknown>;
   locale?: string;
   timezone?: string;

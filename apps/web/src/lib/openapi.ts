@@ -40,6 +40,7 @@ export const openapi = {
                     enum: ["android", "ios", "web", "webview", "electron", "flutter", "react-native"],
                   },
                   external_id: { type: "string", description: "고객 유저 ID (identity)" },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret) — external_id 바인딩 검증" },
                   app_version: { type: "string" },
                   os_version: { type: "string" },
                   locale: { type: "string", example: "ko-KR" },
@@ -67,6 +68,7 @@ export const openapi = {
                 required: ["external_id"],
                 properties: {
                   external_id: { type: "string" },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret)" },
                   attributes: { type: "object", additionalProperties: true },
                   locale: { type: "string" },
                   timezone: { type: "string" },

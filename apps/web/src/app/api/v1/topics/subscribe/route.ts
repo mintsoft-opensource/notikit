@@ -2,7 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { devices, topics, subscriptions } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
-import { readJsonLimited } from "@/lib/read-json";
+import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -17,12 +18,13 @@ const schema = z.object({
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
+  if (!rateLimit(clientKey(req, project.id))) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {
     payload = await readJsonLimited(req);
-  } catch {
-    return fail("Payload too large", 413);
+  } catch (e) {
+    return e instanceof PayloadTooLargeError ? fail("Payload too large", 413) : fail("Invalid JSON", 400);
   }
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);

@@ -18,6 +18,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: process.env.DATABASE_URL ?? "postgres://notikit:notikit@localhost:5432/notikit",
       ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "e2e-admin-token",
+      NOTIKIT_ENCRYPTION_KEY: process.env.NOTIKIT_ENCRYPTION_KEY ?? "e2e-encryption-key-32bytes-minimum",
       NODE_ENV: "production",
     },
   },

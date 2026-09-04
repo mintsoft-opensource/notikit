@@ -1,5 +1,5 @@
 {
-  "id": "65e64ae2-01ec-4def-a864-19a5ff04cd19",
+  "id": "d947c915-8698-49cf-9bae-3f35bdbdb577",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -404,11 +404,18 @@
           "primaryKey": false,
           "notNull": true
         },
-        "api_secret_hash": {
-          "name": "api_secret_hash",
+        "api_secret_enc": {
+          "name": "api_secret_enc",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "require_identity_verification": {
+          "name": "require_identity_verification",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "firebase_credentials_enc": {
           "name": "firebase_credentials_enc",

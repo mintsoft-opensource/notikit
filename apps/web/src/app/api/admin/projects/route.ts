@@ -2,14 +2,14 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects, organizations } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { generateApiKey, generateApiSecret, hashSecret, requireAdmin } from "@/lib/keys";
+import { generateApiKey, generateApiSecret, encryptSecret, requireAdmin } from "@/lib/keys";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-/** api-secret 해시는 응답에서 제거 */
-function publicProject<T extends { apiSecretHash?: string }>(p: T): Omit<T, "apiSecretHash"> {
-  const { apiSecretHash: _omit, ...rest } = p;
+/** api-secret 암호문은 응답에서 제거 */
+function publicProject<T extends { apiSecretEnc?: string }>(p: T): Omit<T, "apiSecretEnc"> {
+  const { apiSecretEnc: _omit, ...rest } = p;
   return rest;
 }
 
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         name: b.name,
         environment: b.environment,
         apiKey: generateApiKey(),
-        apiSecretHash: hashSecret(apiSecret),
+        apiSecretEnc: encryptSecret(apiSecret),
       })
       .returning()
   )[0];

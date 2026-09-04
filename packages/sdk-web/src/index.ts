@@ -1,12 +1,14 @@
 import { NotikitClient, type NotikitConfig } from "@notikit/core";
 
-export interface NotikitWebConfig extends NotikitConfig {
+export interface NotikitWebConfig extends Omit<NotikitConfig, "apiSecret"> {
   /** Web Push VAPID 공개키 (base64url). 서버가 발급 */
   vapidPublicKey: string;
   /** 서비스워커 경로 (기본 /notikit-sw.js) */
   serviceWorkerPath?: string;
   /** 유저 식별자 (로그인 시) */
   externalId?: string;
+  /** external_id 바인딩 시 identity 검증 해시(고객 서버가 계산) */
+  identityHash?: string;
 }
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
@@ -63,6 +65,7 @@ export class NotikitWeb {
       token,
       platform: "web",
       externalId: this.config.externalId,
+      identityHash: this.config.identityHash,
       locale: navigator.language,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });

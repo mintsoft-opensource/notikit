@@ -30,6 +30,6 @@ export async function resolveProjectPrivileged(req: Request): Promise<Project | 
   if (!apiKey || !apiSecret) return null;
   const project = await findProjectByKey(apiKey);
   if (!project) return null;
-  if (!verifySecret(apiSecret, project.apiSecretHash)) return null;
+  if (!verifySecret(apiSecret, project.apiSecretEnc)) return null;
   return project;
 }

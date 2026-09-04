@@ -36,8 +36,10 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   environment: text("environment").notNull().default("production"), // dev | staging | production
   apiKey: text("api_key").notNull(),
-  // api-secret 의 sha256 해시 (평문 저장 금지)
-  apiSecretHash: text("api_secret_hash").notNull(),
+  // api-secret 암호문 (AES-256-GCM at-rest)
+  apiSecretEnc: text("api_secret_enc").notNull(),
+  // external_id 바인딩에 identity 검증(HMAC) 요구 여부
+  requireIdentityVerification: boolean("require_identity_verification").notNull().default(true),
   // Firebase service account JSON — AES-256-GCM 암호문
   firebaseCredentialsEnc: text("firebase_credentials_enc"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

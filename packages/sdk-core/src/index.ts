@@ -60,6 +60,7 @@ export class NotikitClient {
       token: input.token,
       platform: input.platform,
       external_id: input.externalId,
+      identity_hash: input.identityHash,
       app_version: input.appVersion,
       os_version: input.osVersion,
       locale: input.locale,
@@ -72,6 +73,7 @@ export class NotikitClient {
   identify(input: IdentifyInput) {
     return this.request<{ user: unknown }>("/api/v1/users/identify", {
       external_id: input.externalId,
+      identity_hash: input.identityHash,
       attributes: input.attributes,
       locale: input.locale,
       timezone: input.timezone,

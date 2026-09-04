@@ -1,6 +1,12 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { createHmac } from "node:crypto";
 
 const ADMIN = process.env.ADMIN_TOKEN ?? "e2e-admin-token";
+
+/** 고객 서버가 계산하는 identity 검증 해시 */
+function idHash(externalId: string, apiSecret: string): string {
+  return createHmac("sha256", apiSecret).update(externalId).digest("hex");
+}
 
 /** 관리자 API 로 프로젝트 생성 → api-key/secret 획득 */
 async function createProject(request: APIRequestContext) {
@@ -35,33 +41,35 @@ test.describe("App SDK API 전체 플로우", () => {
 
   test("device 등록 → identify → subscribe → send 큐잉", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
-    const auth = { "api-key": apiKey, "api-secret": apiSecret };
+    // 클라이언트(등록/식별)는 api-key 만. identity_hash 로 external_id 바인딩 증명.
+    const pub = { "api-key": apiKey };
     const token = `tok-${Date.now()}`;
+    const hash = idHash("user-1", apiSecret);
 
-    // 1) 디바이스 등록 (유저 연결)
+    // 1) 디바이스 등록 (유저 연결 + identity 검증)
     const dev = await request.post("/api/v1/devices", {
-      headers: auth,
-      data: { token, platform: "android", external_id: "user-1", locale: "ko-KR" },
+      headers: pub,
+      data: { token, platform: "android", external_id: "user-1", identity_hash: hash, locale: "ko-KR" },
     });
     expect(dev.status()).toBe(201);
 
     // 2) 유저 식별
     const idf = await request.post("/api/v1/users/identify", {
-      headers: auth,
-      data: { external_id: "user-1", attributes: { plan: "pro" } },
+      headers: pub,
+      data: { external_id: "user-1", identity_hash: hash, attributes: { plan: "pro" } },
     });
     expect(idf.status()).toBe(200);
 
-    // 3) 토픽 구독
+    // 3) 토픽 구독 (public)
     const sub = await request.post("/api/v1/topics/subscribe", {
-      headers: auth,
+      headers: pub,
       data: { topic: "news", token },
     });
     expect(sub.status()).toBe(200);
 
-    // 4) 발송 큐잉
+    // 4) 발송 큐잉 (privileged: secret 필요)
     const send = await request.post("/api/v1/messages", {
-      headers: auth,
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
       data: { title: "안녕", body: "본문", type: "single", target: "user-1", deep_link: "https://app/orders/1" },
     });
     expect(send.status()).toBe(202);
@@ -85,6 +93,15 @@ test.describe("App SDK API 전체 플로우", () => {
       data: { title: "t", body: "b", type: "broadcast" },
     });
     expect(send.status()).toBe(401);
+  });
+
+  test("보안: external_id 바인딩에 identity_hash 없으면 403", async ({ request }) => {
+    const { apiKey } = await createProject(request);
+    const res = await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token: `t-${Date.now()}`, platform: "web", external_id: "victim" }, // hash 누락
+    });
+    expect(res.status()).toBe(403);
   });
 
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
