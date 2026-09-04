@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/* Tailwind v4 dark mode — class strategy */
+@custom-variant dark (&:where(:is(:root.dark, .dark *)));
+
+/* ============================================================
+ * Notikit 디자인 토큰 (goji/webapp 디자인 시스템에서 파생)
+ * 브랜드 퍼플 #434798 · cool-gray 스케일 · 시맨틱 매핑
+ * ============================================================ */
+:root {
+  /* Cool Gray */
+  --gy50: #f9fafb;
+  --gy100: #f4f5f7;
+  --gy200: #e5e7eb;
+  --gy300: #d3d6db;
+  --gy400: #a0a6b1;
+  --gy500: #6c727f;
+  --gy600: #4d5562;
+  --gy700: #394150;
+  --gy800: #272f3e;
+  --gy900: #181e2d;
+
+  /* Brand purple */
+  --bl50: #f4f4fa;
+  --bl100: #dadbec;
+  --bl300: #888dbc;
+  --bl500: #434798;
+  --bl700: #2f3268;
+  --bl800: #25274f;
+  --bl900: #1a1c36;
+
+  /* Semantic */
+  --primary: var(--bl500);
+  --primary-hover: var(--bl600, var(--bl700));
+  --primary-foreground: #ffffff;
+  --secondary: var(--bl100);
+
+  --background: #ffffff;
+  --background-alt: #f9fafb;
+  --surface: #ffffff;
+  --surface-muted: var(--gy100);
+
+  --foreground: #1d1d20;
+  --muted-foreground: #6c727f;
+
+  --border: var(--gy200);
+  --border-strong: var(--gy300);
+  --ring: var(--bl500);
+
+  --error: #ee0000;
+  --success: #008a1e;
+  --warning: #ff4500;
+
+  /* 외부 브랜드 */
+  --kakao-bg: #fee500;
+  --kakao-fg: #191919;
+
+  --radius: 0.625rem;
+}
+
+.dark {
+  --primary: var(--bl300);
+  --primary-foreground: #1a1c36;
+  --background: #181e2d;
+  --background-alt: #1a1c36;
+  --surface: #272f3e;
+  --surface-muted: #394150;
+  --foreground: #f4f5f7;
+  --muted-foreground: #a0a6b1;
+  --border: #394150;
+  --border-strong: #4d5562;
+  --ring: var(--bl300);
+}
+
+/* Tailwind v4 theme 매핑 — bg-primary / text-foreground / border-border 등 활성화 */
+@theme inline {
+  --color-background: var(--background);
+  --color-background-alt: var(--background-alt);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
+  --color-error: var(--error);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-kakao: var(--kakao-bg);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+html {
+  font-size: 17px;
+}
+
+body {
+  background: var(--background-alt);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
