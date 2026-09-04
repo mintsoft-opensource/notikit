@@ -34,7 +34,12 @@ export async function POST(req: Request) {
     })
     .onConflictDoUpdate({
       target: [pushUsers.projectId, pushUsers.externalId],
-      set: { attributes: b.attributes ?? {}, locale: b.locale, timezone: b.timezone },
+      // attributes 미제공 시 기존 값 유지(빈 객체로 덮어쓰지 않음)
+      set: {
+        ...(b.attributes !== undefined ? { attributes: b.attributes } : {}),
+        locale: b.locale,
+        timezone: b.timezone,
+      },
     })
     .returning();
 

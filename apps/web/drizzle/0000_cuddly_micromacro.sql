@@ -43,7 +43,7 @@ CREATE TABLE "projects" (
 	"name" text NOT NULL,
 	"environment" text DEFAULT 'production' NOT NULL,
 	"api_key" text NOT NULL,
-	"api_secret" text NOT NULL,
+	"api_secret_hash" text NOT NULL,
 	"firebase_credentials_enc" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );

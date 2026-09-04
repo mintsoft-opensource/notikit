@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects, organizations } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { generateApiKey, generateApiSecret, requireAdmin } from "@/lib/keys";
+import { generateApiKey, generateApiSecret, hashSecret, requireAdmin } from "@/lib/keys";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     orgId = org.id;
   }
 
+  const apiSecret = generateApiSecret();
   const row = (
     await db
       .insert(projects)
@@ -45,10 +46,11 @@ export async function POST(req: Request) {
         name: b.name,
         environment: b.environment,
         apiKey: generateApiKey(),
-        apiSecret: generateApiSecret(),
+        apiSecretHash: hashSecret(apiSecret),
       })
       .returning()
   )[0];
 
-  return ok({ project: row }, undefined, 201);
+  // api_secret 은 생성 시 한 번만 반환 (해시만 저장됨)
+  return ok({ project: row, api_secret: apiSecret }, { note: "api_secret is shown once — store it now" }, 201);
 }

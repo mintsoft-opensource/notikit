@@ -59,9 +59,10 @@ export async function POST(req: Request) {
     })
     .onConflictDoUpdate({
       target: [devices.projectId, devices.token],
+      // external_id 가 없으면 기존 userId 를 유지(덮어쓰지 않음)
       set: {
         platform: b.platform,
-        userId,
+        ...(b.external_id ? { userId } : {}),
         appVersion: b.app_version,
         osVersion: b.os_version,
         locale: b.locale,

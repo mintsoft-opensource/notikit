@@ -1,5 +1,5 @@
 {
-  "id": "0a7637ff-bcbd-4b02-b165-82affbd4842d",
+  "id": "65e64ae2-01ec-4def-a864-19a5ff04cd19",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -404,8 +404,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "api_secret": {
-          "name": "api_secret",
+        "api_secret_hash": {
+          "name": "api_secret_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true

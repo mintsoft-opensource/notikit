@@ -36,14 +36,17 @@ export interface IdentifyInput {
   timezone?: string;
 }
 
-export interface SendInput {
+interface SendBase {
   title: string;
   body: string;
-  type: "single" | "broadcast" | "topic";
-  target?: string;
   deepLink?: string;
   data?: Record<string, unknown>;
 }
+
+/** 판별 유니온 — single/topic 은 target 필수, broadcast 는 선택 */
+export type SendInput =
+  | (SendBase & { type: "single" | "topic"; target: string })
+  | (SendBase & { type: "broadcast"; target?: string });
 
 export interface ApiEnvelope<T> {
   success: boolean;
