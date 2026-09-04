@@ -47,7 +47,8 @@ server.registerTool(
     description: "플랫폼별 SDK 통합 코드 스니펫 반환 (실제 api-key 채움). AI 가 그대로 앱에 삽입.",
     inputSchema: {
       platform: z.enum(["web", "react", "react-native", "flutter", "android", "swift"]),
-      api_key: z.string().describe("프로젝트 api-key"),
+      // 코드 삽입용이므로 형식 검증(따옴표 이스케이프/주입 방지)
+      api_key: z.string().regex(/^nk_[A-Za-z0-9_-]{1,64}$/, "invalid api-key format").describe("프로젝트 api-key"),
     },
   },
   async ({ platform, api_key }) => text(integrationSnippet(platform, BASE_URL, api_key))

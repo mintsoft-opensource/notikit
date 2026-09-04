@@ -11,7 +11,7 @@ type Log = { id: string; title: string; type: string; status: string; totalCount
 function useAdminToken() {
   const [token, setToken] = React.useState("");
   React.useEffect(() => {
-    setToken(localStorage.getItem("notikit_admin_token") ?? "e2e-admin-token");
+    setToken(localStorage.getItem("notikit_admin_token") ?? "");
   }, []);
   const save = (t: string) => {
     localStorage.setItem("notikit_admin_token", t);

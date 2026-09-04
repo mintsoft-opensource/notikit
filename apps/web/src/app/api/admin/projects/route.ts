@@ -7,9 +7,9 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-/** api-secret 암호문은 응답에서 제거 */
-function publicProject<T extends { apiSecretEnc?: string }>(p: T): Omit<T, "apiSecretEnc"> {
-  const { apiSecretEnc: _omit, ...rest } = p;
+/** 민감 암호문(api-secret, firebase 크레덴셜)은 응답에서 제거 */
+function publicProject<T extends { apiSecretEnc?: string; firebaseCredentialsEnc?: string | null }>(p: T) {
+  const { apiSecretEnc: _s, firebaseCredentialsEnc: _f, ...rest } = p;
   return rest;
 }
 

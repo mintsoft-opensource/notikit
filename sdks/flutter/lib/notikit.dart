@@ -16,16 +16,14 @@ class NotikitException implements Exception {
 
 class Notikit {
   final String baseUrl;
-  final String apiKey;
 
-  /// api-secret 은 발송 등 서버 전용 작업에만. 클라이언트 앱에는 넣지 말 것.
-  final String? apiSecret;
+  /// 공개 api-key 만 사용 (발송용 api-secret 은 클라이언트에 넣지 않음).
+  final String apiKey;
   final http.Client _client;
 
   Notikit({
     required String baseUrl,
     required this.apiKey,
-    this.apiSecret,
     http.Client? client,
   })  : baseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl,
         _client = client ?? http.Client();
@@ -35,7 +33,6 @@ class Notikit {
       'content-type': 'application/json',
       'api-key': apiKey,
     };
-    if (apiSecret != null) headers['api-secret'] = apiSecret!;
 
     body.removeWhere((_, v) => v == null);
     final res = await _client.post(Uri.parse('$baseUrl$path'), headers: headers, body: jsonEncode(body));
