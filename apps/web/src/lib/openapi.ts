@@ -162,5 +162,37 @@ export const openapi = {
         responses: { "201": { description: "생성됨" } },
       },
     },
+    "/api/admin/projects/{id}/firebase": {
+      post: {
+        tags: ["Web Admin"],
+        summary: "Firebase 서비스 계정 업로드 (웹) — 검증 후 암호화 저장",
+        security: [{ adminToken: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  credentials: {
+                    type: "object",
+                    description: "Firebase 서비스 계정 JSON (type/project_id/private_key/client_email)",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: { "200": { description: "저장됨" }, "422": { description: "유효하지 않은 서비스 계정" } },
+      },
+    },
+    "/api/admin/projects/{id}/process-queue": {
+      post: {
+        tags: ["Web Admin"],
+        summary: "큐잉된 푸시 처리(실제 FCM 발송) — worker/cron",
+        security: [{ adminToken: [] }],
+        responses: { "200": { description: "{ processed, failed }" } },
+      },
+    },
   },
 } as const;

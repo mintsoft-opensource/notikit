@@ -39,6 +39,38 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(res.status()).toBe(401);
   });
 
+  test("admin: Firebase 크레덴셜 웹 업로드 (검증 + 암호화 저장)", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", {
+      headers: { "x-admin-token": ADMIN },
+      data: { name: `fb-${Date.now()}` },
+    });
+    const pid = (await created.json()).data.project.id;
+
+    // 잘못된 서비스계정 → 422
+    const bad = await request.post(`/api/admin/projects/${pid}/firebase`, {
+      headers: { "x-admin-token": ADMIN },
+      data: { credentials: { foo: "bar" } },
+    });
+    expect(bad.status()).toBe(422);
+
+    // 유효 형태 → 200 configured (암호화 저장; 실제 FCM init 은 발송 시)
+    const good = await request.post(`/api/admin/projects/${pid}/firebase`, {
+      headers: { "x-admin-token": ADMIN },
+      data: {
+        credentials: {
+          type: "service_account",
+          project_id: "demo-proj",
+          private_key: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n",
+          client_email: "sdk@demo-proj.iam.gserviceaccount.com",
+        },
+      },
+    });
+    expect(good.status()).toBe(200);
+    const gj = await good.json();
+    expect(gj.data.configured).toBe(true);
+    expect(gj.data.firebase_project_id).toBe("demo-proj");
+  });
+
   test("device 등록 → identify → subscribe → send 큐잉", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     // 클라이언트(등록/식별)는 api-key 만. identity_hash 로 external_id 바인딩 증명.

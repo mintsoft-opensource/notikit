@@ -31,7 +31,7 @@ export function encryptSecret(plain: string): string {
   return `${iv.toString("base64")}.${tag.toString("base64")}.${ct.toString("base64")}`;
 }
 
-function decryptSecret(enc: string): string {
+export function decryptSecret(enc: string): string {
   const [iv, tag, ct] = enc.split(".").map((s) => Buffer.from(s, "base64"));
   const d = createDecipheriv("aes-256-gcm", encKey(), iv);
   d.setAuthTag(tag);
