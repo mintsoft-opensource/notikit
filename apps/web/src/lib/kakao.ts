@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { safeFetch } from "@/lib/safe-fetch";
 
 /** 카카오 알림톡 설정 (BSP 프로바이더 경유 — NHN/Solapi/Aligo 등) */
 export const kakaoConfigSchema = z.object({
@@ -25,14 +26,13 @@ export async function sendAlimtalk(
   config: KakaoConfig,
   phone: string,
   text: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: (url: string, init: RequestInit) => Promise<Response> = safeFetch
 ): Promise<AlimtalkResult> {
   try {
     const res = await fetchImpl(config.provider_url, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${config.api_key}` },
       body: JSON.stringify({ senderKey: config.sender_key, to: phone, text }),
-      redirect: "error", // 사설 대상 리다이렉트 우회 차단
       signal: AbortSignal.timeout(10_000),
     });
     return { ok: res.ok, status: res.status };
