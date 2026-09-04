@@ -207,6 +207,43 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(lj.data.webhooks[0].secret).toBeUndefined();
   });
 
+  test("수신거부: opt-out 유저는 발송 대상에서 제외", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `sup-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const ext = "sup-user";
+    const hash = idHash(ext, apiSecret);
+
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `sup-tok-${Date.now()}`, platform: "web", external_id: ext, identity_hash: hash } });
+    // opt-out
+    const opt = await request.post("/api/v1/suppressions", { headers: { "api-key": apiKey }, data: { external_id: ext } });
+    expect(opt.status()).toBe(201);
+    // send + process
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "t", body: "b", type: "single", target: ext } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    // 로그의 대상 수 0 (억제됨)
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    const lj = await logs.json();
+    expect(lj.data.logs[0].totalCount).toBe(0);
+  });
+
+  test("분석 통계: devices/users/messages 집계", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `stats-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const pid = cj.data.project.id as string;
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `st-1-${Date.now()}`, platform: "web" } });
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `st-2-${Date.now()}`, platform: "android" } });
+
+    const stats = await request.get(`/api/admin/projects/${pid}/stats`, { headers: { "x-admin-token": ADMIN } });
+    expect(stats.status()).toBe(200);
+    const sj = await stats.json();
+    expect(sj.data.devices.total).toBeGreaterThanOrEqual(2);
+    expect(sj.data.devices.active).toBeGreaterThanOrEqual(2);
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {
