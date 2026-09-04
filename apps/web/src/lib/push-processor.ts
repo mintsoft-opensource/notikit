@@ -129,6 +129,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     let success = 0;
     let failure = 0;
 
+    const invalidAll: string[] = [];
     for await (const page of tokenPages(db, log)) {
       const tokens = page.filter((t) => !suppression.has(t));
       total += tokens.length;
@@ -143,16 +144,18 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
           data: log.data ?? undefined,
         })
       );
-      const invalid: string[] = [];
       for (const r of results) {
         success += r.success;
         failure += r.failure;
-        invalid.push(...r.invalidTokens);
+        invalidAll.push(...r.invalidTokens);
       }
-      if (invalid.length) {
-        await db.update(devices).set({ isActive: false })
-          .where(and(eq(devices.projectId, project!.id), inArray(devices.token, invalid)));
-      }
+      // 하트비트: 장시간 발송 중 lock 만료로 재클레임되지 않도록 갱신
+      await db.update(pushLogs).set({ lockedAt: new Date() }).where(eq(pushLogs.id, logId));
+    }
+    // 무효 토큰은 전체 완료 후 일괄 비활성화 (OFFSET 페이지네이션 중 행 이동으로 스킵되는 문제 방지)
+    if (invalidAll.length) {
+      await db.update(devices).set({ isActive: false })
+        .where(and(eq(devices.projectId, project!.id), inArray(devices.token, invalidAll)));
     }
 
     await db
