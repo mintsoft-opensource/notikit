@@ -187,6 +187,21 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   whIdx: index("webhook_deliveries_wh_idx").on(t.webhookId, t.status),
 }));
 
+/** In-app 인박스 — 유저별 알림 이력 (푸시 놓쳐도 앱에서 확인) */
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => pushUsers.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  deepLink: text("deep_link"),
+  data: jsonb("data").$type<Record<string, unknown>>(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index("notifications_user_idx").on(t.projectId, t.userId, t.createdAt),
+}));
+
 export type Project = typeof projects.$inferSelect;
 export type Device = typeof devices.$inferSelect;
 export type PushUser = typeof pushUsers.$inferSelect;

@@ -1,6 +1,6 @@
 import { and, eq, or, lt, lte, gt, isNull, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, type PushLog } from "@/db/schema";
+import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, notifications, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
@@ -165,6 +165,24 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     for (const c of chunk(invalidAll, 1000)) {
       await db.update(devices).set({ isActive: false })
         .where(and(eq(devices.projectId, project!.id), inArray(devices.token, c)));
+    }
+
+    // In-app 인박스: 단건(유저 타겟) 발송은 알림 이력 저장
+    if (log.type === "single" && log.target) {
+      const u = (
+        await db.select({ id: pushUsers.id }).from(pushUsers)
+          .where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.externalId, log.target))).limit(1)
+      )[0];
+      if (u) {
+        await db.insert(notifications).values({
+          projectId: log.projectId,
+          userId: u.id,
+          title: log.title,
+          body: log.body,
+          deepLink: log.deepLink,
+          data: log.data,
+        });
+      }
     }
 
     const finalStatus = logOnly ? "logged" : "completed";

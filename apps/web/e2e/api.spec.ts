@@ -244,6 +244,30 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(sj.data.devices.active).toBeGreaterThanOrEqual(2);
   });
 
+  test("In-app 인박스: 단건 발송 → 적재 → 읽음", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `inbox-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const ext = "inbox-user";
+    const hash = idHash(ext, apiSecret);
+
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `ib-tok-${Date.now()}`, platform: "web", external_id: ext, identity_hash: hash } });
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "인박스", body: "본문", type: "single", target: ext } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    const inbox = await request.get(`/api/v1/inbox?external_id=${ext}`, { headers: { "api-key": apiKey } });
+    const ij = await inbox.json();
+    expect(ij.data.notifications.length).toBeGreaterThanOrEqual(1);
+    expect(ij.data.unread).toBeGreaterThanOrEqual(1);
+
+    const read = await request.post("/api/v1/inbox/read", { headers: { "api-key": apiKey }, data: { external_id: ext } });
+    expect(read.status()).toBe(200);
+    const inbox2 = await request.get(`/api/v1/inbox?external_id=${ext}`, { headers: { "api-key": apiKey } });
+    expect((await inbox2.json()).data.unread).toBe(0);
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {
