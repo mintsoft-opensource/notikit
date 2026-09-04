@@ -348,7 +348,7 @@ test.describe("App SDK API 전체 플로우", () => {
     const bad = await request.post(`/api/admin/projects/${pid}/kakao`, { headers: { "x-admin-token": ADMIN }, data: { config: { foo: "bar" } } });
     expect(bad.status()).toBe(422);
 
-    const good = await request.post(`/api/admin/projects/${pid}/kakao`, { headers: { "x-admin-token": ADMIN }, data: { config: { provider_url: "https://bsp.example.com/send", api_key: "K", sender_key: "S" } } });
+    const good = await request.post(`/api/admin/projects/${pid}/kakao`, { headers: { "x-admin-token": ADMIN }, data: { config: { provider_url: "https://example.com/send", api_key: "K", sender_key: "S" } } });
     expect(good.status()).toBe(200);
     expect((await good.json()).data.configured).toBe(true);
 
