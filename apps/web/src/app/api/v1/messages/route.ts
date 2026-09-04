@@ -53,8 +53,8 @@ export async function POST(req: Request) {
   let scheduledAt = b.scheduled_at ? new Date(b.scheduled_at) : null;
   let isScheduled = !!scheduledAt && scheduledAt.getTime() > Date.now();
 
-  // 방해금지 시간대 — 명시 예약이 없고 지금이 quiet 구간이면 종료 시각으로 자동 예약
-  if (!isScheduled) {
+  // 방해금지 시간대 — 명시 scheduled_at 이 전혀 없을 때만 적용(명시 예약 존중)
+  if (!b.scheduled_at) {
     const quietEnd = nextAllowedTime(project.quietStartHour, project.quietEndHour);
     if (quietEnd) {
       scheduledAt = quietEnd;

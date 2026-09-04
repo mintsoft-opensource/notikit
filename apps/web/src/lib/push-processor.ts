@@ -116,7 +116,7 @@ async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
       rows = await db
         .select({ id: devices.id, token: devices.token }).from(subscriptions)
         .innerJoin(devices, eq(subscriptions.deviceId, devices.id))
-        .where(and(eq(subscriptions.topicId, topicId), eq(devices.isActive, true), gt(devices.id, cursor)))
+        .where(and(eq(subscriptions.topicId, topicId), eq(devices.projectId, log.projectId), eq(devices.isActive, true), gt(devices.id, cursor)))
         .orderBy(devices.id).limit(PAGE);
     } else {
       rows = await db
@@ -178,6 +178,14 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     const invalidAll: string[] = [];
 
     for await (const page of tokenPages(db, log)) {
+      // fencing: 각 페이지 발송 전 소유권(하트비트) 확인 — 잃었으면 즉시 중단(중복 발송 방지)
+      const hb = await db
+        .update(pushLogs)
+        .set({ lockedAt: new Date() })
+        .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)))
+        .returning({ id: pushLogs.id });
+      if (hb.length === 0) return reload(db, logId);
+
       const tokens = page.filter((t) => !suppression.has(t));
       total += tokens.length;
       if (tokens.length === 0) continue;
@@ -210,8 +218,6 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
           invalidAll.push(...r.invalidTokens);
         }
       }
-      // 하트비트
-      await db.update(pushLogs).set({ lockedAt: new Date() }).where(eq(pushLogs.id, logId));
     }
     // 무효 토큰 일괄 비활성화 (완료 후 · 1000개씩 청크로 과대 IN 쿼리 방지)
     for (const c of chunk(invalidAll, 1000)) {
@@ -255,7 +261,8 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       failure,
     }).catch(() => {});
   } catch (e) {
-    await db.update(pushLogs).set({ status: "failed" }).where(eq(pushLogs.id, logId));
+    // 우리 소유일 때만 실패 표시 (새 워커의 클레임을 덮지 않음)
+    await db.update(pushLogs).set({ status: "failed" }).where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)));
     throw e;
   }
 
