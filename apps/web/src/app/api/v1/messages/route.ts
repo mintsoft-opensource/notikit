@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const schema = z.object({
   title: z.string().min(1).max(255),
   body: z.string().min(1).max(4000),
-  type: z.enum(["single", "broadcast", "topic"]),
+  type: z.enum(["single", "broadcast", "topic", "segment"]),
   target: z.string().max(255).optional(),
   scheduled_at: z.string().datetime().optional(),
   deep_link: z.string().url().max(2048).optional(),

@@ -91,6 +91,14 @@ CREATE TABLE "push_users" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "segments" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"project_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"rules" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "subscriptions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"topic_id" uuid NOT NULL,
@@ -153,6 +161,7 @@ ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_push_users_id_
 ALTER TABLE "projects" ADD CONSTRAINT "projects_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "push_logs" ADD CONSTRAINT "push_logs_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "push_users" ADD CONSTRAINT "push_users_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "segments" ADD CONSTRAINT "segments_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_topic_id_topics_id_fk" FOREIGN KEY ("topic_id") REFERENCES "public"."topics"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_device_id_devices_id_fk" FOREIGN KEY ("device_id") REFERENCES "public"."devices"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "suppressions" ADD CONSTRAINT "suppressions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -171,6 +180,7 @@ CREATE INDEX "projects_org_idx" ON "projects" USING btree ("org_id");--> stateme
 CREATE INDEX "push_logs_project_idx" ON "push_logs" USING btree ("project_id","created_at");--> statement-breakpoint
 CREATE INDEX "push_logs_status_idx" ON "push_logs" USING btree ("project_id","status");--> statement-breakpoint
 CREATE UNIQUE INDEX "push_users_ext_idx" ON "push_users" USING btree ("project_id","external_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "segments_name_idx" ON "segments" USING btree ("project_id","name");--> statement-breakpoint
 CREATE UNIQUE INDEX "subscriptions_uniq_idx" ON "subscriptions" USING btree ("topic_id","device_id");--> statement-breakpoint
 CREATE INDEX "suppressions_project_idx" ON "suppressions" USING btree ("project_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "topics_name_idx" ON "topics" USING btree ("project_id","name");--> statement-breakpoint

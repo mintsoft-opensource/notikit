@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, or, lt, lte, gt, isNull, inArray } from "drizzle-orm";
+import { and, eq, or, lt, lte, gt, isNull, inArray, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, notifications, type PushLog } from "@/db/schema";
+import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, notifications, segments, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
@@ -62,6 +62,31 @@ async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
       .select({ token: devices.token }).from(devices)
       .where(and(eq(devices.projectId, log.projectId), eq(devices.userId, user.id), eq(devices.isActive, true)));
     if (rows.length) yield rows.map((r) => r.token);
+    return;
+  }
+
+  // 세그먼트: 유저 속성 규칙(AND) 매칭 → 해당 유저의 활성 디바이스 (keyset)
+  if (log.type === "segment" && log.target) {
+    const seg = (
+      await db.select({ rules: segments.rules }).from(segments)
+        .where(and(eq(segments.projectId, log.projectId), eq(segments.name, log.target))).limit(1)
+    )[0];
+    if (!seg) return;
+    const conds: SQL[] = [eq(devices.projectId, log.projectId), eq(devices.isActive, true)];
+    for (const r of seg.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
+
+    let cur = "00000000-0000-0000-0000-000000000000";
+    for (;;) {
+      const rows = await db
+        .select({ id: devices.id, token: devices.token }).from(devices)
+        .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+        .where(and(...conds, gt(devices.id, cur)))
+        .orderBy(devices.id).limit(PAGE);
+      if (rows.length === 0) break;
+      yield rows.map((r) => r.token);
+      cur = rows[rows.length - 1].id;
+      if (rows.length < PAGE) break;
+    }
     return;
   }
 

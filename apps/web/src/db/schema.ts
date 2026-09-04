@@ -188,6 +188,18 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   whIdx: index("webhook_deliveries_wh_idx").on(t.webhookId, t.status),
 }));
 
+/** 세그먼트 — 유저 속성 규칙 기반 오디언스 */
+export const segments = pgTable("segments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  // 규칙 (AND): [{ attribute, value }] — attributes->>attribute = value
+  rules: jsonb("rules").$type<{ attribute: string; value: string }[]>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  nameIdx: uniqueIndex("segments_name_idx").on(t.projectId, t.name),
+}));
+
 /** In-app 인박스 — 유저별 알림 이력 (푸시 놓쳐도 앱에서 확인) */
 export const notifications = pgTable("notifications", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -272,6 +272,32 @@ test.describe("App SDK API 전체 플로우", () => {
     expect((await inbox2.json()).data.unread).toBe(0);
   });
 
+  test("세그먼트: 속성 규칙(plan=pro) 매칭 유저만 대상", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `seg-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+
+    // 세그먼트 생성
+    await request.post(`/api/admin/projects/${pid}/segments`, { headers: { "x-admin-token": ADMIN }, data: { name: "pro-users", rules: [{ attribute: "plan", value: "pro" }] } });
+
+    // pro 유저 + free 유저 등록/속성
+    for (const [ext, plan] of [["pro-1", "pro"], ["free-1", "free"]] as const) {
+      const h = idHash(ext, apiSecret);
+      await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `seg-${ext}-${Date.now()}`, platform: "web", external_id: ext, identity_hash: h } });
+      await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: h, attributes: { plan } } });
+    }
+
+    // 세그먼트 발송 + 처리
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "s", body: "b", type: "segment", target: "pro-users" } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    const lj = await logs.json();
+    expect(lj.data.logs[0].totalCount).toBe(1); // pro 유저 1명만
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {
