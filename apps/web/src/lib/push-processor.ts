@@ -1,4 +1,4 @@
-import { and, eq, or, lt, isNull, inArray } from "drizzle-orm";
+import { and, eq, or, lt, gt, isNull, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
@@ -74,22 +74,25 @@ async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
     topicId = t.id;
   }
 
-  for (let offset = 0; ; offset += PAGE) {
-    let rows: { token: string }[];
+  // keyset 페이지네이션 (devices.id 커서) — 결정적·deep-page 성능 안정
+  let cursor = "00000000-0000-0000-0000-000000000000";
+  for (;;) {
+    let rows: { id: string; token: string }[];
     if (topicId) {
       rows = await db
-        .select({ token: devices.token }).from(subscriptions)
+        .select({ id: devices.id, token: devices.token }).from(subscriptions)
         .innerJoin(devices, eq(subscriptions.deviceId, devices.id))
-        .where(and(eq(subscriptions.topicId, topicId), eq(devices.isActive, true)))
-        .limit(PAGE).offset(offset);
+        .where(and(eq(subscriptions.topicId, topicId), eq(devices.isActive, true), gt(devices.id, cursor)))
+        .orderBy(devices.id).limit(PAGE);
     } else {
       rows = await db
-        .select({ token: devices.token }).from(devices)
-        .where(and(eq(devices.projectId, log.projectId), eq(devices.isActive, true)))
-        .limit(PAGE).offset(offset);
+        .select({ id: devices.id, token: devices.token }).from(devices)
+        .where(and(eq(devices.projectId, log.projectId), eq(devices.isActive, true), gt(devices.id, cursor)))
+        .orderBy(devices.id).limit(PAGE);
     }
     if (rows.length === 0) break;
     yield rows.map((r) => r.token);
+    cursor = rows[rows.length - 1].id;
     if (rows.length < PAGE) break;
   }
 }
@@ -152,10 +155,10 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       // 하트비트: 장시간 발송 중 lock 만료로 재클레임되지 않도록 갱신
       await db.update(pushLogs).set({ lockedAt: new Date() }).where(eq(pushLogs.id, logId));
     }
-    // 무효 토큰은 전체 완료 후 일괄 비활성화 (OFFSET 페이지네이션 중 행 이동으로 스킵되는 문제 방지)
-    if (invalidAll.length) {
+    // 무효 토큰 일괄 비활성화 (완료 후 · 1000개씩 청크로 과대 IN 쿼리 방지)
+    for (const c of chunk(invalidAll, 1000)) {
       await db.update(devices).set({ isActive: false })
-        .where(and(eq(devices.projectId, project!.id), inArray(devices.token, invalidAll)));
+        .where(and(eq(devices.projectId, project!.id), inArray(devices.token, c)));
     }
 
     await db
