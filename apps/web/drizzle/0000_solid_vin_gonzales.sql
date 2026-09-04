@@ -63,6 +63,7 @@ CREATE TABLE "push_logs" (
 	"success_count" integer DEFAULT 0 NOT NULL,
 	"failure_count" integer DEFAULT 0 NOT NULL,
 	"read_count" integer DEFAULT 0 NOT NULL,
+	"locked_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -128,6 +129,7 @@ CREATE INDEX "devices_project_idx" ON "devices" USING btree ("project_id");--> s
 CREATE UNIQUE INDEX "projects_api_key_idx" ON "projects" USING btree ("api_key");--> statement-breakpoint
 CREATE INDEX "projects_org_idx" ON "projects" USING btree ("org_id");--> statement-breakpoint
 CREATE INDEX "push_logs_project_idx" ON "push_logs" USING btree ("project_id","created_at");--> statement-breakpoint
+CREATE INDEX "push_logs_status_idx" ON "push_logs" USING btree ("project_id","status");--> statement-breakpoint
 CREATE UNIQUE INDEX "push_users_ext_idx" ON "push_users" USING btree ("project_id","external_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "subscriptions_uniq_idx" ON "subscriptions" USING btree ("topic_id","device_id");--> statement-breakpoint
 CREATE INDEX "suppressions_project_idx" ON "suppressions" USING btree ("project_id");--> statement-breakpoint

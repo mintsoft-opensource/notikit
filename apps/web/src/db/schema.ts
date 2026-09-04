@@ -150,9 +150,12 @@ export const pushLogs = pgTable("push_logs", {
   successCount: integer("success_count").notNull().default(0),
   failureCount: integer("failure_count").notNull().default(0),
   readCount: integer("read_count").notNull().default(0),
+  // 워커 클레임 시각 — 크래시로 'processing' 에 멈춘 로그 복구용
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("push_logs_project_idx").on(t.projectId, t.createdAt),
+  statusIdx: index("push_logs_status_idx").on(t.projectId, t.status),
 }));
 
 export type Project = typeof projects.$inferSelect;

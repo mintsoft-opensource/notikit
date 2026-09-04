@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { getApps, initializeApp, cert, type App } from "firebase-admin/app";
+import { getApps, initializeApp, deleteApp, cert, type App } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import type { ServiceAccount } from "./firebase-credentials";
 
@@ -17,20 +17,29 @@ export interface FcmResult {
   invalidTokens: string[];
 }
 
-/** 크레덴셜 지문 — 회전 시 새 App 이 만들어지도록 이름에 포함 */
+/** 크레덴셜 지문 — 회전 감지용 */
 function credFingerprint(sa: ServiceAccount): string {
   return createHash("sha256").update(`${sa.client_email}:${sa.private_key}`).digest("hex").slice(0, 12);
 }
 
-/** 프로젝트+크레덴셜별 firebase-admin App 재사용 (크레덴셜 회전 시 자동 갱신) */
+// projectId → { fp, app } : O(1) 조회 + 회전 시 이전 App 제거(누적 방지)
+const appCache = new Map<string, { fp: string; app: App }>();
+
 function appForProject(projectId: string, sa: ServiceAccount): App {
-  const name = `notikit-${projectId}-${credFingerprint(sa)}`;
-  const existing = getApps().find((a) => a.name === name);
-  if (existing) return existing;
-  return initializeApp(
-    { credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key }) },
-    name
-  );
+  const fp = credFingerprint(sa);
+  const cached = appCache.get(projectId);
+  if (cached && cached.fp === fp) return cached.app;
+  if (cached) void deleteApp(cached.app).catch(() => {}); // 회전: 이전 App 정리
+
+  const name = `notikit-${projectId}-${fp}`;
+  const app =
+    getApps().find((a) => a.name === name) ??
+    initializeApp(
+      { credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key }) },
+      name
+    );
+  appCache.set(projectId, { fp, app });
+  return app;
 }
 
 function buildData(msg: FcmMessage): Record<string, string> {

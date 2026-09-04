@@ -4,9 +4,16 @@
  */
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
+let calls = 0;
+
+/** 주기적 만료 버킷 제거 (무한 증가 방지) */
+function sweep(now: number) {
+  for (const [k, v] of buckets) if (now > v.resetAt) buckets.delete(k);
+}
 
 export function rateLimit(key: string, limit = 600, windowMs = 60_000): boolean {
   const now = Date.now();
+  if (++calls % 2000 === 0) sweep(now);
   const b = buckets.get(key);
   if (!b || now > b.resetAt) {
     buckets.set(key, { count: 1, resetAt: now + windowMs });
