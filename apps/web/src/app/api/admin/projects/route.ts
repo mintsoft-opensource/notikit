@@ -7,12 +7,18 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+/** api-secret 해시는 응답에서 제거 */
+function publicProject<T extends { apiSecretHash?: string }>(p: T): Omit<T, "apiSecretHash"> {
+  const { apiSecretHash: _omit, ...rest } = p;
+  return rest;
+}
+
 /** [Web Admin] 프로젝트 목록 */
 export async function GET(req: Request) {
   if (!requireAdmin(req)) return fail("Unauthorized", 401);
   const db = getDb();
   const rows = await db.select().from(projects).orderBy(desc(projects.createdAt)).limit(200);
-  return ok({ projects: rows });
+  return ok({ projects: rows.map(publicProject) });
 }
 
 const createSchema = z.object({
@@ -52,5 +58,5 @@ export async function POST(req: Request) {
   )[0];
 
   // api_secret 은 생성 시 한 번만 반환 (해시만 저장됨)
-  return ok({ project: row, api_secret: apiSecret }, { note: "api_secret is shown once — store it now" }, 201);
+  return ok({ project: publicProject(row), api_secret: apiSecret }, { note: "api_secret is shown once — store it now" }, 201);
 }

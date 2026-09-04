@@ -29,3 +29,7 @@ sdks/react-native/**/node_modules/
 # misc
 *.log
 app.zip
+
+# playwright
+test-results/
+playwright-report/
