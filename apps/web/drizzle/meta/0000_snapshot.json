@@ -1,5 +1,5 @@
 {
-  "id": "60cf507f-8d0b-4734-945f-fbba304f92dc",
+  "id": "459f49e0-7697-4031-9a74-4509485cddad",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -540,6 +540,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "quiet_start_hour": {
+          "name": "quiet_start_hour",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quiet_end_hour": {
+          "name": "quiet_end_hour",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "firebase_credentials_enc": {
           "name": "firebase_credentials_enc",

@@ -3,6 +3,7 @@ import { pushLogs } from "@/db/schema";
 import { resolveProjectPrivileged } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { nextAllowedTime } from "@/lib/quiet-hours";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -44,8 +45,17 @@ export async function POST(req: Request) {
     return fail("target is required unless type=broadcast", 422);
   }
 
-  const scheduledAt = b.scheduled_at ? new Date(b.scheduled_at) : null;
-  const isScheduled = !!scheduledAt && scheduledAt.getTime() > Date.now();
+  let scheduledAt = b.scheduled_at ? new Date(b.scheduled_at) : null;
+  let isScheduled = !!scheduledAt && scheduledAt.getTime() > Date.now();
+
+  // 방해금지 시간대 — 명시 예약이 없고 지금이 quiet 구간이면 종료 시각으로 자동 예약
+  if (!isScheduled) {
+    const quietEnd = nextAllowedTime(project.quietStartHour, project.quietEndHour);
+    if (quietEnd) {
+      scheduledAt = quietEnd;
+      isScheduled = true;
+    }
+  }
 
   const db = getDb();
   const rows = await db

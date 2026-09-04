@@ -40,6 +40,9 @@ export const projects = pgTable("projects", {
   apiSecretEnc: text("api_secret_enc").notNull(),
   // external_id 바인딩에 identity 검증(HMAC) 요구 여부
   requireIdentityVerification: boolean("require_identity_verification").notNull().default(true),
+  // 방해금지 시간대 (UTC 시각 0-23). 이 구간 발송은 종료 시각으로 자동 예약.
+  quietStartHour: integer("quiet_start_hour"),
+  quietEndHour: integer("quiet_end_hour"),
   // Firebase service account JSON — AES-256-GCM 암호문
   firebaseCredentialsEnc: text("firebase_credentials_enc"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

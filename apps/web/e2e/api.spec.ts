@@ -298,6 +298,22 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(lj.data.logs[0].totalCount).toBe(1); // pro 유저 1명만
   });
 
+  test("방해금지 시간대: quiet 구간 발송은 자동 예약", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `quiet-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+
+    // 지금을 포함하는 quiet 윈도우 설정
+    const h = new Date().getUTCHours();
+    const patch = await request.patch(`/api/admin/projects/${pid}`, { headers: { "x-admin-token": ADMIN }, data: { quiet_start_hour: h, quiet_end_hour: (h + 2) % 24 } });
+    expect(patch.status()).toBe(200);
+
+    const send = await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "q", body: "b", type: "broadcast" } });
+    expect((await send.json()).data.message.status).toBe("scheduled");
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {
