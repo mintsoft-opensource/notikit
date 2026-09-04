@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, or, lt, lte, gt, isNull, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, notifications, type PushLog } from "@/db/schema";
@@ -111,9 +112,10 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
   const staleBefore = new Date(Date.now() - STALE_MS);
 
   const now = new Date();
+  const myToken = randomUUID();
   const claimed = await db
     .update(pushLogs)
-    .set({ status: "processing", lockedAt: now })
+    .set({ status: "processing", lockedAt: now, lockToken: myToken })
     .where(
       and(
         eq(pushLogs.id, logId),
@@ -167,7 +169,16 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
         .where(and(eq(devices.projectId, project!.id), inArray(devices.token, c)));
     }
 
-    // In-app 인박스: 단건(유저 타겟) 발송은 알림 이력 저장
+    // fencing: 우리가 여전히 이 로그의 소유자일 때만 완료 처리(부작용 1회 보장)
+    const finalStatus = logOnly ? "logged" : "completed";
+    const finalized = await db
+      .update(pushLogs)
+      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure })
+      .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)))
+      .returning({ id: pushLogs.id });
+    if (finalized.length === 0) return reload(db, logId); // stale 재클레임에 의해 대체됨 → 부작용 스킵
+
+    // In-app 인박스: 단건(유저 타겟) 발송은 알림 이력 저장 (소유 확인 후 1회)
     if (log.type === "single" && log.target) {
       const u = (
         await db.select({ id: pushUsers.id }).from(pushUsers)
@@ -185,13 +196,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       }
     }
 
-    const finalStatus = logOnly ? "logged" : "completed";
-    await db
-      .update(pushLogs)
-      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure })
-      .where(eq(pushLogs.id, logId));
-
-    // 웹훅 발행 (논블로킹)
+    // 웹훅 발행 (논블로킹, 소유 확인 후 1회)
     void emitWebhook(log.projectId, "message.sent", {
       message_id: logId,
       status: finalStatus,

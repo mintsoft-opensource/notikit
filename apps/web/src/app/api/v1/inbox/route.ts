@@ -2,19 +2,25 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { notifications, pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
+import { verifyIdentity } from "@/lib/keys";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
-/** In-app 인박스 조회 — 유저의 알림 이력 (public: api-key + external_id) */
+/** In-app 인박스 조회 — 유저 본인만 (identity_hash 검증으로 IDOR 방지) */
 export async function GET(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
   if (!rateLimit(clientKey(project.id))) return fail("Rate limit exceeded", 429);
 
-  const externalId = new URL(req.url).searchParams.get("external_id");
+  const params = new URL(req.url).searchParams;
+  const externalId = params.get("external_id");
+  const identityHash = params.get("identity_hash");
   if (!externalId) return fail("external_id required", 422);
+  if (project.requireIdentityVerification && (!identityHash || !verifyIdentity(externalId, identityHash, project.apiSecretEnc))) {
+    return fail("identity_hash invalid or missing", 403);
+  }
 
   const db = getDb();
   const user = (

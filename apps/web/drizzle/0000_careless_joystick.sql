@@ -76,6 +76,7 @@ CREATE TABLE "push_logs" (
 	"failure_count" integer DEFAULT 0 NOT NULL,
 	"read_count" integer DEFAULT 0 NOT NULL,
 	"locked_at" timestamp with time zone,
+	"lock_token" text,
 	"scheduled_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );

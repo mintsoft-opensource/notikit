@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { notifications, pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
+import { verifyIdentity } from "@/lib/keys";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   external_id: z.string().max(255),
+  identity_hash: z.string().max(128).optional(),
   notification_id: z.string().uuid().optional(), // 없으면 전체 읽음
 });
 
@@ -29,6 +31,10 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
+
+  if (project.requireIdentityVerification && (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc))) {
+    return fail("identity_hash invalid or missing", 403);
+  }
 
   const db = getDb();
   const user = (

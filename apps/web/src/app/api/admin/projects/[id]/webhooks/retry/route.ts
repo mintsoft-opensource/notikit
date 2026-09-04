@@ -4,8 +4,9 @@ import { retryWebhooks } from "@/lib/webhooks";
 
 export const dynamic = "force-dynamic";
 
-/** [Web Admin/Worker] 실패한 웹훅 재시도 (지수 백오프는 cron 주기로) */
-export async function POST(req: Request) {
+/** [Web Admin/Worker] 이 프로젝트의 실패 웹훅 재시도 (프로젝트 스코프) */
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   if (!requireAdmin(req)) return fail("Unauthorized", 401);
-  return ok(await retryWebhooks());
+  const { id } = await ctx.params;
+  return ok(await retryWebhooks(id));
 }

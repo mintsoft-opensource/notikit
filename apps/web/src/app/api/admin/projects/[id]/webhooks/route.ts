@@ -3,7 +3,7 @@ import { getDb } from "@/db/client";
 import { webhooks } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireAdmin } from "@/lib/keys";
-import { generateWebhookSecret } from "@/lib/webhooks";
+import { generateWebhookSecret, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +32,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
+
+  try {
+    assertSafeWebhookUrl(parsed.data.url); // SSRF 방어
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "invalid url", 422);
+  }
 
   const secret = generateWebhookSecret();
   const db = getDb();

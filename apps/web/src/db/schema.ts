@@ -150,8 +150,9 @@ export const pushLogs = pgTable("push_logs", {
   successCount: integer("success_count").notNull().default(0),
   failureCount: integer("failure_count").notNull().default(0),
   readCount: integer("read_count").notNull().default(0),
-  // 워커 클레임 시각 — 크래시로 'processing' 에 멈춘 로그 복구용
+  // 워커 클레임 시각/토큰 — 크래시 복구 + fencing(재클레임 시 원 워커 부작용 차단)
   lockedAt: timestamp("locked_at", { withTimezone: true }),
+  lockToken: text("lock_token"),
   // 예약 발송 — 미래면 status='scheduled', 워커가 도래 시 처리
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

@@ -257,14 +257,18 @@ test.describe("App SDK API 전체 플로우", () => {
     await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "인박스", body: "본문", type: "single", target: ext } });
     await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
 
-    const inbox = await request.get(`/api/v1/inbox?external_id=${ext}`, { headers: { "api-key": apiKey } });
+    const inbox = await request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${hash}`, { headers: { "api-key": apiKey } });
     const ij = await inbox.json();
     expect(ij.data.notifications.length).toBeGreaterThanOrEqual(1);
     expect(ij.data.unread).toBeGreaterThanOrEqual(1);
 
-    const read = await request.post("/api/v1/inbox/read", { headers: { "api-key": apiKey }, data: { external_id: ext } });
+    // IDOR 방지: identity_hash 없으면 403
+    const denied = await request.get(`/api/v1/inbox?external_id=${ext}`, { headers: { "api-key": apiKey } });
+    expect(denied.status()).toBe(403);
+
+    const read = await request.post("/api/v1/inbox/read", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: hash } });
     expect(read.status()).toBe(200);
-    const inbox2 = await request.get(`/api/v1/inbox?external_id=${ext}`, { headers: { "api-key": apiKey } });
+    const inbox2 = await request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${hash}`, { headers: { "api-key": apiKey } });
     expect((await inbox2.json()).data.unread).toBe(0);
   });
 
