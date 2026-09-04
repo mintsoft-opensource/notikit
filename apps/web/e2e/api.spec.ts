@@ -314,6 +314,30 @@ test.describe("App SDK API 전체 플로우", () => {
     expect((await send.json()).data.message.status).toBe("scheduled");
   });
 
+  test("A/B: 변형별 수신자 분배 집계", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `ab-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+
+    for (let i = 0; i < 6; i++) {
+      await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `ab-tok-${i}-${Date.now()}`, platform: "web" } });
+    }
+    await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "base", body: "base", type: "broadcast", variants: [{ title: "A", body: "a" }, { title: "B", body: "b" }] },
+    });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    const log = (await logs.json()).data.logs[0];
+    expect(Object.keys(log.variantStats)).toHaveLength(2);
+    const sumSent = Object.values(log.variantStats).reduce((s: number, v: any) => s + v.sent, 0);
+    expect(sumSent).toBe(log.totalCount);
+    expect(log.totalCount).toBe(6);
+  });
+
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     const res = await request.post("/api/v1/messages", {

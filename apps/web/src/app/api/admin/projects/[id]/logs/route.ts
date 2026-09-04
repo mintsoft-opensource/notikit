@@ -21,6 +21,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       totalCount: pushLogs.totalCount,
       successCount: pushLogs.successCount,
       failureCount: pushLogs.failureCount,
+      variantStats: pushLogs.variantStats,
       createdAt: pushLogs.createdAt,
     })
     .from(pushLogs)

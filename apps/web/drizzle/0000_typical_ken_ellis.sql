@@ -80,6 +80,8 @@ CREATE TABLE "push_logs" (
 	"locked_at" timestamp with time zone,
 	"lock_token" text,
 	"scheduled_at" timestamp with time zone,
+	"variants" jsonb,
+	"variant_stats" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

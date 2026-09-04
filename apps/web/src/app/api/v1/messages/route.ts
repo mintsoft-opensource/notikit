@@ -20,6 +20,11 @@ const schema = z.object({
     .record(z.unknown())
     .optional()
     .refine((d) => !d || Buffer.byteLength(JSON.stringify(d), "utf8") <= 8192, "data too large (max 8KB)"),
+  variants: z
+    .array(z.object({ title: z.string().min(1).max(255), body: z.string().min(1).max(4000) }))
+    .min(2)
+    .max(5)
+    .optional(),
 });
 
 /**
@@ -68,6 +73,7 @@ export async function POST(req: Request) {
       body: b.body,
       deepLink: b.deep_link,
       data: b.data,
+      variants: b.variants,
       scheduledAt,
       status: isScheduled ? "scheduled" : "queued",
     })

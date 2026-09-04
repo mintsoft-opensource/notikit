@@ -158,6 +158,9 @@ export const pushLogs = pgTable("push_logs", {
   lockToken: text("lock_token"),
   // 예약 발송 — 미래면 status='scheduled', 워커가 도래 시 처리
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  // A/B 변형 (있으면 수신자를 해시로 변형에 배정) + 변형별 집계
+  variants: jsonb("variants").$type<{ title: string; body: string }[]>(),
+  variantStats: jsonb("variant_stats").$type<Record<string, { sent: number; success: number }>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("push_logs_project_idx").on(t.projectId, t.createdAt),

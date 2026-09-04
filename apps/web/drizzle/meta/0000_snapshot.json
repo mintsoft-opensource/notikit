@@ -1,5 +1,5 @@
 {
-  "id": "459f49e0-7697-4031-9a74-4509485cddad",
+  "id": "c0abaead-3e94-4588-bbc6-bd046d519d0e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -723,6 +723,18 @@
         "scheduled_at": {
           "name": "scheduled_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "variants": {
+          "name": "variants",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "variant_stats": {
+          "name": "variant_stats",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

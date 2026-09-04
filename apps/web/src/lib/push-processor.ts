@@ -18,6 +18,13 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+/** A/B 변형 배정 — 토큰 해시로 결정적 분배 */
+function variantIndex(token: string, n: number): number {
+  let h = 0;
+  for (let i = 0; i < token.length; i++) h = (h * 31 + token.charCodeAt(i)) | 0;
+  return Math.abs(h) % n;
+}
+
 /** 동시성 제한 map */
 async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const results: R[] = [];
@@ -165,27 +172,45 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     let success = 0;
     let failure = 0;
 
+    const variants = log.variants ?? null;
+    const variantStats: Record<string, { sent: number; success: number }> = {};
+    if (variants) variants.forEach((_, i) => (variantStats[String(i)] = { sent: 0, success: 0 }));
     const invalidAll: string[] = [];
+
     for await (const page of tokenPages(db, log)) {
       const tokens = page.filter((t) => !suppression.has(t));
       total += tokens.length;
-      if (logOnly || tokens.length === 0) continue;
+      if (tokens.length === 0) continue;
 
-      const batches = chunk(tokens, BATCH);
-      const results = await mapLimit(batches, CONCURRENCY, (b) =>
-        sendToTokens(project!.id, sa!, b, {
-          title: log.title,
-          body: log.body,
-          deepLink: log.deepLink ?? undefined,
-          data: log.data ?? undefined,
-        })
-      );
-      for (const r of results) {
-        success += r.success;
-        failure += r.failure;
-        invalidAll.push(...r.invalidTokens);
+      if (variants) {
+        // A/B: 토큰을 변형에 배정 후 각 변형 콘텐츠로 발송
+        const groups: string[][] = variants.map(() => []);
+        for (const t of tokens) groups[variantIndex(t, variants.length)].push(t);
+        for (let vi = 0; vi < variants.length; vi++) {
+          variantStats[String(vi)].sent += groups[vi].length;
+          if (logOnly || groups[vi].length === 0) continue;
+          const v = variants[vi];
+          const results = await mapLimit(chunk(groups[vi], BATCH), CONCURRENCY, (b) =>
+            sendToTokens(project!.id, sa!, b, { title: v.title, body: v.body, deepLink: log.deepLink ?? undefined, data: log.data ?? undefined })
+          );
+          for (const r of results) {
+            success += r.success;
+            failure += r.failure;
+            variantStats[String(vi)].success += r.success;
+            invalidAll.push(...r.invalidTokens);
+          }
+        }
+      } else if (!logOnly) {
+        const results = await mapLimit(chunk(tokens, BATCH), CONCURRENCY, (b) =>
+          sendToTokens(project!.id, sa!, b, { title: log.title, body: log.body, deepLink: log.deepLink ?? undefined, data: log.data ?? undefined })
+        );
+        for (const r of results) {
+          success += r.success;
+          failure += r.failure;
+          invalidAll.push(...r.invalidTokens);
+        }
       }
-      // 하트비트: 장시간 발송 중 lock 만료로 재클레임되지 않도록 갱신
+      // 하트비트
       await db.update(pushLogs).set({ lockedAt: new Date() }).where(eq(pushLogs.id, logId));
     }
     // 무효 토큰 일괄 비활성화 (완료 후 · 1000개씩 청크로 과대 IN 쿼리 방지)
@@ -198,7 +223,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     const finalStatus = logOnly ? "logged" : "completed";
     const finalized = await db
       .update(pushLogs)
-      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure })
+      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure, ...(variants ? { variantStats } : {}) })
       .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)))
       .returning({ id: pushLogs.id });
     if (finalized.length === 0) return reload(db, logId); // stale 재클레임에 의해 대체됨 → 부작용 스킵
