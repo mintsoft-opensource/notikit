@@ -8,11 +8,14 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   title: z.string().min(1).max(255),
-  body: z.string().min(1),
+  body: z.string().min(1).max(4000),
   type: z.enum(["single", "broadcast", "topic"]),
   target: z.string().max(255).optional(),
-  deep_link: z.string().url().optional(),
-  data: z.record(z.unknown()).optional(),
+  deep_link: z.string().url().max(2048).optional(),
+  data: z
+    .record(z.unknown())
+    .optional()
+    .refine((d) => !d || JSON.stringify(d).length <= 8192, "data too large (max 8KB)"),
 });
 
 /**

@@ -8,14 +8,14 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  token: z.string().min(1),
+  token: z.string().min(1).max(4096),
   platform: z.enum(["android", "ios", "web", "webview", "electron", "flutter", "react-native"]),
-  external_id: z.string().optional(),
-  app_version: z.string().optional(),
-  os_version: z.string().optional(),
-  locale: z.string().optional(),
-  timezone: z.string().optional(),
-  country: z.string().optional(),
+  external_id: z.string().max(255).optional(),
+  app_version: z.string().max(64).optional(),
+  os_version: z.string().max(64).optional(),
+  locale: z.string().max(35).optional(),
+  timezone: z.string().max(64).optional(),
+  country: z.string().max(8).optional(),
 });
 
 /** 디바이스/토큰 등록·업서트 (+ external_id 있으면 유저 연결) */

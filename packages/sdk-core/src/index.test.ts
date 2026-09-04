@@ -48,10 +48,10 @@ describe("NotikitClient", () => {
     await expect(client.subscribe("news", "t1")).rejects.toBeInstanceOf(NotikitError);
   });
 
-  it("omits api-secret header when not provided", async () => {
+  it("always sends api-secret header", async () => {
     const fetch = mockFetch({ success: true, data: {}, error: null });
-    const client = new NotikitClient({ baseUrl: base.baseUrl, apiKey: "nk", fetch });
+    const client = new NotikitClient({ baseUrl: base.baseUrl, apiKey: "nk", apiSecret: "sk", fetch });
     await client.identify({ externalId: "u1" });
-    expect((fetch as any).mock.calls[0][1].headers["api-secret"]).toBeUndefined();
+    expect((fetch as any).mock.calls[0][1].headers["api-secret"]).toBe("sk");
   });
 });

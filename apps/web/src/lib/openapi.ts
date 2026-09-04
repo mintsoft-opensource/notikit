@@ -5,7 +5,7 @@ export const openapi = {
     title: "Notikit API",
     version: "1.0.0",
     description:
-      "유저 중심 푸시 API.\n\n- **App SDK**: 앱(모바일/웹)이 호출 — 헤더 `api-key`(+`api-secret`)\n- **Web Admin**: 대시보드/관리자가 호출 — 헤더 `x-admin-token`",
+      "유저 중심 푸시 API.\n\n- **App SDK**: 앱(모바일/웹)이 호출 — 헤더 `api-key` + `api-secret` (둘 다 필수)\n- **Web Admin**: 대시보드/관리자가 호출 — 헤더 `x-admin-token`",
   },
   servers: [{ url: "/", description: "current host" }],
   tags: [

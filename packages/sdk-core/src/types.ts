@@ -12,8 +12,8 @@ export interface NotikitConfig {
   baseUrl: string;
   /** 프로젝트 api-key */
   apiKey: string;
-  /** 프로젝트 api-secret (v1). spring 호환이면 생략 가능 */
-  apiSecret?: string;
+  /** 프로젝트 api-secret (필수) */
+  apiSecret: string;
   /** fetch 구현 주입 (RN/Node 커스텀). 기본 globalThis.fetch */
   fetch?: typeof fetch;
 }

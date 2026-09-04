@@ -7,10 +7,13 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  external_id: z.string().min(1),
-  attributes: z.record(z.unknown()).optional(),
-  locale: z.string().optional(),
-  timezone: z.string().optional(),
+  external_id: z.string().min(1).max(255),
+  attributes: z
+    .record(z.unknown())
+    .optional()
+    .refine((d) => !d || JSON.stringify(d).length <= 8192, "attributes too large (max 8KB)"),
+  locale: z.string().max(35).optional(),
+  timezone: z.string().max(64).optional(),
 });
 
 /** 유저 식별 (identity 레이어) — 외부 유저ID 업서트 + 속성 */
