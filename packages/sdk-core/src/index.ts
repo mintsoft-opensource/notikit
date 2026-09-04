@@ -16,7 +16,7 @@ export * from "./types";
 export class NotikitClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
-  private readonly apiSecret: string;
+  private readonly apiSecret?: string;
   private readonly _fetch: typeof fetch;
 
   constructor(config: NotikitConfig) {
@@ -32,8 +32,9 @@ export class NotikitClient {
     const headers: Record<string, string> = {
       "content-type": "application/json",
       "api-key": this.apiKey,
-      "api-secret": this.apiSecret,
     };
+    // secret 은 있을 때만 전송 (발송 등 서버 전용 작업). 클라이언트는 미포함.
+    if (this.apiSecret) headers["api-secret"] = this.apiSecret;
 
     const res = await this._fetch(`${this.baseUrl}${path}`, {
       method: "POST",

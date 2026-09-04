@@ -10,10 +10,13 @@ export type Platform =
 export interface NotikitConfig {
   /** Notikit 서버 base URL, 예: https://push.example.com */
   baseUrl: string;
-  /** 프로젝트 api-key */
+  /** 프로젝트 api-key (공개키 — 클라이언트 SDK 안전) */
   apiKey: string;
-  /** 프로젝트 api-secret (필수) */
-  apiSecret: string;
+  /**
+   * 프로젝트 api-secret — 발송(send) 등 **서버 전용** 작업에만 필요.
+   * ⚠️ 브라우저/모바일 앱 SDK 에는 절대 포함하지 말 것(노출 위험). 등록/식별/구독은 api-key 만으로 동작.
+   */
+  apiSecret?: string;
   /** fetch 구현 주입 (RN/Node 커스텀). 기본 globalThis.fetch */
   fetch?: typeof fetch;
 }

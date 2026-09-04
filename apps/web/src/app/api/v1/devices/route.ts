@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { devices, pushUsers } from "@/db/schema";
-import { resolveProject } from "@/lib/auth";
+import { resolveProjectPublic } from "@/lib/auth";
+import { readJsonLimited } from "@/lib/read-json";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -20,10 +21,16 @@ const schema = z.object({
 
 /** 디바이스/토큰 등록·업서트 (+ external_id 있으면 유저 연결) */
 export async function POST(req: Request) {
-  const project = await resolveProject(req);
+  const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
 
-  const parsed = schema.safeParse(await req.json().catch(() => ({})));
+  let payload: unknown;
+  try {
+    payload = await readJsonLimited(req);
+  } catch {
+    return fail("Payload too large", 413);
+  }
+  const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 

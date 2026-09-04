@@ -1,6 +1,7 @@
 import { getDb } from "@/db/client";
 import { pushLogs } from "@/db/schema";
-import { resolveProject } from "@/lib/auth";
+import { resolveProjectPrivileged } from "@/lib/auth";
+import { readJsonLimited } from "@/lib/read-json";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -15,7 +16,7 @@ const schema = z.object({
   data: z
     .record(z.unknown())
     .optional()
-    .refine((d) => !d || JSON.stringify(d).length <= 8192, "data too large (max 8KB)"),
+    .refine((d) => !d || Buffer.byteLength(JSON.stringify(d), "utf8") <= 8192, "data too large (max 8KB)"),
 });
 
 /**
@@ -23,10 +24,16 @@ const schema = z.object({
  * (수집 ≠ 전송 분리 원칙: API 는 전송에 블로킹하지 않음)
  */
 export async function POST(req: Request) {
-  const project = await resolveProject(req);
+  const project = await resolveProjectPrivileged(req);
   if (!project) return fail("Unauthorized", 401);
 
-  const parsed = schema.safeParse(await req.json().catch(() => ({})));
+  let payload: unknown;
+  try {
+    payload = await readJsonLimited(req);
+  } catch {
+    return fail("Payload too large", 413);
+  }
+  const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 

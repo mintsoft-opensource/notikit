@@ -69,13 +69,22 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(sendJson.data.message.status).toBe("queued");
   });
 
-  test("보안: api-secret 없으면 401 (v1 우회 방지)", async ({ request }) => {
+  test("스코프: 등록은 api-key 만으로 가능(공개), 발송은 secret 필수", async ({ request }) => {
     const { apiKey } = await createProject(request);
-    const res = await request.post("/api/v1/devices", {
-      headers: { "api-key": apiKey }, // secret 누락
-      data: { token: "x", platform: "web" },
+
+    // 공개 엔드포인트(등록) — api-key 만으로 201
+    const reg = await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token: `pub-${Date.now()}`, platform: "web" },
     });
-    expect(res.status()).toBe(401);
+    expect(reg.status()).toBe(201);
+
+    // 권한 엔드포인트(발송) — secret 없으면 401
+    const send = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey },
+      data: { title: "t", body: "b", type: "broadcast" },
+    });
+    expect(send.status()).toBe(401);
   });
 
   test("검증: single 인데 target 없으면 422", async ({ request }) => {
