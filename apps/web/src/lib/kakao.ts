@@ -32,6 +32,7 @@ export async function sendAlimtalk(
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${config.api_key}` },
       body: JSON.stringify({ senderKey: config.sender_key, to: phone, text }),
+      redirect: "error", // 사설 대상 리다이렉트 우회 차단
       signal: AbortSignal.timeout(10_000),
     });
     return { ok: res.ok, status: res.status };

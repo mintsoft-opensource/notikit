@@ -5,7 +5,7 @@ import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppress
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
-import { emitWebhook } from "@/lib/webhooks";
+import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
@@ -254,6 +254,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
         if (log.kakaoFallback && u.phone && project?.kakaoConfigEnc && success === 0) {
           try {
             const cfg = parseKakaoConfig(decryptSecret(project.kakaoConfigEnc));
+            await assertSafeWebhookUrl(cfg.provider_url); // 발송 시점 SSRF 재검증(DNS 변경 대응)
             const r = await sendAlimtalk(cfg, u.phone, `${log.title}\n${log.body}`);
             if (r.ok) await db.update(pushLogs).set({ kakaoCount: 1 }).where(eq(pushLogs.id, logId));
           } catch {
