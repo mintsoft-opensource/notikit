@@ -1,0 +1,42 @@
+import { getDb } from "@/db/client";
+import { pushUsers } from "@/db/schema";
+import { resolveProject } from "@/lib/auth";
+import { ok, fail } from "@/lib/api-response";
+import { z } from "zod";
+
+export const dynamic = "force-dynamic";
+
+const schema = z.object({
+  external_id: z.string().min(1),
+  attributes: z.record(z.unknown()).optional(),
+  locale: z.string().optional(),
+  timezone: z.string().optional(),
+});
+
+/** 유저 식별 (identity 레이어) — 외부 유저ID 업서트 + 속성 */
+export async function POST(req: Request) {
+  const project = await resolveProject(req);
+  if (!project) return fail("Unauthorized", 401);
+
+  const parsed = schema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
+  const b = parsed.data;
+
+  const db = getDb();
+  const rows = await db
+    .insert(pushUsers)
+    .values({
+      projectId: project.id,
+      externalId: b.external_id,
+      attributes: b.attributes ?? {},
+      locale: b.locale,
+      timezone: b.timezone,
+    })
+    .onConflictDoUpdate({
+      target: [pushUsers.projectId, pushUsers.externalId],
+      set: { attributes: b.attributes ?? {}, locale: b.locale, timezone: b.timezone },
+    })
+    .returning();
+
+  return ok({ user: rows[0] });
+}
