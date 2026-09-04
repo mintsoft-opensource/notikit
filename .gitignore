@@ -33,3 +33,10 @@ app.zip
 # playwright
 test-results/
 playwright-report/
+
+sdks/swift/.build/
+sdks/swift/Package.resolved
+sdks/flutter/.dart_tool/
+sdks/flutter/pubspec.lock
+sdks/android/.gradle/
+sdks/android/build/

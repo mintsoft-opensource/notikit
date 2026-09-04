@@ -1,0 +1,14 @@
+name: notikit
+description: Notikit Flutter SDK — user-centric push device registration and identity.
+version: 0.1.0
+homepage: https://notikit.dev
+repository: https://github.com/notikit/notikit
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  http: ^1.2.0
+
+dev_dependencies:
+  test: ^1.24.0
