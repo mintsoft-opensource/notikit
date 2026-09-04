@@ -50,6 +50,9 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
+      '@notikit/core':
+        specifier: workspace:*
+        version: link:../../packages/sdk-core
       '@playwright/test':
         specifier: ^1.49.1
         version: 1.62.1
