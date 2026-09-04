@@ -34,7 +34,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
 
   try {
-    assertSafeWebhookUrl(parsed.data.url); // SSRF 방어
+    await assertSafeWebhookUrl(parsed.data.url); // SSRF 방어 (호스트 + DNS 해석)
   } catch (e) {
     return fail(e instanceof Error ? e.message : "invalid url", 422);
   }

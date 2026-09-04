@@ -18,7 +18,8 @@ export async function GET(req: Request) {
   const externalId = params.get("external_id");
   const identityHash = params.get("identity_hash");
   if (!externalId) return fail("external_id required", 422);
-  if (project.requireIdentityVerification && (!identityHash || !verifyIdentity(externalId, identityHash, project.apiSecretEnc))) {
+  // 인박스는 타 유저 데이터 노출 위험 → identity_hash 항상 필수(프로젝트 플래그와 무관)
+  if (!identityHash || !verifyIdentity(externalId, identityHash, project.apiSecretEnc)) {
     return fail("identity_hash invalid or missing", 403);
   }
 

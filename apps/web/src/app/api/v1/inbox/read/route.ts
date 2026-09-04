@@ -32,7 +32,8 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  if (project.requireIdentityVerification && (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc))) {
+  // 인박스는 identity_hash 항상 필수(IDOR 방지)
+  if (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc)) {
     return fail("identity_hash invalid or missing", 403);
   }
 
