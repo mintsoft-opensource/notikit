@@ -13,43 +13,43 @@ import {
 } from "lucide-react";
 
 export type NavItem = {
-  label: string;
+  labelKey: string; // messages 의 nav.* 키
   href: string;
   icon: LucideIcon;
   exact?: boolean;
   external?: boolean;
 };
 
-export type NavGroup = { label: string; items: NavItem[] };
+export type NavGroup = { labelKey: string; items: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "관리",
+    labelKey: "manage",
     items: [
-      { label: "개요", href: "/dashboard", icon: LayoutDashboard, exact: true },
-      { label: "프로젝트", href: "/projects", icon: FolderKanban },
-      { label: "발송", href: "/send", icon: Send },
-      { label: "로그", href: "/logs", icon: ScrollText },
+      { labelKey: "overview", href: "/dashboard", icon: LayoutDashboard, exact: true },
+      { labelKey: "projects", href: "/projects", icon: FolderKanban },
+      { labelKey: "send", href: "/send", icon: Send },
+      { labelKey: "logs", href: "/logs", icon: ScrollText },
     ],
   },
   {
-    label: "참여",
+    labelKey: "engagement",
     items: [
-      { label: "세그먼트", href: "/segments", icon: Users },
-      { label: "저니", href: "/journeys", icon: GitBranch },
-      { label: "웹훅", href: "/webhooks", icon: Webhook },
+      { labelKey: "segments", href: "/segments", icon: Users },
+      { labelKey: "journeys", href: "/journeys", icon: GitBranch },
+      { labelKey: "webhooks", href: "/webhooks", icon: Webhook },
     ],
   },
   {
-    label: "개발자",
+    labelKey: "developer",
     items: [
-      { label: "API 문서", href: "/docs", icon: BookOpen, external: true },
-      { label: "API 테스터", href: "/tester", icon: TerminalSquare },
+      { labelKey: "apiDocs", href: "/docs", icon: BookOpen, external: true },
+      { labelKey: "apiTester", href: "/tester", icon: TerminalSquare },
     ],
   },
   {
-    label: "설정",
-    items: [{ label: "설정", href: "/settings", icon: Settings, exact: true }],
+    labelKey: "settings",
+    items: [{ labelKey: "settings", href: "/settings", icon: Settings, exact: true }],
   },
 ];
 
@@ -68,12 +68,12 @@ export function projectIdFromPath(pathname: string): string | null {
 export function projectNavGroups(id: string): NavGroup[] {
   return [
     {
-      label: "프로젝트",
+      labelKey: "project",
       items: [
-        { label: "개요", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
-        { label: "발송", href: `/projects/${id}/send`, icon: Send },
-        { label: "로그", href: `/projects/${id}/logs`, icon: ScrollText },
-        { label: "설정", href: `/projects/${id}/settings`, icon: Settings },
+        { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
+        { labelKey: "send", href: `/projects/${id}/send`, icon: Send },
+        { labelKey: "logs", href: `/projects/${id}/logs`, icon: ScrollText },
+        { labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings },
       ],
     },
   ];

@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import createNextIntlPlugin from "next-intl/plugin";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -11,4 +14,4 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(dirname, "..", ".."),
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

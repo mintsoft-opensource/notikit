@@ -1,0 +1,72 @@
+{
+  "app": {
+    "name": "Notikit",
+    "tagline": "유저 중심 푸시",
+    "openSourceSelfHost": "오픈소스 · 셀프호스트"
+  },
+  "nav": {
+    "manage": "관리",
+    "engagement": "참여",
+    "developer": "개발자",
+    "settings": "설정",
+    "overview": "개요",
+    "projects": "프로젝트",
+    "send": "발송",
+    "logs": "로그",
+    "segments": "세그먼트",
+    "journeys": "저니",
+    "webhooks": "웹훅",
+    "apiDocs": "API 문서",
+    "apiTester": "API 테스터",
+    "projectList": "프로젝트 목록",
+    "project": "프로젝트"
+  },
+  "header": {
+    "openMenu": "메뉴 열기",
+    "closeMenu": "메뉴 닫기",
+    "logout": "로그아웃",
+    "logoutFailed": "로그아웃 실패",
+    "apiDocs": "API 문서",
+    "menu": "메뉴"
+  },
+  "login": {
+    "consoleLogin": "관리 콘솔 로그인",
+    "firstAdmin": "최초 관리자 계정을 만드세요",
+    "loading": "불러오는 중…",
+    "orgName": "조직 이름 (선택)",
+    "email": "이메일",
+    "password": "비밀번호",
+    "passwordMin": "비밀번호 (8자 이상)",
+    "bootstrapToken": "부트스트랩 토큰",
+    "createAccount": "계정 생성",
+    "login": "로그인",
+    "processing": "처리 중…",
+    "created": "관리자 계정 생성됨",
+    "loggedIn": "로그인되었습니다",
+    "failed": "실패"
+  },
+  "dashboard": {
+    "title": "개요",
+    "subtitle": "유저 중심 푸시 관리 콘솔",
+    "projects": "프로젝트",
+    "production": "production",
+    "environments": "환경",
+    "envHint": "dev/staging/prod",
+    "status": "상태",
+    "logOnly": "log-only",
+    "logOnlyHint": "Firebase 미설정 시",
+    "quickProjects": "프로젝트 관리",
+    "quickProjectsDesc": "생성 · Firebase",
+    "quickSend": "푸시 발송",
+    "quickSendDesc": "개인 · 토픽 · 세그먼트 · A/B",
+    "quickLogs": "발송 로그",
+    "quickLogsDesc": "상태 · 성공/실패 집계",
+    "quickTester": "API 테스터",
+    "quickTesterDesc": "전체 플로우 콘솔",
+    "projectsCount": "프로젝트 ({count})",
+    "noProjects": "프로젝트가 없습니다. 프로젝트 메뉴에서 생성하세요."
+  },
+  "common": {
+    "language": "언어"
+  }
+}

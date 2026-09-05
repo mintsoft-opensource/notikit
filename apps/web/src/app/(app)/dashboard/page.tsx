@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { FolderKanban, Send, ScrollText, TerminalSquare, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,30 +10,31 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/console/shared";
 import { useProjects } from "@/lib/admin-client";
 
-const QUICK_LINKS = [
-  { href: "/projects", label: "프로젝트 관리", icon: FolderKanban, desc: "생성 · Firebase · 카카오" },
-  { href: "/send", label: "푸시 발송", icon: Send, desc: "개인 · 토픽 · 세그먼트 · A/B" },
-  { href: "/logs", label: "발송 로그", icon: ScrollText, desc: "상태 · 성공/실패 집계" },
-  { href: "/tester", label: "API 테스터", icon: TerminalSquare, desc: "전체 플로우 콘솔" },
-];
-
 export default function DashboardPage() {
+  const t = useTranslations("dashboard");
   const { projects, loading } = useProjects();
   const prod = projects.filter((p) => p.environment === "production").length;
 
+  const quickLinks = [
+    { href: "/projects", label: t("quickProjects"), icon: FolderKanban, desc: t("quickProjectsDesc") },
+    { href: "/send", label: t("quickSend"), icon: Send, desc: t("quickSendDesc") },
+    { href: "/logs", label: t("quickLogs"), icon: ScrollText, desc: t("quickLogsDesc") },
+    { href: "/tester", label: t("quickTester"), icon: TerminalSquare, desc: t("quickTesterDesc") },
+  ];
+
   return (
-    <div className="space-y-6">
-      <PageHeader title="개요" description="유저 중심 푸시 관리 콘솔" />
+    <div className="w-full space-y-6">
+      <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="프로젝트" value={loading ? "…" : projects.length} />
-        <StatCard label="production" value={loading ? "…" : prod} />
-        <StatCard label="환경" value={new Set(projects.map((p) => p.environment)).size || 0} hint="dev/staging/prod" />
-        <StatCard label="상태" value="log-only" hint="Firebase 미설정 시" />
+        <StatCard label={t("projects")} value={loading ? "…" : projects.length} />
+        <StatCard label={t("production")} value={loading ? "…" : prod} />
+        <StatCard label={t("environments")} value={new Set(projects.map((p) => p.environment)).size || 0} hint={t("envHint")} />
+        <StatCard label={t("status")} value={t("logOnly")} hint={t("logOnlyHint")} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {QUICK_LINKS.map((l) => {
+        {quickLinks.map((l) => {
           const Icon = l.icon;
           return (
             <Link key={l.href} href={l.href}>
@@ -55,18 +57,22 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>프로젝트 ({projects.length})</CardTitle>
+          <CardTitle>{t("projectsCount", { count: projects.length })}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {projects.length === 0 && <p className="text-sm text-muted-foreground">프로젝트가 없습니다. 프로젝트 메뉴에서 생성하세요.</p>}
+          {projects.length === 0 && <p className="text-sm text-muted-foreground">{t("noProjects")}</p>}
           {projects.map((p) => (
-            <div key={p.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+            <Link
+              key={p.id}
+              href={`/projects/${p.id}`}
+              className="flex items-center justify-between rounded-lg border border-border px-4 py-3 transition-colors hover:border-primary/40 hover:bg-surface-muted"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{p.name}</p>
                 <p className="truncate text-xs text-muted-foreground">{p.apiKey}</p>
               </div>
               <Badge variant={p.environment === "production" ? "primary" : "neutral"}>{p.environment}</Badge>
-            </div>
+            </Link>
           ))}
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Bell, LogIn, UserPlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,8 @@ import { Input, Label } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useTranslations("login");
+  const ta = useTranslations("app");
   const [mode, setMode] = React.useState<"loading" | "login" | "register">("loading");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -45,11 +48,11 @@ export default function LoginPage() {
       if (mode === "register" && tokenRequired) headers["x-bootstrap-token"] = bootstrapToken;
       const r = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
       const j = await r.json();
-      if (!r.ok || !j.success) throw new Error(j.error ?? "실패");
-      toast.success(mode === "register" ? "관리자 계정 생성됨" : "로그인되었습니다");
+      if (!r.ok || !j.success) throw new Error(j.error ?? t("failed"));
+      toast.success(mode === "register" ? t("created") : t("loggedIn"));
       router.replace("/dashboard");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "실패");
+      toast.error(err instanceof Error ? err.message : t("failed"));
     } finally {
       setBusy(false);
     }
@@ -62,36 +65,36 @@ export default function LoginPage() {
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Bell className="h-6 w-6" />
           </span>
-          <h1 className="text-xl font-extrabold tracking-tight">Notikit</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{ta("name")}</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === "register" ? "최초 관리자 계정을 만드세요" : "관리 콘솔 로그인"}
+            {mode === "register" ? t("firstAdmin") : t("consoleLogin")}
           </p>
         </div>
 
         <Card>
           <CardContent className="p-6">
             {mode === "loading" ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">불러오는 중…</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">{t("loading")}</p>
             ) : (
               <form onSubmit={submit} className="space-y-4">
                 {mode === "register" && (
                   <div className="space-y-1">
-                    <Label htmlFor="org">조직 이름 (선택)</Label>
+                    <Label htmlFor="org">{t("orgName")}</Label>
                     <Input id="org" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="My Company" autoComplete="organization" />
                   </div>
                 )}
                 {mode === "register" && tokenRequired && (
                   <div className="space-y-1">
-                    <Label htmlFor="bootstrap">부트스트랩 토큰</Label>
+                    <Label htmlFor="bootstrap">{t("bootstrapToken")}</Label>
                     <Input id="bootstrap" type="password" required value={bootstrapToken} onChange={(e) => setBootstrapToken(e.target.value)} placeholder="BOOTSTRAP_TOKEN" />
                   </div>
                 )}
                 <div className="space-y-1">
-                  <Label htmlFor="email">이메일</Label>
+                  <Label htmlFor="email">{t("email")}</Label>
                   <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" autoComplete="email" />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="password">비밀번호{mode === "register" && " (8자 이상)"}</Label>
+                  <Label htmlFor="password">{mode === "register" ? t("passwordMin") : t("password")}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -105,7 +108,7 @@ export default function LoginPage() {
                 </div>
                 <Button type="submit" disabled={busy} className="w-full">
                   {mode === "register" ? <UserPlus className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
-                  {busy ? "처리 중…" : mode === "register" ? "계정 생성" : "로그인"}
+                  {busy ? t("processing") : mode === "register" ? t("createAccount") : t("login")}
                 </Button>
               </form>
             )}

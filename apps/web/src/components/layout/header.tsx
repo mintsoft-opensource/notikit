@@ -4,38 +4,49 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Menu, X, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "./theme-toggle";
+import { LocaleSwitcher } from "./locale-switcher";
 import { SidebarBrand, SidebarNav } from "./sidebar";
-import { NAV_GROUPS, isActive } from "./nav";
+import { NAV_GROUPS, isActive, projectIdFromPath, projectNavGroups } from "./nav";
 import { logout } from "@/lib/admin-client";
 
-async function handleLogout() {
-  try {
-    await logout();
-  } catch (e) {
-    toast.error(e instanceof Error ? e.message : "로그아웃 실패");
-  }
-}
-
-function currentTitle(pathname: string): string {
-  for (const group of NAV_GROUPS) {
+/** 현재 경로에 해당하는 nav labelKey (없으면 null) */
+function currentTitleKey(pathname: string): string | null {
+  const projectId = projectIdFromPath(pathname);
+  const groups = projectId ? projectNavGroups(projectId) : NAV_GROUPS;
+  for (const group of groups) {
     for (const item of group.items) {
-      if (isActive(pathname, item)) return item.label;
+      if (isActive(pathname, item)) return item.labelKey;
     }
   }
-  return "Notikit";
+  return null;
 }
 
 export function Header() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
+  const th = useTranslations("header");
+  const ta = useTranslations("app");
   const [open, setOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const closeRef = React.useRef<HTMLButtonElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
   const openerRef = React.useRef<HTMLButtonElement>(null);
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : th("logoutFailed"));
+    }
+  }
+
+  const titleKey = currentTitleKey(pathname);
+  const title = titleKey ? t(titleKey) : ta("name");
 
   // 라우트 변경 시 드로어 자동 닫기
   React.useEffect(() => {
@@ -86,7 +97,7 @@ export function Header() {
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
-      opener?.focus(); // 포커스 복원
+      opener?.focus();
     };
   }, [open]);
 
@@ -97,7 +108,7 @@ export function Header() {
           ref={openerRef}
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="메뉴 열기"
+          aria-label={th("openMenu")}
           aria-haspopup="dialog"
           aria-expanded={open}
           className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
@@ -105,7 +116,7 @@ export function Header() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <span className="flex-1 truncate text-[15px] font-bold tracking-tight md:text-base">{currentTitle(pathname)}</span>
+        <span className="flex-1 truncate text-[15px] font-bold tracking-tight md:text-base">{title}</span>
 
         <Link
           href="/docs"
@@ -113,13 +124,14 @@ export function Header() {
           rel="noopener noreferrer"
           className="hidden rounded-md px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:inline-flex"
         >
-          API 문서
+          {th("apiDocs")}
         </Link>
+        <LocaleSwitcher />
         <ThemeToggle />
         <button
           type="button"
           onClick={handleLogout}
-          aria-label="로그아웃"
+          aria-label={th("logout")}
           className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
         >
           <LogOut className="h-[18px] w-[18px]" />
@@ -132,14 +144,14 @@ export function Header() {
         createPortal(
           <div className="fixed inset-0 z-50 md:hidden">
             <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
-            <div ref={panelRef} role="dialog" aria-modal="true" aria-label="메뉴" className="absolute inset-y-0 left-0 flex w-[320px] max-w-[88vw] flex-col bg-surface shadow-modal">
+            <div ref={panelRef} role="dialog" aria-modal="true" aria-label={th("menu")} className="absolute inset-y-0 left-0 flex w-[320px] max-w-[88vw] flex-col bg-surface shadow-modal">
               <div className="flex items-center justify-between border-b border-border pr-2">
                 <SidebarBrand />
                 <button
                   ref={closeRef}
                   type="button"
                   onClick={() => setOpen(false)}
-                  aria-label="메뉴 닫기"
+                  aria-label={th("closeMenu")}
                   className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-muted hover:text-foreground"
                 >
                   <X className="h-5 w-5" />

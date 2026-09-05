@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Bell, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_GROUPS, isActive, projectIdFromPath, projectNavGroups, type NavItem } from "./nav";
 
-function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+function NavLink({ item, label, pathname }: { item: NavItem; label: string; pathname: string }) {
   const active = isActive(pathname, item);
   const Icon = item.icon;
   return (
@@ -22,12 +23,13 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
     >
       {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />}
       <Icon className={cn("h-[17px] w-[17px]", active ? "text-primary" : "text-muted-foreground")} strokeWidth={2} />
-      <span>{item.label}</span>
+      <span>{label}</span>
     </Link>
   );
 }
 
 export function SidebarNav({ pathname }: { pathname: string }) {
+  const t = useTranslations("nav");
   const projectId = projectIdFromPath(pathname);
   const groups = projectId ? projectNavGroups(projectId) : NAV_GROUPS;
   return (
@@ -37,16 +39,16 @@ export function SidebarNav({ pathname }: { pathname: string }) {
           href="/projects"
           className="flex items-center gap-1.5 px-3 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ChevronLeft className="h-4 w-4" /> 프로젝트 목록
+          <ChevronLeft className="h-4 w-4" /> {t("projectList")}
         </Link>
       )}
       {groups.map((group) => (
-        <div key={group.label}>
-          <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</p>
+        <div key={group.labelKey}>
+          <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{t(group.labelKey)}</p>
           <ul className="space-y-0.5">
             {group.items.map((item) => (
               <li key={item.href}>
-                <NavLink item={item} pathname={pathname} />
+                <NavLink item={item} label={t(item.labelKey)} pathname={pathname} />
               </li>
             ))}
           </ul>
@@ -57,13 +59,14 @@ export function SidebarNav({ pathname }: { pathname: string }) {
 }
 
 export function SidebarBrand() {
+  const t = useTranslations("app");
   return (
     <div className="flex h-16 items-center border-b border-border px-6">
       <Link href="/dashboard" className="flex items-center gap-2.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Bell className="h-4 w-4" />
         </span>
-        <span className="text-[15px] font-extrabold tracking-tight text-foreground">Notikit</span>
+        <span className="text-[15px] font-extrabold tracking-tight text-foreground">{t("name")}</span>
       </Link>
     </div>
   );
@@ -71,13 +74,14 @@ export function SidebarBrand() {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useTranslations("app");
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
       <SidebarBrand />
       <SidebarNav pathname={pathname} />
       <div className="border-t border-border px-6 py-4 text-[11px] text-muted-foreground">
-        <p className="font-semibold text-foreground">유저 중심 푸시</p>
-        <p className="mt-0.5">오픈소스 · 셀프호스트</p>
+        <p className="font-semibold text-foreground">{t("tagline")}</p>
+        <p className="mt-0.5">{t("openSourceSelfHost")}</p>
       </div>
     </aside>
   );
