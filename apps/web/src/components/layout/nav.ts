@@ -57,3 +57,24 @@ export function isActive(pathname: string, item: NavItem): boolean {
   if (item.external) return false;
   return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
 }
+
+/** 프로젝트 상세 경로(/projects/{id}[/...])면 id 반환. 목록(/projects)은 null. */
+export function projectIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/projects\/([^/]+)(?:\/|$)/);
+  return m ? m[1] : null;
+}
+
+/** 프로젝트 전용(상세) 사이드바 네비 */
+export function projectNavGroups(id: string): NavGroup[] {
+  return [
+    {
+      label: "프로젝트",
+      items: [
+        { label: "개요", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
+        { label: "발송", href: `/projects/${id}/send`, icon: Send },
+        { label: "로그", href: `/projects/${id}/logs`, icon: ScrollText },
+        { label: "설정", href: `/projects/${id}/settings`, icon: Settings },
+      ],
+    },
+  ];
+}

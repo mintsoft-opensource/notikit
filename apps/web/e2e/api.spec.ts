@@ -101,6 +101,27 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(escaped.status()).toBe(200);
   });
 
+  test("Web Admin 발송: admin 토큰으로 큐잉(202) — api-secret 불필요", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", {
+      headers: { "x-admin-token": ADMIN },
+      data: { name: `adminsend-${Date.now()}` },
+    });
+    const pid = (await created.json()).data.project.id;
+
+    const res = await request.post(`/api/admin/projects/${pid}/messages`, {
+      headers: { "x-admin-token": ADMIN },
+      data: { title: "콘솔 발송", body: "admin 세션 발송", type: "broadcast" },
+    });
+    expect(res.status()).toBe(202);
+
+    // single 인데 target 없으면 422
+    const bad = await request.post(`/api/admin/projects/${pid}/messages`, {
+      headers: { "x-admin-token": ADMIN },
+      data: { title: "x", body: "y", type: "single" },
+    });
+    expect(bad.status()).toBe(422);
+  });
+
   test("device 등록 → identify → subscribe → send 큐잉", async ({ request }) => {
     const { apiKey, apiSecret } = await createProject(request);
     // 클라이언트(등록/식별)는 api-key 만. identity_hash 로 external_id 바인딩 증명.

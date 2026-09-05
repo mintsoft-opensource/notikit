@@ -508,5 +508,40 @@ export const openapi = {
         responses: { "200": { description: "{ processed, failed }" } },
       },
     },
+    "/api/admin/projects/{id}/messages": {
+      post: {
+        tags: ["Web Admin"],
+        summary: "콘솔에서 푸시 발송 (admin 세션/역할 인가 — api-secret 불필요)",
+        security: [{ adminToken: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["title", "body", "type"],
+                properties: {
+                  title: { type: "string", maxLength: 255 },
+                  body: { type: "string", maxLength: 4000 },
+                  type: { type: "string", enum: ["single", "broadcast", "topic", "segment"] },
+                  target: { type: "string", maxLength: 255, description: "broadcast 외 필수" },
+                  scheduled_at: { type: "string", format: "date-time" },
+                  deep_link: { type: "string", format: "uri", maxLength: 2048 },
+                  data: { type: "object", additionalProperties: true },
+                  variants: {
+                    type: "array",
+                    minItems: 2,
+                    maxItems: 5,
+                    items: { type: "object", required: ["title", "body"], properties: { title: { type: "string" }, body: { type: "string" } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: { "202": { description: "큐잉됨" }, "403": { description: "권한 없음(viewer)/Origin" }, "422": { description: "검증 실패" } },
+      },
+    },
   },
 } as const;

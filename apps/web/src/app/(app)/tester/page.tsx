@@ -101,7 +101,7 @@ export default function TesterPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title="API 테스터"
         description="전체 플로우(프로젝트→디바이스 등록→식별→구독→발송→큐 처리)를 브라우저에서 실행·검증. Firebase 미설정 log-only 모드."

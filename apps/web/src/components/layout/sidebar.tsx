@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_GROUPS, isActive, type NavItem } from "./nav";
+import { NAV_GROUPS, isActive, projectIdFromPath, projectNavGroups, type NavItem } from "./nav";
 
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
   const active = isActive(pathname, item);
@@ -28,9 +28,19 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
 }
 
 export function SidebarNav({ pathname }: { pathname: string }) {
+  const projectId = projectIdFromPath(pathname);
+  const groups = projectId ? projectNavGroups(projectId) : NAV_GROUPS;
   return (
     <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
-      {NAV_GROUPS.map((group) => (
+      {projectId && (
+        <Link
+          href="/projects"
+          className="flex items-center gap-1.5 px-3 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" /> 프로젝트 목록
+        </Link>
+      )}
+      {groups.map((group) => (
         <div key={group.label}>
           <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</p>
           <ul className="space-y-0.5">

@@ -60,7 +60,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title="설정" description="계정과 프로젝트별 발송 정책을 관리합니다." />
 
       <Card>

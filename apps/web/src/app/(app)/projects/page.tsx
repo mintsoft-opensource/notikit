@@ -1,98 +1,15 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Upload, MessageSquare, Copy, ChevronDown } from "lucide-react";
+import { Plus, Copy, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { useProjects, adminApi, type Project } from "@/lib/admin-client";
-
-function ProjectConfig({ project }: { project: Project }) {
-  const [open, setOpen] = React.useState(false);
-  const [firebase, setFirebase] = React.useState("");
-  const [kakao, setKakao] = React.useState({ provider_url: "", api_key: "", sender_key: "" });
-
-  async function uploadFirebase() {
-    let creds: unknown;
-    try {
-      creds = JSON.parse(firebase);
-    } catch {
-      toast.error("JSON 파싱 실패");
-      return;
-    }
-    try {
-      const d = await adminApi<{ firebase_project_id?: string }>(`/api/admin/projects/${project.id}/firebase`, {
-        method: "POST",
-        body: JSON.stringify({ credentials: creds }),
-      });
-      toast.success(`Firebase 저장됨${d.firebase_project_id ? ` (${d.firebase_project_id})` : ""}`);
-      setFirebase("");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "실패");
-    }
-  }
-
-  async function uploadKakao() {
-    try {
-      await adminApi(`/api/admin/projects/${project.id}/kakao`, { method: "POST", body: JSON.stringify(kakao) });
-      toast.success("카카오 설정 저장됨");
-      setKakao({ provider_url: "", api_key: "", sender_key: "" });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "실패");
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-border">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold">{project.name}</span>
-            <Badge variant={project.environment === "production" ? "primary" : "neutral"}>{project.environment}</Badge>
-          </div>
-          <p className="truncate text-xs text-muted-foreground">{project.apiKey}</p>
-        </div>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open && (
-        <div className="grid gap-6 border-t border-border p-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Field label={<span className="flex items-center gap-1.5"><Upload className="h-3.5 w-3.5" /> Firebase 서비스 계정 JSON</span>}>
-              <Textarea
-                value={firebase}
-                onChange={(e) => setFirebase(e.target.value)}
-                placeholder='{"type":"service_account","project_id":"…"}'
-                className="min-h-28 font-mono text-xs"
-              />
-            </Field>
-            <Button size="sm" variant="outline" onClick={uploadFirebase} disabled={!firebase.trim()}>
-              업로드 · 암호화 저장
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <Label>
-              <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> 카카오 알림톡 설정</span>
-            </Label>
-            <Input value={kakao.provider_url} onChange={(e) => setKakao({ ...kakao, provider_url: e.target.value })} placeholder="provider_url (https://…)" />
-            <Input value={kakao.api_key} onChange={(e) => setKakao({ ...kakao, api_key: e.target.value })} placeholder="api_key" />
-            <Input value={kakao.sender_key} onChange={(e) => setKakao({ ...kakao, sender_key: e.target.value })} placeholder="sender_key" />
-            <Button size="sm" variant="outline" onClick={uploadKakao} disabled={!kakao.provider_url || !kakao.api_key || !kakao.sender_key}>
-              카카오 저장
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+import { useProjects, adminApi } from "@/lib/admin-client";
 
 export default function ProjectsPage() {
   const { projects, reload } = useProjects();
@@ -102,7 +19,7 @@ export default function ProjectsPage() {
   const [creating, setCreating] = React.useState(false);
 
   async function create() {
-    if (!name.trim()) return;
+    if (!name.trim() || creating) return;
     setCreating(true);
     try {
       const d = await adminApi<{ project: { apiKey: string }; api_secret: string }>("/api/admin/projects", {
@@ -121,8 +38,8 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="프로젝트" description="프로젝트 생성 · Firebase/카카오 자격증명 관리" />
+    <div className="w-full space-y-6">
+      <PageHeader title="프로젝트" description="프로젝트 생성 · 상세에서 발송/로그/설정 관리" />
 
       <Card>
         <CardHeader>
@@ -173,7 +90,21 @@ export default function ProjectsPage() {
       <div className="space-y-2">
         {projects.length === 0 && <p className="text-sm text-muted-foreground">프로젝트가 없습니다.</p>}
         {projects.map((p) => (
-          <ProjectConfig key={p.id} project={p} />
+          <Link
+            key={p.id}
+            href={`/projects/${p.id}`}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:border-primary/40 hover:bg-surface-muted"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold">{p.name}</span>
+                <Badge variant={p.environment === "production" ? "primary" : "neutral"}>{p.environment}</Badge>
+                {p.hasFirebase ? <Badge variant="success">Firebase</Badge> : <Badge variant="neutral">log-only</Badge>}
+              </div>
+              <p className="truncate text-xs text-muted-foreground">{p.apiKey}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
         ))}
       </div>
     </div>
