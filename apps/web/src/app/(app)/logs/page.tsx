@@ -29,7 +29,7 @@ export default function LogsPage() {
 
   const load = React.useCallback(
     async (id: string) => {
-      if (!id) return;
+      if (!id || id !== selRef.current) return; // stale 호출(전환 후)은 카운터/리스트 건드리지 않음
       const my = ++reqRef.current;
       setLoading(true);
       setLogs([]);

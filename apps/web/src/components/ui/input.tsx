@@ -52,11 +52,12 @@ export function Field({
   hint?: string;
   children: React.ReactElement<{ id?: string }>;
 }) {
-  const id = React.useId();
+  const generated = React.useId();
+  const id = children.props.id ?? generated; // 라벨과 컨트롤이 동일 id 사용
   return (
     <div className="space-y-1">
       <Label htmlFor={id}>{label}</Label>
-      {React.cloneElement(children, { id: children.props.id ?? id })}
+      {React.cloneElement(children, { id })}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );

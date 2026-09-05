@@ -39,6 +39,15 @@ export function Header() {
     setOpen(false);
   }, [pathname]);
 
+  // 데스크톱(md+) 로 리사이즈되면 드로어(모바일 전용) 닫기 — 숨겨진 트랩 잔존 방지
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => mq.matches && setOpen(false);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   // 드로어 열림: Escape 닫기 + 포커스 트랩 + 배경 스크롤 잠금 + 닫을 때 opener 로 포커스 복원
   React.useEffect(() => {
     if (!open) return;

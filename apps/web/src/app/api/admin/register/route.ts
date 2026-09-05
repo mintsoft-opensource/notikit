@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { adminUsers, organizations } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { hashPassword, createSessionToken, SESSION_COOKIE, sessionCookieAttributes } from "@/lib/session";
+import { hashPassword, createSessionToken, SESSION_COOKIE, sessionCookieAttributes, ScryptOverloadError } from "@/lib/session";
 import { checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimit } from "@/lib/rate-limit";
@@ -48,7 +48,13 @@ export async function POST(req: Request) {
   // 전역 admission 제한 (미초기화 상태의 해싱 남용 방어)
   if (!rateLimit("auth:register", 20, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
 
-  const passwordHash = await hashPassword(b.password); // 락 밖에서 (비싼 연산)
+  let passwordHash: string;
+  try {
+    passwordHash = await hashPassword(b.password); // 락 밖에서 (비싼 연산)
+  } catch (e) {
+    if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
+    throw e;
+  }
 
   let created: { id: string; email: string; role: string; orgId: string } | null = null;
   try {

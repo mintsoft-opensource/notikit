@@ -25,7 +25,7 @@ export default function SegmentsPage() {
 
   const load = React.useCallback(
     async (id: string) => {
-      if (!id) return;
+      if (!id || id !== selRef.current) return; // stale 호출(전환 후) 무시
       const my = ++reqRef.current;
       setSegments([]);
       try {

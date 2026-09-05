@@ -25,7 +25,7 @@ export default function WebhooksPage() {
 
   const load = React.useCallback(
     async (id: string) => {
-      if (!id) return;
+      if (!id || id !== selRef.current) return; // stale 호출(전환 후) 무시
       const my = ++reqRef.current;
       setHooks([]);
       try {
@@ -51,17 +51,23 @@ export default function WebhooksPage() {
 
   async function create() {
     if (!sel || !url.trim()) return;
+    const target = sel;
     const evts = events.split(",").map((s) => s.trim()).filter(Boolean);
     try {
-      const d = await adminApi<{ secret: string }>(`/api/admin/projects/${sel}/webhooks`, {
+      const d = await adminApi<{ secret: string }>(`/api/admin/projects/${target}/webhooks`, {
         method: "POST",
         body: JSON.stringify({ url: url.trim(), events: evts }),
       });
+      // 등록 완료 시점에 다른 프로젝트로 전환됐으면 A 의 secret/폼 초기화가 B 에 반영되지 않도록 스킵
+      if (selRef.current !== target) {
+        toast.success("웹훅 등록됨");
+        return;
+      }
       setSecret(d.secret);
       setUrl("");
       setEvents("");
       toast.success("웹훅 등록됨");
-      load(sel);
+      load(target);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "등록 실패 (SSRF 차단 URL 여부 확인)");
     }

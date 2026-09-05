@@ -1,7 +1,14 @@
 import { createHmac, randomBytes, scrypt as _scrypt, timingSafeEqual, type BinaryLike, type ScryptOptions } from "node:crypto";
 
-// 동시 scrypt 연산 상한 (메모리·워커 고갈 방어). 초과분은 큐잉.
+// 동시 scrypt 연산 상한 (메모리·워커 고갈 방어). 초과분은 큐잉하되, 큐 길이 상한 초과 시 즉시 거부.
+export class ScryptOverloadError extends Error {
+  constructor() {
+    super("hashing capacity exceeded");
+    this.name = "ScryptOverloadError";
+  }
+}
 const SCRYPT_MAX = Number(process.env.SCRYPT_CONCURRENCY ?? 2);
+const SCRYPT_MAX_QUEUE = Number(process.env.SCRYPT_MAX_QUEUE ?? 50);
 let scryptActive = 0;
 const scryptQueue: Array<() => void> = [];
 async function acquireScrypt(): Promise<void> {
@@ -9,6 +16,8 @@ async function acquireScrypt(): Promise<void> {
     scryptActive += 1;
     return;
   }
+  // 큐가 이미 가득 → fail-fast (무한 큐잉으로 인한 메모리 고갈 방지)
+  if (scryptQueue.length >= SCRYPT_MAX_QUEUE) throw new ScryptOverloadError();
   await new Promise<void>((resolve) => scryptQueue.push(resolve));
   scryptActive += 1;
 }
