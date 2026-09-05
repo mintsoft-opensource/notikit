@@ -22,6 +22,7 @@ export default function WebhooksPage() {
   // 1회성 secret 은 프로젝트별로 보존 (전환해도 유실/혼선 없음)
   const [secrets, setSecrets] = React.useState<Record<string, string>>({});
   const secret = sel ? secrets[sel] ?? null : null;
+  const [creating, setCreating] = React.useState(false);
   const reqRef = React.useRef(0);
   const selRef = React.useRef(sel);
 
@@ -47,9 +48,10 @@ export default function WebhooksPage() {
   }, [sel, load]);
 
   async function create() {
-    if (!sel || !url.trim()) return;
+    if (!sel || !url.trim() || creating) return; // 직렬화: 동시 제출 방지
     const target = sel;
     const evts = events.split(",").map((s) => s.trim()).filter(Boolean);
+    setCreating(true);
     try {
       const d = await adminApi<{ secret: string }>(`/api/admin/projects/${target}/webhooks`, {
         method: "POST",
@@ -66,6 +68,8 @@ export default function WebhooksPage() {
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "등록 실패 (SSRF 차단 URL 여부 확인)");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -103,8 +107,8 @@ export default function WebhooksPage() {
               <Field label="이벤트 (쉼표 구분, 비우면 전체)">
                 <Input value={events} onChange={(e) => setEvents(e.target.value)} placeholder="message.sent, message.failed" />
               </Field>
-              <Button onClick={create} disabled={!url.trim()}>
-                <Plus className="h-4 w-4" /> 등록
+              <Button onClick={create} disabled={!url.trim() || creating}>
+                <Plus className="h-4 w-4" /> {creating ? "등록 중…" : "등록"}
               </Button>
               {secret && (
                 <button

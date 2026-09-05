@@ -19,10 +19,11 @@ export function rateLimit(key: string, limit = 600, windowMs = 60_000): boolean 
   if (++calls % 2000 === 0) sweep(now);
   const b = buckets.get(key);
   if (!b || now > b.resetAt) {
-    // 신규 키인데 저장소가 가득 → sweep 후에도 가득이면 거부 (카디널리티 상한)
+    // 신규 키인데 저장소가 가득 → 가장 오래된 항목 축출(신규 정상 키를 거부하지 않음).
+    // Map 은 삽입 순서 보존 → 첫 키가 가장 오래됨.
     if (!buckets.has(key) && buckets.size >= MAX_BUCKETS) {
-      sweep(now);
-      if (buckets.size >= MAX_BUCKETS) return false;
+      const oldest = buckets.keys().next().value;
+      if (oldest !== undefined) buckets.delete(oldest);
     }
     buckets.set(key, { count: 1, resetAt: now + windowMs });
     return true;

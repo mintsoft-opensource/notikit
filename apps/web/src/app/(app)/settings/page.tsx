@@ -18,16 +18,22 @@ export default function SettingsPage() {
   const [quietEnd, setQuietEnd] = React.useState("");
   const [requireId, setRequireId] = React.useState(true);
   const [hydrated, setHydrated] = React.useState(false);
+  const hydratedFor = React.useRef<string>("");
 
-  // 선택한 프로젝트의 현재 정책으로 폼 하이드레이션 (미로드 상태로 저장해 덮어쓰기 방지)
+  // 선택 프로젝트가 바뀔 때만 1회 하이드레이션 — projects 재로드(저장 후 등)로는 폼을 덮어쓰지 않음
   React.useEffect(() => {
-    setHydrated(false);
-    if (!sel) return;
+    if (!sel) {
+      hydratedFor.current = "";
+      setHydrated(false);
+      return;
+    }
+    if (hydratedFor.current === sel) return; // 이미 이 프로젝트로 하이드레이트됨 → 편집 보존
     const p = projects.find((x) => x.id === sel);
-    if (!p) return;
+    if (!p) return; // projects 아직 로드 전 → 도착하면 재실행되어 하이드레이트
     setRequireId(p.requireIdentityVerification ?? true);
     setQuietStart(p.quietStartHour == null ? "" : String(p.quietStartHour));
     setQuietEnd(p.quietEndHour == null ? "" : String(p.quietEndHour));
+    hydratedFor.current = sel;
     setHydrated(true);
   }, [sel, projects]);
 

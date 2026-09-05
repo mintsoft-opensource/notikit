@@ -29,6 +29,9 @@ export async function POST(req: Request) {
     return fail("부트스트랩 토큰이 필요합니다", 403);
   }
 
+  // rate limit 을 DB 조회 이전에 (비싼 count/해싱 남용 방어)
+  if (!rateLimit("auth:register", 20, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
+
   let payload: unknown;
   try {
     payload = await readJsonLimited(req);
@@ -44,9 +47,6 @@ export async function POST(req: Request) {
   // 이미 초기화된 설치에서 비싼 해싱을 피하기 위한 사전 체크 (권위 있는 검증은 아래 트랜잭션)
   const [{ count: pre }] = await db.select({ count: sql<number>`count(*)::int` }).from(adminUsers);
   if (pre > 0) return fail("이미 초기화되었습니다. 로그인하세요.", 403);
-
-  // 전역 admission 제한 (미초기화 상태의 해싱 남용 방어)
-  if (!rateLimit("auth:register", 20, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
 
   let passwordHash: string;
   try {

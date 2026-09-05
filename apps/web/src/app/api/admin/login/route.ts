@@ -28,11 +28,10 @@ export async function POST(req: Request) {
 
   // 계정별 제한만 사용 (전역 시간버킷은 정상 유저까지 막는 가용성 DoS 라 제거).
   // 미존재 이메일 회전으로 인한 CPU/메모리 고갈은 scrypt 동시성+큐 상한(fail-fast)으로 방어.
-  if (!rateLimit(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
-
-  // 동시 처리 admission — DB 조회/해싱 이전에 차단 (이메일 회전으로 인한 DB·리미터 부하 상한)
+  // 동시 처리 admission 을 가장 먼저 — 거부되면 per-email 버킷조차 만들지 않음(리미터 포화 방지)
   if (!acquireInflight("auth", 25)) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
   try {
+    if (!rateLimit(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
     const db = getDb();
     const user = (await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1))[0];
 
