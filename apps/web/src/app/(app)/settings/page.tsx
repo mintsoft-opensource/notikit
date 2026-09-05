@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const [quietEnd, setQuietEnd] = React.useState("");
   const [requireId, setRequireId] = React.useState(true);
   const [hydrated, setHydrated] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
   const hydratedFor = React.useRef<string>("");
 
   // 선택 프로젝트가 바뀔 때만 1회 하이드레이션 — projects 재로드(저장 후 등)로는 폼을 덮어쓰지 않음
@@ -38,7 +39,8 @@ export default function SettingsPage() {
   }, [sel, projects]);
 
   async function saveProjectSettings() {
-    if (!sel || !hydrated) return;
+    if (!sel || !hydrated || saving) return; // 직렬화: 동시 저장 방지(reorder 로 인한 값 불일치 차단)
+    setSaving(true);
     try {
       await adminApi(`/api/admin/projects/${sel}`, {
         method: "PATCH",
@@ -52,6 +54,8 @@ export default function SettingsPage() {
       reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "저장 실패");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -123,8 +127,8 @@ export default function SettingsPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={saveProjectSettings} disabled={!hydrated}>
-                <Save className="h-4 w-4" /> 정책 저장
+              <Button onClick={saveProjectSettings} disabled={!hydrated || saving}>
+                <Save className="h-4 w-4" /> {saving ? "저장 중…" : "정책 저장"}
               </Button>
             </div>
           )}

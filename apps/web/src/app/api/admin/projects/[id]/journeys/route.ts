@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { journeys } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
+import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
 import { z } from "zod";
 
@@ -34,7 +35,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
   if (!authz.ok) return fail(authz.error, authz.status);
-  const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
+  let payload: unknown;
+  try {
+    payload = await readJsonLimited(req);
+  } catch (e) {
+    return e instanceof PayloadTooLargeError ? fail("Payload too large", 413) : fail("Invalid JSON", 400);
+  }
+  const parsed = createSchema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
 
   const db = getDb();

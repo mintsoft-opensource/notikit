@@ -31,7 +31,7 @@ export async function readJsonLimited(req: Request, maxBytes = 32_768): Promise<
     reader.releaseLock?.();
   }
 
-  const text = Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8");
+  const text = Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8").replace(/^﻿/, "");
   return text ? JSON.parse(text) : {};
 }
 
