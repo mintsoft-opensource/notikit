@@ -2,6 +2,28 @@
 
 > 우선순위: `MVP` 필수 · `MVP+` 조기확장 · `후순위` 검증 후
 > (← [README](README.md) · 아키텍처는 [03-server-architecture.md](03-server-architecture.md))
+>
+> ⚠️ **이 문서는 로드맵이다.** 우선순위 태그(MVP/MVP+/후순위)는 목표이며, 실제 구현 여부는 아래 **구현 상태 요약**을 기준으로 한다.
+
+## 구현 상태 요약 (2026-09 기준)
+
+**✅ 구현됨**
+- 디바이스: 업서트·멀티디바이스·메타(locale/timezone/country)·무효토큰 자동정리(전송응답 unregistered)
+- Identity: `identify`·유저 속성·`identity_hash`(HMAC) 검증
+- 메시징: 개인(single)/토픽/세그먼트/broadcast 발송, 예약발송(`scheduled_at`), 딥링크, A/B **변형 분배**, 카카오 폴백 플래그
+- 억제리스트(opt-out) · In-app 인박스(조회/읽음) · Quiet hours(프로젝트 UTC 시간)
+- 세그먼트(속성 **동등 매칭**) · 저니(명시적 enroll + send/wait 스텝) · 카카오 알림톡 폴백
+- 웹훅(HMAC 서명 + 원자적 재시도, 자체 구현) · 분석(디바이스 활동/DAU·발송 집계) · rate limit
+- 멀티테넌시(Org→Project, env 분리, 프로젝트별 Firebase 격리·AES-GCM 암호화)
+- SDK: core/web/react/react-native/flutter/android(Kotlin)/swift · MCP(5 tools) · OpenAPI 문서 · **log-only 모드**
+
+**🔜 미구현(계획)**
+- 익명→식별 병합, 선호센터, 템플릿 변수치환(스키마만), Rich push(이미지/버튼)·silent/data·우선순위·TTL·다국어 콘텐츠
+- A/B **승자 자동선택**, 전달추적(delivered/opened/clicked/dismissed)·읽은 유저 목록
+- WAU/MAU·GeoIP 지역분석·토픽 증감·퍼널·코호트·CSV export
+- 빈도제한(fatigue)·발송시간 최적화(유저 타임존)·이벤트 트리거 푸시·In-app 메시지(배너/모달)·액션 버튼
+- realtime(Centrifugo)·친구톡·멀티채널 워터폴·미리보기·발송승인·마이그레이션 임포트·화이트라벨·RBAC·감사로그
+- idempotency·DLQ·OS 네이티브(채널/뱃지/그룹/사운드)·llms.txt·OpenAPI→SDK 자동생성·AI 카피·GDPR export/삭제·리텐션
 
 ## A. 디바이스 라이프사이클
 - 토큰 관리·업서트 · **멀티디바이스**(유저=여러 기기) `MVP`

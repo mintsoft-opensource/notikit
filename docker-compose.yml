@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    # 기동 시 DB 마이그레이션 자동 적용(멱등) 후 서버 시작.
+    command: ["sh", "-c", "node apps/web/migrate.mjs && node apps/web/server.js"]
     env_file: .env
     environment:
       DATABASE_URL: postgres://notikit:notikit@postgres:5432/notikit
@@ -22,15 +24,13 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    command: ["node", "worker.js"]
+    command: ["node", "apps/web/worker.mjs"]
     env_file: .env
     environment:
-      DATABASE_URL: postgres://notikit:notikit@postgres:5432/notikit
-      REDIS_URL: redis://redis:6379
+      WORKER_BASE_URL: http://web:3000
+      # ADMIN_TOKEN 은 .env 에서 주입 (web 과 동일해야 함)
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
+      web:
         condition: service_started
     restart: unless-stopped
 

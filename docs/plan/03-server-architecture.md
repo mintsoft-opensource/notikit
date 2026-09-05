@@ -2,6 +2,12 @@
 
 > BYOC 전제: **단일 박스에서 돌되(고객 서버), 같은 코드로 스케일아웃.**
 > (← [README](README.md) · 기능은 [01-features.md](01-features.md))
+>
+> ⚠️ **이 문서는 목표 아키텍처(로드맵)다.** 현재 실제 구현은 아래와 다르다:
+> - API/대시보드는 **Next.js App Router 핸들러**(별도 Hono 머신 API 없음).
+> - 큐는 **Postgres `push_logs` 레코드 + 원자적 클레임**(BullMQ/Redis 미사용; `docker-compose` 의 redis 는 예비).
+> - worker 는 web 의 admin 엔드포인트를 폴링(`apps/web/worker.mjs`). realtime(Centrifugo)·Caddy 자동 TLS·자동 리텐션은 **미구현**.
+> - `/health` 는 있으나 `/ready` 는 없음. 마이그레이션은 web 컨테이너 기동 시 `migrate.mjs` 로 자동 적용(구현됨).
 
 ## 1. 설계 원칙
 1. **단일 이미지 · 12-factor** — 앱 stateless, 상태는 외부(Postgres/Redis/로그스토어). env로 1박스→클러스터

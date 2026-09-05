@@ -28,20 +28,35 @@ docs/plan/          # 기획 문서 세트
 
 ## 빠른 시작 (self-host)
 ```bash
-cp .env.example .env      # NOTIKIT_ENCRYPTION_KEY 등 채우기
+cp .env.example .env      # 최소: NOTIKIT_ENCRYPTION_KEY(32자+), ADMIN_TOKEN 채우기
 docker compose up -d      # web + worker + postgres + redis
 open http://localhost:3000
 ```
+- **web** 컨테이너가 기동 시 DB 마이그레이션을 자동 적용(`migrate.mjs`, 멱등) 후 서버를 시작한다.
+- **worker** 컨테이너가 주기적으로 각 프로젝트의 큐 발송(`process-queue`)·저니 진행(`journeys/process`)·웹훅 재시도(`webhooks/retry`)를 처리한다. worker 가 없으면 `POST /api/v1/messages` 로 큐잉된 푸시는 발송되지 않는다.
+- Firebase 자격증명이 없으면 **log-only 모드**로 동작(실제 발송 대신 로그만 기록, `status="logged"`).
 
 ## 개발
 ```bash
 pnpm install
-pnpm dev                  # apps/web (Next.js)
+# 로컬 Postgres 준비 후 마이그레이션 적용:
+export DATABASE_URL=postgres://notikit:notikit@localhost:5432/notikit
+pnpm --filter @notikit/web db:migrate
+pnpm --filter @notikit/web dev      # apps/web (Next.js, :3000)
+# 별도 터미널에서 worker(선택):
+ADMIN_TOKEN=... WORKER_BASE_URL=http://localhost:3000 pnpm --filter @notikit/web worker
+```
+> 로컬 개발은 `.env` 를 Compose 만 자동 로드하므로, `apps/web` 를 직접 띄울 땐 `DATABASE_URL`·`ADMIN_TOKEN`·`NOTIKIT_ENCRYPTION_KEY` 를 셸 환경에 넣어야 한다.
+
+## 테스트
+```bash
+pnpm --filter @notikit/web test     # vitest (단위)
+pnpm --filter @notikit/web e2e      # Playwright E2E (DB 필요)
 ```
 
 ## 문서
-- 기획/아키텍처: [`docs/plan/`](docs/plan/)
-- API: `/docs` (Swagger UI) · OpenAPI 스펙: `/api/openapi.json`
+- 기획/아키텍처: [`docs/plan/`](docs/plan/) — 로드맵 문서. 각 기능의 **구현/계획** 상태는 [`docs/plan/01-features.md`](docs/plan/01-features.md) 참고.
+- API: `/docs` (Swagger UI) · OpenAPI 스펙: `/api/openapi.json` — App SDK + Web Admin 전 엔드포인트 문서화.
 
 ## 라이선스
 Apache-2.0
