@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
@@ -30,6 +31,8 @@ function currentTitle(pathname: string): string {
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
   const closeRef = React.useRef<HTMLButtonElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
   const openerRef = React.useRef<HTMLButtonElement>(null);
@@ -88,60 +91,65 @@ export function Header() {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-surface/85 px-3 backdrop-blur md:h-16 md:px-6">
-      <button
-        ref={openerRef}
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="메뉴 열기"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+    <>
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-surface/85 px-3 backdrop-blur md:h-16 md:px-6">
+        <button
+          ref={openerRef}
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="메뉴 열기"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
 
-      <span className="flex-1 truncate text-[15px] font-bold tracking-tight md:text-base">{currentTitle(pathname)}</span>
+        <span className="flex-1 truncate text-[15px] font-bold tracking-tight md:text-base">{currentTitle(pathname)}</span>
 
-      <Link
-        href="/docs"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="hidden rounded-md px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:inline-flex"
-      >
-        API 문서
-      </Link>
-      <ThemeToggle />
-      <button
-        type="button"
-        onClick={handleLogout}
-        aria-label="로그아웃"
-        className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
-      >
-        <LogOut className="h-[18px] w-[18px]" />
-      </button>
+        <Link
+          href="/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden rounded-md px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:inline-flex"
+        >
+          API 문서
+        </Link>
+        <ThemeToggle />
+        <button
+          type="button"
+          onClick={handleLogout}
+          aria-label="로그아웃"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+        >
+          <LogOut className="h-[18px] w-[18px]" />
+        </button>
+      </header>
 
-      {/* 모바일 드로어 */}
-      {open && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
-          <div ref={panelRef} role="dialog" aria-modal="true" aria-label="메뉴" className="absolute inset-y-0 left-0 flex w-[320px] max-w-[88vw] flex-col bg-surface shadow-modal">
-            <div className="flex items-center justify-between border-b border-border pr-2">
-              <SidebarBrand />
-              <button
-                ref={closeRef}
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="메뉴 닫기"
-                className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      {/* 모바일 드로어 — backdrop-blur 헤더 밖(body)으로 portal 하여 fixed 가 뷰포트 기준이 되게 함 */}
+      {mounted &&
+        open &&
+        createPortal(
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
+            <div ref={panelRef} role="dialog" aria-modal="true" aria-label="메뉴" className="absolute inset-y-0 left-0 flex w-[320px] max-w-[88vw] flex-col bg-surface shadow-modal">
+              <div className="flex items-center justify-between border-b border-border pr-2">
+                <SidebarBrand />
+                <button
+                  ref={closeRef}
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="메뉴 닫기"
+                  className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <SidebarNav pathname={pathname} />
             </div>
-            <SidebarNav pathname={pathname} />
-          </div>
-        </div>
-      )}
-    </header>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }

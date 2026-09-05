@@ -47,7 +47,14 @@ export default function SegmentsPage() {
   async function create() {
     if (!sel || !name.trim()) return;
     const target = sel;
+    // 한쪽만 채운 규칙은 오류 (조용히 버려져 전체 발송으로 넓어지는 것 방지)
+    const partial = rules.some((r) => Boolean(r.attribute.trim()) !== Boolean(r.value.trim()));
+    if (partial) {
+      toast.error("규칙의 attribute 와 value 를 모두 입력하거나, 빈 행을 제거하세요");
+      return;
+    }
     const cleaned = rules.filter((r) => r.attribute.trim() && r.value.trim());
+    if (cleaned.length === 0 && !confirm("규칙이 없으면 프로젝트의 모든 유저가 대상이 됩니다. 계속할까요?")) return;
     try {
       await adminApi(`/api/admin/projects/${target}/segments`, {
         method: "POST",

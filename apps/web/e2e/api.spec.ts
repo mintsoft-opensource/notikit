@@ -2,6 +2,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { createHmac } from "node:crypto";
 
 const ADMIN = process.env.ADMIN_TOKEN ?? "e2e-admin-token";
+const TEST_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDnJCp2kQuUqKWD\nq7565oF9E4TEcbZyLpGr07/XHZ2IT9PFKJpE6qXh06r2U1cNaqnGnP3Ua1ZpZ9lz\nw/UXdLKzqou2J35+k5GCjQ6UfhXqjAkVMH9WB7SOwSW/GihtgogseoXRDeigc+wm\nwpGJLmPFALKreLTdScLlztHwI2fcYTCOIfVWdH/RlDa0cV3co9WmQBSy9wiCYMO+\nskCzZaBtiuhM/ni4213/ctoukGEIr7gap81TfgfKbgWKr24TWCuOK06BMQk/mPRd\nfKwO4plUCzNlFlQwt2xaz3FDYs56JI/YD4BC2W/NSIq86zKZGYTBrpjcGhXmN72A\nTuG9If7fAgMBAAECggEAM9+V+A4NP0up+abtlL9uiBd9UGkEvRNedeWLxEdNN25S\n5Ih8NsNCfy/1ylphyw0JFR3eiXGdbwJzdtufgagbAt9fg33Rka6klVv6zbCOUpki\n4LKFoVURXIhUZFMGh60nynOk3In2jyv0763y44qZsXi6oGjyjkcjilekHfSUNozc\nE/dREtZ7Lj5UVUzhWmjfJaADVLj2FSy5CphS+PxViLlzP+P+aiGrrskGyLWrA7cI\nXr6zoL8+AeNgo8Gd7w/2Kb9emk+gxG0YODcvJa8jLhSYaPCKLDJMvheBRsmGRkHI\noMR6umKsNmo9idKbkCI3uxgM6L5h5Hd77w/0zNdJ4QKBgQD5rZmhJcpn2VP6B1Jf\nW1SPmviDPDgoWInPz4hWbkwqwdjamrCKT8NHAEvz4Z7Rk9hDWqoegA+H48tNr+09\nOSUltOYwnQc1ngTighttQ2hAvxs+Pxb7oR/X000vNI6V2dHPx8lNIAJR354kogLG\nJWTbtHHeQHkx6Tfn213lVBCkiwKBgQDs/mkwk2VpRoyjGLxLK9hDNznENJmCakLC\nPGucaOWvyV9F/1HKPV65fIdeTHLIl4wfpBa0nTc9z1uXE+EBAp3fCh4xJbVde1LS\nng2j8MFqPpwotisDrczBShkR+pcBR9Ur7ufwvIqOoJ77TcyM/MKoH7Dbu/IGH4IF\nSoEbGY7VfQKBgQCydYX4q+VHYwxmCvOymroPRupYCyPsmpQuSB0gAghJC3MvlR+Y\nTLi8OBcRw3NcQztxsQ0lbc0sCQLYjWWZvA20LN/XYXW0ujStnedyqpqKpM4ZKMkJ\npDn5btudYQiFTUJtLFTS3o0p7hbAAljPPg0gCJLXE+hMZ3EBNUeg0fxvTwKBgAKq\nRcKPFcfeTDyVTaDGyHLRDyw+ry9BRKjshwVGRLb6W8Dswx20HPmXBeqwj2XkFmZQ\nsRSs4+8lAtGrHo+lWOMmOPqygtyfQ2os7thWH8azF4x5p/gtnyzZSXjjSYlxJluN\nHzyc0i4SbldDI7a+LO45FQMTlQAuoIawtMz6N5n9AoGBAJhbLoSHwNep2Su9BLNq\nn5DguFru9uS7bGO8+1gGrs6yHPca+RRp6inp2eez5LaJLuLuPFUHYMVYEqpIW315\ny2THQXdj4ZzKGC+viC2cvWAm5+BvYbqTTO6eMQfOWGJFuIcCxltQdcPQCgkf23kg\nPJO7Oa/jCDNIw71z/MkDZqNI\n-----END PRIVATE KEY-----";
 
 /** 고객 서버가 계산하는 identity 검증 해시 */
 function idHash(externalId: string, apiSecret: string): string {
@@ -53,6 +54,20 @@ test.describe("App SDK API 전체 플로우", () => {
     });
     expect(bad.status()).toBe(422);
 
+    // 스키마는 맞지만 파싱 불가한 private_key → 422 (사용 불가 키가 정상 키를 덮어쓰는 것 방지)
+    const badKey = await request.post(`/api/admin/projects/${pid}/firebase`, {
+      headers: { "x-admin-token": ADMIN },
+      data: {
+        credentials: {
+          type: "service_account",
+          project_id: "demo-proj",
+          private_key: "-----BEGIN PRIVATE KEY-----\\nnotarealkey\\n-----END PRIVATE KEY-----\\n",
+          client_email: "sdk@demo-proj.iam.gserviceaccount.com",
+        },
+      },
+    });
+    expect(badKey.status()).toBe(422);
+
     // 유효 형태 → 200 configured (암호화 저장; 실제 FCM init 은 발송 시)
     const good = await request.post(`/api/admin/projects/${pid}/firebase`, {
       headers: { "x-admin-token": ADMIN },
@@ -60,7 +75,7 @@ test.describe("App SDK API 전체 플로우", () => {
         credentials: {
           type: "service_account",
           project_id: "demo-proj",
-          private_key: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n",
+          private_key: TEST_PRIVATE_KEY,
           client_email: "sdk@demo-proj.iam.gserviceaccount.com",
         },
       },

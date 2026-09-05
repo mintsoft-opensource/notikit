@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 
 type Step = { name: string; status: number; ok: boolean; res: unknown };
@@ -19,13 +19,6 @@ async function hmacHex(secret: string, msg: string): Promise<string> {
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-
-const DEMO_SA = {
-  type: "service_account",
-  project_id: "demo-proj",
-  private_key: "-----BEGIN PRIVATE KEY-----\\nDEMO\\n-----END PRIVATE KEY-----\\n",
-  client_email: "sdk@demo-proj.iam.gserviceaccount.com",
-};
 
 type CreateResponse = { data?: { project?: { apiKey?: string; id?: string }; api_secret?: string } };
 
@@ -69,12 +62,7 @@ export default function TesterPage() {
       setKeys({ apiKey, apiSecret, projectId });
       if (!apiKey || !apiSecret) return;
 
-      await call(
-        `/api/admin/projects/${projectId}/firebase`,
-        { method: "POST", headers: admin, body: JSON.stringify({ credentials: DEMO_SA }) },
-        "2. Firebase 크레덴셜 업로드"
-      );
-
+      // Firebase 미설정 유지 → log-only 데모 (실제 발송 대신 로그 기록)
       const token = `tester-tok-${Date.now()}`;
       const hash = await hmacHex(apiSecret, externalId);
       const appAuth = { "api-key": apiKey };
@@ -82,27 +70,27 @@ export default function TesterPage() {
       await call(
         "/api/v1/devices",
         { method: "POST", headers: appAuth, body: JSON.stringify({ token, platform: "web", external_id: externalId, identity_hash: hash }) },
-        "3. 디바이스 등록 (App SDK)"
+        "2. 디바이스 등록 (App SDK)"
       );
       await call(
         "/api/v1/users/identify",
         { method: "POST", headers: appAuth, body: JSON.stringify({ external_id: externalId, identity_hash: hash, attributes: { plan: "pro" } }) },
-        "4. 유저 식별"
+        "3. 유저 식별"
       );
       await call(
         "/api/v1/topics/subscribe",
         { method: "POST", headers: appAuth, body: JSON.stringify({ topic: "news", token }) },
-        "5. 토픽 구독"
+        "4. 토픽 구독"
       );
       await call(
         "/api/v1/messages",
         { method: "POST", headers: { "api-key": apiKey, "api-secret": apiSecret }, body: JSON.stringify({ title: "테스터", body: "안녕하세요", type: "single", target: externalId, deep_link: "https://app/orders/1" }) },
-        "6. 푸시 발송 (큐잉)"
+        "5. 푸시 발송 (큐잉)"
       );
       await call(
         `/api/admin/projects/${projectId}/process-queue`,
         { method: "POST", headers: admin, body: "{}" },
-        "7. 큐 처리 (실발송/log-only)"
+        "6. 큐 처리 (log-only 발송)"
       );
     } finally {
       setRunning(false);
@@ -119,14 +107,12 @@ export default function TesterPage() {
       <Card>
         <CardHeader><CardTitle>설정</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label>Admin Token</Label>
+          <Field label="Admin Token">
             <Input value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>External User ID</Label>
+          </Field>
+          <Field label="External User ID">
             <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
-          </div>
+          </Field>
           <div className="sm:col-span-2">
             <Button onClick={runFullFlow} disabled={running} size="lg">
               {running ? "실행 중…" : "전체 플로우 실행"}

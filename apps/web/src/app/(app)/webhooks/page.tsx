@@ -112,7 +112,7 @@ export default function WebhooksPage() {
               </Button>
               {secret && (
                 <button
-                  onClick={() => { navigator.clipboard?.writeText(secret); toast.success("secret 복사됨"); }}
+                  onClick={async () => { try { await navigator.clipboard.writeText(secret); toast.success("secret 복사됨"); } catch { toast.error("복사 실패 — 수동으로 선택하세요"); } }}
                   className="flex w-full items-center justify-between gap-2 rounded-md bg-accent-soft px-3 py-2 text-left font-mono text-xs text-primary"
                 >
                   <span className="truncate">secret(1회): {secret}</span> <Copy className="h-3.5 w-3.5 shrink-0" />
