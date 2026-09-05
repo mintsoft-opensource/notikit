@@ -19,7 +19,9 @@ export default function WebhooksPage() {
   const [hooks, setHooks] = React.useState<Webhook[]>([]);
   const [url, setUrl] = React.useState("");
   const [events, setEvents] = React.useState("");
-  const [secret, setSecret] = React.useState<string | null>(null);
+  // 1회성 secret 은 프로젝트별로 보존 (전환해도 유실/혼선 없음)
+  const [secrets, setSecrets] = React.useState<Record<string, string>>({});
+  const secret = sel ? secrets[sel] ?? null : null;
   const reqRef = React.useRef(0);
   const selRef = React.useRef(sel);
 
@@ -39,11 +41,6 @@ export default function WebhooksPage() {
     []
   );
 
-  // 프로젝트 전환 시에만 1회성 secret 초기화 (create 직후 refresh 로는 지우지 않음)
-  React.useEffect(() => {
-    setSecret(null);
-  }, [sel]);
-
   React.useEffect(() => {
     selRef.current = sel;
     if (sel) load(sel);
@@ -58,16 +55,15 @@ export default function WebhooksPage() {
         method: "POST",
         body: JSON.stringify({ url: url.trim(), events: evts }),
       });
-      // 등록 완료 시점에 다른 프로젝트로 전환됐으면 A 의 secret/폼 초기화가 B 에 반영되지 않도록 스킵
-      if (selRef.current !== target) {
-        toast.success("웹훅 등록됨");
-        return;
-      }
-      setSecret(d.secret);
-      setUrl("");
-      setEvents("");
+      // secret 은 target 프로젝트에 귀속 보존 → 전환해도 유실 없고 타 프로젝트에 노출되지 않음
+      setSecrets((s) => ({ ...s, [target]: d.secret }));
       toast.success("웹훅 등록됨");
-      load(target);
+      // 폼 초기화·목록 새로고침은 여전히 target 을 보고 있을 때만 (B 의 입력 보호)
+      if (selRef.current === target) {
+        setUrl("");
+        setEvents("");
+        load(target);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "등록 실패 (SSRF 차단 URL 여부 확인)");
     }

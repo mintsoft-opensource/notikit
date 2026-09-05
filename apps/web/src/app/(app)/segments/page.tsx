@@ -46,16 +46,20 @@ export default function SegmentsPage() {
 
   async function create() {
     if (!sel || !name.trim()) return;
+    const target = sel;
     const cleaned = rules.filter((r) => r.attribute.trim() && r.value.trim());
     try {
-      await adminApi(`/api/admin/projects/${sel}/segments`, {
+      await adminApi(`/api/admin/projects/${target}/segments`, {
         method: "POST",
         body: JSON.stringify({ name: name.trim(), rules: cleaned }),
       });
       toast.success("세그먼트 생성됨");
-      setName("");
-      setRules([{ attribute: "", value: "" }]);
-      load(sel);
+      // 완료 시점에 다른 프로젝트로 전환됐으면 B 의 드래프트를 지우지 않음
+      if (selRef.current === target) {
+        setName("");
+        setRules([{ attribute: "", value: "" }]);
+        load(target);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "생성 실패");
     }

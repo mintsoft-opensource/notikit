@@ -5,7 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { verifyPassword, dummyVerify, createSessionToken, SESSION_COOKIE, sessionCookieAttributes, ScryptOverloadError } from "@/lib/session";
 import { checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, acquireInflight, releaseInflight } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +30,12 @@ export async function POST(req: Request) {
   // 미존재 이메일 회전으로 인한 CPU/메모리 고갈은 scrypt 동시성+큐 상한(fail-fast)으로 방어.
   if (!rateLimit(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
 
-  const db = getDb();
-  const user = (await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1))[0];
-
+  // 동시 처리 admission — DB 조회/해싱 이전에 차단 (이메일 회전으로 인한 DB·리미터 부하 상한)
+  if (!acquireInflight("auth", 25)) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
   try {
+    const db = getDb();
+    const user = (await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1))[0];
+
     // 존재하지 않는 계정도 동일 비용 지불 (타이밍/존재여부 노출 방어)
     if (!user) {
       await dummyVerify(parsed.data.password);
@@ -42,12 +44,14 @@ export async function POST(req: Request) {
     if (!(await verifyPassword(parsed.data.password, user.passwordHash))) {
       return fail("이메일 또는 비밀번호가 올바르지 않습니다", 401);
     }
+
+    const res = ok({ user: { email: user.email, role: user.role } });
+    res.cookies.set(SESSION_COOKIE, createSessionToken({ userId: user.id, ver: user.sessionVersion }), sessionCookieAttributes());
+    return res;
   } catch (e) {
     if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
     throw e;
+  } finally {
+    releaseInflight("auth");
   }
-
-  const res = ok({ user: { email: user.email, role: user.role } });
-  res.cookies.set(SESSION_COOKIE, createSessionToken({ userId: user.id, ver: user.sessionVersion }), sessionCookieAttributes());
-  return res;
 }

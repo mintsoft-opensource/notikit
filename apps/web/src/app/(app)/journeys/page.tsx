@@ -50,15 +50,19 @@ export default function JourneysPage() {
 
   async function create() {
     if (!sel || !name.trim()) return;
+    const target = sel;
     const cleaned = steps.map((s) =>
       s.type === "send" ? { type: "send", title: s.title, body: s.body } : { type: "wait", hours: Number(s.hours) || 0 }
     );
     try {
-      await adminApi(`/api/admin/projects/${sel}/journeys`, { method: "POST", body: JSON.stringify({ name: name.trim(), steps: cleaned }) });
+      await adminApi(`/api/admin/projects/${target}/journeys`, { method: "POST", body: JSON.stringify({ name: name.trim(), steps: cleaned }) });
       toast.success("저니 생성됨");
-      setName("");
-      setSteps([{ type: "send", title: "", body: "" }]);
-      load(sel);
+      // 완료 시점에 다른 프로젝트로 전환됐으면 B 의 드래프트를 지우지 않음
+      if (selRef.current === target) {
+        setName("");
+        setSteps([{ type: "send", title: "", body: "" }]);
+        load(target);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "생성 실패");
     }

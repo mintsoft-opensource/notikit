@@ -7,8 +7,14 @@ export class ScryptOverloadError extends Error {
     this.name = "ScryptOverloadError";
   }
 }
-const SCRYPT_MAX = Number(process.env.SCRYPT_CONCURRENCY ?? 2);
-const SCRYPT_MAX_QUEUE = Number(process.env.SCRYPT_MAX_QUEUE ?? 50);
+/** 유한 정수 env 파싱 — 범위를 벗어나거나 비정상이면 기본값 (설정 오류로 인한 무한 큐잉/스톨 방지) */
+function intEnv(raw: string | undefined, def: number, min: number, max: number): number {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < min || n > max) return def;
+  return n;
+}
+const SCRYPT_MAX = intEnv(process.env.SCRYPT_CONCURRENCY, 2, 1, 64);
+const SCRYPT_MAX_QUEUE = intEnv(process.env.SCRYPT_MAX_QUEUE, 50, 0, 100_000);
 let scryptActive = 0;
 const scryptQueue: Array<() => void> = [];
 async function acquireScrypt(): Promise<void> {
