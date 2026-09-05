@@ -1,7 +1,17 @@
 import { test, expect, type Page } from "@playwright/test";
+import postgres from "postgres";
+import { scryptSync, randomBytes } from "node:crypto";
 
 const ADMIN = { email: "e2e-admin@notikit.dev", password: "e2e-password-1234" };
 const ORIGIN = `http://localhost:${process.env.E2E_PORT ?? "3100"}`;
+const DB_URL = process.env.DATABASE_URL ?? "postgres://notikit:notikit@localhost:5432/notikit_e2e";
+
+/** 앱의 verifyPassword 가 파싱하는 scrypt$N$r$p$salt$hash 형식 해시 생성 (테스트용, 저비용 N) */
+function scryptHash(pw: string): string {
+  const salt = randomBytes(16);
+  const dk = scryptSync(pw, salt, 64, { N: 16384, r: 8, p: 1 });
+  return `scrypt$16384$8$1$${salt.toString("hex")}$${dk.toString("hex")}`;
+}
 
 /** 세션 쿠키 확보 — 최초 실행은 부트스트랩 register, 이후는 login (page 컨텍스트에 쿠키 저장) */
 async function ensureLogin(page: Page) {
@@ -116,6 +126,27 @@ test.describe("smoke", () => {
       headers: { cookie: `notikit_session=${cookie!.value}` },
     });
     expect(replay.status()).toBe(401);
+  });
+
+  test("역할: viewer 는 쓰기 거부(403), 읽기 허용(200)", async ({ page }) => {
+    const email = `viewer-${Date.now()}@notikit.dev`;
+    const pw = "viewer-pass-1234";
+    const sql = postgres(DB_URL, { max: 1 });
+    try {
+      const [org] = await sql`insert into organizations (name) values ('ViewerOrg') returning id`;
+      await sql`insert into admin_users (org_id, email, password_hash, role) values (${org.id}, ${email}, ${scryptHash(pw)}, 'viewer')`;
+    } finally {
+      await sql.end();
+    }
+
+    const login = await page.request.post("/api/admin/login", { headers: { origin: ORIGIN }, data: { email, password: pw } });
+    expect(login.ok()).toBeTruthy();
+
+    // 읽기 허용
+    expect((await page.request.get("/api/admin/projects")).status()).toBe(200);
+    // 쓰기 거부 (viewer)
+    const create = await page.request.post("/api/admin/projects", { headers: { origin: ORIGIN }, data: { name: "viewer-nope" } });
+    expect(create.status()).toBe(403);
   });
 
   test("docs page loads (Scalar)", async ({ request }) => {

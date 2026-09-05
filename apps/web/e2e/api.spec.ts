@@ -84,6 +84,21 @@ test.describe("App SDK API 전체 플로우", () => {
     const gj = await good.json();
     expect(gj.data.configured).toBe(true);
     expect(gj.data.firebase_project_id).toBe("demo-proj");
+
+    // 실제 서비스계정 JSON 형태(개행이 리터럴 \n 으로 이스케이프)도 정규화되어 200 이어야 함
+    // (검증만 정규화하고 원본을 저장하던 회귀 방지)
+    const escaped = await request.post(`/api/admin/projects/${pid}/firebase`, {
+      headers: { "x-admin-token": ADMIN },
+      data: {
+        credentials: {
+          type: "service_account",
+          project_id: "demo-proj",
+          private_key: TEST_PRIVATE_KEY.replace(/\n/g, "\\n"),
+          client_email: "sdk@demo-proj.iam.gserviceaccount.com",
+        },
+      },
+    });
+    expect(escaped.status()).toBe(200);
   });
 
   test("device 등록 → identify → subscribe → send 큐잉", async ({ request }) => {
