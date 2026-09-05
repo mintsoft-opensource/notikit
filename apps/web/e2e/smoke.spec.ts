@@ -31,7 +31,15 @@ test.describe("smoke", () => {
 
   test("dashboard page loads", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: /대시보드/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /개요/ })).toBeVisible();
+  });
+
+  test("sidebar shell renders nav", async ({ page }) => {
+    await page.goto("/dashboard");
+    // 사이드바 네비 항목(goji 스타일 앱 셸) — exact 로 사이드바 링크만 매칭
+    await expect(page.getByRole("link", { name: "프로젝트", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "발송", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "설정", exact: true })).toBeVisible();
   });
 
   test("docs page loads (Scalar)", async ({ request }) => {

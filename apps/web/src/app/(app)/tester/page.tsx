@@ -3,6 +3,8 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input, Label } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout/page-header";
 
 type Step = { name: string; status: number; ok: boolean; res: unknown };
 
@@ -25,7 +27,9 @@ const DEMO_SA = {
   client_email: "sdk@demo-proj.iam.gserviceaccount.com",
 };
 
-export default function Tester() {
+type CreateResponse = { data?: { project?: { apiKey?: string; id?: string }; api_secret?: string } };
+
+export default function TesterPage() {
   const [adminToken, setAdminToken] = React.useState("e2e-admin-token");
   const [externalId, setExternalId] = React.useState("tester-user-1");
   const [steps, setSteps] = React.useState<Step[]>([]);
@@ -52,20 +56,19 @@ export default function Tester() {
     setSteps([]);
     setRunning(true);
     try {
-      // 1) 프로젝트 생성 (admin)
       const admin = { "x-admin-token": adminToken };
       const create = await call(
         "/api/admin/projects",
         { method: "POST", headers: admin, body: JSON.stringify({ name: `tester-${Date.now()}` }) },
         "1. 프로젝트 생성 (admin)"
       );
-      const apiKey = (create.body as any)?.data?.project?.apiKey;
-      const apiSecret = (create.body as any)?.data?.api_secret;
-      const projectId = (create.body as any)?.data?.project?.id;
+      const b = create.body as CreateResponse;
+      const apiKey = b?.data?.project?.apiKey;
+      const apiSecret = b?.data?.api_secret;
+      const projectId = b?.data?.project?.id;
       setKeys({ apiKey, apiSecret, projectId });
       if (!apiKey || !apiSecret) return;
 
-      // 2) Firebase 업로드 (log-only 데모)
       await call(
         `/api/admin/projects/${projectId}/firebase`,
         { method: "POST", headers: admin, body: JSON.stringify({ credentials: DEMO_SA }) },
@@ -76,35 +79,26 @@ export default function Tester() {
       const hash = await hmacHex(apiSecret, externalId);
       const appAuth = { "api-key": apiKey };
 
-      // 3) 디바이스 등록 (public + identity_hash)
       await call(
         "/api/v1/devices",
         { method: "POST", headers: appAuth, body: JSON.stringify({ token, platform: "web", external_id: externalId, identity_hash: hash }) },
         "3. 디바이스 등록 (App SDK)"
       );
-
-      // 4) 유저 식별
       await call(
         "/api/v1/users/identify",
         { method: "POST", headers: appAuth, body: JSON.stringify({ external_id: externalId, identity_hash: hash, attributes: { plan: "pro" } }) },
         "4. 유저 식별"
       );
-
-      // 5) 토픽 구독
       await call(
         "/api/v1/topics/subscribe",
         { method: "POST", headers: appAuth, body: JSON.stringify({ topic: "news", token }) },
         "5. 토픽 구독"
       );
-
-      // 6) 발송 (privileged: secret)
       await call(
         "/api/v1/messages",
         { method: "POST", headers: { "api-key": apiKey, "api-secret": apiSecret }, body: JSON.stringify({ title: "테스터", body: "안녕하세요", type: "single", target: externalId, deep_link: "https://app/orders/1" }) },
         "6. 푸시 발송 (큐잉)"
       );
-
-      // 7) 큐 처리 (log-only 발송)
       await call(
         `/api/admin/projects/${projectId}/process-queue`,
         { method: "POST", headers: admin, body: "{}" },
@@ -116,21 +110,23 @@ export default function Tester() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">Notikit API 테스터</h1>
-      <p className="mt-1 text-sm text-muted-foreground">전체 플로우(프로젝트→Firebase→등록→식별→구독→발송→처리)를 브라우저에서 실행·검증</p>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <PageHeader
+        title="API 테스터"
+        description="전체 플로우(프로젝트→Firebase→등록→식별→구독→발송→처리)를 브라우저에서 실행·검증"
+      />
 
-      <Card className="mt-6">
+      <Card>
         <CardHeader><CardTitle>설정</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="text-muted-foreground">Admin Token</span>
-            <input value={adminToken} onChange={(e) => setAdminToken(e.target.value)} className="mt-1 w-full rounded-md border border-border-strong bg-surface px-3 py-2" />
-          </label>
-          <label className="text-sm">
-            <span className="text-muted-foreground">External User ID</span>
-            <input value={externalId} onChange={(e) => setExternalId(e.target.value)} className="mt-1 w-full rounded-md border border-border-strong bg-surface px-3 py-2" />
-          </label>
+          <div className="space-y-1">
+            <Label>Admin Token</Label>
+            <Input value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>External User ID</Label>
+            <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+          </div>
           <div className="sm:col-span-2">
             <Button onClick={runFullFlow} disabled={running} size="lg">
               {running ? "실행 중…" : "전체 플로우 실행"}
@@ -140,12 +136,12 @@ export default function Tester() {
       </Card>
 
       {keys.apiKey && (
-        <p className="mt-4 break-all text-xs text-muted-foreground">
+        <p className="break-all text-xs text-muted-foreground">
           발급된 api-key: <code>{keys.apiKey}</code>
         </p>
       )}
 
-      <div className="mt-6 space-y-3">
+      <div className="space-y-3">
         {steps.map((s, i) => (
           <Card key={i}>
             <CardContent className="pt-6">
@@ -158,6 +154,6 @@ export default function Tester() {
           </Card>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

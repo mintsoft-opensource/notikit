@@ -38,7 +38,10 @@
   --background: #ffffff;
   --background-alt: #f9fafb;
   --surface: #ffffff;
+  --surface-alt: var(--background-alt);
   --surface-muted: var(--gy100);
+  /* 활성 네비/뱃지용 소프트 브랜드 틴트 (goji: accent-soft) */
+  --accent-soft: var(--bl50);
 
   --foreground: #1d1d20;
   --muted-foreground: #6c727f;
@@ -64,7 +67,9 @@
   --background: #181e2d;
   --background-alt: #1a1c36;
   --surface: #272f3e;
+  --surface-alt: #1a1c36;
   --surface-muted: #394150;
+  --accent-soft: rgba(136, 141, 188, 0.16);
   --foreground: #f4f5f7;
   --muted-foreground: #a0a6b1;
   --border: #394150;
@@ -77,7 +82,9 @@
   --color-background: var(--background);
   --color-background-alt: var(--background-alt);
   --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
   --color-surface-muted: var(--surface-muted);
+  --color-accent-soft: var(--accent-soft);
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-primary: var(--primary);
@@ -101,8 +108,39 @@ html {
   font-size: 17px;
 }
 
+html,
+body {
+  height: 100%;
+  letter-spacing: -0.01em;
+}
+
 body {
   background: var(--background-alt);
   color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* 얇은 라운드 스크롤바 (goji 계열) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
