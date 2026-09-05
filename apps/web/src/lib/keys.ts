@@ -6,6 +6,7 @@ import {
   createDecipheriv,
   timingSafeEqual,
 } from "node:crypto";
+import { getSessionFromRequest } from "@/lib/session";
 
 export function generateApiKey(prefix = "nk"): string {
   return `${prefix}_${randomBytes(18).toString("base64url")}`;
@@ -66,7 +67,21 @@ export function verifyIdentity(externalId: string, hash: string, enc: string): b
 
 /** 관리자(web) API 인증 — x-admin-token 헤더 == ADMIN_TOKEN */
 export function requireAdmin(req: Request): boolean {
+  return getAdminContext(req) !== null;
+}
+
+/**
+ * 인증 컨텍스트 해석.
+ * - 세션 쿠키(로그인 계정) → 해당 유저의 org 로 스코프
+ * - x-admin-token == ADMIN_TOKEN → superadmin(전체 org, 하위호환: E2E/curl)
+ */
+export function getAdminContext(req: Request): { orgId: string | null; superadmin: boolean } | null {
+  const session = getSessionFromRequest(req);
+  if (session) return { orgId: session.orgId, superadmin: false };
+
   const token = req.headers.get("x-admin-token");
   const expected = process.env.ADMIN_TOKEN;
-  return !!expected && !!token && token === expected;
+  if (expected && token && token === expected) return { orgId: null, superadmin: true };
+
+  return null;
 }

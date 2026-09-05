@@ -2,34 +2,26 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, LogOut, UserCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
-import { useAdminToken, useProjects, adminApi } from "@/lib/admin-client";
+import { useProjects, useSession, adminApi, logout } from "@/lib/admin-client";
 
 export default function SettingsPage() {
-  const { token, ready, save } = useAdminToken();
-  const [draft, setDraft] = React.useState("");
-  const { projects } = useProjects(token, ready);
+  const { user } = useSession();
+  const { projects } = useProjects();
   const [sel, setSel] = React.useState("");
   const [quietStart, setQuietStart] = React.useState("");
   const [quietEnd, setQuietEnd] = React.useState("");
   const [requireId, setRequireId] = React.useState(true);
 
-  React.useEffect(() => setDraft(token), [token]);
-
-  function saveToken() {
-    save(draft.trim());
-    toast.success("관리자 토큰 저장됨");
-  }
-
   async function saveProjectSettings() {
     if (!sel) return;
     try {
-      await adminApi(`/api/admin/projects/${sel}`, token, {
+      await adminApi(`/api/admin/projects/${sel}`, {
         method: "PATCH",
         body: JSON.stringify({
           require_identity_verification: requireId,
@@ -45,17 +37,25 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
-      <PageHeader title="설정" description="관리자 토큰과 프로젝트별 발송 정책을 관리합니다." />
+      <PageHeader title="설정" description="계정과 프로젝트별 발송 정책을 관리합니다." />
 
       <Card>
         <CardHeader>
-          <CardTitle>관리자 토큰</CardTitle>
-          <CardDescription>Web Admin API 인증에 사용됩니다. 브라우저 localStorage 에만 저장됩니다.</CardDescription>
+          <CardTitle>계정</CardTitle>
+          <CardDescription>현재 로그인한 관리자 계정입니다.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 sm:flex-row">
-          <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="x-admin-token" type="password" />
-          <Button onClick={saveToken} className="shrink-0">
-            <Save className="h-4 w-4" /> 저장
+        <CardContent className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-primary">
+              <UserCircle className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">{user?.email ?? "…"}</p>
+              <p className="text-xs text-muted-foreground">{user?.role ?? ""}</p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => logout()}>
+            <LogOut className="h-4 w-4" /> 로그아웃
           </Button>
         </CardContent>
       </Card>
@@ -75,8 +75,8 @@ export default function SettingsPage() {
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>방해금지 시작 (0–23, UTC)</Label>
-                  <Select value={quietStart} onChange={(e) => setQuietStart(e.target.value)}>
+                  <Label htmlFor="qs">방해금지 시작 (UTC)</Label>
+                  <Select id="qs" value={quietStart} onChange={(e) => setQuietStart(e.target.value)}>
                     <option value="">없음</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={i}>{i}시</option>
@@ -84,8 +84,8 @@ export default function SettingsPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>방해금지 종료 (0–23, UTC)</Label>
-                  <Select value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)}>
+                  <Label htmlFor="qe">방해금지 종료 (UTC)</Label>
+                  <Select id="qe" value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)}>
                     <option value="">없음</option>
                     {Array.from({ length: 24 }, (_, i) => (
                       <option key={i} value={i}>{i}시</option>

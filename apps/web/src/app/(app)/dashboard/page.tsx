@@ -6,8 +6,8 @@ import { FolderKanban, Send, ScrollText, TerminalSquare, ArrowRight } from "luci
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { StatCard, TokenRequired } from "@/components/console/shared";
-import { useAdminToken, useProjects } from "@/lib/admin-client";
+import { StatCard } from "@/components/console/shared";
+import { useProjects } from "@/lib/admin-client";
 
 const QUICK_LINKS = [
   { href: "/projects", label: "프로젝트 관리", icon: FolderKanban, desc: "생성 · Firebase · 카카오" },
@@ -17,18 +17,7 @@ const QUICK_LINKS = [
 ];
 
 export default function DashboardPage() {
-  const { token, ready } = useAdminToken();
-  const { projects, loading } = useProjects(token, ready);
-
-  if (ready && !token) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="개요" description="Notikit 관리 콘솔" />
-        <TokenRequired />
-      </div>
-    );
-  }
-
+  const { projects, loading } = useProjects();
   const prod = projects.filter((p) => p.environment === "production").length;
 
   return (

@@ -16,7 +16,7 @@ export default defineConfig({
     timeout: 60_000,
     reuseExistingServer: !process.env.CI,
     env: {
-      DATABASE_URL: process.env.DATABASE_URL ?? "postgres://notikit:notikit@localhost:5432/notikit",
+      DATABASE_URL: process.env.DATABASE_URL ?? "postgres://notikit:notikit@localhost:5432/notikit_e2e",
       ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "e2e-admin-token",
       NOTIKIT_ENCRYPTION_KEY: process.env.NOTIKIT_ENCRYPTION_KEY ?? "e2e-encryption-key-32bytes-minimum",
       NODE_ENV: "production",

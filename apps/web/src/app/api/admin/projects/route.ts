@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects, organizations } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { generateApiKey, generateApiSecret, encryptSecret, requireAdmin } from "@/lib/keys";
+import { generateApiKey, generateApiSecret, encryptSecret, getAdminContext } from "@/lib/keys";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +13,15 @@ function publicProject<T extends { apiSecretEnc?: string; firebaseCredentialsEnc
   return rest;
 }
 
-/** [Web Admin] 프로젝트 목록 */
+/** [Web Admin] 프로젝트 목록 — 세션은 자기 org, superadmin(token)은 전체 */
 export async function GET(req: Request) {
-  if (!requireAdmin(req)) return fail("Unauthorized", 401);
+  const ctx = getAdminContext(req);
+  if (!ctx) return fail("Unauthorized", 401);
   const db = getDb();
-  const rows = await db.select().from(projects).orderBy(desc(projects.createdAt)).limit(200);
+  const base = db.select().from(projects).$dynamic();
+  const rows = ctx.superadmin
+    ? await base.orderBy(desc(projects.createdAt)).limit(200)
+    : await base.where(eq(projects.orgId, ctx.orgId!)).orderBy(desc(projects.createdAt)).limit(200);
   return ok({ projects: rows.map(publicProject) });
 }
 
@@ -29,7 +33,8 @@ const createSchema = z.object({
 
 /** [Web Admin] 프로젝트 생성 — api-key/secret 발급 */
 export async function POST(req: Request) {
-  if (!requireAdmin(req)) return fail("Unauthorized", 401);
+  const ctx = getAdminContext(req);
+  if (!ctx) return fail("Unauthorized", 401);
 
   const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
@@ -37,7 +42,8 @@ export async function POST(req: Request) {
 
   const db = getDb();
 
-  let orgId = b.org_id;
+  // 세션 로그인은 자기 org 로 강제. superadmin(token)은 org_id 지정 또는 신규 org.
+  let orgId = ctx.superadmin ? b.org_id : ctx.orgId!;
   if (!orgId) {
     const org = (await db.insert(organizations).values({ name: b.name }).returning())[0];
     orgId = org.id;

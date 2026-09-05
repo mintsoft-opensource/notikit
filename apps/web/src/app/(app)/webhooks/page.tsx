@@ -8,14 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectPicker, TokenRequired } from "@/components/console/shared";
-import { useAdminToken, useProjects, adminApi } from "@/lib/admin-client";
+import { ProjectPicker } from "@/components/console/shared";
+import { useProjects, adminApi } from "@/lib/admin-client";
 
 type Webhook = { id: string; url: string; events: string[]; isActive: boolean; createdAt: string };
 
 export default function WebhooksPage() {
-  const { token, ready } = useAdminToken();
-  const { projects } = useProjects(token, ready);
+  const { projects } = useProjects();
   const [sel, setSel] = React.useState("");
   const [hooks, setHooks] = React.useState<Webhook[]>([]);
   const [url, setUrl] = React.useState("");
@@ -26,13 +25,13 @@ export default function WebhooksPage() {
     async (id: string) => {
       if (!id) return;
       try {
-        const d = await adminApi<{ webhooks: Webhook[] }>(`/api/admin/projects/${id}/webhooks`, token);
+        const d = await adminApi<{ webhooks: Webhook[] }>(`/api/admin/projects/${id}/webhooks`);
         setHooks(d.webhooks);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
-    [token]
+    []
   );
 
   React.useEffect(() => {
@@ -43,7 +42,7 @@ export default function WebhooksPage() {
     if (!sel || !url.trim()) return;
     const evts = events.split(",").map((s) => s.trim()).filter(Boolean);
     try {
-      const d = await adminApi<{ secret: string }>(`/api/admin/projects/${sel}/webhooks`, token, {
+      const d = await adminApi<{ secret: string }>(`/api/admin/projects/${sel}/webhooks`, {
         method: "POST",
         body: JSON.stringify({ url: url.trim(), events: evts }),
       });
@@ -60,20 +59,11 @@ export default function WebhooksPage() {
   async function retry() {
     if (!sel) return;
     try {
-      const d = await adminApi<{ retried: number }>(`/api/admin/projects/${sel}/webhooks/retry`, token, { method: "POST", body: "{}" });
+      const d = await adminApi<{ retried: number }>(`/api/admin/projects/${sel}/webhooks/retry`, { method: "POST", body: "{}" });
       toast.success(`재시도 ${d.retried}건`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "재시도 실패");
     }
-  }
-
-  if (ready && !token) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="웹훅" />
-        <TokenRequired />
-      </div>
-    );
   }
 
   return (

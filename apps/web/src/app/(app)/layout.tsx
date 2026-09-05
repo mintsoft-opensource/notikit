@@ -1,7 +1,14 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { verifySessionToken, SESSION_COOKIE } from "@/lib/session";
 
-export default function AppShellLayout({ children }: { children: React.ReactNode }) {
+export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
+  const store = await cookies();
+  const session = verifySessionToken(store.get(SESSION_COOKIE)?.value);
+  if (!session) redirect("/login");
+
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-surface-muted">
       <Sidebar />

@@ -8,15 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectPicker, TokenRequired } from "@/components/console/shared";
-import { useAdminToken, useProjects, adminApi } from "@/lib/admin-client";
+import { ProjectPicker } from "@/components/console/shared";
+import { useProjects, adminApi } from "@/lib/admin-client";
 
 type Step = { type: "send" | "wait"; title?: string; body?: string; hours?: number };
 type Journey = { id: string; name: string; steps: Step[] };
 
 export default function JourneysPage() {
-  const { token, ready } = useAdminToken();
-  const { projects } = useProjects(token, ready);
+  const { projects } = useProjects();
   const [sel, setSel] = React.useState("");
   const [journeys, setJourneys] = React.useState<Journey[]>([]);
   const [name, setName] = React.useState("");
@@ -26,13 +25,13 @@ export default function JourneysPage() {
     async (id: string) => {
       if (!id) return;
       try {
-        const d = await adminApi<{ journeys: Journey[] }>(`/api/admin/projects/${id}/journeys`, token);
+        const d = await adminApi<{ journeys: Journey[] }>(`/api/admin/projects/${id}/journeys`);
         setJourneys(d.journeys);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
-    [token]
+    []
   );
 
   React.useEffect(() => {
@@ -49,7 +48,7 @@ export default function JourneysPage() {
       s.type === "send" ? { type: "send", title: s.title, body: s.body } : { type: "wait", hours: Number(s.hours) || 0 }
     );
     try {
-      await adminApi(`/api/admin/projects/${sel}/journeys`, token, { method: "POST", body: JSON.stringify({ name: name.trim(), steps: cleaned }) });
+      await adminApi(`/api/admin/projects/${sel}/journeys`, { method: "POST", body: JSON.stringify({ name: name.trim(), steps: cleaned }) });
       toast.success("저니 생성됨");
       setName("");
       setSteps([{ type: "send", title: "", body: "" }]);
@@ -62,20 +61,11 @@ export default function JourneysPage() {
   async function process() {
     if (!sel) return;
     try {
-      const d = await adminApi<{ processed: number }>(`/api/admin/projects/${sel}/journeys/process`, token, { method: "POST", body: "{}" });
+      const d = await adminApi<{ processed: number }>(`/api/admin/projects/${sel}/journeys/process`, { method: "POST", body: "{}" });
       toast.success(`진행 ${d.processed}건`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "처리 실패");
     }
-  }
-
-  if (ready && !token) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="저니" />
-        <TokenRequired />
-      </div>
-    );
   }
 
   return (

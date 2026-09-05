@@ -8,15 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectPicker, TokenRequired } from "@/components/console/shared";
-import { useAdminToken, useProjects, adminApi } from "@/lib/admin-client";
+import { ProjectPicker } from "@/components/console/shared";
+import { useProjects, adminApi } from "@/lib/admin-client";
 
 type Rule = { attribute: string; value: string };
 type Segment = { id: string; name: string; rules: Rule[] };
 
 export default function SegmentsPage() {
-  const { token, ready } = useAdminToken();
-  const { projects } = useProjects(token, ready);
+  const { projects } = useProjects();
   const [sel, setSel] = React.useState("");
   const [segments, setSegments] = React.useState<Segment[]>([]);
   const [name, setName] = React.useState("");
@@ -26,13 +25,13 @@ export default function SegmentsPage() {
     async (id: string) => {
       if (!id) return;
       try {
-        const d = await adminApi<{ segments: Segment[] }>(`/api/admin/projects/${id}/segments`, token);
+        const d = await adminApi<{ segments: Segment[] }>(`/api/admin/projects/${id}/segments`);
         setSegments(d.segments);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
-    [token]
+    []
   );
 
   React.useEffect(() => {
@@ -43,7 +42,7 @@ export default function SegmentsPage() {
     if (!sel || !name.trim()) return;
     const cleaned = rules.filter((r) => r.attribute.trim() && r.value.trim());
     try {
-      await adminApi(`/api/admin/projects/${sel}/segments`, token, {
+      await adminApi(`/api/admin/projects/${sel}/segments`, {
         method: "POST",
         body: JSON.stringify({ name: name.trim(), rules: cleaned }),
       });
@@ -54,15 +53,6 @@ export default function SegmentsPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "생성 실패");
     }
-  }
-
-  if (ready && !token) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="세그먼트" />
-        <TokenRequired />
-      </div>
-    );
   }
 
   return (

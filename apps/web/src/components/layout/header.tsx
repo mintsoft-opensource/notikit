@@ -3,10 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { SidebarBrand, SidebarNav } from "./sidebar";
 import { NAV_GROUPS, isActive } from "./nav";
+import { logout } from "@/lib/admin-client";
 
 function currentTitle(pathname: string): string {
   for (const group of NAV_GROUPS) {
@@ -48,6 +49,14 @@ export function Header() {
         API 문서
       </Link>
       <ThemeToggle />
+      <button
+        type="button"
+        onClick={() => logout()}
+        aria-label="로그아웃"
+        className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+      >
+        <LogOut className="h-[18px] w-[18px]" />
+      </button>
 
       {/* 모바일 드로어 */}
       {open && (

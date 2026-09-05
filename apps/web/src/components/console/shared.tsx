@@ -1,31 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { KeyRound } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/input";
 import type { Project } from "@/lib/admin-client";
-
-export function TokenRequired() {
-  return (
-    <Card className="flex flex-col items-center gap-3 p-10 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-primary">
-        <KeyRound className="h-6 w-6" />
-      </span>
-      <div>
-        <p className="text-base font-bold">관리자 토큰이 필요합니다</p>
-        <p className="mt-1 text-sm text-muted-foreground">설정에서 admin token 을 입력하면 콘솔을 사용할 수 있습니다.</p>
-      </div>
-      <Link
-        href="/settings"
-        className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-      >
-        설정으로 이동
-      </Link>
-    </Card>
-  );
-}
 
 export function StatCard({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (

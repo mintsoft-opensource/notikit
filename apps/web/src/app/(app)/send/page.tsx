@@ -7,14 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectPicker, TokenRequired } from "@/components/console/shared";
-import { useAdminToken, useProjects, adminApi } from "@/lib/admin-client";
+import { ProjectPicker } from "@/components/console/shared";
+import { useProjects, adminApi } from "@/lib/admin-client";
 
 type SendType = "single" | "broadcast" | "topic" | "segment";
 
 export default function SendPage() {
-  const { token, ready } = useAdminToken();
-  const { projects } = useProjects(token, ready);
+  const { projects } = useProjects();
   const [sel, setSel] = React.useState("");
   const [secret, setSecret] = React.useState("");
   const [type, setType] = React.useState<SendType>("single");
@@ -25,15 +24,6 @@ export default function SendPage() {
   const [kakaoFallback, setKakaoFallback] = React.useState(false);
   const [processNow, setProcessNow] = React.useState(true);
   const [sending, setSending] = React.useState(false);
-
-  if (ready && !token) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="발송" />
-        <TokenRequired />
-      </div>
-    );
-  }
 
   const project = projects.find((p) => p.id === sel);
   const needsTarget = type !== "broadcast";
@@ -60,7 +50,7 @@ export default function SendPage() {
       toast.success(`큐잉됨 (HTTP ${res.status})`);
 
       if (processNow) {
-        await adminApi(`/api/admin/projects/${project.id}/process-queue`, token, { method: "POST", body: "{}" });
+        await adminApi(`/api/admin/projects/${project.id}/process-queue`, { method: "POST", body: "{}" });
         toast.success("큐 처리 완료 (로그 확인)");
       }
     } catch (e) {

@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { TokenRequired } from "@/components/console/shared";
-import { useAdminToken, useProjects, adminApi, type Project } from "@/lib/admin-client";
+import { useProjects, adminApi, type Project } from "@/lib/admin-client";
 
-function ProjectConfig({ project, token }: { project: Project; token: string }) {
+function ProjectConfig({ project }: { project: Project }) {
   const [open, setOpen] = React.useState(false);
   const [firebase, setFirebase] = React.useState("");
   const [kakao, setKakao] = React.useState({ provider_url: "", api_key: "", sender_key: "" });
@@ -25,7 +24,7 @@ function ProjectConfig({ project, token }: { project: Project; token: string }) 
       return;
     }
     try {
-      const d = await adminApi<{ firebase_project_id?: string }>(`/api/admin/projects/${project.id}/firebase`, token, {
+      const d = await adminApi<{ firebase_project_id?: string }>(`/api/admin/projects/${project.id}/firebase`, {
         method: "POST",
         body: JSON.stringify({ credentials: creds }),
       });
@@ -38,7 +37,7 @@ function ProjectConfig({ project, token }: { project: Project; token: string }) 
 
   async function uploadKakao() {
     try {
-      await adminApi(`/api/admin/projects/${project.id}/kakao`, token, { method: "POST", body: JSON.stringify(kakao) });
+      await adminApi(`/api/admin/projects/${project.id}/kakao`, { method: "POST", body: JSON.stringify(kakao) });
       toast.success("카카오 설정 저장됨");
       setKakao({ provider_url: "", api_key: "", sender_key: "" });
     } catch (e) {
@@ -97,27 +96,17 @@ function ProjectConfig({ project, token }: { project: Project; token: string }) 
 }
 
 export default function ProjectsPage() {
-  const { token, ready } = useAdminToken();
-  const { projects, reload } = useProjects(token, ready);
+  const { projects, reload } = useProjects();
   const [name, setName] = React.useState("");
   const [environment, setEnvironment] = React.useState("dev");
   const [secret, setSecret] = React.useState<{ key: string; secret: string } | null>(null);
   const [creating, setCreating] = React.useState(false);
 
-  if (ready && !token) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="프로젝트" />
-        <TokenRequired />
-      </div>
-    );
-  }
-
   async function create() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      const d = await adminApi<{ api_key: string; api_secret: string }>("/api/admin/projects", token, {
+      const d = await adminApi<{ api_key: string; api_secret: string }>("/api/admin/projects", {
         method: "POST",
         body: JSON.stringify({ name: name.trim(), environment }),
       });
@@ -185,7 +174,7 @@ export default function ProjectsPage() {
       <div className="space-y-2">
         {projects.length === 0 && <p className="text-sm text-muted-foreground">프로젝트가 없습니다.</p>}
         {projects.map((p) => (
-          <ProjectConfig key={p.id} project={p} token={token} />
+          <ProjectConfig key={p.id} project={p} />
         ))}
       </div>
     </div>

@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectPicker, TokenRequired } from "@/components/console/shared";
-import { useAdminToken, useProjects, adminApi } from "@/lib/admin-client";
+import { ProjectPicker } from "@/components/console/shared";
+import { useProjects, adminApi } from "@/lib/admin-client";
 
 type Log = { id: string; title: string; type: string; status: string; totalCount: number; successCount: number; createdAt: string };
 
@@ -20,8 +20,7 @@ function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" 
 }
 
 export default function LogsPage() {
-  const { token, ready } = useAdminToken();
-  const { projects } = useProjects(token, ready);
+  const { projects } = useProjects();
   const [sel, setSel] = React.useState("");
   const [logs, setLogs] = React.useState<Log[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -31,7 +30,7 @@ export default function LogsPage() {
       if (!id) return;
       setLoading(true);
       try {
-        const d = await adminApi<{ logs: Log[] }>(`/api/admin/projects/${id}/logs`, token);
+        const d = await adminApi<{ logs: Log[] }>(`/api/admin/projects/${id}/logs`);
         setLogs(d.logs);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "로드 실패");
@@ -39,7 +38,7 @@ export default function LogsPage() {
         setLoading(false);
       }
     },
-    [token]
+    []
   );
 
   React.useEffect(() => {
@@ -49,21 +48,12 @@ export default function LogsPage() {
   async function processQueue() {
     if (!sel) return;
     try {
-      const d = await adminApi<{ processed: number; failed: number }>(`/api/admin/projects/${sel}/process-queue`, token, { method: "POST", body: "{}" });
+      const d = await adminApi<{ processed: number; failed: number }>(`/api/admin/projects/${sel}/process-queue`, { method: "POST", body: "{}" });
       toast.success(`처리 ${d.processed} · 실패 ${d.failed}`);
       load(sel);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "처리 실패");
     }
-  }
-
-  if (ready && !token) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="로그" />
-        <TokenRequired />
-      </div>
-    );
   }
 
   return (
