@@ -83,7 +83,7 @@ export default function SendPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>발송 타입</Label>
-              <Select value={type} onChange={(e) => setType(e.target.value as SendType)}>
+              <Select aria-label="발송 타입" value={type} onChange={(e) => setType(e.target.value as SendType)}>
                 <option value="single">single (개인)</option>
                 <option value="topic">topic (토픽)</option>
                 <option value="segment">segment (세그먼트)</option>

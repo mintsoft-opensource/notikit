@@ -20,6 +20,8 @@ export default defineConfig({
       ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "e2e-admin-token",
       NOTIKIT_ENCRYPTION_KEY: process.env.NOTIKIT_ENCRYPTION_KEY ?? "e2e-encryption-key-32bytes-minimum",
       NODE_ENV: "production",
+      COOKIE_INSECURE: "true", // http 테스트 서버 — Secure 쿠키 비활성
+      APP_ORIGIN: `http://localhost:${PORT}`,
     },
   },
 });

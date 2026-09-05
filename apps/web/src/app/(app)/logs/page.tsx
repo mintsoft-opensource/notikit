@@ -24,18 +24,22 @@ export default function LogsPage() {
   const [sel, setSel] = React.useState("");
   const [logs, setLogs] = React.useState<Log[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const reqRef = React.useRef(0);
 
   const load = React.useCallback(
     async (id: string) => {
       if (!id) return;
+      const my = ++reqRef.current;
       setLoading(true);
+      setLogs([]);
       try {
         const d = await adminApi<{ logs: Log[] }>(`/api/admin/projects/${id}/logs`);
+        if (my !== reqRef.current) return; // 다른 프로젝트로 전환됨 → 무시
         setLogs(d.logs);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       } finally {
-        setLoading(false);
+        if (my === reqRef.current) setLoading(false);
       }
     },
     []

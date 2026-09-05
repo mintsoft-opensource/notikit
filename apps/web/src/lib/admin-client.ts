@@ -2,7 +2,17 @@
 
 import * as React from "react";
 
-export type Project = { id: string; name: string; apiKey: string; environment: string };
+export type Project = {
+  id: string;
+  name: string;
+  apiKey: string;
+  environment: string;
+  requireIdentityVerification?: boolean;
+  quietStartHour?: number | null;
+  quietEndHour?: number | null;
+  hasFirebase?: boolean;
+  hasKakao?: boolean;
+};
 export type SessionUser = { email: string; role: string };
 
 /** admin API 호출 — 세션 쿠키(same-origin 자동 전송) 기반. 실패 시 throw(Error). */
@@ -42,7 +52,11 @@ export function useSession() {
 }
 
 export async function logout() {
-  await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
+  const res = await fetch("/api/admin/logout", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+  });
+  if (!res.ok) throw new Error("로그아웃 실패 — 다시 시도하세요");
   window.location.href = "/login";
 }
 

@@ -20,15 +20,20 @@ export default function WebhooksPage() {
   const [url, setUrl] = React.useState("");
   const [events, setEvents] = React.useState("");
   const [secret, setSecret] = React.useState<string | null>(null);
+  const reqRef = React.useRef(0);
 
   const load = React.useCallback(
     async (id: string) => {
       if (!id) return;
+      const my = ++reqRef.current;
+      setHooks([]);
+      setSecret(null); // 프로젝트 전환 시 이전 secret 노출 방지
       try {
         const d = await adminApi<{ webhooks: Webhook[] }>(`/api/admin/projects/${id}/webhooks`);
+        if (my !== reqRef.current) return;
         setHooks(d.webhooks);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
     []

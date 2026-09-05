@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { requireAdmin } from "@/lib/keys";
+import { requireProject, checkOrigin } from "@/lib/authz";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,10 @@ const patchSchema = z.object({
 
 /** [Web Admin] 프로젝트 설정 변경 (방해금지 시간대, identity 검증 등) */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  if (!requireAdmin(req)) return fail("Unauthorized", 401);
   const { id } = await ctx.params;
+  if (!checkOrigin(req)) return fail("Invalid origin", 403);
+  const authz = await requireProject(req, id, { write: true });
+  if (!authz.ok) return fail(authz.error, authz.status);
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;

@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { adminUsers } from "@/db/schema";
 import { ok } from "@/lib/api-response";
-import { getSessionFromRequest } from "@/lib/session";
+import { getAuthContext } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +12,13 @@ export async function GET(req: Request) {
   const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(adminUsers);
   const needsBootstrap = count === 0;
 
-  const session = getSessionFromRequest(req);
-  if (!session) return ok({ authenticated: false, user: null, needsBootstrap });
+  const ctx = await getAuthContext(req);
+  if (!ctx) return ok({ authenticated: false, user: null, needsBootstrap });
+
+  if (ctx.superadmin) return ok({ authenticated: true, user: { email: "superadmin", role: "owner" }, needsBootstrap: false });
 
   const user = (
-    await db.select({ email: adminUsers.email, role: adminUsers.role }).from(adminUsers).where(eq(adminUsers.id, session.userId)).limit(1)
+    await db.select({ email: adminUsers.email, role: adminUsers.role }).from(adminUsers).where(eq(adminUsers.id, ctx.userId!)).limit(1)
   )[0];
   if (!user) return ok({ authenticated: false, user: null, needsBootstrap });
 

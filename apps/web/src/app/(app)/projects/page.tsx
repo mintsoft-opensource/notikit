@@ -106,11 +106,11 @@ export default function ProjectsPage() {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      const d = await adminApi<{ api_key: string; api_secret: string }>("/api/admin/projects", {
+      const d = await adminApi<{ project: { apiKey: string }; api_secret: string }>("/api/admin/projects", {
         method: "POST",
         body: JSON.stringify({ name: name.trim(), environment }),
       });
-      setSecret({ key: d.api_key, secret: d.api_secret });
+      setSecret({ key: d.project.apiKey, secret: d.api_secret });
       setName("");
       toast.success("프로젝트 생성됨");
       reload();
@@ -136,7 +136,7 @@ export default function ProjectsPage() {
           </div>
           <div className="space-y-1">
             <Label>환경</Label>
-            <Select value={environment} onChange={(e) => setEnvironment(e.target.value)} className="sm:w-40">
+            <Select aria-label="환경" value={environment} onChange={(e) => setEnvironment(e.target.value)} className="sm:w-40">
               <option value="dev">dev</option>
               <option value="staging">staging</option>
               <option value="production">production</option>

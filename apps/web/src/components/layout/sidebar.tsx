@@ -14,6 +14,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       href={item.href}
       target={item.external ? "_blank" : undefined}
       rel={item.external ? "noopener noreferrer" : undefined}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors",
         active ? "bg-accent-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"

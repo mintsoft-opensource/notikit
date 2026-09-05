@@ -20,15 +20,19 @@ export default function JourneysPage() {
   const [journeys, setJourneys] = React.useState<Journey[]>([]);
   const [name, setName] = React.useState("");
   const [steps, setSteps] = React.useState<Step[]>([{ type: "send", title: "", body: "" }]);
+  const reqRef = React.useRef(0);
 
   const load = React.useCallback(
     async (id: string) => {
       if (!id) return;
+      const my = ++reqRef.current;
+      setJourneys([]);
       try {
         const d = await adminApi<{ journeys: Journey[] }>(`/api/admin/projects/${id}/journeys`);
+        if (my !== reqRef.current) return;
         setJourneys(d.journeys);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
     []
@@ -95,12 +99,12 @@ export default function JourneysPage() {
                 {steps.map((s, i) => (
                   <div key={i} className="space-y-2 rounded-lg border border-border p-3">
                     <div className="flex items-center gap-2">
-                      <Select value={s.type} onChange={(e) => updateStep(i, { type: e.target.value as Step["type"] })} className="w-32">
+                      <Select aria-label="스텝 타입" value={s.type} onChange={(e) => updateStep(i, { type: e.target.value as Step["type"] })} className="w-32">
                         <option value="send">send</option>
                         <option value="wait">wait</option>
                       </Select>
                       <span className="text-xs text-muted-foreground">스텝 {i + 1}</span>
-                      <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setSteps(steps.filter((_, j) => j !== i))} disabled={steps.length === 1}>
+                      <Button variant="ghost" size="icon" className="ml-auto" aria-label="스텝 삭제" onClick={() => setSteps(steps.filter((_, j) => j !== i))} disabled={steps.length === 1}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>

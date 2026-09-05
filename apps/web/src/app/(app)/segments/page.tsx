@@ -20,15 +20,19 @@ export default function SegmentsPage() {
   const [segments, setSegments] = React.useState<Segment[]>([]);
   const [name, setName] = React.useState("");
   const [rules, setRules] = React.useState<Rule[]>([{ attribute: "", value: "" }]);
+  const reqRef = React.useRef(0);
 
   const load = React.useCallback(
     async (id: string) => {
       if (!id) return;
+      const my = ++reqRef.current;
+      setSegments([]);
       try {
         const d = await adminApi<{ segments: Segment[] }>(`/api/admin/projects/${id}/segments`);
+        if (my !== reqRef.current) return;
         setSegments(d.segments);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
     []
@@ -84,7 +88,7 @@ export default function SegmentsPage() {
                       onChange={(e) => setRules(rules.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
                       placeholder="value (예: pro)"
                     />
-                    <Button variant="ghost" size="icon" onClick={() => setRules(rules.filter((_, j) => j !== i))} disabled={rules.length === 1}>
+                    <Button variant="ghost" size="icon" aria-label="규칙 삭제" onClick={() => setRules(rules.filter((_, j) => j !== i))} disabled={rules.length === 1}>
                       <X className="h-4 w-4" />
                     </Button>
                   </div>

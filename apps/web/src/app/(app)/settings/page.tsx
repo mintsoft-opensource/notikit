@@ -12,14 +12,27 @@ import { useProjects, useSession, adminApi, logout } from "@/lib/admin-client";
 
 export default function SettingsPage() {
   const { user } = useSession();
-  const { projects } = useProjects();
+  const { projects, reload } = useProjects();
   const [sel, setSel] = React.useState("");
   const [quietStart, setQuietStart] = React.useState("");
   const [quietEnd, setQuietEnd] = React.useState("");
   const [requireId, setRequireId] = React.useState(true);
+  const [hydrated, setHydrated] = React.useState(false);
+
+  // 선택한 프로젝트의 현재 정책으로 폼 하이드레이션 (미로드 상태로 저장해 덮어쓰기 방지)
+  React.useEffect(() => {
+    setHydrated(false);
+    if (!sel) return;
+    const p = projects.find((x) => x.id === sel);
+    if (!p) return;
+    setRequireId(p.requireIdentityVerification ?? true);
+    setQuietStart(p.quietStartHour == null ? "" : String(p.quietStartHour));
+    setQuietEnd(p.quietEndHour == null ? "" : String(p.quietEndHour));
+    setHydrated(true);
+  }, [sel, projects]);
 
   async function saveProjectSettings() {
-    if (!sel) return;
+    if (!sel || !hydrated) return;
     try {
       await adminApi(`/api/admin/projects/${sel}`, {
         method: "PATCH",
@@ -30,6 +43,7 @@ export default function SettingsPage() {
         }),
       });
       toast.success("프로젝트 설정 저장됨");
+      reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "저장 실패");
     }
@@ -54,7 +68,17 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">{user?.role ?? ""}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => logout()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await logout();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "로그아웃 실패");
+              }
+            }}
+          >
             <LogOut className="h-4 w-4" /> 로그아웃
           </Button>
         </CardContent>
@@ -93,7 +117,7 @@ export default function SettingsPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={saveProjectSettings}>
+              <Button onClick={saveProjectSettings} disabled={!hydrated}>
                 <Save className="h-4 w-4" /> 정책 저장
               </Button>
             </div>

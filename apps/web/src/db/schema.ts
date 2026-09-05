@@ -24,6 +24,8 @@ export const adminUsers = pgTable("admin_users", {
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("owner"), // owner | admin | viewer
+  // 세션 무효화용 버전. 로그아웃/비번변경 시 증가 → 기존 발급 토큰 전부 무효.
+  sessionVersion: integer("session_version").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   emailIdx: uniqueIndex("admin_users_email_idx").on(t.email),

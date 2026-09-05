@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { requireAdmin, encryptSecret } from "@/lib/keys";
+import { encryptSecret } from "@/lib/keys";
+import { requireProject, checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { parseKakaoConfig } from "@/lib/kakao";
 import { assertSafeWebhookUrl } from "@/lib/webhooks";
@@ -11,8 +12,10 @@ export const dynamic = "force-dynamic";
 
 /** [Web Admin] 카카오 알림톡 설정 업로드 (웹) — 검증 후 암호화 저장 */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  if (!requireAdmin(req)) return fail("Unauthorized", 401);
   const { id } = await ctx.params;
+  if (!checkOrigin(req)) return fail("Invalid origin", 403);
+  const authz = await requireProject(req, id, { write: true });
+  if (!authz.ok) return fail(authz.error, authz.status);
 
   let payload: unknown;
   try {

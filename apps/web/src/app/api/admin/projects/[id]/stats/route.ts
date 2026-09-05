@@ -2,14 +2,15 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { devices, pushUsers, pushLogs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { requireAdmin } from "@/lib/keys";
+import { requireProject, checkOrigin } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
 
 /** [Web Admin] 프로젝트 분석 — 디바이스/유저/발송 통계 + DAU */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  if (!requireAdmin(req)) return fail("Unauthorized", 401);
   const { id } = await ctx.params;
+  const authz = await requireProject(req, id);
+  if (!authz.ok) return fail(authz.error, authz.status);
   const db = getDb();
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 

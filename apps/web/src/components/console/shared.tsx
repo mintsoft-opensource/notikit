@@ -25,7 +25,7 @@ export function ProjectPicker({
   onChange: (id: string) => void;
 }) {
   return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)} className="w-full sm:w-72">
+    <Select aria-label="프로젝트 선택" value={value} onChange={(e) => onChange(e.target.value)} className="w-full sm:w-72">
       <option value="">프로젝트 선택…</option>
       {projects.map((p) => (
         <option key={p.id} value={p.id}>

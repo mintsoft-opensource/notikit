@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { requireAdmin, encryptSecret } from "@/lib/keys";
+import { encryptSecret } from "@/lib/keys";
+import { requireProject, checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 
@@ -13,8 +14,10 @@ export const dynamic = "force-dynamic";
  * 검증 → AES-256-GCM 암호화 → firebase_credentials_enc 저장. 원문은 저장/반환하지 않음.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  if (!requireAdmin(req)) return fail("Unauthorized", 401);
   const { id } = await ctx.params;
+  if (!checkOrigin(req)) return fail("Invalid origin", 403);
+  const authz = await requireProject(req, id, { write: true });
+  if (!authz.ok) return fail(authz.error, authz.status);
 
   let payload: unknown;
   try {
