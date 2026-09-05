@@ -54,6 +54,19 @@ pnpm --filter @notikit/web test     # vitest (단위)
 pnpm --filter @notikit/web e2e      # Playwright E2E (DB 필요)
 ```
 
+## 콘솔 로그인
+- 관리 콘솔(`/dashboard` 등 `(app)` 그룹)은 **이메일/비밀번호 계정 로그인**으로 보호된다(세션은 httpOnly 서명 쿠키, scrypt 해시).
+- 최초 접속 시 `/login` 에서 **최초 관리자(owner) 계정을 부트스트랩 등록**한다(관리자 0명일 때만).
+- 프로그램적 접근(E2E/curl/worker)은 `x-admin-token`(= `ADMIN_TOKEN`) 으로 superadmin 인증 가능(하위호환).
+- 역할: `owner`/`admin` 은 쓰기, `viewer` 는 읽기 전용. 프로젝트는 org 단위로 격리된다.
+
+## 보안 · 배포 하드닝 (프로덕션)
+- **`BOOTSTRAP_TOKEN` 설정 권장**: 미설정 상태의 빈 설치는 먼저 접근한 사람이 최초 관리자를 선점할 수 있다. 공개 배포 전 설정하면 최초 등록에 `x-bootstrap-token` 헤더가 필요해진다.
+- **TLS**: 리버스 프록시에서 TLS 종료 시 `APP_ORIGIN=https://your-host` 지정(CSRF 정확 대조). 쿠키 `Secure` 는 프로덕션 기본 활성(로컬 http 는 `COOKIE_INSECURE=true`).
+- **시크릿**: `NOTIKIT_ENCRYPTION_KEY`(암호화)·`SESSION_SECRET`(세션 서명, 미설정 시 암호화 키 대체)·`ADMIN_TOKEN` 은 강한 랜덤값으로.
+- **다중 인스턴스**: rate limit/큐는 현재 **단일 인스턴스** 기준(인메모리). 수평 확장 시 Redis 기반 리미터/큐로 교체(`.env.example` 참고).
+- 전 변경 API 는 same-origin `Origin` 검증(CSRF), 요청 본문 32KB 상한(스트리밍), 로그인 계정별 rate limit + scrypt 동시성 상한을 적용한다.
+
 ## 문서
 - 기획/아키텍처: [`docs/plan/`](docs/plan/) — 로드맵 문서. 각 기능의 **구현/계획** 상태는 [`docs/plan/01-features.md`](docs/plan/01-features.md) 참고.
 - API: `/docs` (Swagger UI) · OpenAPI 스펙: `/api/openapi.json` — App SDK + Web Admin 전 엔드포인트 문서화.
