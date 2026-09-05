@@ -155,36 +155,37 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                description: "external_id 또는 token 중 하나 필수",
+                description: "external_id 또는 token 중 하나 필수 (identity 검증 없음)",
                 properties: {
                   external_id: { type: "string", maxLength: 255 },
                   token: { type: "string", maxLength: 4096 },
                   reason: { type: "string", enum: ["opt_out", "bounced", "complaint", "manual"], default: "opt_out" },
-                  identity_hash: { type: "string", description: "external_id 지정 시 필요" },
                 },
               },
             },
           },
         },
-        responses: { "200": { description: "등록됨" }, "422": { description: "external_id 또는 token 필요" } },
+        responses: { "201": { description: "등록됨" }, "422": { description: "external_id 또는 token 필요" } },
       },
     },
     "/api/v1/inbox": {
       get: {
         tags: ["App SDK"],
         summary: "인앱 인박스 조회 (유저별 알림 목록)",
+        description: "본인 데이터만 조회 가능 — `identity_hash` 필수(IDOR 방지).",
         security: [{ apiKey: [] }],
         parameters: [
           { name: "external_id", in: "query", required: true, schema: { type: "string" } },
-          { name: "identity_hash", in: "query", required: false, schema: { type: "string" }, description: "identity 검증" },
+          { name: "identity_hash", in: "query", required: true, schema: { type: "string" }, description: "HMAC-SHA256(external_id, api_secret)" },
         ],
-        responses: { "200": { description: "최근 50건" }, "422": { description: "external_id 필요" } },
+        responses: { "200": { description: "최근 50건 + unread 수" }, "403": { description: "identity_hash 불일치/누락" }, "422": { description: "external_id 필요" } },
       },
     },
     "/api/v1/inbox/read": {
       post: {
         tags: ["App SDK"],
         summary: "인박스 읽음 처리",
+        description: "본인 데이터만 처리 가능 — `identity_hash` 필수(IDOR 방지).",
         security: [{ apiKey: [] }],
         requestBody: {
           required: true,
@@ -192,23 +193,24 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["external_id"],
+                required: ["external_id", "identity_hash"],
                 properties: {
                   external_id: { type: "string", maxLength: 255 },
-                  identity_hash: { type: "string", maxLength: 128 },
+                  identity_hash: { type: "string", maxLength: 128, description: "HMAC-SHA256(external_id, api_secret)" },
                   notification_id: { type: "string", format: "uuid", description: "미지정 시 전체 읽음 처리" },
                 },
               },
             },
           },
         },
-        responses: { "200": { description: "읽음 처리됨" } },
+        responses: { "200": { description: "읽음 처리됨" }, "403": { description: "identity_hash 불일치/누락" } },
       },
     },
     "/api/v1/journeys/enroll": {
       post: {
         tags: ["App SDK"],
         summary: "저니(워크플로) 등록",
+        description: "타 유저 대상 지정 방지 — `identity_hash` 필수.",
         security: [{ apiKey: [] }],
         requestBody: {
           required: true,
@@ -216,21 +218,29 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["journey", "external_id"],
+                required: ["journey", "external_id", "identity_hash"],
                 properties: {
                   journey: { type: "string", minLength: 1, maxLength: 120, description: "저니 이름" },
                   external_id: { type: "string", minLength: 1, maxLength: 255 },
-                  identity_hash: { type: "string", maxLength: 128 },
+                  identity_hash: { type: "string", maxLength: 128, description: "HMAC-SHA256(external_id, api_secret)" },
                 },
               },
             },
           },
         },
-        responses: { "200": { description: "등록됨 (중복 무시)" }, "404": { description: "저니 없음" } },
+        responses: {
+          "201": { description: "신규 등록됨" },
+          "200": { description: "이미 등록됨 (멱등)" },
+          "403": { description: "identity_hash 불일치/누락" },
+          "404": { description: "저니 없음" },
+        },
       },
     },
     "/api/health": {
       get: { tags: ["App SDK"], summary: "헬스체크", security: [], responses: { "200": { description: "ok" } } },
+    },
+    "/api/openapi.json": {
+      get: { tags: ["App SDK"], summary: "OpenAPI 3.1 스펙(JSON)", security: [], responses: { "200": { description: "스펙" } } },
     },
 
     // ─────────── Web Admin ───────────
@@ -278,8 +288,8 @@ export const openapi = {
                 type: "object",
                 properties: {
                   require_identity_verification: { type: "boolean" },
-                  quiet_start_hour: { type: "integer", minimum: 0, maximum: 23, nullable: true },
-                  quiet_end_hour: { type: "integer", minimum: 0, maximum: 23, nullable: true },
+                  quiet_start_hour: { type: ["integer", "null"], minimum: 0, maximum: 23 },
+                  quiet_end_hour: { type: ["integer", "null"], minimum: 0, maximum: 23 },
                 },
               },
             },
@@ -443,7 +453,7 @@ export const openapi = {
                         type: { type: "string", enum: ["send", "wait"] },
                         title: { type: "string", maxLength: 255 },
                         body: { type: "string", maxLength: 4000 },
-                        hours: { type: "integer", minimum: 0, description: "wait 스텝 대기 시간" },
+                        hours: { type: "integer", minimum: 0, maximum: 8760, description: "wait 스텝 대기 시간(최대 1년)" },
                       },
                     },
                   },

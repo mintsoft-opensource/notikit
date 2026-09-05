@@ -1,12 +1,26 @@
 # Notikit — self-host 번들 (Small 프로파일: 한 박스 전부).
 # 프로덕션은 DATABASE_URL / REDIS_URL 을 관리형으로 지정하고 postgres/redis 서비스 제거.
 services:
+  # DB 마이그레이션 1회 실행(멱등) — full deps 가 있는 build 스테이지에서 실행해
+  # standalone 트레이싱 누락 위험을 제거. web 은 이 서비스 성공 후 시작.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: build
+    command: ["node", "apps/web/migrate.mjs"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://notikit:notikit@postgres:5432/notikit
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    # 기동 시 DB 마이그레이션 자동 적용(멱등) 후 서버 시작.
-    command: ["sh", "-c", "node apps/web/migrate.mjs && node apps/web/server.js"]
     env_file: .env
     environment:
       DATABASE_URL: postgres://notikit:notikit@postgres:5432/notikit
@@ -14,6 +28,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_started
     ports:

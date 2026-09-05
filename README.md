@@ -13,17 +13,17 @@
 
 ## 모노레포 구조
 ```
-apps/web            # Next.js 대시보드 + API + Swagger
-packages/design     # 디자인 시스템(Tailwind v4 + shadcn/ui 토큰)
-packages/sdk-core   # 공통 전송·API 클라이언트·타입
-packages/sdk-web    # 브라우저 Web Push
-packages/sdk-react  # React/Next hooks
-sdks/android        # Kotlin/Java (Maven/JitPack)
-sdks/swift          # Swift (SPM/CocoaPods)
-sdks/flutter        # Dart (pub.dev)
-sdks/react-native   # RN
-mcp/                # 서버 내장 MCP (AI 개발 가속)
-docs/plan/          # 기획 문서 세트
+apps/web                    # Next.js 대시보드 + API + Swagger (+ worker.mjs, migrate.mjs)
+packages/design             # 디자인 시스템(Tailwind v4 + shadcn/ui 토큰)
+packages/sdk-core           # 공통 전송·API 클라이언트·타입
+packages/sdk-web            # 브라우저 Web Push
+packages/sdk-react          # React/Next hooks
+packages/sdk-react-native   # React Native
+sdks/android                # Kotlin/Java (Maven/JitPack)
+sdks/swift                  # Swift (SPM/CocoaPods)
+sdks/flutter                # Dart (pub.dev)
+mcp/                        # 독립 실행 MCP 서버 (stdio; AI 개발 가속)
+docs/plan/                  # 기획 문서 세트
 ```
 
 ## 빠른 시작 (self-host)
@@ -32,8 +32,8 @@ cp .env.example .env      # 최소: NOTIKIT_ENCRYPTION_KEY(32자+), ADMIN_TOKEN 
 docker compose up -d      # web + worker + postgres + redis
 open http://localhost:3000
 ```
-- **web** 컨테이너가 기동 시 DB 마이그레이션을 자동 적용(`migrate.mjs`, 멱등) 후 서버를 시작한다.
-- **worker** 컨테이너가 주기적으로 각 프로젝트의 큐 발송(`process-queue`)·저니 진행(`journeys/process`)·웹훅 재시도(`webhooks/retry`)를 처리한다. worker 가 없으면 `POST /api/v1/messages` 로 큐잉된 푸시는 발송되지 않는다.
+- **migrate** 서비스가 먼저 DB 마이그레이션을 적용(`migrate.mjs`, 멱등)하고, **web** 은 그 성공 후 시작한다.
+- **worker** 컨테이너가 주기적으로 각 프로젝트의 큐 발송(`process-queue`)·저니 진행(`journeys/process`)·웹훅 재시도(`webhooks/retry`)를 처리한다. worker 없이도 해당 admin 엔드포인트를 직접(cron 등) 호출하면 발송된다. 다만 worker 가 없으면 큐잉만 되고 자동 발송은 되지 않는다.
 - Firebase 자격증명이 없으면 **log-only 모드**로 동작(실제 발송 대신 로그만 기록, `status="logged"`).
 
 ## 개발
