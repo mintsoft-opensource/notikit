@@ -35,11 +35,12 @@ export default function TesterPage() {
 
   async function call(path: string, opts: RequestInit, name: string) {
     const res = await fetch(path, { ...opts, headers: { "content-type": "application/json", ...(opts.headers ?? {}) } });
-    let body: unknown;
+    const raw = await res.text(); // 본문은 1회만 읽는다
+    let body: unknown = raw;
     try {
-      body = await res.json();
+      body = raw ? JSON.parse(raw) : {};
     } catch {
-      body = await res.text();
+      /* 비 JSON 응답은 원문 그대로 */
     }
     push(name, res.status, res.ok, body);
     return { status: res.status, body };
@@ -92,6 +93,8 @@ export default function TesterPage() {
         { method: "POST", headers: admin, body: "{}" },
         "6. 큐 처리 (log-only 발송)"
       );
+    } catch (e) {
+      push("오류", 0, false, e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
     }
@@ -101,7 +104,7 @@ export default function TesterPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
         title="API 테스터"
-        description="전체 플로우(프로젝트→Firebase→등록→식별→구독→발송→처리)를 브라우저에서 실행·검증"
+        description="전체 플로우(프로젝트→디바이스 등록→식별→구독→발송→큐 처리)를 브라우저에서 실행·검증. Firebase 미설정 log-only 모드."
       />
 
       <Card>

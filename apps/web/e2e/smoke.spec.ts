@@ -88,6 +88,36 @@ test.describe("smoke", () => {
     expect(patch.status()).toBe(404);
   });
 
+  test("CSRF: 쿠키 세션 mutation 은 Origin 없으면 403", async ({ page }) => {
+    await ensureLogin(page);
+    // Origin 헤더 없이(브라우저 아닌 컨텍스트) 상태변경 POST → 거부
+    const res = await page.request.post("/api/admin/projects", { data: { name: "csrf-x" } });
+    expect(res.status()).toBe(403);
+  });
+
+  test("body 상한: 32KB 초과 요청은 413", async ({ page }) => {
+    await ensureLogin(page);
+    const res = await page.request.post("/api/admin/projects", {
+      headers: { origin: ORIGIN },
+      data: { name: "big", pad: "A".repeat(40_000) },
+    });
+    expect(res.status()).toBe(413);
+  });
+
+  test("세션 무효화: 로그아웃 후 옛 쿠키 재사용은 거부", async ({ page }) => {
+    await ensureLogin(page);
+    const cookie = (await page.context().cookies()).find((c) => c.name === "notikit_session");
+    expect(cookie?.value).toBeTruthy();
+    // 로그아웃 → sessionVersion 증가
+    const out = await page.request.post("/api/admin/logout", { headers: { origin: ORIGIN } });
+    expect(out.ok()).toBeTruthy();
+    // 옛 쿠키로 admin 호출 → 무효
+    const replay = await page.request.get("/api/admin/projects", {
+      headers: { cookie: `notikit_session=${cookie!.value}` },
+    });
+    expect(replay.status()).toBe(401);
+  });
+
   test("docs page loads (Scalar)", async ({ request }) => {
     const res = await request.get("/docs");
     expect(res.status()).toBe(200);

@@ -11,14 +11,15 @@ export const serviceAccountSchema = z.object({
 
 export type ServiceAccount = z.infer<typeof serviceAccountSchema>;
 
-/** private_key 가 실제 파싱 가능한 PEM 인지 검증 (사용 불가한 키가 정상 키를 덮어쓰는 것 방지) */
-function assertUsablePrivateKey(pem: string): void {
+/** private_key 를 정규화(JSON 이스케이프 개행 복원)하고 실제 파싱 가능한지 검증. 실패 시 throw. */
+function normalizeAndValidateKey(pem: string): string {
   const normalized = pem.replace(/\\n/g, "\n"); // JSON 이스케이프된 개행 복원
   try {
     createPrivateKey(normalized);
   } catch {
     throw new Error("private_key 가 유효한 PEM 개인키가 아닙니다");
   }
+  return normalized;
 }
 
 /** 업로드된 값(문자열/객체)을 검증된 서비스 계정으로 파싱. 실패 시 에러 메시지 throw. */
@@ -28,6 +29,6 @@ export function parseServiceAccount(input: unknown): ServiceAccount {
   if (!parsed.success) {
     throw new Error("유효한 Firebase 서비스 계정 JSON 이 아닙니다 (type/project_id/private_key/client_email 필요)");
   }
-  assertUsablePrivateKey(parsed.data.private_key);
-  return parsed.data;
+  // 정규화된 키를 저장 → 이후 firebase-admin cert() 가 그대로 사용 가능
+  return { ...parsed.data, private_key: normalizeAndValidateKey(parsed.data.private_key) };
 }
