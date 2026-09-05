@@ -49,6 +49,7 @@ export default function LogsPage() {
   React.useEffect(() => {
     selRef.current = sel;
     if (sel) load(sel);
+    else setLogs([]); // 프로젝트 해제 시 이전 로그 잔존 방지
   }, [sel, load]);
 
   async function processQueue() {
