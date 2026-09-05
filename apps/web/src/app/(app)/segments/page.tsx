@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Field } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
@@ -21,6 +21,7 @@ export default function SegmentsPage() {
   const [name, setName] = React.useState("");
   const [rules, setRules] = React.useState<Rule[]>([{ attribute: "", value: "" }]);
   const reqRef = React.useRef(0);
+  const selRef = React.useRef(sel);
 
   const load = React.useCallback(
     async (id: string) => {
@@ -29,16 +30,17 @@ export default function SegmentsPage() {
       setSegments([]);
       try {
         const d = await adminApi<{ segments: Segment[] }>(`/api/admin/projects/${id}/segments`);
-        if (my !== reqRef.current) return;
+        if (my !== reqRef.current || id !== selRef.current) return;
         setSegments(d.segments);
       } catch (e) {
-        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
     []
   );
 
   React.useEffect(() => {
+    selRef.current = sel;
     if (sel) load(sel);
   }, [sel, load]);
 
@@ -69,10 +71,9 @@ export default function SegmentsPage() {
           <Card>
             <CardHeader><CardTitle>새 세그먼트</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label>이름</Label>
+              <Field label="이름">
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: pro-users" />
-              </div>
+              </Field>
               <div className="space-y-2">
                 <Label>속성 규칙 (attribute = value)</Label>
                 {rules.map((r, i) => (

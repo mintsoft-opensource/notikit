@@ -1,9 +1,35 @@
 import { createHmac, randomBytes, scrypt as _scrypt, timingSafeEqual, type BinaryLike, type ScryptOptions } from "node:crypto";
 
+// 동시 scrypt 연산 상한 (메모리·워커 고갈 방어). 초과분은 큐잉.
+const SCRYPT_MAX = Number(process.env.SCRYPT_CONCURRENCY ?? 2);
+let scryptActive = 0;
+const scryptQueue: Array<() => void> = [];
+async function acquireScrypt(): Promise<void> {
+  if (scryptActive < SCRYPT_MAX) {
+    scryptActive += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => scryptQueue.push(resolve));
+  scryptActive += 1;
+}
+function releaseScrypt(): void {
+  scryptActive -= 1;
+  scryptQueue.shift()?.();
+}
+
 function scrypt(password: BinaryLike, salt: BinaryLike, keylen: number, options: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     _scrypt(password, salt, keylen, options, (err, dk) => (err ? reject(err) : resolve(dk as Buffer)));
   });
+}
+
+async function boundedScrypt(password: BinaryLike, salt: BinaryLike, keylen: number, options: ScryptOptions): Promise<Buffer> {
+  await acquireScrypt();
+  try {
+    return await scrypt(password, salt, keylen, options);
+  } finally {
+    releaseScrypt();
+  }
 }
 
 export const SESSION_COOKIE = "notikit_session";
@@ -23,7 +49,7 @@ function secret(): string {
 // ── 비밀번호 해시 (scrypt async, 파라미터 임베드) ─────────────
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
-  const dk = (await scrypt(password, salt, SCRYPT.keylen, SCRYPT)) as Buffer;
+  const dk = await boundedScrypt(password, salt, SCRYPT.keylen, SCRYPT);
   return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString("hex")}$${dk.toString("hex")}`;
 }
 
@@ -32,19 +58,19 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (parts.length === 6 && parts[0] === "scrypt") {
     const [, N, r, p, saltHex, hashHex] = parts;
     const hash = Buffer.from(hashHex, "hex");
-    const dk = (await scrypt(password, Buffer.from(saltHex, "hex"), hash.length, {
+    const dk = await boundedScrypt(password, Buffer.from(saltHex, "hex"), hash.length, {
       N: Number(N),
       r: Number(r),
       p: Number(p),
       maxmem: SCRYPT.maxmem,
-    })) as Buffer;
+    });
     return hash.length === dk.length && timingSafeEqual(hash, dk);
   }
   // 레거시 "salt:hash" (파라미터 없음) — 로그인 성공 시 상위에서 재해시 권장
   const [saltHex, hashHex] = stored.split(":");
   if (!saltHex || !hashHex) return false;
   const hash = Buffer.from(hashHex, "hex");
-  const dk = await scrypt(password, Buffer.from(saltHex, "hex"), hash.length, {});
+  const dk = await boundedScrypt(password, Buffer.from(saltHex, "hex"), hash.length, {});
   return hash.length === dk.length && timingSafeEqual(hash, dk);
 }
 

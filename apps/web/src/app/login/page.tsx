@@ -14,6 +14,8 @@ export default function LoginPage() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [orgName, setOrgName] = React.useState("");
+  const [bootstrapToken, setBootstrapToken] = React.useState("");
+  const [tokenRequired, setTokenRequired] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
@@ -25,6 +27,7 @@ export default function LoginPage() {
           router.replace("/dashboard");
           return;
         }
+        setTokenRequired(!!j.data?.bootstrapTokenRequired);
         setMode(j.data?.needsBootstrap ? "register" : "login");
       } catch {
         setMode("login");
@@ -38,7 +41,9 @@ export default function LoginPage() {
     try {
       const path = mode === "register" ? "/api/admin/register" : "/api/admin/login";
       const body = mode === "register" ? { org_name: orgName || undefined, email, password } : { email, password };
-      const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (mode === "register" && tokenRequired) headers["x-bootstrap-token"] = bootstrapToken;
+      const r = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
       const j = await r.json();
       if (!r.ok || !j.success) throw new Error(j.error ?? "실패");
       toast.success(mode === "register" ? "관리자 계정 생성됨" : "로그인되었습니다");
@@ -73,6 +78,12 @@ export default function LoginPage() {
                   <div className="space-y-1">
                     <Label htmlFor="org">조직 이름 (선택)</Label>
                     <Input id="org" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="My Company" autoComplete="organization" />
+                  </div>
+                )}
+                {mode === "register" && tokenRequired && (
+                  <div className="space-y-1">
+                    <Label htmlFor="bootstrap">부트스트랩 토큰</Label>
+                    <Input id="bootstrap" type="password" required value={bootstrapToken} onChange={(e) => setBootstrapToken(e.target.value)} placeholder="BOOTSTRAP_TOKEN" />
                   </div>
                 )}
                 <div className="space-y-1">

@@ -26,7 +26,8 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail("이메일/비밀번호를 확인하세요", 422);
   const email = parsed.data.email.toLowerCase();
 
-  // 계정별 시도 제한 (비싼 해시 연산 전에 차단)
+  // 전역 admission 제한(미존재 이메일 회전 방어) + 계정별 제한 (해시 연산 전 차단)
+  if (!rateLimit("auth:login", 60, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
   if (!rateLimit(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
 
   const db = getDb();

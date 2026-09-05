@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus, Copy, RotateCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Field } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
@@ -21,25 +21,31 @@ export default function WebhooksPage() {
   const [events, setEvents] = React.useState("");
   const [secret, setSecret] = React.useState<string | null>(null);
   const reqRef = React.useRef(0);
+  const selRef = React.useRef(sel);
 
   const load = React.useCallback(
     async (id: string) => {
       if (!id) return;
       const my = ++reqRef.current;
       setHooks([]);
-      setSecret(null); // 프로젝트 전환 시 이전 secret 노출 방지
       try {
         const d = await adminApi<{ webhooks: Webhook[] }>(`/api/admin/projects/${id}/webhooks`);
-        if (my !== reqRef.current) return;
+        if (my !== reqRef.current || id !== selRef.current) return;
         setHooks(d.webhooks);
       } catch (e) {
-        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
     []
   );
 
+  // 프로젝트 전환 시에만 1회성 secret 초기화 (create 직후 refresh 로는 지우지 않음)
   React.useEffect(() => {
+    setSecret(null);
+  }, [sel]);
+
+  React.useEffect(() => {
+    selRef.current = sel;
     if (sel) load(sel);
   }, [sel, load]);
 
@@ -89,14 +95,12 @@ export default function WebhooksPage() {
           <Card>
             <CardHeader><CardTitle>웹훅 등록</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label>URL</Label>
+              <Field label="URL">
                 <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/hooks/notikit" />
-              </div>
-              <div className="space-y-1">
-                <Label>이벤트 (쉼표 구분, 비우면 전체)</Label>
+              </Field>
+              <Field label="이벤트 (쉼표 구분, 비우면 전체)">
                 <Input value={events} onChange={(e) => setEvents(e.target.value)} placeholder="message.sent, message.failed" />
-              </div>
+              </Field>
               <Button onClick={create} disabled={!url.trim()}>
                 <Plus className="h-4 w-4" /> 등록
               </Button>

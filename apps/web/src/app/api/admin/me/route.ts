@@ -11,16 +11,18 @@ export async function GET(req: Request) {
   const db = getDb();
   const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(adminUsers);
   const needsBootstrap = count === 0;
+  const bootstrapTokenRequired = needsBootstrap && !!process.env.BOOTSTRAP_TOKEN;
 
   const ctx = await getAuthContext(req);
-  if (!ctx) return ok({ authenticated: false, user: null, needsBootstrap });
+  if (!ctx) return ok({ authenticated: false, user: null, needsBootstrap, bootstrapTokenRequired });
 
-  if (ctx.superadmin) return ok({ authenticated: true, user: { email: "superadmin", role: "owner" }, needsBootstrap: false });
+  if (ctx.superadmin)
+    return ok({ authenticated: true, user: { email: "superadmin", role: "owner" }, needsBootstrap: false, bootstrapTokenRequired: false });
 
   const user = (
     await db.select({ email: adminUsers.email, role: adminUsers.role }).from(adminUsers).where(eq(adminUsers.id, ctx.userId!)).limit(1)
   )[0];
-  if (!user) return ok({ authenticated: false, user: null, needsBootstrap });
+  if (!user) return ok({ authenticated: false, user: null, needsBootstrap, bootstrapTokenRequired });
 
-  return ok({ authenticated: true, user: { email: user.email, role: user.role }, needsBootstrap: false });
+  return ok({ authenticated: true, user: { email: user.email, role: user.role }, needsBootstrap: false, bootstrapTokenRequired: false });
 }

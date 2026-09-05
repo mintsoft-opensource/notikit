@@ -25,6 +25,7 @@ export default function LogsPage() {
   const [logs, setLogs] = React.useState<Log[]>([]);
   const [loading, setLoading] = React.useState(false);
   const reqRef = React.useRef(0);
+  const selRef = React.useRef(sel);
 
   const load = React.useCallback(
     async (id: string) => {
@@ -34,10 +35,10 @@ export default function LogsPage() {
       setLogs([]);
       try {
         const d = await adminApi<{ logs: Log[] }>(`/api/admin/projects/${id}/logs`);
-        if (my !== reqRef.current) return; // 다른 프로젝트로 전환됨 → 무시
+        if (my !== reqRef.current || id !== selRef.current) return; // 최신 요청 & 현재 선택일 때만 커밋
         setLogs(d.logs);
       } catch (e) {
-        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       } finally {
         if (my === reqRef.current) setLoading(false);
       }
@@ -46,6 +47,7 @@ export default function LogsPage() {
   );
 
   React.useEffect(() => {
+    selRef.current = sel;
     if (sel) load(sel);
   }, [sel, load]);
 

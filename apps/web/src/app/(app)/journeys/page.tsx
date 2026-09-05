@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus, X, Play, Send, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label, Select, Field } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
@@ -21,6 +21,7 @@ export default function JourneysPage() {
   const [name, setName] = React.useState("");
   const [steps, setSteps] = React.useState<Step[]>([{ type: "send", title: "", body: "" }]);
   const reqRef = React.useRef(0);
+  const selRef = React.useRef(sel);
 
   const load = React.useCallback(
     async (id: string) => {
@@ -29,16 +30,17 @@ export default function JourneysPage() {
       setJourneys([]);
       try {
         const d = await adminApi<{ journeys: Journey[] }>(`/api/admin/projects/${id}/journeys`);
-        if (my !== reqRef.current) return;
+        if (my !== reqRef.current || id !== selRef.current) return;
         setJourneys(d.journeys);
       } catch (e) {
-        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
       }
     },
     []
   );
 
   React.useEffect(() => {
+    selRef.current = sel;
     if (sel) load(sel);
   }, [sel, load]);
 
@@ -90,10 +92,9 @@ export default function JourneysPage() {
           <Card>
             <CardHeader><CardTitle>새 저니</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label>이름</Label>
+              <Field label="이름">
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: onboarding" />
-              </div>
+              </Field>
               <div className="space-y-2">
                 <Label>스텝</Label>
                 {steps.map((s, i) => (

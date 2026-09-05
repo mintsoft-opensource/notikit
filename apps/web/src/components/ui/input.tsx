@@ -42,6 +42,26 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
   return <label className={cn("text-xs font-semibold text-foreground", className)} {...props} />;
 }
 
+/** 라벨↔컨트롤을 htmlFor/id 로 연결 (useId). children 에 자동으로 id 주입. */
+export function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: React.ReactNode;
+  hint?: string;
+  children: React.ReactElement<{ id?: string }>;
+}) {
+  const id = React.useId();
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id}>{label}</Label>
+      {React.cloneElement(children, { id: children.props.id ?? id })}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
 export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select

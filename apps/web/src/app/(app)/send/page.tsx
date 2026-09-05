@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
 import { useProjects, adminApi } from "@/lib/admin-client";
@@ -74,10 +74,9 @@ export default function SendPage() {
               <Label>프로젝트</Label>
               <ProjectPicker projects={projects} value={sel} onChange={setSel} />
             </div>
-            <div className="space-y-1">
-              <Label>api-secret (발송 전용)</Label>
+            <Field label="api-secret (발송 전용)">
               <Input value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="notikit_sec_…" type="password" />
-            </div>
+            </Field>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -90,24 +89,20 @@ export default function SendPage() {
                 <option value="broadcast">broadcast (전체)</option>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>{type === "single" ? "external_id" : type === "broadcast" ? "대상 (불필요)" : `${type} 이름`}</Label>
+            <Field label={type === "single" ? "external_id" : type === "broadcast" ? "대상 (불필요)" : `${type} 이름`}>
               <Input value={target} onChange={(e) => setTarget(e.target.value)} disabled={!needsTarget} placeholder={needsTarget ? "대상" : "전체 발송"} />
-            </div>
+            </Field>
           </div>
 
-          <div className="space-y-1">
-            <Label>제목</Label>
+          <Field label="제목">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder="알림 제목" />
-          </div>
-          <div className="space-y-1">
-            <Label>본문</Label>
+          </Field>
+          <Field label="본문">
             <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder="알림 본문" />
-          </div>
-          <div className="space-y-1">
-            <Label>딥링크 (선택)</Label>
+          </Field>
+          <Field label="딥링크 (선택)">
             <Input value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path 또는 https://…" />
-          </div>
+          </Field>
 
           <div className="flex flex-col gap-2 border-t border-border pt-3 text-sm">
             <label className="flex items-center gap-2">

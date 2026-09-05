@@ -81,18 +81,20 @@ export async function requireAuth(req: Request, opts?: { write?: boolean }): Pro
 export function checkOrigin(req: Request): boolean {
   const method = req.method.toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return true;
-  // 프로그램적 호출(서버-투-서버, curl)은 x-admin-token 사용 → Origin 없음 허용
-  if (req.headers.get("x-admin-token")) return true;
+
+  // **유효한** superadmin 토큰만 면제 (서버-투-서버/curl). 잘못된 토큰은 쿠키로 폴백되므로 면제 금지.
+  const token = req.headers.get("x-admin-token");
+  if (token && process.env.ADMIN_TOKEN && token === process.env.ADMIN_TOKEN) return true;
 
   const origin = req.headers.get("origin");
   if (!origin) return false; // 브라우저 상태변경엔 Origin 필수
+
   const allowed = process.env.APP_ORIGIN;
+  if (allowed) return origin === allowed; // 정확 비교(scheme+host+port)
+
+  // APP_ORIGIN 미설정: 요청 스킴(프록시면 x-forwarded-proto) + host 로 기대 Origin 구성 후 정확 비교
   const host = req.headers.get("host");
-  try {
-    const o = new URL(origin);
-    if (allowed && o.origin === allowed) return true;
-    return !!host && o.host === host;
-  } catch {
-    return false;
-  }
+  if (!host) return false;
+  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || new URL(req.url).protocol.replace(":", "");
+  return origin === `${proto}://${host}`;
 }

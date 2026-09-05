@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus, Upload, MessageSquare, Copy, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { useProjects, adminApi, type Project } from "@/lib/admin-client";
@@ -64,15 +64,14 @@ function ProjectConfig({ project }: { project: Project }) {
       {open && (
         <div className="grid gap-6 border-t border-border p-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>
-              <span className="flex items-center gap-1.5"><Upload className="h-3.5 w-3.5" /> Firebase 서비스 계정 JSON</span>
-            </Label>
-            <Textarea
-              value={firebase}
-              onChange={(e) => setFirebase(e.target.value)}
-              placeholder='{"type":"service_account","project_id":"…"}'
-              className="min-h-28 font-mono text-xs"
-            />
+            <Field label={<span className="flex items-center gap-1.5"><Upload className="h-3.5 w-3.5" /> Firebase 서비스 계정 JSON</span>}>
+              <Textarea
+                value={firebase}
+                onChange={(e) => setFirebase(e.target.value)}
+                placeholder='{"type":"service_account","project_id":"…"}'
+                className="min-h-28 font-mono text-xs"
+              />
+            </Field>
             <Button size="sm" variant="outline" onClick={uploadFirebase} disabled={!firebase.trim()}>
               업로드 · 암호화 저장
             </Button>
@@ -131,8 +130,8 @@ export default function ProjectsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-1">
-            <Label>이름</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: my-app-prod" />
+            <Label htmlFor="new-project-name">이름</Label>
+            <Input id="new-project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: my-app-prod" />
           </div>
           <div className="space-y-1">
             <Label>환경</Label>

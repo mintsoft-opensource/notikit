@@ -5,6 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { hashPassword, createSessionToken, SESSION_COOKIE, sessionCookieAttributes } from "@/lib/session";
 import { checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
+import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -38,8 +39,16 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  const passwordHash = await hashPassword(b.password); // 락 밖에서 (비싼 연산)
   const db = getDb();
+
+  // 이미 초기화된 설치에서 비싼 해싱을 피하기 위한 사전 체크 (권위 있는 검증은 아래 트랜잭션)
+  const [{ count: pre }] = await db.select({ count: sql<number>`count(*)::int` }).from(adminUsers);
+  if (pre > 0) return fail("이미 초기화되었습니다. 로그인하세요.", 403);
+
+  // 전역 admission 제한 (미초기화 상태의 해싱 남용 방어)
+  if (!rateLimit("auth:register", 20, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
+
+  const passwordHash = await hashPassword(b.password); // 락 밖에서 (비싼 연산)
 
   let created: { id: string; email: string; role: string; orgId: string } | null = null;
   try {

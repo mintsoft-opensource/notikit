@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { adminUsers } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -13,10 +13,11 @@ export async function POST(req: Request) {
 
   const st = sessionTokenFromRequest(req);
   if (st) {
+    // 현재 버전과 일치할 때만 증가 → 이미 로그아웃된 쿠키 리플레이가 새 세션을 무효화하지 못함
     await getDb()
       .update(adminUsers)
       .set({ sessionVersion: sql`${adminUsers.sessionVersion} + 1` })
-      .where(eq(adminUsers.id, st.userId));
+      .where(and(eq(adminUsers.id, st.userId), eq(adminUsers.sessionVersion, st.ver)));
   }
 
   const res = ok({ loggedOut: true });
