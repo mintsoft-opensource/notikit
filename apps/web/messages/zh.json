@@ -19,7 +19,8 @@
     "apiDocs": "API 文档",
     "apiTester": "API 测试器",
     "projectList": "项目列表",
-    "project": "项目"
+    "project": "项目",
+    "system": "系统"
   },
   "header": {
     "openMenu": "打开菜单",
@@ -64,7 +65,9 @@
     "quickTester": "API 测试器",
     "quickTesterDesc": "全流程控制台",
     "projectsCount": "项目 ({count})",
-    "noProjects": "暂无项目。请从项目菜单创建。"
+    "noProjects": "暂无项目。请从项目菜单创建。",
+    "quickSystem": "系统查看器",
+    "quickSystemDesc": "发送趋势 · 队列 · Webhook"
   },
   "common": {
     "language": "语言",
@@ -255,5 +258,24 @@
     "createFailed": "创建失败",
     "listTitle": "旅程 ({count})",
     "empty": "无"
+  },
+  "system": {
+    "title": "系统",
+    "subtitle": "所有项目的发送趋势 · 队列 · Webhook 状态",
+    "range24h": "最近 24 小时",
+    "statSends": "发送消息 (24h)",
+    "statRecipients": "接收对象 (24h)",
+    "statSuccessRate": "发送成功率 (24h)",
+    "statQueued": "队列深度",
+    "statActiveDevices": "活跃设备",
+    "statUsers": "用户",
+    "chartHourly": "每小时发送量",
+    "chartStatuses": "发送状态分布",
+    "topProjects": "发送量最高的项目",
+    "webhooks": "Webhook 投递",
+    "whDelivered": "已投递",
+    "whFailed": "失败",
+    "whPending": "待处理",
+    "empty": "暂无数据"
   }
 }

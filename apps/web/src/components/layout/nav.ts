@@ -7,7 +7,7 @@ import {
   GitBranch,
   Webhook,
   BookOpen,
-  TerminalSquare,
+  Activity,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -28,14 +28,12 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { labelKey: "overview", href: "/dashboard", icon: LayoutDashboard, exact: true },
       { labelKey: "projects", href: "/projects", icon: FolderKanban },
+      { labelKey: "system", href: "/system", icon: Activity },
     ],
   },
   {
     labelKey: "developer",
-    items: [
-      { labelKey: "apiDocs", href: "/docs", icon: BookOpen, external: true },
-      { labelKey: "apiTester", href: "/tester", icon: TerminalSquare },
-    ],
+    items: [{ labelKey: "apiDocs", href: "/docs", icon: BookOpen, external: true }],
   },
   {
     labelKey: "settings",

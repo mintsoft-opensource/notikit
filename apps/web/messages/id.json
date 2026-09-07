@@ -19,7 +19,8 @@
     "apiDocs": "Dokumen API",
     "apiTester": "Penguji API",
     "projectList": "Daftar proyek",
-    "project": "Proyek"
+    "project": "Proyek",
+    "system": "Sistem"
   },
   "header": {
     "openMenu": "Buka menu",
@@ -64,7 +65,9 @@
     "quickTester": "Penguji API",
     "quickTesterDesc": "Konsol alur lengkap",
     "projectsCount": "Proyek ({count})",
-    "noProjects": "Tidak ada proyek. Buat satu dari menu Proyek."
+    "noProjects": "Tidak ada proyek. Buat satu dari menu Proyek.",
+    "quickSystem": "Penampil sistem",
+    "quickSystemDesc": "Tren · antrean · webhook"
   },
   "common": {
     "language": "Bahasa",
@@ -255,5 +258,24 @@
     "createFailed": "Gagal membuat",
     "listTitle": "Journey ({count})",
     "empty": "Tidak ada"
+  },
+  "system": {
+    "title": "Sistem",
+    "subtitle": "Tren pengiriman · antrean · status webhook di seluruh proyek Anda",
+    "range24h": "24 jam terakhir",
+    "statSends": "Pesan (24j)",
+    "statRecipients": "Penerima (24j)",
+    "statSuccessRate": "Tingkat keberhasilan (24j)",
+    "statQueued": "Kedalaman antrean",
+    "statActiveDevices": "Perangkat aktif",
+    "statUsers": "Pengguna",
+    "chartHourly": "Pengiriman per jam",
+    "chartStatuses": "Status pengiriman",
+    "topProjects": "Proyek teratas berdasarkan pengiriman",
+    "webhooks": "Pengiriman webhook",
+    "whDelivered": "Terkirim",
+    "whFailed": "Gagal",
+    "whPending": "Tertunda",
+    "empty": "Tidak ada data"
   }
 }

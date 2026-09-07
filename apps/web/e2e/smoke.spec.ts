@@ -84,9 +84,18 @@ test.describe("smoke", () => {
     await page.goto("/dashboard");
     // 글로벌 사이드바 — 프로젝트 스코프 메뉴(발송/로그/참여)는 프로젝트 상세로 이동됨
     await expect(page.getByRole("link", { name: "프로젝트", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "API 테스터", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "시스템", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "설정", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "발송", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "API 테스터", exact: true })).toHaveCount(0);
+  });
+
+  test("system viewer renders stats", async ({ page }) => {
+    await ensureLogin(page);
+    await page.goto("/system");
+    await expect(page.getByRole("heading", { name: "시스템" })).toBeVisible();
+    await expect(page.getByText("발송 메시지 (24h)")).toBeVisible();
+    await expect(page.getByText("웹훅 배송")).toBeVisible();
   });
 
   test("project sidebar renders project-scoped nav (발송/세그먼트/웹훅)", async ({ page }) => {

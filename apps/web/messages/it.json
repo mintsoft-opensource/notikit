@@ -19,7 +19,8 @@
     "apiDocs": "Documentazione API",
     "apiTester": "Tester API",
     "projectList": "Elenco progetti",
-    "project": "Progetto"
+    "project": "Progetto",
+    "system": "Sistema"
   },
   "header": {
     "openMenu": "Apri menu",
@@ -64,7 +65,9 @@
     "quickTester": "Tester API",
     "quickTesterDesc": "Console a flusso completo",
     "projectsCount": "Progetti ({count})",
-    "noProjects": "Nessun progetto. Creane uno dal menu Progetti."
+    "noProjects": "Nessun progetto. Creane uno dal menu Progetti.",
+    "quickSystem": "Visualizzatore di sistema",
+    "quickSystemDesc": "Tendenze · coda · webhook"
   },
   "common": {
     "language": "Lingua",
@@ -255,5 +258,24 @@
     "createFailed": "Creazione non riuscita",
     "listTitle": "Journey ({count})",
     "empty": "Nessuna"
+  },
+  "system": {
+    "title": "Sistema",
+    "subtitle": "Tendenze di invio · coda · stato dei webhook dei tuoi progetti",
+    "range24h": "Ultime 24 ore",
+    "statSends": "Messaggi (24h)",
+    "statRecipients": "Destinatari (24h)",
+    "statSuccessRate": "Tasso di successo (24h)",
+    "statQueued": "Profondità coda",
+    "statActiveDevices": "Dispositivi attivi",
+    "statUsers": "Utenti",
+    "chartHourly": "Invii per ora",
+    "chartStatuses": "Stato degli invii",
+    "topProjects": "Progetti con più invii",
+    "webhooks": "Consegne webhook",
+    "whDelivered": "Consegnati",
+    "whFailed": "Falliti",
+    "whPending": "In attesa",
+    "empty": "Nessun dato"
   }
 }

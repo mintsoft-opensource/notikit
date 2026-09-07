@@ -19,7 +19,8 @@
     "apiDocs": "API Docs",
     "apiTester": "API Tester",
     "projectList": "Project list",
-    "project": "Project"
+    "project": "Project",
+    "system": "System"
   },
   "header": {
     "openMenu": "Open menu",
@@ -64,7 +65,9 @@
     "quickTester": "API Tester",
     "quickTesterDesc": "Full-flow console",
     "projectsCount": "Projects ({count})",
-    "noProjects": "No projects. Create one from the Projects menu."
+    "noProjects": "No projects. Create one from the Projects menu.",
+    "quickSystem": "System viewer",
+    "quickSystemDesc": "Trends · queue · webhooks"
   },
   "common": {
     "language": "Language",
@@ -255,5 +258,24 @@
     "createFailed": "Create failed",
     "listTitle": "Journeys ({count})",
     "empty": "None"
+  },
+  "system": {
+    "title": "System",
+    "subtitle": "Delivery trends · queue · webhook health across your projects",
+    "range24h": "Last 24 hours",
+    "statSends": "Messages (24h)",
+    "statRecipients": "Recipients (24h)",
+    "statSuccessRate": "Success rate (24h)",
+    "statQueued": "Queue depth",
+    "statActiveDevices": "Active devices",
+    "statUsers": "Users",
+    "chartHourly": "Sends per hour",
+    "chartStatuses": "Delivery status",
+    "topProjects": "Top projects by sends",
+    "webhooks": "Webhook deliveries",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "empty": "No data"
   }
 }

@@ -19,7 +19,8 @@
     "apiDocs": "תיעוד API",
     "apiTester": "בודק API",
     "projectList": "רשימת פרויקטים",
-    "project": "פרויקט"
+    "project": "פרויקט",
+    "system": "מערכת"
   },
   "header": {
     "openMenu": "פתח תפריט",
@@ -64,7 +65,9 @@
     "quickTester": "בודק API",
     "quickTesterDesc": "קונסולת זרימה מלאה",
     "projectsCount": "פרויקטים ({count})",
-    "noProjects": "אין פרויקטים. צור אחד מתפריט הפרויקטים."
+    "noProjects": "אין פרויקטים. צור אחד מתפריט הפרויקטים.",
+    "quickSystem": "מציג מערכת",
+    "quickSystemDesc": "מגמות · תור · webhooks"
   },
   "common": {
     "language": "שפה",
@@ -255,5 +258,24 @@
     "createFailed": "היצירה נכשלה",
     "listTitle": "מסעות ({count})",
     "empty": "אין"
+  },
+  "system": {
+    "title": "מערכת",
+    "subtitle": "מגמות שליחה · תור · מצב webhooks בפרויקטים שלך",
+    "range24h": "24 השעות האחרונות",
+    "statSends": "הודעות (24ש)",
+    "statRecipients": "נמענים (24ש)",
+    "statSuccessRate": "שיעור הצלחה (24ש)",
+    "statQueued": "עומק תור",
+    "statActiveDevices": "מכשירים פעילים",
+    "statUsers": "משתמשים",
+    "chartHourly": "שליחות לפי שעה",
+    "chartStatuses": "מצב שליחות",
+    "topProjects": "הפרויקטים המובילים בשליחות",
+    "webhooks": "מסירות Webhook",
+    "whDelivered": "נמסרו",
+    "whFailed": "נכשלו",
+    "whPending": "ממתינות",
+    "empty": "אין נתונים"
   }
 }

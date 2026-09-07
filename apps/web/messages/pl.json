@@ -19,7 +19,8 @@
     "apiDocs": "Dokumentacja API",
     "apiTester": "Tester API",
     "projectList": "Lista projektów",
-    "project": "Projekt"
+    "project": "Projekt",
+    "system": "System"
   },
   "header": {
     "openMenu": "Otwórz menu",
@@ -64,7 +65,9 @@
     "quickTester": "Tester API",
     "quickTesterDesc": "Konsola pełnego przepływu",
     "projectsCount": "Projekty ({count})",
-    "noProjects": "Brak projektów. Utwórz go z menu Projekty."
+    "noProjects": "Brak projektów. Utwórz go z menu Projekty.",
+    "quickSystem": "Podgląd systemu",
+    "quickSystemDesc": "Trendy · kolejka · webhooki"
   },
   "common": {
     "language": "Język",
@@ -255,5 +258,24 @@
     "createFailed": "Tworzenie nie powiodło się",
     "listTitle": "Ścieżki ({count})",
     "empty": "Brak"
+  },
+  "system": {
+    "title": "System",
+    "subtitle": "Trendy wysyłek · kolejka · stan webhooków w Twoich projektach",
+    "range24h": "Ostatnie 24 godziny",
+    "statSends": "Wiadomości (24h)",
+    "statRecipients": "Odbiorcy (24h)",
+    "statSuccessRate": "Wskaźnik sukcesu (24h)",
+    "statQueued": "Głębokość kolejki",
+    "statActiveDevices": "Aktywne urządzenia",
+    "statUsers": "Użytkownicy",
+    "chartHourly": "Wysyłki na godzinę",
+    "chartStatuses": "Status wysyłek",
+    "topProjects": "Projekty z największą liczbą wysyłek",
+    "webhooks": "Dostarczenia webhooków",
+    "whDelivered": "Dostarczone",
+    "whFailed": "Nieudane",
+    "whPending": "Oczekujące",
+    "empty": "Brak danych"
   }
 }

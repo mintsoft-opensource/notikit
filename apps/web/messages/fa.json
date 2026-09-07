@@ -19,7 +19,8 @@
     "apiDocs": "مستندات API",
     "apiTester": "آزمایشگر API",
     "projectList": "فهرست پروژه‌ها",
-    "project": "پروژه"
+    "project": "پروژه",
+    "system": "سیستم"
   },
   "header": {
     "openMenu": "باز کردن منو",
@@ -64,7 +65,9 @@
     "quickTester": "آزمایشگر API",
     "quickTesterDesc": "کنسول جریان کامل",
     "projectsCount": "پروژه‌ها ({count})",
-    "noProjects": "پروژه‌ای نیست. از منوی پروژه‌ها یکی بسازید."
+    "noProjects": "پروژه‌ای نیست. از منوی پروژه‌ها یکی بسازید.",
+    "quickSystem": "نمایشگر سیستم",
+    "quickSystemDesc": "روندها · صف · وب‌هوک‌ها"
   },
   "common": {
     "language": "زبان",
@@ -255,5 +258,24 @@
     "createFailed": "ایجاد ناموفق بود",
     "listTitle": "سفرها ({count})",
     "empty": "هیچ"
+  },
+  "system": {
+    "title": "سیستم",
+    "subtitle": "روند ارسال · صف · وضعیت وب‌هوک‌ها در پروژه‌های شما",
+    "range24h": "۲۴ ساعت گذشته",
+    "statSends": "پیام‌ها (۲۴س)",
+    "statRecipients": "گیرندگان (۲۴س)",
+    "statSuccessRate": "نرخ موفقیت (۲۴س)",
+    "statQueued": "عمق صف",
+    "statActiveDevices": "دستگاه‌های فعال",
+    "statUsers": "کاربران",
+    "chartHourly": "ارسال در هر ساعت",
+    "chartStatuses": "وضعیت ارسال‌ها",
+    "topProjects": "پروژه‌های برتر از نظر ارسال",
+    "webhooks": "تحویل وب‌هوک‌ها",
+    "whDelivered": "تحویل‌شده",
+    "whFailed": "ناموفق",
+    "whPending": "در انتظار",
+    "empty": "داده‌ای نیست"
   }
 }

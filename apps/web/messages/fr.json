@@ -19,7 +19,8 @@
     "apiDocs": "Docs API",
     "apiTester": "Testeur d’API",
     "projectList": "Liste des projets",
-    "project": "Projet"
+    "project": "Projet",
+    "system": "Système"
   },
   "header": {
     "openMenu": "Ouvrir le menu",
@@ -64,7 +65,9 @@
     "quickTester": "Testeur d’API",
     "quickTesterDesc": "Console de flux complet",
     "projectsCount": "Projets ({count})",
-    "noProjects": "Aucun projet. Créez-en un depuis le menu Projets."
+    "noProjects": "Aucun projet. Créez-en un depuis le menu Projets.",
+    "quickSystem": "Visualiseur système",
+    "quickSystemDesc": "Tendances · file · webhooks"
   },
   "common": {
     "language": "Langue",
@@ -255,5 +258,24 @@
     "createFailed": "Échec de la création",
     "listTitle": "Parcours ({count})",
     "empty": "Aucun"
+  },
+  "system": {
+    "title": "Système",
+    "subtitle": "Tendances d'envoi · file d'attente · état des webhooks de vos projets",
+    "range24h": "Dernières 24 heures",
+    "statSends": "Messages (24 h)",
+    "statRecipients": "Destinataires (24 h)",
+    "statSuccessRate": "Taux de réussite (24 h)",
+    "statQueued": "Profondeur de file",
+    "statActiveDevices": "Appareils actifs",
+    "statUsers": "Utilisateurs",
+    "chartHourly": "Envois par heure",
+    "chartStatuses": "État des envois",
+    "topProjects": "Projets les plus actifs",
+    "webhooks": "Livraisons de webhooks",
+    "whDelivered": "Livrés",
+    "whFailed": "Échoués",
+    "whPending": "En attente",
+    "empty": "Aucune donnée"
   }
 }

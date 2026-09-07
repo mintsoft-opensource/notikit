@@ -19,7 +19,8 @@
     "apiDocs": "API 文件",
     "apiTester": "API 測試器",
     "projectList": "專案清單",
-    "project": "專案"
+    "project": "專案",
+    "system": "系統"
   },
   "header": {
     "openMenu": "開啟選單",
@@ -64,7 +65,9 @@
     "quickTester": "API 測試器",
     "quickTesterDesc": "全流程主控台",
     "projectsCount": "專案 ({count})",
-    "noProjects": "尚無專案。請從專案選單建立。"
+    "noProjects": "尚無專案。請從專案選單建立。",
+    "quickSystem": "系統檢視器",
+    "quickSystemDesc": "傳送趨勢 · 佇列 · Webhook"
   },
   "common": {
     "language": "語言",
@@ -255,5 +258,24 @@
     "createFailed": "建立失敗",
     "listTitle": "旅程 ({count})",
     "empty": "無"
+  },
+  "system": {
+    "title": "系統",
+    "subtitle": "所有專案的傳送趨勢 · 佇列 · Webhook 狀態",
+    "range24h": "最近 24 小時",
+    "statSends": "傳送訊息 (24h)",
+    "statRecipients": "接收對象 (24h)",
+    "statSuccessRate": "傳送成功率 (24h)",
+    "statQueued": "佇列深度",
+    "statActiveDevices": "活躍裝置",
+    "statUsers": "使用者",
+    "chartHourly": "每小時傳送量",
+    "chartStatuses": "傳送狀態分佈",
+    "topProjects": "傳送量最高的專案",
+    "webhooks": "Webhook 遞送",
+    "whDelivered": "已遞送",
+    "whFailed": "失敗",
+    "whPending": "待處理",
+    "empty": "尚無資料"
   }
 }

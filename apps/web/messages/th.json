@@ -19,7 +19,8 @@
     "apiDocs": "เอกสาร API",
     "apiTester": "เครื่องมือทดสอบ API",
     "projectList": "รายการโปรเจกต์",
-    "project": "โปรเจกต์"
+    "project": "โปรเจกต์",
+    "system": "ระบบ"
   },
   "header": {
     "openMenu": "เปิดเมนู",
@@ -64,7 +65,9 @@
     "quickTester": "เครื่องมือทดสอบ API",
     "quickTesterDesc": "คอนโซลครบทั้งโฟลว์",
     "projectsCount": "โปรเจกต์ ({count})",
-    "noProjects": "ไม่มีโปรเจกต์ สร้างจากเมนูโปรเจกต์"
+    "noProjects": "ไม่มีโปรเจกต์ สร้างจากเมนูโปรเจกต์",
+    "quickSystem": "ตัวดูระบบ",
+    "quickSystemDesc": "แนวโน้ม · คิว · webhook"
   },
   "common": {
     "language": "ภาษา",
@@ -255,5 +258,24 @@
     "createFailed": "สร้างไม่สำเร็จ",
     "listTitle": "เจอร์นีย์ ({count})",
     "empty": "ไม่มี"
+  },
+  "system": {
+    "title": "ระบบ",
+    "subtitle": "แนวโน้มการส่ง · คิว · สถานะ webhook ของโปรเจกต์ทั้งหมด",
+    "range24h": "24 ชั่วโมงที่ผ่านมา",
+    "statSends": "ข้อความ (24ชม.)",
+    "statRecipients": "ผู้รับ (24ชม.)",
+    "statSuccessRate": "อัตราสำเร็จ (24ชม.)",
+    "statQueued": "ความลึกของคิว",
+    "statActiveDevices": "อุปกรณ์ที่ใช้งาน",
+    "statUsers": "ผู้ใช้",
+    "chartHourly": "การส่งต่อชั่วโมง",
+    "chartStatuses": "สถานะการส่ง",
+    "topProjects": "โปรเจกต์ที่ส่งมากที่สุด",
+    "webhooks": "การส่ง webhook",
+    "whDelivered": "ส่งแล้ว",
+    "whFailed": "ล้มเหลว",
+    "whPending": "รอดำเนินการ",
+    "empty": "ไม่มีข้อมูล"
   }
 }

@@ -19,7 +19,8 @@
     "apiDocs": "API 문서",
     "apiTester": "API 테스터",
     "projectList": "프로젝트 목록",
-    "project": "프로젝트"
+    "project": "프로젝트",
+    "system": "시스템"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -64,7 +65,9 @@
     "quickTester": "API 테스터",
     "quickTesterDesc": "전체 플로우 콘솔",
     "projectsCount": "프로젝트 ({count})",
-    "noProjects": "프로젝트가 없습니다. 프로젝트 메뉴에서 생성하세요."
+    "noProjects": "프로젝트가 없습니다. 프로젝트 메뉴에서 생성하세요.",
+    "quickSystem": "시스템 뷰어",
+    "quickSystemDesc": "발송 추이 · 큐 · 웹훅"
   },
   "common": {
     "language": "언어",
@@ -255,5 +258,24 @@
     "createFailed": "생성 실패",
     "listTitle": "저니 ({count})",
     "empty": "없음"
+  },
+  "system": {
+    "title": "시스템",
+    "subtitle": "프로젝트 전반의 발송 추이 · 큐 · 웹훅 상태",
+    "range24h": "최근 24시간",
+    "statSends": "발송 메시지 (24h)",
+    "statRecipients": "수신 대상 (24h)",
+    "statSuccessRate": "전송 성공률 (24h)",
+    "statQueued": "대기 큐",
+    "statActiveDevices": "활성 디바이스",
+    "statUsers": "유저",
+    "chartHourly": "시간별 발송",
+    "chartStatuses": "발송 상태 분포",
+    "topProjects": "프로젝트별 발송 TOP",
+    "webhooks": "웹훅 배송",
+    "whDelivered": "배송됨",
+    "whFailed": "실패",
+    "whPending": "대기",
+    "empty": "데이터 없음"
   }
 }

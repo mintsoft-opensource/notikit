@@ -19,7 +19,8 @@
     "apiDocs": "APIドキュメント",
     "apiTester": "APIテスター",
     "projectList": "プロジェクト一覧",
-    "project": "プロジェクト"
+    "project": "プロジェクト",
+    "system": "システム"
   },
   "header": {
     "openMenu": "メニューを開く",
@@ -64,7 +65,9 @@
     "quickTester": "APIテスター",
     "quickTesterDesc": "全フローコンソール",
     "projectsCount": "プロジェクト ({count})",
-    "noProjects": "プロジェクトがありません。プロジェクトメニューから作成してください。"
+    "noProjects": "プロジェクトがありません。プロジェクトメニューから作成してください。",
+    "quickSystem": "システムビューア",
+    "quickSystemDesc": "送信推移 · キュー · Webhook"
   },
   "common": {
     "language": "言語",
@@ -255,5 +258,24 @@
     "createFailed": "作成失敗",
     "listTitle": "ジャーニー ({count})",
     "empty": "なし"
+  },
+  "system": {
+    "title": "システム",
+    "subtitle": "全プロジェクトの送信推移 · キュー · Webhook 状態",
+    "range24h": "過去24時間",
+    "statSends": "送信メッセージ (24h)",
+    "statRecipients": "受信対象 (24h)",
+    "statSuccessRate": "送信成功率 (24h)",
+    "statQueued": "キュー待ち",
+    "statActiveDevices": "アクティブデバイス",
+    "statUsers": "ユーザー",
+    "chartHourly": "時間別送信",
+    "chartStatuses": "送信状態の分布",
+    "topProjects": "プロジェクト別送信 TOP",
+    "webhooks": "Webhook 配送",
+    "whDelivered": "配送済み",
+    "whFailed": "失敗",
+    "whPending": "待機",
+    "empty": "データなし"
   }
 }

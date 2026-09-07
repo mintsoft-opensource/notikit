@@ -19,7 +19,8 @@
     "apiDocs": "Документація API",
     "apiTester": "Тестер API",
     "projectList": "Список проєктів",
-    "project": "Проєкт"
+    "project": "Проєкт",
+    "system": "Система"
   },
   "header": {
     "openMenu": "Відкрити меню",
@@ -64,7 +65,9 @@
     "quickTester": "Тестер API",
     "quickTesterDesc": "Консоль повного сценарію",
     "projectsCount": "Проєкти ({count})",
-    "noProjects": "Проєктів немає. Створіть проєкт у меню «Проєкти»."
+    "noProjects": "Проєктів немає. Створіть проєкт у меню «Проєкти».",
+    "quickSystem": "Системний огляд",
+    "quickSystemDesc": "Тренди · черга · вебхуки"
   },
   "common": {
     "language": "Мова",
@@ -255,5 +258,24 @@
     "createFailed": "Не вдалося створити",
     "listTitle": "Сценарії ({count})",
     "empty": "Немає"
+  },
+  "system": {
+    "title": "Система",
+    "subtitle": "Тренди надсилань · черга · стан вебхуків ваших проєктів",
+    "range24h": "Останні 24 години",
+    "statSends": "Повідомлення (24 год)",
+    "statRecipients": "Отримувачі (24 год)",
+    "statSuccessRate": "Успішність (24 год)",
+    "statQueued": "Глибина черги",
+    "statActiveDevices": "Активні пристрої",
+    "statUsers": "Користувачі",
+    "chartHourly": "Надсилання за годину",
+    "chartStatuses": "Статуси надсилань",
+    "topProjects": "Проєкти-лідери за надсиланнями",
+    "webhooks": "Доставлення вебхуків",
+    "whDelivered": "Доставлено",
+    "whFailed": "Невдало",
+    "whPending": "В очікуванні",
+    "empty": "Немає даних"
   }
 }

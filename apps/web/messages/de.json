@@ -19,7 +19,8 @@
     "apiDocs": "API-Doku",
     "apiTester": "API-Tester",
     "projectList": "Projektliste",
-    "project": "Projekt"
+    "project": "Projekt",
+    "system": "System"
   },
   "header": {
     "openMenu": "Menü öffnen",
@@ -64,7 +65,9 @@
     "quickTester": "API-Tester",
     "quickTesterDesc": "Konsole für kompletten Ablauf",
     "projectsCount": "Projekte ({count})",
-    "noProjects": "Keine Projekte. Erstelle eins über das Menü „Projekte“."
+    "noProjects": "Keine Projekte. Erstelle eins über das Menü „Projekte“.",
+    "quickSystem": "System-Viewer",
+    "quickSystemDesc": "Trends · Warteschlange · Webhooks"
   },
   "common": {
     "language": "Sprache",
@@ -255,5 +258,24 @@
     "createFailed": "Erstellen fehlgeschlagen",
     "listTitle": "Journeys ({count})",
     "empty": "Keine"
+  },
+  "system": {
+    "title": "System",
+    "subtitle": "Sendetrends · Warteschlange · Webhook-Status Ihrer Projekte",
+    "range24h": "Letzte 24 Stunden",
+    "statSends": "Nachrichten (24 h)",
+    "statRecipients": "Empfänger (24 h)",
+    "statSuccessRate": "Erfolgsquote (24 h)",
+    "statQueued": "Warteschlangentiefe",
+    "statActiveDevices": "Aktive Geräte",
+    "statUsers": "Nutzer",
+    "chartHourly": "Sendungen pro Stunde",
+    "chartStatuses": "Sendestatus",
+    "topProjects": "Top-Projekte nach Sendungen",
+    "webhooks": "Webhook-Zustellungen",
+    "whDelivered": "Zugestellt",
+    "whFailed": "Fehlgeschlagen",
+    "whPending": "Ausstehend",
+    "empty": "Keine Daten"
   }
 }

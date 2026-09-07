@@ -19,7 +19,8 @@
     "apiDocs": "API दस्तावेज़",
     "apiTester": "API टेस्टर",
     "projectList": "प्रोजेक्ट सूची",
-    "project": "प्रोजेक्ट"
+    "project": "प्रोजेक्ट",
+    "system": "सिस्टम"
   },
   "header": {
     "openMenu": "मेनू खोलें",
@@ -64,7 +65,9 @@
     "quickTester": "API टेस्टर",
     "quickTesterDesc": "पूर्ण-फ्लो कंसोल",
     "projectsCount": "प्रोजेक्ट ({count})",
-    "noProjects": "कोई प्रोजेक्ट नहीं। प्रोजेक्ट मेनू से एक बनाएं।"
+    "noProjects": "कोई प्रोजेक्ट नहीं। प्रोजेक्ट मेनू से एक बनाएं।",
+    "quickSystem": "सिस्टम व्यूअर",
+    "quickSystemDesc": "रुझान · कतार · वेबहुक"
   },
   "common": {
     "language": "भाषा",
@@ -255,5 +258,24 @@
     "createFailed": "बनाना विफल",
     "listTitle": "जर्नी ({count})",
     "empty": "कोई नहीं"
+  },
+  "system": {
+    "title": "सिस्टम",
+    "subtitle": "आपके प्रोजेक्ट्स के भेजने के रुझान · कतार · वेबहुक स्थिति",
+    "range24h": "पिछले 24 घंटे",
+    "statSends": "संदेश (24घं)",
+    "statRecipients": "प्राप्तकर्ता (24घं)",
+    "statSuccessRate": "सफलता दर (24घं)",
+    "statQueued": "कतार गहराई",
+    "statActiveDevices": "सक्रिय डिवाइस",
+    "statUsers": "उपयोगकर्ता",
+    "chartHourly": "प्रति घंटा भेजे गए",
+    "chartStatuses": "भेजने की स्थिति",
+    "topProjects": "सबसे अधिक भेजने वाले प्रोजेक्ट",
+    "webhooks": "वेबहुक डिलीवरी",
+    "whDelivered": "डिलीवर",
+    "whFailed": "विफल",
+    "whPending": "लंबित",
+    "empty": "कोई डेटा नहीं"
   }
 }

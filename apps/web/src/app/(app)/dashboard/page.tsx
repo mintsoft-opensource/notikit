@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { FolderKanban, TerminalSquare, ArrowRight } from "lucide-react";
+import { FolderKanban, Activity, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
@@ -17,7 +17,7 @@ export default function DashboardPage() {
 
   const quickLinks = [
     { href: "/projects", label: t("quickProjects"), icon: FolderKanban, desc: t("quickProjectsDesc") },
-    { href: "/tester", label: t("quickTester"), icon: TerminalSquare, desc: t("quickTesterDesc") },
+    { href: "/system", label: t("quickSystem"), icon: Activity, desc: t("quickSystemDesc") },
   ];
 
   return (

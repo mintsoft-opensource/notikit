@@ -19,7 +19,8 @@
     "apiDocs": "Dokumen API",
     "apiTester": "Penguji API",
     "projectList": "Senarai projek",
-    "project": "Projek"
+    "project": "Projek",
+    "system": "Sistem"
   },
   "header": {
     "openMenu": "Buka menu",
@@ -64,7 +65,9 @@
     "quickTester": "Penguji API",
     "quickTesterDesc": "Konsol aliran penuh",
     "projectsCount": "Projek ({count})",
-    "noProjects": "Tiada projek. Cipta satu daripada menu Projek."
+    "noProjects": "Tiada projek. Cipta satu daripada menu Projek.",
+    "quickSystem": "Pemapar sistem",
+    "quickSystemDesc": "Aliran · baris gilir · webhook"
   },
   "common": {
     "language": "Bahasa",
@@ -255,5 +258,24 @@
     "createFailed": "Gagal mencipta",
     "listTitle": "Perjalanan ({count})",
     "empty": "Tiada"
+  },
+  "system": {
+    "title": "Sistem",
+    "subtitle": "Aliran penghantaran · baris gilir · status webhook merentas projek anda",
+    "range24h": "24 jam lepas",
+    "statSends": "Mesej (24j)",
+    "statRecipients": "Penerima (24j)",
+    "statSuccessRate": "Kadar kejayaan (24j)",
+    "statQueued": "Kedalaman baris gilir",
+    "statActiveDevices": "Peranti aktif",
+    "statUsers": "Pengguna",
+    "chartHourly": "Penghantaran sejam",
+    "chartStatuses": "Status penghantaran",
+    "topProjects": "Projek teratas mengikut penghantaran",
+    "webhooks": "Penghantaran webhook",
+    "whDelivered": "Dihantar",
+    "whFailed": "Gagal",
+    "whPending": "Menunggu",
+    "empty": "Tiada data"
   }
 }

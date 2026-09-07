@@ -19,7 +19,8 @@
     "apiDocs": "Документация API",
     "apiTester": "Тестер API",
     "projectList": "Список проектов",
-    "project": "Проект"
+    "project": "Проект",
+    "system": "Система"
   },
   "header": {
     "openMenu": "Открыть меню",
@@ -64,7 +65,9 @@
     "quickTester": "Тестер API",
     "quickTesterDesc": "Консоль полного сценария",
     "projectsCount": "Проекты ({count})",
-    "noProjects": "Проектов нет. Создайте проект в меню «Проекты»."
+    "noProjects": "Проектов нет. Создайте проект в меню «Проекты».",
+    "quickSystem": "Системный обзор",
+    "quickSystemDesc": "Тренды · очередь · вебхуки"
   },
   "common": {
     "language": "Язык",
@@ -255,5 +258,24 @@
     "createFailed": "Не удалось создать",
     "listTitle": "Сценарии ({count})",
     "empty": "Нет"
+  },
+  "system": {
+    "title": "Система",
+    "subtitle": "Тренды отправки · очередь · состояние вебхуков ваших проектов",
+    "range24h": "Последние 24 часа",
+    "statSends": "Сообщения (24ч)",
+    "statRecipients": "Получатели (24ч)",
+    "statSuccessRate": "Успешность (24ч)",
+    "statQueued": "Глубина очереди",
+    "statActiveDevices": "Активные устройства",
+    "statUsers": "Пользователи",
+    "chartHourly": "Отправки по часам",
+    "chartStatuses": "Статусы отправок",
+    "topProjects": "Проекты-лидеры по отправкам",
+    "webhooks": "Доставка вебхуков",
+    "whDelivered": "Доставлено",
+    "whFailed": "Ошибка",
+    "whPending": "В ожидании",
+    "empty": "Нет данных"
   }
 }

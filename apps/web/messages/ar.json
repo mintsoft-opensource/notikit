@@ -19,7 +19,8 @@
     "apiDocs": "وثائق API",
     "apiTester": "مختبِر API",
     "projectList": "قائمة المشاريع",
-    "project": "المشروع"
+    "project": "المشروع",
+    "system": "النظام"
   },
   "header": {
     "openMenu": "فتح القائمة",
@@ -64,7 +65,9 @@
     "quickTester": "مختبِر API",
     "quickTesterDesc": "وحدة التدفق الكامل",
     "projectsCount": "المشاريع ({count})",
-    "noProjects": "لا توجد مشاريع. أنشئ مشروعًا من قائمة المشاريع."
+    "noProjects": "لا توجد مشاريع. أنشئ مشروعًا من قائمة المشاريع.",
+    "quickSystem": "عارض النظام",
+    "quickSystemDesc": "الاتجاهات · قائمة الانتظار · webhooks"
   },
   "common": {
     "language": "اللغة",
@@ -255,5 +258,24 @@
     "createFailed": "فشل الإنشاء",
     "listTitle": "الرحلات ({count})",
     "empty": "لا شيء"
+  },
+  "system": {
+    "title": "النظام",
+    "subtitle": "اتجاهات الإرسال · قائمة الانتظار · حالة webhooks عبر مشاريعك",
+    "range24h": "آخر 24 ساعة",
+    "statSends": "الرسائل (24س)",
+    "statRecipients": "المستلمون (24س)",
+    "statSuccessRate": "معدل النجاح (24س)",
+    "statQueued": "عمق قائمة الانتظار",
+    "statActiveDevices": "الأجهزة النشطة",
+    "statUsers": "المستخدمون",
+    "chartHourly": "الإرسالات لكل ساعة",
+    "chartStatuses": "حالة الإرسالات",
+    "topProjects": "أكثر المشاريع إرسالًا",
+    "webhooks": "تسليمات Webhook",
+    "whDelivered": "تم التسليم",
+    "whFailed": "فشل",
+    "whPending": "قيد الانتظار",
+    "empty": "لا توجد بيانات"
   }
 }

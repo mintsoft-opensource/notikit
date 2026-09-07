@@ -19,7 +19,8 @@
     "apiDocs": "API-documentatie",
     "apiTester": "API-tester",
     "projectList": "Projectenlijst",
-    "project": "Project"
+    "project": "Project",
+    "system": "Systeem"
   },
   "header": {
     "openMenu": "Menu openen",
@@ -64,7 +65,9 @@
     "quickTester": "API-tester",
     "quickTesterDesc": "Console voor volledige flow",
     "projectsCount": "Projecten ({count})",
-    "noProjects": "Geen projecten. Maak er een via het menu Projecten."
+    "noProjects": "Geen projecten. Maak er een via het menu Projecten.",
+    "quickSystem": "Systeemviewer",
+    "quickSystemDesc": "Trends · wachtrij · webhooks"
   },
   "common": {
     "language": "Taal",
@@ -255,5 +258,24 @@
     "createFailed": "Aanmaken mislukt",
     "listTitle": "Journeys ({count})",
     "empty": "Geen"
+  },
+  "system": {
+    "title": "Systeem",
+    "subtitle": "Verzendtrends · wachtrij · webhookstatus van je projecten",
+    "range24h": "Afgelopen 24 uur",
+    "statSends": "Berichten (24u)",
+    "statRecipients": "Ontvangers (24u)",
+    "statSuccessRate": "Succespercentage (24u)",
+    "statQueued": "Wachtrijdiepte",
+    "statActiveDevices": "Actieve apparaten",
+    "statUsers": "Gebruikers",
+    "chartHourly": "Verzendingen per uur",
+    "chartStatuses": "Verzendstatus",
+    "topProjects": "Topprojecten op verzendingen",
+    "webhooks": "Webhook-afleveringen",
+    "whDelivered": "Afgeleverd",
+    "whFailed": "Mislukt",
+    "whPending": "In behandeling",
+    "empty": "Geen gegevens"
   }
 }

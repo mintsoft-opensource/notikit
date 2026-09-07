@@ -19,7 +19,8 @@
     "apiDocs": "Tài liệu API",
     "apiTester": "Trình kiểm thử API",
     "projectList": "Danh sách dự án",
-    "project": "Dự án"
+    "project": "Dự án",
+    "system": "Hệ thống"
   },
   "header": {
     "openMenu": "Mở menu",
@@ -64,7 +65,9 @@
     "quickTester": "Trình kiểm thử API",
     "quickTesterDesc": "Bảng điều khiển toàn luồng",
     "projectsCount": "Dự án ({count})",
-    "noProjects": "Chưa có dự án. Tạo một dự án từ menu Dự án."
+    "noProjects": "Chưa có dự án. Tạo một dự án từ menu Dự án.",
+    "quickSystem": "Trình xem hệ thống",
+    "quickSystemDesc": "Xu hướng · hàng đợi · webhook"
   },
   "common": {
     "language": "Ngôn ngữ",
@@ -255,5 +258,24 @@
     "createFailed": "Tạo thất bại",
     "listTitle": "Hành trình ({count})",
     "empty": "Không có"
+  },
+  "system": {
+    "title": "Hệ thống",
+    "subtitle": "Xu hướng gửi · hàng đợi · trạng thái webhook của các dự án",
+    "range24h": "24 giờ qua",
+    "statSends": "Tin nhắn (24h)",
+    "statRecipients": "Người nhận (24h)",
+    "statSuccessRate": "Tỷ lệ thành công (24h)",
+    "statQueued": "Độ sâu hàng đợi",
+    "statActiveDevices": "Thiết bị hoạt động",
+    "statUsers": "Người dùng",
+    "chartHourly": "Lượt gửi mỗi giờ",
+    "chartStatuses": "Trạng thái gửi",
+    "topProjects": "Dự án gửi nhiều nhất",
+    "webhooks": "Giao webhook",
+    "whDelivered": "Đã giao",
+    "whFailed": "Thất bại",
+    "whPending": "Đang chờ",
+    "empty": "Không có dữ liệu"
   }
 }

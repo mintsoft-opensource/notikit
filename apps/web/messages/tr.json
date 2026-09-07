@@ -19,7 +19,8 @@
     "apiDocs": "API Belgeleri",
     "apiTester": "API Test Aracı",
     "projectList": "Proje listesi",
-    "project": "Proje"
+    "project": "Proje",
+    "system": "Sistem"
   },
   "header": {
     "openMenu": "Menüyü aç",
@@ -64,7 +65,9 @@
     "quickTester": "API Test Aracı",
     "quickTesterDesc": "Tam akış konsolu",
     "projectsCount": "Projeler ({count})",
-    "noProjects": "Proje yok. Projeler menüsünden bir tane oluşturun."
+    "noProjects": "Proje yok. Projeler menüsünden bir tane oluşturun.",
+    "quickSystem": "Sistem görüntüleyici",
+    "quickSystemDesc": "Eğilimler · kuyruk · webhook'lar"
   },
   "common": {
     "language": "Dil",
@@ -255,5 +258,24 @@
     "createFailed": "Oluşturma başarısız",
     "listTitle": "Yolculuklar ({count})",
     "empty": "Yok"
+  },
+  "system": {
+    "title": "Sistem",
+    "subtitle": "Projelerinizin gönderim eğilimleri · kuyruk · webhook durumu",
+    "range24h": "Son 24 saat",
+    "statSends": "Mesajlar (24s)",
+    "statRecipients": "Alıcılar (24s)",
+    "statSuccessRate": "Başarı oranı (24s)",
+    "statQueued": "Kuyruk derinliği",
+    "statActiveDevices": "Aktif cihazlar",
+    "statUsers": "Kullanıcılar",
+    "chartHourly": "Saatlik gönderimler",
+    "chartStatuses": "Gönderim durumu",
+    "topProjects": "En çok gönderim yapan projeler",
+    "webhooks": "Webhook teslimatları",
+    "whDelivered": "Teslim edildi",
+    "whFailed": "Başarısız",
+    "whPending": "Beklemede",
+    "empty": "Veri yok"
   }
 }

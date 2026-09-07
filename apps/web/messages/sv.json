@@ -19,7 +19,8 @@
     "apiDocs": "API-dokumentation",
     "apiTester": "API-testare",
     "projectList": "Projektlista",
-    "project": "Projekt"
+    "project": "Projekt",
+    "system": "System"
   },
   "header": {
     "openMenu": "Öppna meny",
@@ -64,7 +65,9 @@
     "quickTester": "API-testare",
     "quickTesterDesc": "Konsol för hela flödet",
     "projectsCount": "Projekt ({count})",
-    "noProjects": "Inga projekt. Skapa ett från menyn Projekt."
+    "noProjects": "Inga projekt. Skapa ett från menyn Projekt.",
+    "quickSystem": "Systemvisare",
+    "quickSystemDesc": "Trender · kö · webhookar"
   },
   "common": {
     "language": "Språk",
@@ -255,5 +258,24 @@
     "createFailed": "Kunde inte skapa",
     "listTitle": "Resor ({count})",
     "empty": "Inga"
+  },
+  "system": {
+    "title": "System",
+    "subtitle": "Utskickstrender · kö · webhook-status för dina projekt",
+    "range24h": "Senaste 24 timmarna",
+    "statSends": "Meddelanden (24h)",
+    "statRecipients": "Mottagare (24h)",
+    "statSuccessRate": "Lyckandegrad (24h)",
+    "statQueued": "Ködjup",
+    "statActiveDevices": "Aktiva enheter",
+    "statUsers": "Användare",
+    "chartHourly": "Utskick per timme",
+    "chartStatuses": "Utskicksstatus",
+    "topProjects": "Toppprojekt efter utskick",
+    "webhooks": "Webhook-leveranser",
+    "whDelivered": "Levererade",
+    "whFailed": "Misslyckade",
+    "whPending": "Väntande",
+    "empty": "Ingen data"
   }
 }
