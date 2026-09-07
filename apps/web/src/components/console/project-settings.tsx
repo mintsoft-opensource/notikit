@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Save, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label, Select, Textarea, Field } from "@/components/ui/input";
+import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
@@ -18,17 +18,18 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
   const [quietEnd, setQuietEnd] = React.useState("");
   const [requireId, setRequireId] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
-  const hydrated = React.useRef(false);
+  const hydratedFor = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (hydrated.current || !project) return;
+    if (!project || hydratedFor.current === project.id) return;
     setRequireId(project.requireIdentityVerification ?? true);
     setQuietStart(project.quietStartHour == null ? "" : String(project.quietStartHour));
     setQuietEnd(project.quietEndHour == null ? "" : String(project.quietEndHour));
-    hydrated.current = true;
+    hydratedFor.current = project.id;
   }, [project]);
 
   const [firebase, setFirebase] = React.useState("");
+  const [kakao, setKakao] = React.useState({ provider_url: "", api_key: "", sender_key: "" });
 
   async function savePolicy() {
     if (saving) return;
@@ -66,6 +67,17 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       });
       toast.success(`Firebase 저장됨${d.firebase_project_id ? ` (${d.firebase_project_id})` : ""}`);
       setFirebase("");
+      reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "실패");
+    }
+  }
+
+  async function uploadKakao() {
+    try {
+      await adminApi(`/api/admin/projects/${projectId}/kakao`, { method: "POST", body: JSON.stringify(kakao) });
+      toast.success("카카오 설정 저장됨");
+      setKakao({ provider_url: "", api_key: "", sender_key: "" });
       reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "실패");
@@ -122,6 +134,21 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             <Textarea value={firebase} onChange={(e) => setFirebase(e.target.value)} placeholder='{"type":"service_account",...}' className="min-h-28 font-mono text-xs" />
           </Field>
           <Button size="sm" variant="outline" onClick={uploadFirebase} disabled={!firebase.trim()}>업로드 · 암호화 저장</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-1.5"><Upload className="h-4 w-4" /> 카카오 알림톡</CardTitle>
+          <CardDescription>{project?.hasKakao ? "설정됨 (재업로드 시 교체)" : "미설정"}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Input value={kakao.provider_url} onChange={(e) => setKakao({ ...kakao, provider_url: e.target.value })} placeholder="provider_url (https://…)" />
+          <Input value={kakao.api_key} onChange={(e) => setKakao({ ...kakao, api_key: e.target.value })} placeholder="api_key" />
+          <Input value={kakao.sender_key} onChange={(e) => setKakao({ ...kakao, sender_key: e.target.value })} placeholder="sender_key" />
+          <Button size="sm" variant="outline" onClick={uploadKakao} disabled={!kakao.provider_url || !kakao.api_key || !kakao.sender_key}>
+            카카오 저장 · 암호화 저장
+          </Button>
         </CardContent>
       </Card>
     </div>

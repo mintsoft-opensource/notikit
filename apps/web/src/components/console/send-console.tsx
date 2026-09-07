@@ -40,18 +40,26 @@ export function SendConsole({ projectId }: { projectId?: string }) {
       if (deepLink) payload.deep_link = deepLink;
 
       await adminApi(`/api/admin/projects/${sel}/messages`, { method: "POST", body: JSON.stringify(payload) });
-      toast.success("큐잉됨");
-      if (processNow) {
-        await adminApi(`/api/admin/projects/${sel}/process-queue`, { method: "POST", body: "{}" });
-        toast.success("큐 처리 완료 (로그 확인)");
-      }
-      setTitle("");
-      setBody("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "발송 실패");
-    } finally {
       setSending(false);
+      return;
     }
+
+    toast.success("큐잉됨");
+    setTitle("");
+    setBody("");
+
+    // 큐잉은 이미 성공 — 즉시 처리 실패를 "발송 실패"로 오인시키지 않도록 별도 처리
+    if (processNow) {
+      try {
+        await adminApi(`/api/admin/projects/${sel}/process-queue`, { method: "POST", body: "{}" });
+        toast.success("큐 처리 완료 (로그 확인)");
+      } catch (e) {
+        toast.error(`큐잉은 완료됨 — 즉시 처리 실패: ${e instanceof Error ? e.message : "로그를 확인하세요"}`);
+      }
+    }
+    setSending(false);
   }
 
   return (

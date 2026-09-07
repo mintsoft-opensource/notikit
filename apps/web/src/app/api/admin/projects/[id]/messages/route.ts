@@ -4,6 +4,7 @@ import { projects } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject, checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
+import { rateLimit } from "@/lib/rate-limit";
 import { messageSchema, enqueuePush } from "@/lib/messages";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   const authz = await requireProject(req, id, { write: true });
   if (!authz.ok) return fail(authz.error, authz.status);
+
+  // SDK(v1)와 동일한 스로틀 — 키는 분리해 콘솔 발송이 SDK 쿼터를 잠식하지 않게 함
+  if (!rateLimit(`admin:proj:${id}`)) return fail("Rate limit exceeded", 429);
 
   const project = (
     await getDb()

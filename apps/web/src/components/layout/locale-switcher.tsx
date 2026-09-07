@@ -10,12 +10,11 @@ export function LocaleSwitcher() {
   const locale = useLocale();
   const t = useTranslations("common");
   const router = useRouter();
-  const [pending, setPending] = React.useState(false);
+  const [pending, startTransition] = React.useTransition();
 
   function change(next: string) {
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-    setPending(true);
-    router.refresh(); // 서버 컴포넌트 재실행 → 새 로케일 메시지 로드
+    startTransition(() => router.refresh()); // 서버 컴포넌트 재실행 → 새 로케일 메시지 로드, 완료 시 pending 해제
   }
 
   return (

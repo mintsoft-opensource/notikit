@@ -10,30 +10,38 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/console/shared";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
-type Stats = { devices?: number; users?: number; messages?: number; activeDevices?: number } & Record<string, unknown>;
+type Stats = {
+  devices: { total: number; active: number; dau: number };
+  users: { total: number };
+  messages: { total_sends: number; total_delivered: number };
+};
 
 const LINKS = (id: string) => [
   { href: `/projects/${id}/send`, label: "발송", icon: Send, desc: "개인·토픽·세그먼트·전체" },
   { href: `/projects/${id}/logs`, label: "로그", icon: ScrollText, desc: "상태·성공/실패 집계" },
-  { href: `/projects/${id}/settings`, label: "설정", icon: Settings, desc: "정책·Firebase" },
+  { href: `/projects/${id}/settings`, label: "설정", icon: Settings, desc: "정책·Firebase/카카오" },
 ];
 
 export function ProjectOverview({ projectId }: { projectId: string }) {
   const { projects } = useProjects();
   const project = projects.find((p) => p.id === projectId);
   const [stats, setStats] = React.useState<Stats | null>(null);
+  const [statsError, setStatsError] = React.useState(false);
+  const [statsRetry, setStatsRetry] = React.useState(0);
 
   React.useEffect(() => {
     let alive = true;
+    setStats(null);
+    setStatsError(false);
     adminApi<Stats>(`/api/admin/projects/${projectId}/stats`)
       .then((d) => alive && setStats(d))
-      .catch(() => {});
+      .catch(() => alive && setStatsError(true));
     return () => {
       alive = false;
     };
-  }, [projectId]);
+  }, [projectId, statsRetry]);
 
-  const num = (v: unknown) => (typeof v === "number" ? v : stats ? 0 : "…");
+  const num = (v: number | undefined) => (typeof v === "number" ? v : statsError ? "—" : "…");
 
   return (
     <div className="w-full space-y-6">
@@ -64,11 +72,19 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </Card>
       )}
 
+      {statsError && (
+        <div className="flex items-center justify-between rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
+          <span>통계를 불러오지 못했습니다.</span>
+          <button type="button" onClick={() => setStatsRetry((n) => n + 1)} className="font-semibold text-primary hover:underline">
+            재시도
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="디바이스" value={num(stats?.devices)} />
-        <StatCard label="유저" value={num(stats?.users)} />
-        <StatCard label="발송" value={num(stats?.messages)} />
-        <StatCard label="활성 디바이스" value={num(stats?.activeDevices)} />
+        <StatCard label="디바이스" value={num(stats?.devices.total)} />
+        <StatCard label="유저" value={num(stats?.users.total)} />
+        <StatCard label="발송" value={num(stats?.messages.total_sends)} />
+        <StatCard label="활성 디바이스" value={num(stats?.devices.active)} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
