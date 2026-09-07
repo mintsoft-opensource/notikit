@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Moon, Sun } from "lucide-react";
 
 export function ThemeToggle() {
+  const t = useTranslations("common");
   const [dark, setDark] = React.useState(false);
 
   React.useEffect(() => {
@@ -25,10 +27,10 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      aria-label={dark ? "라이트 모드로 전환" : "다크 모드로 전환"}
+      aria-label={dark ? t("toLightMode") : t("toDarkMode")}
       className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
     >
-      {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+      {dark ? <Sun aria-hidden="true" className="h-[18px] w-[18px]" /> : <Moon aria-hidden="true" className="h-[18px] w-[18px]" />}
     </button>
   );
 }

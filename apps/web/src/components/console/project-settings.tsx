@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Save, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { useProjects, adminApi } from "@/lib/admin-client";
 
 /** 프로젝트 설정 — 발송 정책(identity/방해금지) + Firebase/카카오 자격증명. 프로젝트 상세 전용. */
 export function ProjectSettings({ projectId }: { projectId: string }) {
+  const t = useTranslations("settings");
   const { projects, reload } = useProjects();
   const project = projects.find((p) => p.id === projectId);
 
@@ -45,10 +47,10 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
           quiet_end_hour: quietEnd === "" ? null : Number(quietEnd),
         }),
       });
-      toast.success("정책 저장됨");
+      toast.success(t("policySaved"));
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "저장 실패");
+      toast.error(e instanceof Error ? e.message : t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -60,7 +62,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
     try {
       creds = JSON.parse(firebase);
     } catch {
-      toast.error("JSON 파싱 실패 — 서비스 계정 JSON 전체를 붙여넣으세요");
+      toast.error(t("jsonParseFailed"));
       return;
     }
     setFirebaseBusy(true);
@@ -69,11 +71,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         method: "POST",
         body: JSON.stringify({ credentials: creds }),
       });
-      toast.success(`Firebase 저장됨${d.firebase_project_id ? ` (${d.firebase_project_id})` : ""}`);
+      toast.success(`${t("firebaseSaved")}${d.firebase_project_id ? ` (${d.firebase_project_id})` : ""}`);
       setFirebase("");
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "실패");
+      toast.error(e instanceof Error ? e.message : t("failed"));
     } finally {
       setFirebaseBusy(false);
     }
@@ -84,11 +86,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
     setKakaoBusy(true);
     try {
       await adminApi(`/api/admin/projects/${projectId}/kakao`, { method: "POST", body: JSON.stringify(kakao) });
-      toast.success("카카오 설정 저장됨");
+      toast.success(t("kakaoSaved"));
       setKakao({ provider_url: "", api_key: "", sender_key: "" });
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "실패");
+      toast.error(e instanceof Error ? e.message : t("failed"));
     } finally {
       setKakaoBusy(false);
     }
@@ -96,40 +98,40 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
 
   return (
     <div className="w-full space-y-6">
-      <PageHeader title="설정" description="발송 정책 · Firebase/카카오 자격증명" />
+      <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
         <CardHeader>
-          <CardTitle>발송 정책</CardTitle>
-          <CardDescription>identity 검증 강제 · 방해금지 시간대(UTC).</CardDescription>
+          <CardTitle>{t("policyTitle")}</CardTitle>
+          <CardDescription>{t("policyDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="h-4 w-4" />
-            external_id 바인딩에 identity_hash 검증 강제
+            {t("requireIdentity")}
           </label>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="qs">방해금지 시작 (UTC)</Label>
+              <Label htmlFor="qs">{t("quietStart")}</Label>
               <Select id="qs" value={quietStart} onChange={(e) => setQuietStart(e.target.value)}>
-                <option value="">없음</option>
+                <option value="">{t("none")}</option>
                 {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>{i}시</option>
+                  <option key={i} value={i}>{t("hour", { hour: i })}</option>
                 ))}
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="qe">방해금지 종료 (UTC)</Label>
+              <Label htmlFor="qe">{t("quietEnd")}</Label>
               <Select id="qe" value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)}>
-                <option value="">없음</option>
+                <option value="">{t("none")}</option>
                 {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>{i}시</option>
+                  <option key={i} value={i}>{t("hour", { hour: i })}</option>
                 ))}
               </Select>
             </div>
           </div>
           <Button onClick={savePolicy} disabled={saving || !project}>
-            <Save aria-hidden="true" className="h-4 w-4" /> {saving ? "저장 중…" : "정책 저장"}
+            <Save aria-hidden="true" className="h-4 w-4" /> {saving ? t("saving") : t("savePolicy")}
           </Button>
         </CardContent>
       </Card>
@@ -137,25 +139,25 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="h-4 w-4" /> Firebase</CardTitle>
-          <CardDescription>{project?.hasFirebase ? "설정됨 (재업로드 시 교체)" : "미설정 — log-only 모드"}</CardDescription>
+          <CardDescription>{project?.hasFirebase ? t("fbConfigured") : t("fbNotConfigured")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          <Field label="서비스 계정 JSON">
+          <Field label={t("serviceAccountJson")}>
             <Textarea value={firebase} onChange={(e) => setFirebase(e.target.value)} placeholder='{"type":"service_account",...}' className="min-h-28 font-mono text-xs" />
           </Field>
           <Button size="sm" variant="outline" onClick={uploadFirebase} disabled={firebaseBusy || !firebase.trim()}>
-            {firebaseBusy ? "업로드 중…" : "업로드 · 암호화 저장"}
+            {firebaseBusy ? t("uploading") : t("upload")}
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="h-4 w-4" /> 카카오 알림톡</CardTitle>
-          <CardDescription>{project?.hasKakao ? "설정됨 (재업로드 시 교체)" : "미설정"}</CardDescription>
+          <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="h-4 w-4" /> {t("kakaoTitle")}</CardTitle>
+          <CardDescription>{project?.hasKakao ? t("fbConfigured") : t("kakaoNotConfigured")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Field label="프로바이더 URL">
+          <Field label={t("providerUrl")}>
             <Input
               type="url"
               inputMode="url"
@@ -166,10 +168,10 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
               placeholder="https://provider.example.com/…"
             />
           </Field>
-          <Field label="API 키">
+          <Field label={t("apiKeyLabel")}>
             <Input spellCheck={false} autoComplete="off" value={kakao.api_key} onChange={(e) => setKakao({ ...kakao, api_key: e.target.value })} placeholder="api_key" />
           </Field>
-          <Field label="발신 프로필 키 (sender_key)">
+          <Field label={t("senderKey")}>
             <Input spellCheck={false} autoComplete="off" value={kakao.sender_key} onChange={(e) => setKakao({ ...kakao, sender_key: e.target.value })} placeholder="sender_key" />
           </Field>
           <Button
@@ -178,7 +180,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             onClick={uploadKakao}
             disabled={kakaoBusy || !kakao.provider_url || !kakao.api_key || !kakao.sender_key}
           >
-            {kakaoBusy ? "저장 중…" : "저장 · 암호화 저장"}
+            {kakaoBusy ? t("saving") : t("kakaoSave")}
           </Button>
         </CardContent>
       </Card>

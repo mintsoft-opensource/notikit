@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Plus, Copy, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
 export default function ProjectsPage() {
+  const t = useTranslations("projects");
   const { projects, reload } = useProjects();
   const [name, setName] = React.useState("");
   const [environment, setEnvironment] = React.useState("dev");
@@ -28,10 +30,10 @@ export default function ProjectsPage() {
       });
       setSecret({ key: d.project.apiKey, secret: d.api_secret });
       setName("");
-      toast.success("프로젝트 생성됨");
+      toast.success(t("created"));
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "생성 실패");
+      toast.error(e instanceof Error ? e.message : t("createFailed"));
     } finally {
       setCreating(false);
     }
@@ -39,27 +41,27 @@ export default function ProjectsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <PageHeader title="프로젝트" description="프로젝트 생성 · 상세에서 발송/로그/설정 관리" />
+      <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
         <CardHeader>
-          <CardTitle>새 프로젝트</CardTitle>
+          <CardTitle>{t("newProject")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-1">
-            <Label htmlFor="new-project-name">이름</Label>
-            <Input id="new-project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: my-app-prod" />
+            <Label htmlFor="new-project-name">{t("nameLabel")}</Label>
+            <Input id="new-project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
           </div>
           <div className="space-y-1">
-            <Label>환경</Label>
-            <Select aria-label="환경" value={environment} onChange={(e) => setEnvironment(e.target.value)} className="sm:w-40">
+            <Label>{t("envLabel")}</Label>
+            <Select aria-label={t("envLabel")} value={environment} onChange={(e) => setEnvironment(e.target.value)} className="sm:w-40">
               <option value="dev">dev</option>
               <option value="staging">staging</option>
               <option value="production">production</option>
             </Select>
           </div>
           <Button onClick={create} disabled={creating || !name.trim()} className="shrink-0">
-            <Plus className="h-4 w-4" /> 생성
+            <Plus aria-hidden="true" className="h-4 w-4" /> {t("create")}
           </Button>
         </CardContent>
       </Card>
@@ -67,28 +69,28 @@ export default function ProjectsPage() {
       {secret && (
         <Card className="border-primary/40">
           <CardContent className="space-y-2 p-5">
-            <p className="text-sm font-bold text-primary">api_secret 은 지금만 확인할 수 있습니다 — 안전한 곳에 저장하세요.</p>
+            <p className="text-sm font-bold text-primary">{t("secretNotice")}</p>
             <div className="space-y-1 font-mono text-xs">
               <button
                 className="flex w-full items-center justify-between gap-2 rounded-md bg-surface-muted px-3 py-2 text-left"
-                onClick={async () => { try { await navigator.clipboard.writeText(secret.key); toast.success("api_key 복사됨"); } catch { toast.error("복사 실패 — 수동으로 선택하세요"); } }}
+                onClick={async () => { try { await navigator.clipboard.writeText(secret.key); toast.success(t("apiKeyCopied")); } catch { toast.error(t("copyFailedManual")); } }}
               >
-                <span className="truncate">api_key: {secret.key}</span> <Copy className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">api_key: {secret.key}</span> <Copy aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               </button>
               <button
                 className="flex w-full items-center justify-between gap-2 rounded-md bg-surface-muted px-3 py-2 text-left"
-                onClick={async () => { try { await navigator.clipboard.writeText(secret.secret); toast.success("api_secret 복사됨"); } catch { toast.error("복사 실패 — 수동으로 선택하세요"); } }}
+                onClick={async () => { try { await navigator.clipboard.writeText(secret.secret); toast.success(t("apiSecretCopied")); } catch { toast.error(t("copyFailedManual")); } }}
               >
-                <span className="truncate">api_secret: {secret.secret}</span> <Copy className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">api_secret: {secret.secret}</span> <Copy aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               </button>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => setSecret(null)}>닫기</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSecret(null)}>{t("close")}</Button>
           </CardContent>
         </Card>
       )}
 
       <div className="space-y-2">
-        {projects.length === 0 && <p className="text-sm text-muted-foreground">프로젝트가 없습니다.</p>}
+        {projects.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
         {projects.map((p) => (
           <Link
             key={p.id}
@@ -103,7 +105,7 @@ export default function ProjectsPage() {
               </div>
               <p className="truncate text-xs text-muted-foreground">{p.apiKey}</p>
             </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
           </Link>
         ))}
       </div>

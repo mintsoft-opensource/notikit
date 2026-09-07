@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ type SendType = "single" | "broadcast" | "topic" | "segment";
 
 /** 발송 콘솔 — projectId 고정(프로젝트 상세) 또는 피커(글로벌). admin 세션으로 발송(api-secret 불필요). */
 export function SendConsole({ projectId }: { projectId?: string }) {
+  const t = useTranslations("send");
   const { projects } = useProjects();
   const [picked, setPicked] = React.useState("");
   const sel = projectId ?? picked;
@@ -28,9 +30,9 @@ export function SendConsole({ projectId }: { projectId?: string }) {
   const needsTarget = type !== "broadcast";
 
   async function submit() {
-    if (!sel) return toast.error("프로젝트를 선택하세요");
-    if (!title || !body) return toast.error("제목과 본문을 입력하세요");
-    if (needsTarget && !target) return toast.error("대상(target)을 입력하세요");
+    if (!sel) return toast.error(t("errSelectProject"));
+    if (!title || !body) return toast.error(t("errTitleBody"));
+    if (needsTarget && !target) return toast.error(t("errTarget"));
     if (sending) return;
 
     setSending(true);
@@ -41,12 +43,12 @@ export function SendConsole({ projectId }: { projectId?: string }) {
 
       await adminApi(`/api/admin/projects/${sel}/messages`, { method: "POST", body: JSON.stringify(payload) });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "발송 실패");
+      toast.error(e instanceof Error ? e.message : t("sendFailed"));
       setSending(false);
       return;
     }
 
-    toast.success("큐잉됨");
+    toast.success(t("queued"));
     setTitle("");
     setBody("");
 
@@ -54,9 +56,9 @@ export function SendConsole({ projectId }: { projectId?: string }) {
     if (processNow) {
       try {
         await adminApi(`/api/admin/projects/${sel}/process-queue`, { method: "POST", body: "{}" });
-        toast.success("큐 처리 완료 (로그 확인)");
+        toast.success(t("processed"));
       } catch (e) {
-        toast.error(`큐잉은 완료됨 — 즉시 처리 실패: ${e instanceof Error ? e.message : "로그를 확인하세요"}`);
+        toast.error(t("queuedProcessFailed", { error: e instanceof Error ? e.message : t("checkLogs") }));
       }
     }
     setSending(false);
@@ -64,54 +66,54 @@ export function SendConsole({ projectId }: { projectId?: string }) {
 
   return (
     <div className="w-full space-y-6">
-      <PageHeader title="발송" description="개인 · 토픽 · 세그먼트 · 전체 발송. Firebase 미설정 시 log-only." />
+      <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
         <CardHeader>
-          <CardTitle>메시지 작성</CardTitle>
+          <CardTitle>{t("compose")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {!projectId && (
             <div className="space-y-1">
-              <Label>프로젝트</Label>
+              <Label>{t("project")}</Label>
               <ProjectPicker projects={projects} value={picked} onChange={setPicked} />
             </div>
           )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>발송 타입</Label>
-              <Select aria-label="발송 타입" value={type} onChange={(e) => setType(e.target.value as SendType)}>
-                <option value="single">single (개인)</option>
-                <option value="topic">topic (토픽)</option>
-                <option value="segment">segment (세그먼트)</option>
-                <option value="broadcast">broadcast (전체)</option>
+              <Label>{t("sendType")}</Label>
+              <Select aria-label={t("sendType")} value={type} onChange={(e) => setType(e.target.value as SendType)}>
+                <option value="single">{t("typeSingle")}</option>
+                <option value="topic">{t("typeTopic")}</option>
+                <option value="segment">{t("typeSegment")}</option>
+                <option value="broadcast">{t("typeBroadcast")}</option>
               </Select>
             </div>
-            <Field label={type === "single" ? "external_id" : type === "broadcast" ? "대상 (불필요)" : `${type} 이름`}>
-              <Input spellCheck={false} autoComplete="off" value={target} onChange={(e) => setTarget(e.target.value)} disabled={!needsTarget} placeholder={needsTarget ? "대상" : "전체 발송"} />
+            <Field label={type === "single" ? "external_id" : type === "broadcast" ? t("targetUnneeded") : t("targetNameOf", { type })}>
+              <Input spellCheck={false} autoComplete="off" value={target} onChange={(e) => setTarget(e.target.value)} disabled={!needsTarget} placeholder={needsTarget ? t("targetPlaceholder") : t("broadcastAll")} />
             </Field>
           </div>
 
-          <Field label="제목">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder="알림 제목" />
+          <Field label={t("titleLabel")}>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
           </Field>
-          <Field label="본문">
-            <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder="알림 본문" />
+          <Field label={t("bodyLabel")}>
+            <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
           </Field>
-          <Field label="딥링크 (선택)">
-            <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path 또는 https://…" />
+          <Field label={t("deepLink")}>
+            <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
           </Field>
 
           <div className="flex flex-col gap-2 border-t border-border pt-3 text-sm">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={processNow} onChange={(e) => setProcessNow(e.target.checked)} className="h-4 w-4" />
-              발송 즉시 큐 처리 (로그 생성)
+              {t("processNow")}
             </label>
           </div>
 
           <Button onClick={submit} disabled={sending} className="w-full">
-            <Send aria-hidden="true" className="h-4 w-4" /> {sending ? "발송 중…" : "발송"}
+            <Send aria-hidden="true" className="h-4 w-4" /> {sending ? t("sending") : t("submit")}
           </Button>
         </CardContent>
       </Card>

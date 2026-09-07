@@ -481,10 +481,16 @@ const T = {
   },
 };
 
+/** 콘솔 화면 번역 (2차) — 데이터는 scripts/console-translations.json (같은 flat dot-key 구조) */
+const T2 = JSON.parse(
+  fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "console-translations.json"), "utf8")
+);
+
 let count = 0;
 for (const [code, overrides] of Object.entries(T)) {
   const msg = JSON.parse(JSON.stringify(base)); // deep clone en
   for (const [k, v] of Object.entries(overrides)) setDeep(msg, k, v);
+  for (const [k, v] of Object.entries(T2[code] ?? {})) setDeep(msg, k, v);
   fs.writeFileSync(path.join(dir, `${code}.json`), JSON.stringify(msg, null, 2) + "\n");
   count++;
 }

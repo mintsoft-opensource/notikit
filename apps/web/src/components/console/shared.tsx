@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/input";
 import type { Project } from "@/lib/admin-client";
@@ -24,9 +25,10 @@ export function ProjectPicker({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const t = useTranslations("common");
   return (
-    <Select aria-label="프로젝트 선택" value={value} onChange={(e) => onChange(e.target.value)} className="w-full sm:w-72">
-      <option value="">프로젝트 선택…</option>
+    <Select aria-label={t("selectProject")} value={value} onChange={(e) => onChange(e.target.value)} className="w-full sm:w-72">
+      <option value="">{t("selectProjectPlaceholder")}</option>
       {projects.map((p) => (
         <option key={p.id} value={p.id}>
           {p.name} ({p.environment})

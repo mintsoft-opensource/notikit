@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Plus, X, Play, Send, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,8 @@ type Step = { type: "send" | "wait"; title?: string; body?: string; hours?: numb
 type Journey = { id: string; name: string; steps: Step[] };
 
 export default function JourneysPage() {
+  const t = useTranslations("journeys");
+  const tc = useTranslations("common");
   const { projects } = useProjects();
   const [sel, setSel] = React.useState("");
   const [journeys, setJourneys] = React.useState<Journey[]>([]);
@@ -33,10 +36,10 @@ export default function JourneysPage() {
         if (my !== reqRef.current || id !== selRef.current) return;
         setJourneys(d.journeys);
       } catch (e) {
-        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : tc("loadFailed"));
       }
     },
-    []
+    [tc]
   );
 
   React.useEffect(() => {
@@ -56,7 +59,7 @@ export default function JourneysPage() {
     );
     try {
       await adminApi(`/api/admin/projects/${target}/journeys`, { method: "POST", body: JSON.stringify({ name: name.trim(), steps: cleaned }) });
-      toast.success("저니 생성됨");
+      toast.success(t("created"));
       // 완료 시점에 다른 프로젝트로 전환됐으면 B 의 드래프트를 지우지 않음
       if (selRef.current === target) {
         setName("");
@@ -64,7 +67,7 @@ export default function JourneysPage() {
         load(target);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "생성 실패");
+      toast.error(e instanceof Error ? e.message : t("createFailed"));
     }
   }
 
@@ -72,20 +75,20 @@ export default function JourneysPage() {
     if (!sel) return;
     try {
       const d = await adminApi<{ processed: number }>(`/api/admin/projects/${sel}/journeys/process`, { method: "POST", body: "{}" });
-      toast.success(`진행 ${d.processed}건`);
+      toast.success(t("processed", { count: d.processed }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "처리 실패");
+      toast.error(e instanceof Error ? e.message : t("processFailed"));
     }
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="저니"
-        description="다단계 워크플로 (send → wait → send)"
+        title={t("title")}
+        description={t("subtitle")}
         actions={
           <Button variant="outline" size="sm" onClick={process} disabled={!sel}>
-            <Play className="h-4 w-4" /> 진행 처리
+            <Play aria-hidden="true" className="h-4 w-4" /> {t("processBtn")}
           </Button>
         }
       />
@@ -94,29 +97,29 @@ export default function JourneysPage() {
       {sel && (
         <>
           <Card>
-            <CardHeader><CardTitle>새 저니</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t("newJourney")}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <Field label="이름">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: onboarding" />
+              <Field label={t("nameLabel")}>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
               </Field>
               <div className="space-y-2">
-                <Label>스텝</Label>
+                <Label>{t("stepsLabel")}</Label>
                 {steps.map((s, i) => (
                   <div key={i} className="space-y-2 rounded-lg border border-border p-3">
                     <div className="flex items-center gap-2">
-                      <Select aria-label="스텝 타입" value={s.type} onChange={(e) => updateStep(i, { type: e.target.value as Step["type"] })} className="w-32">
+                      <Select aria-label={t("stepType")} value={s.type} onChange={(e) => updateStep(i, { type: e.target.value as Step["type"] })} className="w-32">
                         <option value="send">send</option>
                         <option value="wait">wait</option>
                       </Select>
-                      <span className="text-xs text-muted-foreground">스텝 {i + 1}</span>
-                      <Button variant="ghost" size="icon" className="ml-auto" aria-label="스텝 삭제" onClick={() => setSteps(steps.filter((_, j) => j !== i))} disabled={steps.length === 1}>
-                        <X className="h-4 w-4" />
+                      <span className="text-xs text-muted-foreground">{t("stepN", { n: i + 1 })}</span>
+                      <Button variant="ghost" size="icon" className="ml-auto" aria-label={t("removeStep")} onClick={() => setSteps(steps.filter((_, j) => j !== i))} disabled={steps.length === 1}>
+                        <X aria-hidden="true" className="h-4 w-4" />
                       </Button>
                     </div>
                     {s.type === "send" ? (
                       <div className="grid gap-2 sm:grid-cols-2">
-                        <Input value={s.title ?? ""} onChange={(e) => updateStep(i, { title: e.target.value })} placeholder="제목" />
-                        <Input value={s.body ?? ""} onChange={(e) => updateStep(i, { body: e.target.value })} placeholder="본문" />
+                        <Input value={s.title ?? ""} onChange={(e) => updateStep(i, { title: e.target.value })} placeholder={t("titlePlaceholder")} />
+                        <Input value={s.body ?? ""} onChange={(e) => updateStep(i, { body: e.target.value })} placeholder={t("bodyPlaceholder")} />
                       </div>
                     ) : (
                       <Input
@@ -125,28 +128,28 @@ export default function JourneysPage() {
                         max={8760}
                         value={s.hours ?? ""}
                         onChange={(e) => updateStep(i, { hours: Number(e.target.value) })}
-                        placeholder="대기 시간(시간)"
+                        placeholder={t("waitHoursPlaceholder")}
                       />
                     )}
                   </div>
                 ))}
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setSteps([...steps, { type: "send", title: "", body: "" }])}>
-                    <Send className="h-4 w-4" /> send 추가
+                    <Send aria-hidden="true" className="h-4 w-4" /> {t("addSend")}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setSteps([...steps, { type: "wait", hours: 24 }])}>
-                    <Clock className="h-4 w-4" /> wait 추가
+                    <Clock aria-hidden="true" className="h-4 w-4" /> {t("addWait")}
                   </Button>
                 </div>
               </div>
-              <Button onClick={create} disabled={!name.trim()}>저니 생성</Button>
+              <Button onClick={create} disabled={!name.trim()}>{t("create")}</Button>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>저니 ({journeys.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t("listTitle", { count: journeys.length })}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {journeys.length === 0 && <p className="text-sm text-muted-foreground">없음</p>}
+              {journeys.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
               {journeys.map((j) => (
                 <div key={j.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
                   <span className="text-sm font-semibold">{j.name}</span>

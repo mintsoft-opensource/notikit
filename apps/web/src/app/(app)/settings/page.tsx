@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Save, LogOut, UserCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +12,9 @@ import { ProjectPicker } from "@/components/console/shared";
 import { useProjects, useSession, adminApi, logout } from "@/lib/admin-client";
 
 export default function SettingsPage() {
+  const t = useTranslations("orgSettings");
+  const ts = useTranslations("settings");
+  const th = useTranslations("header");
   const { user } = useSession();
   const { projects, reload } = useProjects();
   const [sel, setSel] = React.useState("");
@@ -50,10 +54,10 @@ export default function SettingsPage() {
           quiet_end_hour: quietEnd === "" ? null : Number(quietEnd),
         }),
       });
-      toast.success("프로젝트 설정 저장됨");
+      toast.success(t("projectSettingsSaved"));
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "저장 실패");
+      toast.error(e instanceof Error ? e.message : ts("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -61,17 +65,17 @@ export default function SettingsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <PageHeader title="설정" description="계정과 프로젝트별 발송 정책을 관리합니다." />
+      <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
         <CardHeader>
-          <CardTitle>계정</CardTitle>
-          <CardDescription>현재 로그인한 관리자 계정입니다.</CardDescription>
+          <CardTitle>{t("accountTitle")}</CardTitle>
+          <CardDescription>{t("accountDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-primary">
-              <UserCircle className="h-5 w-5" />
+              <UserCircle aria-hidden="true" className="h-5 w-5" />
             </span>
             <div>
               <p className="text-sm font-semibold">{user?.email ?? "…"}</p>
@@ -85,19 +89,19 @@ export default function SettingsPage() {
               try {
                 await logout();
               } catch (e) {
-                toast.error(e instanceof Error ? e.message : "로그아웃 실패");
+                toast.error(e instanceof Error ? e.message : th("logoutFailed"));
               }
             }}
           >
-            <LogOut className="h-4 w-4" /> 로그아웃
+            <LogOut aria-hidden="true" className="h-4 w-4" /> {th("logout")}
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>프로젝트 발송 정책</CardTitle>
-          <CardDescription>identity 검증 강제 · 방해금지 시간대(UTC 기준).</CardDescription>
+          <CardTitle>{t("projectPolicyTitle")}</CardTitle>
+          <CardDescription>{t("projectPolicyDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ProjectPicker projects={projects} value={sel} onChange={setSel} />
@@ -105,30 +109,30 @@ export default function SettingsPage() {
             <div className="space-y-4 border-t border-border pt-4">
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="h-4 w-4" />
-                external_id 바인딩에 identity_hash 검증 강제
+                {ts("requireIdentity")}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="qs">방해금지 시작 (UTC)</Label>
+                  <Label htmlFor="qs">{ts("quietStart")}</Label>
                   <Select id="qs" value={quietStart} onChange={(e) => setQuietStart(e.target.value)}>
-                    <option value="">없음</option>
+                    <option value="">{ts("none")}</option>
                     {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={i}>{i}시</option>
+                      <option key={i} value={i}>{ts("hour", { hour: i })}</option>
                     ))}
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="qe">방해금지 종료 (UTC)</Label>
+                  <Label htmlFor="qe">{ts("quietEnd")}</Label>
                   <Select id="qe" value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)}>
-                    <option value="">없음</option>
+                    <option value="">{ts("none")}</option>
                     {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={i}>{i}시</option>
+                      <option key={i} value={i}>{ts("hour", { hour: i })}</option>
                     ))}
                   </Select>
                 </div>
               </div>
               <Button onClick={saveProjectSettings} disabled={!hydrated || saving}>
-                <Save className="h-4 w-4" /> {saving ? "저장 중…" : "정책 저장"}
+                <Save aria-hidden="true" className="h-4 w-4" /> {saving ? ts("saving") : ts("savePolicy")}
               </Button>
             </div>
           )}

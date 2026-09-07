@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Send, ScrollText, Settings, ArrowRight, Copy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,12 +18,14 @@ type Stats = {
 };
 
 const LINKS = (id: string) => [
-  { href: `/projects/${id}/send`, label: "발송", icon: Send, desc: "개인·토픽·세그먼트·전체" },
-  { href: `/projects/${id}/logs`, label: "로그", icon: ScrollText, desc: "상태·성공/실패 집계" },
-  { href: `/projects/${id}/settings`, label: "설정", icon: Settings, desc: "정책·Firebase/카카오" },
-];
+  { href: `/projects/${id}/send`, labelKey: "linkSend", icon: Send, descKey: "linkSendDesc" },
+  { href: `/projects/${id}/logs`, labelKey: "linkLogs", icon: ScrollText, descKey: "linkLogsDesc" },
+  { href: `/projects/${id}/settings`, labelKey: "linkSettings", icon: Settings, descKey: "linkSettingsDesc" },
+] as const;
 
 export function ProjectOverview({ projectId }: { projectId: string }) {
+  const t = useTranslations("overview");
+  const tc = useTranslations("common");
   const locale = useLocale();
   const { projects } = useProjects();
   const project = projects.find((p) => p.id === projectId);
@@ -49,8 +51,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   return (
     <div className="w-full space-y-6">
       <PageHeader
-        title={project?.name ?? "프로젝트"}
-        description="프로젝트 상세"
+        title={project?.name ?? t("projectFallback")}
+        description={t("subtitle")}
         actions={project ? <Badge variant={project.environment === "production" ? "primary" : "neutral"}>{project.environment}</Badge> : undefined}
       />
 
@@ -62,13 +64,13 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
               <p className="truncate font-mono text-sm">{project.apiKey}</p>
             </div>
             <div className="flex items-center gap-2">
-              {project.hasFirebase ? <Badge variant="success">Firebase 설정됨</Badge> : <Badge variant="neutral">log-only</Badge>}
+              {project.hasFirebase ? <Badge variant="success">{t("firebaseConfigured")}</Badge> : <Badge variant="neutral">log-only</Badge>}
               <button
                 type="button"
-                onClick={async () => { try { await navigator.clipboard.writeText(project.apiKey); toast.success("api-key 복사됨"); } catch { toast.error("복사 실패"); } }}
+                onClick={async () => { try { await navigator.clipboard.writeText(project.apiKey); toast.success(t("apiKeyCopied")); } catch { toast.error(tc("copyFailed")); } }}
                 className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
               >
-                <Copy aria-hidden="true" className="h-3.5 w-3.5" /> 복사
+                <Copy aria-hidden="true" className="h-3.5 w-3.5" /> {tc("copy")}
               </button>
             </div>
           </CardContent>
@@ -77,21 +79,21 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 
       {statsError && (
         <div role="status" aria-live="polite" className="flex items-center justify-between rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
-          <span>통계를 불러오지 못했습니다.</span>
+          <span>{t("statsLoadFailed")}</span>
           <button
             type="button"
             onClick={() => setStatsRetry((n) => n + 1)}
             className="rounded-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
-            재시도
+            {tc("retry")}
           </button>
         </div>
       )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="디바이스" value={num(stats?.devices.total)} />
-        <StatCard label="유저" value={num(stats?.users.total)} />
-        <StatCard label="발송" value={num(stats?.messages.total_sends)} />
-        <StatCard label="활성 디바이스" value={num(stats?.devices.active)} />
+        <StatCard label={t("statDevices")} value={num(stats?.devices.total)} />
+        <StatCard label={t("statUsers")} value={num(stats?.users.total)} />
+        <StatCard label={t("statSends")} value={num(stats?.messages.total_sends)} />
+        <StatCard label={t("statActiveDevices")} value={num(stats?.devices.active)} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -105,8 +107,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                     <Icon aria-hidden="true" className="h-5 w-5" />
                   </span>
                   <div className="flex-1">
-                    <p className="text-sm font-bold">{l.label}</p>
-                    <p className="text-xs text-muted-foreground">{l.desc}</p>
+                    <p className="text-sm font-bold">{t(l.labelKey)}</p>
+                    <p className="text-xs text-muted-foreground">{t(l.descKey)}</p>
                   </div>
                   <ArrowRight aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
                 </CardContent>

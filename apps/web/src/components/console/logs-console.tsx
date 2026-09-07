@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { RefreshCw, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +21,9 @@ function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" 
 }
 
 export function LogsConsole({ projectId }: { projectId?: string }) {
+  const t = useTranslations("logs");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const { projects } = useProjects();
   const [picked, setPicked] = React.useState("");
   const sel = projectId ?? picked;
@@ -39,12 +43,12 @@ export function LogsConsole({ projectId }: { projectId?: string }) {
         if (my !== reqRef.current || id !== selRef.current) return;
         setLogs(d.logs);
       } catch (e) {
-        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : "로드 실패");
+        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : t("loadFailed"));
       } finally {
         if (my === reqRef.current) setLoading(false);
       }
     },
-    []
+    [t]
   );
 
   React.useEffect(() => {
@@ -57,25 +61,27 @@ export function LogsConsole({ projectId }: { projectId?: string }) {
     if (!sel) return;
     try {
       const d = await adminApi<{ processed: number; failed: number }>(`/api/admin/projects/${sel}/process-queue`, { method: "POST", body: "{}" });
-      toast.success(`처리 ${d.processed} · 실패 ${d.failed}`);
+      toast.success(t("processResult", { processed: d.processed, failed: d.failed }));
       load(sel);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "처리 실패");
+      toast.error(e instanceof Error ? e.message : t("processFailed"));
     }
   }
+
+  const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" }), [locale]);
 
   return (
     <div className="w-full space-y-6">
       <PageHeader
-        title="발송 로그"
-        description="발송 상태 · 성공/실패 집계"
+        title={t("title")}
+        description={t("subtitle")}
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => sel && load(sel)} disabled={!sel}>
-              <RefreshCw className="h-4 w-4" /> 새로고침
+              <RefreshCw aria-hidden="true" className="h-4 w-4" /> {tc("refresh")}
             </Button>
             <Button size="sm" onClick={processQueue} disabled={!sel}>
-              <Play className="h-4 w-4" /> 큐 처리
+              <Play aria-hidden="true" className="h-4 w-4" /> {t("processQueue")}
             </Button>
           </>
         }
@@ -85,9 +91,9 @@ export function LogsConsole({ projectId }: { projectId?: string }) {
 
       <Card>
         <CardContent className="p-0">
-          {!sel && <p className="p-6 text-sm text-muted-foreground">프로젝트를 선택하세요.</p>}
-          {sel && loading && <p className="p-6 text-sm text-muted-foreground">불러오는 중…</p>}
-          {sel && !loading && logs.length === 0 && <p className="p-6 text-sm text-muted-foreground">로그가 없습니다.</p>}
+          {!sel && <p className="p-6 text-sm text-muted-foreground">{tc("selectProjectFirst")}</p>}
+          {sel && loading && <p className="p-6 text-sm text-muted-foreground">{tc("loading")}</p>}
+          {sel && !loading && logs.length === 0 && <p className="p-6 text-sm text-muted-foreground">{t("empty")}</p>}
           {logs.length > 0 && (
             <ul className="divide-y divide-border">
               {logs.map((l) => (
@@ -95,7 +101,7 @@ export function LogsConsole({ projectId }: { projectId?: string }) {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{l.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {l.type} · {new Date(l.createdAt).toLocaleString("ko-KR")}
+                      {l.type} · {df.format(new Date(l.createdAt))}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
