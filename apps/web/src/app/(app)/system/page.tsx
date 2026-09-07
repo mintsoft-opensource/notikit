@@ -5,7 +5,176 @@ import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/console/shared";
+import { LiveChart, formatBytes } from "@/components/system/live-chart";
 import { adminApi } from "@/lib/admin-client";
+
+type HostStats = {
+  host: {
+    cpu: { usagePct: number | null; loadavg: [number, number, number]; cores: number };
+    memory: { totalBytes: number; usedBytes: number; processRssBytes: number; heapUsedBytes: number };
+    network: { rxBytesPerSec: number; txBytesPerSec: number } | null;
+    eventLoop: { p50Ms: number; p99Ms: number } | null;
+    uptimeSec: number;
+    processUptimeSec: number;
+    platform: string;
+  };
+  db: { latencyMs: number };
+  queue: { queued: number; processing: number; scheduled: number; oldestQueuedSec: number | null };
+  at: string;
+};
+
+type HostPoint = { t: number; cpu: number | null; memPct: number; rx: number | null; tx: number | null };
+
+const POLL_MS = 5000;
+const WINDOW = 60; // 5분 (60 × 5s)
+
+function formatDuration(sec: number): string {
+  if (sec >= 86400) return `${Math.floor(sec / 86400)}d ${Math.floor((sec % 86400) / 3600)}h`;
+  if (sec >= 3600) return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
+  if (sec >= 60) return `${Math.floor(sec / 60)}m ${Math.floor(sec % 60)}s`;
+  return `${Math.floor(sec)}s`;
+}
+
+/** 호스트 실시간 섹션 — 5초 폴링, 5분 롤링 윈도우 */
+function HostSection() {
+  const t = useTranslations("system");
+  const locale = useLocale();
+  const [latest, setLatest] = React.useState<HostStats | null>(null);
+  const [points, setPoints] = React.useState<HostPoint[]>([]);
+  const [error, setError] = React.useState(false);
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
+  const tfm = React.useMemo(() => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" }), [locale]);
+
+  React.useEffect(() => {
+    let alive = true;
+    async function poll() {
+      try {
+        const d = await adminApi<HostStats>("/api/admin/system/host");
+        if (!alive) return;
+        setError(false);
+        setLatest(d);
+        setPoints((prev) =>
+          [
+            ...prev,
+            {
+              t: new Date(d.at).getTime(),
+              cpu: d.host.cpu.usagePct,
+              memPct: (d.host.memory.usedBytes / d.host.memory.totalBytes) * 100,
+              rx: d.host.network?.rxBytesPerSec ?? null,
+              tx: d.host.network?.txBytesPerSec ?? null,
+            },
+          ].slice(-WINDOW)
+        );
+      } catch {
+        if (alive) setError(true);
+      }
+    }
+    poll();
+    const id = setInterval(poll, POLL_MS);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const h = latest?.host;
+  const gb = (b: number) => `${(b / 1024 / 1024 / 1024).toFixed(1)} GB`;
+  const mb = (b: number) => `${Math.round(b / 1024 / 1024)} MB`;
+  const val = (s: string | undefined | null) => s ?? (error ? "—" : "…");
+  const times = points.map((p) => p.t);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-[0.06em] text-muted-foreground">{t("host")}</h2>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${error ? "bg-error" : "bg-success"}`} />
+          {error ? t("hostUnreachable") : t("autoRefresh")}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+        <StatCard label={t("cpu")} value={val(h?.cpu.usagePct != null ? `${nf.format(h.cpu.usagePct)}%` : h ? "—" : null)} hint={h ? `${h.cpu.cores} cores · load ${nf.format(h.cpu.loadavg[0])}` : undefined} />
+        <StatCard label={t("memory")} value={val(h ? `${nf.format((h.memory.usedBytes / h.memory.totalBytes) * 100)}%` : null)} hint={h ? `${gb(h.memory.usedBytes)} / ${gb(h.memory.totalBytes)}` : undefined} />
+        <StatCard label={t("procRss")} value={val(h ? mb(h.memory.processRssBytes) : null)} hint={h ? `heap ${mb(h.memory.heapUsedBytes)}` : undefined} />
+        <StatCard label={t("eventLoop")} value={val(h ? (h.eventLoop ? `${nf.format(h.eventLoop.p99Ms)} ms` : "—") : null)} hint={h?.eventLoop ? `p50 ${nf.format(h.eventLoop.p50Ms)} ms` : undefined} />
+        <StatCard label={t("dbLatency")} value={val(latest ? `${nf.format(latest.db.latencyMs)} ms` : null)} />
+        <StatCard label={t("uptime")} value={val(h ? formatDuration(h.processUptimeSec) : null)} hint={h ? `host ${formatDuration(h.uptimeSec)}` : undefined} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("chartCpu")}</CardTitle>
+            <CardDescription>{t("window5m")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {points.length > 1 ? (
+              <LiveChart
+                times={times}
+                maxY={100}
+                formatY={(v) => `${Math.round(v)}%`}
+                formatTime={(ms) => tfm.format(ms)}
+                series={[{ key: "cpu", label: "CPU", color: "var(--chart-1)", values: points.map((p) => p.cpu) }]}
+              />
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">{t("collecting")}</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("chartMemory")}</CardTitle>
+            <CardDescription>{t("window5m")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {points.length > 1 ? (
+              <LiveChart
+                times={times}
+                maxY={100}
+                formatY={(v) => `${Math.round(v)}%`}
+                formatTime={(ms) => tfm.format(ms)}
+                series={[{ key: "mem", label: t("memory"), color: "var(--chart-1)", values: points.map((p) => p.memPct) }]}
+              />
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">{t("collecting")}</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("chartNetwork")}</CardTitle>
+            <CardDescription>{t("window5m")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {points.length > 1 && points.some((p) => p.rx != null) ? (
+              <LiveChart
+                times={times}
+                formatY={(v) => formatBytes(v)}
+                formatTime={(ms) => tfm.format(ms)}
+                series={[
+                  { key: "rx", label: t("rx"), color: "var(--chart-1)", values: points.map((p) => p.rx) },
+                  { key: "tx", label: t("tx"), color: "var(--chart-2)", values: points.map((p) => p.tx) },
+                ]}
+              />
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {points.length > 1 ? t("netUnavailable") : t("collecting")}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label={t("queueQueued")} value={val(latest ? nf.format(latest.queue.queued) : null)} />
+        <StatCard label={t("queueProcessing")} value={val(latest ? nf.format(latest.queue.processing) : null)} />
+        <StatCard label={t("queueScheduled")} value={val(latest ? nf.format(latest.queue.scheduled) : null)} />
+        <StatCard label={t("oldestQueued")} value={val(latest ? (latest.queue.oldestQueuedSec != null ? formatDuration(latest.queue.oldestQueuedSec) : "—") : null)} />
+      </div>
+    </div>
+  );
+}
 
 type SystemStats = {
   totals: { sends24h: number; recipients24h: number; success24h: number; queued: number; activeDevices: number; users: number };
@@ -152,6 +321,10 @@ export default function SystemPage() {
   return (
     <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
+
+      <HostSection />
+
+      <h2 className="pt-2 text-sm font-bold uppercase tracking-[0.06em] text-muted-foreground">{t("delivery")}</h2>
 
       {error && (
         <div role="status" aria-live="polite" className="flex items-center justify-between rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">

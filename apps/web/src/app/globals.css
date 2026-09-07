@@ -58,6 +58,10 @@
   --kakao-bg: #fee500;
   --kakao-fg: #191919;
 
+  /* 차트 카테고리 (CVD 검증 통과 쌍 — 시리즈 1/2) */
+  --chart-1: #159570;
+  --chart-2: #7a5af0;
+
   --radius: 0.625rem;
 }
 
@@ -75,6 +79,8 @@
   --border: var(--gy700);
   --border-strong: var(--gy600);
   --ring: var(--mint300);
+  --chart-1: #21a06f;
+  --chart-2: #8a6ff0;
 }
 
 /* Tailwind v4 theme 매핑 — bg-primary / text-foreground / border-border 등 활성화 */
