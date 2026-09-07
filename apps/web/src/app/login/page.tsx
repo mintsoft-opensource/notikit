@@ -4,7 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Bell, LogIn, UserPlus } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
+import { LogoMark } from "@/components/brand/logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -62,9 +63,7 @@ export default function LoginPage() {
     <main className="flex min-h-[100dvh] items-center justify-center bg-surface-muted px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Bell aria-hidden="true" className="h-6 w-6" />
-          </span>
+          <LogoMark className="h-12 w-12" />
           <h1 translate="no" className="text-xl font-extrabold tracking-tight">{ta("name")}</h1>
           <p className="text-sm text-muted-foreground">
             {mode === "register" ? t("firstAdmin") : t("consoleLogin")}

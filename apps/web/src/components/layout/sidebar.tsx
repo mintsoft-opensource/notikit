@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Bell, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/brand/logo";
 import { NAV_GROUPS, isActive, projectIdFromPath, projectNavGroups, type NavItem } from "./nav";
 
 function NavLink({ item, label, pathname }: { item: NavItem; label: string; pathname: string }) {
@@ -63,10 +64,8 @@ export function SidebarBrand() {
   return (
     <div className="flex h-16 items-center border-b border-border px-6">
       <Link href="/dashboard" className="flex items-center gap-2.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Bell className="h-4 w-4" />
-        </span>
-        <span className="text-[15px] font-extrabold tracking-tight text-foreground">{t("name")}</span>
+        <LogoMark className="h-8 w-8" />
+        <span translate="no" className="text-[15px] font-extrabold tracking-tight text-foreground">{t("name")}</span>
       </Link>
     </div>
   );
