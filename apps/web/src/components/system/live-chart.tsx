@@ -111,7 +111,7 @@ export function LiveChart({
             </g>
           ))}
           {n > 1 &&
-            [0, Math.floor((n - 1) / 2), n - 1].map((i) => (
+            [...new Set([0, Math.floor((n - 1) / 2), n - 1])].map((i) => (
               <text
                 key={i}
                 x={x(i)}
