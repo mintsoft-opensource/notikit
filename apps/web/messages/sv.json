@@ -102,7 +102,13 @@
     "linkLogs": "Loggar",
     "linkLogsDesc": "Status · lyckade/misslyckade",
     "linkSettings": "Inställningar",
-    "linkSettingsDesc": "Policy · Firebase/Kakao"
+    "linkSettingsDesc": "Policy · Firebase/Kakao",
+    "sends24h": "Utskick (24h)",
+    "successRate24h": "Lyckandegrad (24h)",
+    "dau": "DAU",
+    "recentTitle": "Senaste utskick",
+    "viewAll": "Alla loggar",
+    "kakaoConfigured": "Kakao konfigurerat"
   },
   "send": {
     "title": "Skicka",

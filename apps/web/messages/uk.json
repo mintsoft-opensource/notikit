@@ -102,7 +102,13 @@
     "linkLogs": "Журнали",
     "linkLogsDesc": "Статус · успіх/помилки",
     "linkSettings": "Налаштування",
-    "linkSettingsDesc": "Політика · Firebase/Kakao"
+    "linkSettingsDesc": "Політика · Firebase/Kakao",
+    "sends24h": "Надсилання (24 год)",
+    "successRate24h": "Успішність (24 год)",
+    "dau": "DAU",
+    "recentTitle": "Останні надсилання",
+    "viewAll": "Усі журнали",
+    "kakaoConfigured": "Kakao налаштовано"
   },
   "send": {
     "title": "Надсилання",

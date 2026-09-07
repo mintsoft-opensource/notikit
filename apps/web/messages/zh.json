@@ -102,7 +102,13 @@
     "linkLogs": "日志",
     "linkLogsDesc": "状态·成功/失败统计",
     "linkSettings": "设置",
-    "linkSettingsDesc": "策略·Firebase/Kakao"
+    "linkSettingsDesc": "策略·Firebase/Kakao",
+    "sends24h": "发送 (24h)",
+    "successRate24h": "成功率 (24h)",
+    "dau": "DAU",
+    "recentTitle": "最近发送",
+    "viewAll": "全部日志",
+    "kakaoConfigured": "Kakao 已配置"
   },
   "send": {
     "title": "发送",

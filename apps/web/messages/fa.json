@@ -102,7 +102,13 @@
     "linkLogs": "گزارش‌ها",
     "linkLogsDesc": "وضعیت · موفق/ناموفق",
     "linkSettings": "تنظیمات",
-    "linkSettingsDesc": "سیاست · Firebase/Kakao"
+    "linkSettingsDesc": "سیاست · Firebase/Kakao",
+    "sends24h": "ارسال‌ها (۲۴س)",
+    "successRate24h": "نرخ موفقیت (۲۴س)",
+    "dau": "DAU",
+    "recentTitle": "ارسال‌های اخیر",
+    "viewAll": "همه گزارش‌ها",
+    "kakaoConfigured": "Kakao پیکربندی شده"
   },
   "send": {
     "title": "ارسال",

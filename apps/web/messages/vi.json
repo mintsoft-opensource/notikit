@@ -102,7 +102,13 @@
     "linkLogs": "Nhật ký",
     "linkLogsDesc": "Trạng thái · thành công/thất bại",
     "linkSettings": "Cài đặt",
-    "linkSettingsDesc": "Chính sách · Firebase/Kakao"
+    "linkSettingsDesc": "Chính sách · Firebase/Kakao",
+    "sends24h": "Lượt gửi (24h)",
+    "successRate24h": "Tỷ lệ thành công (24h)",
+    "dau": "DAU",
+    "recentTitle": "Gửi gần đây",
+    "viewAll": "Tất cả nhật ký",
+    "kakaoConfigured": "Đã cấu hình Kakao"
   },
   "send": {
     "title": "Gửi",

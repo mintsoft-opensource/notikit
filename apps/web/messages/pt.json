@@ -102,7 +102,13 @@
     "linkLogs": "Registos",
     "linkLogsDesc": "Estado · sucesso/falha",
     "linkSettings": "Definições",
-    "linkSettingsDesc": "Política · Firebase/Kakao"
+    "linkSettingsDesc": "Política · Firebase/Kakao",
+    "sends24h": "Envios (24h)",
+    "successRate24h": "Taxa de sucesso (24h)",
+    "dau": "DAU",
+    "recentTitle": "Envios recentes",
+    "viewAll": "Ver todos os registos",
+    "kakaoConfigured": "Kakao configurado"
   },
   "send": {
     "title": "Enviar",

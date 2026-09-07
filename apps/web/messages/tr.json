@@ -102,7 +102,13 @@
     "linkLogs": "Günlükler",
     "linkLogsDesc": "Durum · başarı/başarısız",
     "linkSettings": "Ayarlar",
-    "linkSettingsDesc": "Politika · Firebase/Kakao"
+    "linkSettingsDesc": "Politika · Firebase/Kakao",
+    "sends24h": "Gönderimler (24s)",
+    "successRate24h": "Başarı oranı (24s)",
+    "dau": "DAU",
+    "recentTitle": "Son gönderimler",
+    "viewAll": "Tüm günlükler",
+    "kakaoConfigured": "Kakao yapılandırıldı"
   },
   "send": {
     "title": "Gönder",

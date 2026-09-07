@@ -102,7 +102,13 @@
     "linkLogs": "ログ",
     "linkLogsDesc": "状態・成功/失敗の集計",
     "linkSettings": "設定",
-    "linkSettingsDesc": "ポリシー・Firebase/カカオ"
+    "linkSettingsDesc": "ポリシー・Firebase/カカオ",
+    "sends24h": "送信 (24h)",
+    "successRate24h": "成功率 (24h)",
+    "dau": "DAU",
+    "recentTitle": "最近の送信",
+    "viewAll": "すべてのログ",
+    "kakaoConfigured": "カカオ設定済み"
   },
   "send": {
     "title": "送信",

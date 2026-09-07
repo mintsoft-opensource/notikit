@@ -102,7 +102,13 @@
     "linkLogs": "Logi",
     "linkLogsDesc": "Status · sukces/błąd",
     "linkSettings": "Ustawienia",
-    "linkSettingsDesc": "Polityka · Firebase/Kakao"
+    "linkSettingsDesc": "Polityka · Firebase/Kakao",
+    "sends24h": "Wysyłki (24h)",
+    "successRate24h": "Wskaźnik sukcesu (24h)",
+    "dau": "DAU",
+    "recentTitle": "Ostatnie wysyłki",
+    "viewAll": "Wszystkie logi",
+    "kakaoConfigured": "Kakao skonfigurowane"
   },
   "send": {
     "title": "Wyślij",

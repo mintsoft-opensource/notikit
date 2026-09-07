@@ -102,7 +102,13 @@
     "linkLogs": "लॉग",
     "linkLogsDesc": "स्थिति · सफल/विफल",
     "linkSettings": "सेटिंग्स",
-    "linkSettingsDesc": "नीति · Firebase/Kakao"
+    "linkSettingsDesc": "नीति · Firebase/Kakao",
+    "sends24h": "भेजे गए (24घं)",
+    "successRate24h": "सफलता दर (24घं)",
+    "dau": "DAU",
+    "recentTitle": "हाल के भेजे गए",
+    "viewAll": "सभी लॉग",
+    "kakaoConfigured": "Kakao कॉन्फ़िगर है"
   },
   "send": {
     "title": "भेजें",

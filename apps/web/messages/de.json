@@ -102,7 +102,13 @@
     "linkLogs": "Protokolle",
     "linkLogsDesc": "Status · Erfolg/Fehler",
     "linkSettings": "Einstellungen",
-    "linkSettingsDesc": "Richtlinie · Firebase/Kakao"
+    "linkSettingsDesc": "Richtlinie · Firebase/Kakao",
+    "sends24h": "Sendungen (24 h)",
+    "successRate24h": "Erfolgsquote (24 h)",
+    "dau": "DAU",
+    "recentTitle": "Letzte Sendungen",
+    "viewAll": "Alle Protokolle",
+    "kakaoConfigured": "Kakao konfiguriert"
   },
   "send": {
     "title": "Senden",

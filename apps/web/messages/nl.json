@@ -102,7 +102,13 @@
     "linkLogs": "Logboeken",
     "linkLogsDesc": "Status · succes/mislukt",
     "linkSettings": "Instellingen",
-    "linkSettingsDesc": "Beleid · Firebase/Kakao"
+    "linkSettingsDesc": "Beleid · Firebase/Kakao",
+    "sends24h": "Verzendingen (24u)",
+    "successRate24h": "Succespercentage (24u)",
+    "dau": "DAU",
+    "recentTitle": "Recente verzendingen",
+    "viewAll": "Alle logboeken",
+    "kakaoConfigured": "Kakao geconfigureerd"
   },
   "send": {
     "title": "Verzenden",

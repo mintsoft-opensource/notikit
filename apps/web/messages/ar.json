@@ -102,7 +102,13 @@
     "linkLogs": "السجلات",
     "linkLogsDesc": "الحالة · نجاح/فشل",
     "linkSettings": "الإعدادات",
-    "linkSettingsDesc": "السياسة · Firebase/Kakao"
+    "linkSettingsDesc": "السياسة · Firebase/Kakao",
+    "sends24h": "الإرسالات (24س)",
+    "successRate24h": "معدل النجاح (24س)",
+    "dau": "DAU",
+    "recentTitle": "الإرسالات الأخيرة",
+    "viewAll": "كل السجلات",
+    "kakaoConfigured": "تم إعداد Kakao"
   },
   "send": {
     "title": "إرسال",

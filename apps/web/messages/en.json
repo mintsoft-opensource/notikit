@@ -102,7 +102,13 @@
     "linkLogs": "Logs",
     "linkLogsDesc": "Status · success/fail",
     "linkSettings": "Settings",
-    "linkSettingsDesc": "Policy · Firebase/Kakao"
+    "linkSettingsDesc": "Policy · Firebase/Kakao",
+    "sends24h": "Sends (24h)",
+    "successRate24h": "Success rate (24h)",
+    "dau": "DAU",
+    "recentTitle": "Recent sends",
+    "viewAll": "View all logs",
+    "kakaoConfigured": "Kakao configured"
   },
   "send": {
     "title": "Send",

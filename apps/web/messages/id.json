@@ -102,7 +102,13 @@
     "linkLogs": "Log",
     "linkLogsDesc": "Status · sukses/gagal",
     "linkSettings": "Pengaturan",
-    "linkSettingsDesc": "Kebijakan · Firebase/Kakao"
+    "linkSettingsDesc": "Kebijakan · Firebase/Kakao",
+    "sends24h": "Pengiriman (24j)",
+    "successRate24h": "Tingkat keberhasilan (24j)",
+    "dau": "DAU",
+    "recentTitle": "Pengiriman terbaru",
+    "viewAll": "Semua log",
+    "kakaoConfigured": "Kakao dikonfigurasi"
   },
   "send": {
     "title": "Kirim",

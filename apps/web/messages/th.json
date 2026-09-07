@@ -102,7 +102,13 @@
     "linkLogs": "บันทึก",
     "linkLogsDesc": "สถานะ · สำเร็จ/ล้มเหลว",
     "linkSettings": "การตั้งค่า",
-    "linkSettingsDesc": "นโยบาย · Firebase/Kakao"
+    "linkSettingsDesc": "นโยบาย · Firebase/Kakao",
+    "sends24h": "การส่ง (24ชม.)",
+    "successRate24h": "อัตราสำเร็จ (24ชม.)",
+    "dau": "DAU",
+    "recentTitle": "การส่งล่าสุด",
+    "viewAll": "บันทึกทั้งหมด",
+    "kakaoConfigured": "ตั้งค่า Kakao แล้ว"
   },
   "send": {
     "title": "ส่ง",
