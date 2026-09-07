@@ -298,6 +298,7 @@
     "queueQueued": "排队",
     "queueProcessing": "处理中",
     "queueScheduled": "已计划",
-    "oldestQueued": "最久排队"
+    "oldestQueued": "最久排队",
+    "queueTitle": "队列状态"
   }
 }

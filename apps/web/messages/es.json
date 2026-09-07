@@ -298,6 +298,7 @@
     "queueQueued": "En cola",
     "queueProcessing": "Procesando",
     "queueScheduled": "Programados",
-    "oldestQueued": "Más antiguo en cola"
+    "oldestQueued": "Más antiguo en cola",
+    "queueTitle": "Cola"
   }
 }

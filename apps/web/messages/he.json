@@ -298,6 +298,7 @@
     "queueQueued": "בתור",
     "queueProcessing": "בעיבוד",
     "queueScheduled": "מתוזמנות",
-    "oldestQueued": "הוותיק בתור"
+    "oldestQueued": "הוותיק בתור",
+    "queueTitle": "מצב התור"
   }
 }

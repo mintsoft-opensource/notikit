@@ -298,6 +298,7 @@
     "queueQueued": "Em fila",
     "queueProcessing": "Em processamento",
     "queueScheduled": "Agendados",
-    "oldestQueued": "Mais antigo na fila"
+    "oldestQueued": "Mais antigo na fila",
+    "queueTitle": "Fila"
   }
 }

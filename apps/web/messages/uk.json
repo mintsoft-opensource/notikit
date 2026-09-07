@@ -298,6 +298,7 @@
     "queueQueued": "У черзі",
     "queueProcessing": "В обробці",
     "queueScheduled": "Заплановано",
-    "oldestQueued": "Найдовше в черзі"
+    "oldestQueued": "Найдовше в черзі",
+    "queueTitle": "Черга"
   }
 }

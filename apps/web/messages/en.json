@@ -298,6 +298,7 @@
     "queueQueued": "Queued",
     "queueProcessing": "Processing",
     "queueScheduled": "Scheduled",
-    "oldestQueued": "Oldest queued"
+    "oldestQueued": "Oldest queued",
+    "queueTitle": "Queue"
   }
 }

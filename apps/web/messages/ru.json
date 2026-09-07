@@ -298,6 +298,7 @@
     "queueQueued": "В очереди",
     "queueProcessing": "В обработке",
     "queueScheduled": "Запланировано",
-    "oldestQueued": "Дольше всех в очереди"
+    "oldestQueued": "Дольше всех в очереди",
+    "queueTitle": "Очередь"
   }
 }

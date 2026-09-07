@@ -207,7 +207,8 @@
   "system.queueQueued": "待機",
   "system.queueProcessing": "処理中",
   "system.queueScheduled": "予約",
-  "system.oldestQueued": "最長待機"
+  "system.oldestQueued": "最長待機",
+  "system.queueTitle": "キュー状態"
  },
  "zh": {
   "meta.description": "开源 · 可自托管 · 以用户为中心的推送通知基础设施",
@@ -417,7 +418,8 @@
   "system.queueQueued": "排队",
   "system.queueProcessing": "处理中",
   "system.queueScheduled": "已计划",
-  "system.oldestQueued": "最久排队"
+  "system.oldestQueued": "最久排队",
+  "system.queueTitle": "队列状态"
  },
  "zh-TW": {
   "meta.description": "開源 · 可自架 · 以使用者為中心的推播通知基礎設施",
@@ -627,7 +629,8 @@
   "system.queueQueued": "排隊",
   "system.queueProcessing": "處理中",
   "system.queueScheduled": "已排程",
-  "system.oldestQueued": "最久排隊"
+  "system.oldestQueued": "最久排隊",
+  "system.queueTitle": "佇列狀態"
  },
  "es": {
   "meta.description": "Código abierto · autoalojable · infraestructura de notificaciones push centrada en el usuario",
@@ -837,7 +840,8 @@
   "system.queueQueued": "En cola",
   "system.queueProcessing": "Procesando",
   "system.queueScheduled": "Programados",
-  "system.oldestQueued": "Más antiguo en cola"
+  "system.oldestQueued": "Más antiguo en cola",
+  "system.queueTitle": "Cola"
  },
  "pt": {
   "meta.description": "Código aberto · auto-hospedável · infraestrutura de notificações push centrada no utilizador",
@@ -1047,7 +1051,8 @@
   "system.queueQueued": "Em fila",
   "system.queueProcessing": "Em processamento",
   "system.queueScheduled": "Agendados",
-  "system.oldestQueued": "Mais antigo na fila"
+  "system.oldestQueued": "Mais antigo na fila",
+  "system.queueTitle": "Fila"
  },
  "pt-BR": {
   "meta.description": "Código aberto · auto-hospedável · infraestrutura de notificações push centrada no usuário",
@@ -1257,7 +1262,8 @@
   "system.queueQueued": "Na fila",
   "system.queueProcessing": "Processando",
   "system.queueScheduled": "Agendados",
-  "system.oldestQueued": "Mais antigo na fila"
+  "system.oldestQueued": "Mais antigo na fila",
+  "system.queueTitle": "Fila"
  },
  "fr": {
   "meta.description": "Open source · auto-hébergeable · infrastructure de notifications push centrée sur l'utilisateur",
@@ -1467,7 +1473,8 @@
   "system.queueQueued": "En file",
   "system.queueProcessing": "En traitement",
   "system.queueScheduled": "Planifiés",
-  "system.oldestQueued": "Plus ancien en file"
+  "system.oldestQueued": "Plus ancien en file",
+  "system.queueTitle": "File d'attente"
  },
  "de": {
   "meta.description": "Open Source · selbst hostbar · nutzerzentrierte Push-Benachrichtigungs-Infrastruktur",
@@ -1677,7 +1684,8 @@
   "system.queueQueued": "Wartend",
   "system.queueProcessing": "In Verarbeitung",
   "system.queueScheduled": "Geplant",
-  "system.oldestQueued": "Älteste Wartezeit"
+  "system.oldestQueued": "Älteste Wartezeit",
+  "system.queueTitle": "Warteschlange"
  },
  "it": {
   "meta.description": "Open source · self-hostable · infrastruttura di notifiche push centrata sull'utente",
@@ -1887,7 +1895,8 @@
   "system.queueQueued": "In coda",
   "system.queueProcessing": "In elaborazione",
   "system.queueScheduled": "Pianificati",
-  "system.oldestQueued": "Più vecchio in coda"
+  "system.oldestQueued": "Più vecchio in coda",
+  "system.queueTitle": "Coda"
  },
  "nl": {
   "meta.description": "Open source · zelf te hosten · gebruikersgerichte pushnotificatie-infrastructuur",
@@ -2097,7 +2106,8 @@
   "system.queueQueued": "In wachtrij",
   "system.queueProcessing": "In verwerking",
   "system.queueScheduled": "Gepland",
-  "system.oldestQueued": "Oudste in wachtrij"
+  "system.oldestQueued": "Oudste in wachtrij",
+  "system.queueTitle": "Wachtrij"
  },
  "sv": {
   "meta.description": "Öppen källkod · självhostbar · användarcentrerad push-notisinfrastruktur",
@@ -2307,7 +2317,8 @@
   "system.queueQueued": "I kö",
   "system.queueProcessing": "Bearbetas",
   "system.queueScheduled": "Schemalagda",
-  "system.oldestQueued": "Äldst i kön"
+  "system.oldestQueued": "Äldst i kön",
+  "system.queueTitle": "Kö"
  },
  "pl": {
   "meta.description": "Open source · możliwość samodzielnego hostowania · infrastruktura powiadomień push zorientowana na użytkownika",
@@ -2517,7 +2528,8 @@
   "system.queueQueued": "W kolejce",
   "system.queueProcessing": "Przetwarzane",
   "system.queueScheduled": "Zaplanowane",
-  "system.oldestQueued": "Najstarsze w kolejce"
+  "system.oldestQueued": "Najstarsze w kolejce",
+  "system.queueTitle": "Kolejka"
  },
  "ru": {
   "meta.description": "Открытый код · самостоятельный хостинг · пользователь-ориентированная инфраструктура push-уведомлений",
@@ -2727,7 +2739,8 @@
   "system.queueQueued": "В очереди",
   "system.queueProcessing": "В обработке",
   "system.queueScheduled": "Запланировано",
-  "system.oldestQueued": "Дольше всех в очереди"
+  "system.oldestQueued": "Дольше всех в очереди",
+  "system.queueTitle": "Очередь"
  },
  "uk": {
   "meta.description": "Відкритий код · самостійний хостинг · орієнтована на користувача інфраструктура push-сповіщень",
@@ -2937,7 +2950,8 @@
   "system.queueQueued": "У черзі",
   "system.queueProcessing": "В обробці",
   "system.queueScheduled": "Заплановано",
-  "system.oldestQueued": "Найдовше в черзі"
+  "system.oldestQueued": "Найдовше в черзі",
+  "system.queueTitle": "Черга"
  },
  "tr": {
   "meta.description": "Açık kaynak · kendi sunucunuzda barındırılabilir · kullanıcı odaklı push bildirim altyapısı",
@@ -3147,7 +3161,8 @@
   "system.queueQueued": "Kuyrukta",
   "system.queueProcessing": "İşleniyor",
   "system.queueScheduled": "Zamanlanmış",
-  "system.oldestQueued": "En eski kuyrukta"
+  "system.oldestQueued": "En eski kuyrukta",
+  "system.queueTitle": "Kuyruk"
  },
  "ar": {
   "meta.description": "مفتوح المصدر · قابل للاستضافة الذاتية · بنية إشعارات دفع تتمحور حول المستخدم",
@@ -3357,7 +3372,8 @@
   "system.queueQueued": "في الانتظار",
   "system.queueProcessing": "قيد المعالجة",
   "system.queueScheduled": "مجدولة",
-  "system.oldestQueued": "الأقدم في الانتظار"
+  "system.oldestQueued": "الأقدم في الانتظار",
+  "system.queueTitle": "قائمة الانتظار"
  },
  "he": {
   "meta.description": "קוד פתוח · ניתן לאירוח עצמי · תשתית התראות פוש ממוקדת משתמש",
@@ -3567,7 +3583,8 @@
   "system.queueQueued": "בתור",
   "system.queueProcessing": "בעיבוד",
   "system.queueScheduled": "מתוזמנות",
-  "system.oldestQueued": "הוותיק בתור"
+  "system.oldestQueued": "הוותיק בתור",
+  "system.queueTitle": "מצב התור"
  },
  "fa": {
   "meta.description": "متن‌باز · قابل میزبانی شخصی · زیرساخت اعلان پوش کاربرمحور",
@@ -3777,7 +3794,8 @@
   "system.queueQueued": "در صف",
   "system.queueProcessing": "در حال پردازش",
   "system.queueScheduled": "زمان‌بندی‌شده",
-  "system.oldestQueued": "قدیمی‌ترین در صف"
+  "system.oldestQueued": "قدیمی‌ترین در صف",
+  "system.queueTitle": "وضعیت صف"
  },
  "hi": {
   "meta.description": "ओपन सोर्स · सेल्फ-होस्ट योग्य · उपयोगकर्ता-केंद्रित पुश सूचना इन्फ्रास्ट्रक्चर",
@@ -3987,7 +4005,8 @@
   "system.queueQueued": "कतार में",
   "system.queueProcessing": "प्रोसेस हो रहा",
   "system.queueScheduled": "निर्धारित",
-  "system.oldestQueued": "सबसे पुराना कतार में"
+  "system.oldestQueued": "सबसे पुराना कतार में",
+  "system.queueTitle": "कतार स्थिति"
  },
  "th": {
   "meta.description": "โอเพนซอร์ส · โฮสต์เองได้ · โครงสร้างพื้นฐานการแจ้งเตือนพุชที่เน้นผู้ใช้",
@@ -4197,7 +4216,8 @@
   "system.queueQueued": "รอคิว",
   "system.queueProcessing": "กำลังประมวลผล",
   "system.queueScheduled": "ตั้งเวลาแล้ว",
-  "system.oldestQueued": "รอคิวนานที่สุด"
+  "system.oldestQueued": "รอคิวนานที่สุด",
+  "system.queueTitle": "สถานะคิว"
  },
  "vi": {
   "meta.description": "Mã nguồn mở · tự lưu trữ được · hạ tầng thông báo đẩy lấy người dùng làm trung tâm",
@@ -4407,7 +4427,8 @@
   "system.queueQueued": "Đang chờ",
   "system.queueProcessing": "Đang xử lý",
   "system.queueScheduled": "Đã lên lịch",
-  "system.oldestQueued": "Chờ lâu nhất"
+  "system.oldestQueued": "Chờ lâu nhất",
+  "system.queueTitle": "Hàng đợi"
  },
  "id": {
   "meta.description": "Sumber terbuka · dapat dihosting sendiri · infrastruktur notifikasi push berpusat pada pengguna",
@@ -4617,7 +4638,8 @@
   "system.queueQueued": "Dalam antrean",
   "system.queueProcessing": "Diproses",
   "system.queueScheduled": "Terjadwal",
-  "system.oldestQueued": "Terlama di antrean"
+  "system.oldestQueued": "Terlama di antrean",
+  "system.queueTitle": "Antrean"
  },
  "ms": {
   "meta.description": "Sumber terbuka · boleh dihoskan sendiri · infrastruktur pemberitahuan tolak berpusatkan pengguna",
@@ -4827,6 +4849,7 @@
   "system.queueQueued": "Dalam baris gilir",
   "system.queueProcessing": "Sedang diproses",
   "system.queueScheduled": "Dijadualkan",
-  "system.oldestQueued": "Paling lama menunggu"
+  "system.oldestQueued": "Paling lama menunggu",
+  "system.queueTitle": "Baris gilir"
  }
 }

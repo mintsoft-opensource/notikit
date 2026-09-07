@@ -298,6 +298,7 @@
     "queueQueued": "Dalam baris gilir",
     "queueProcessing": "Sedang diproses",
     "queueScheduled": "Dijadualkan",
-    "oldestQueued": "Paling lama menunggu"
+    "oldestQueued": "Paling lama menunggu",
+    "queueTitle": "Baris gilir"
   }
 }

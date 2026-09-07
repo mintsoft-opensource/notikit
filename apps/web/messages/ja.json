@@ -298,6 +298,7 @@
     "queueQueued": "待機",
     "queueProcessing": "処理中",
     "queueScheduled": "予約",
-    "oldestQueued": "最長待機"
+    "oldestQueued": "最長待機",
+    "queueTitle": "キュー状態"
   }
 }

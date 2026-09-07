@@ -50,10 +50,10 @@ function formatDuration(sec: number): string {
   return `${Math.floor(sec)}s`;
 }
 
-/** 섹션 타이틀 — 그라파나 row 스타일 (라벨 + 구분선) */
+/** 섹션 타이틀 — 라벨 + 구분선 (그라파나 row) */
 function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 pt-2">
+    <div className="flex items-center gap-3 pt-1">
       <h2 className="shrink-0 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{children}</h2>
       <span aria-hidden="true" className="h-px flex-1 bg-border" />
       {right}
@@ -61,25 +61,51 @@ function SectionTitle({ children, right }: { children: React.ReactNode; right?: 
   );
 }
 
-/** 컴팩트 메트릭 타일 — 고정 높이·말줄임으로 그리드 정렬 유지 */
-function MetricTile({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string | null }) {
+/** 셀 배경 스파크라인 — 축 없는 미니 추이 */
+function Spark({ values, max }: { values: Array<number | null>; max?: number }) {
+  const solid = values.filter((v): v is number => v != null);
+  if (solid.length < 2) return null;
+  const yMax = max ?? Math.max(1e-9, ...solid) * 1.1;
+  const W = 100, H = 100;
+  const pts = values
+    .map((v, i) => (v == null ? null : `${((i / (values.length - 1)) * W).toFixed(1)},${(H - (Math.min(v, yMax) / yMax) * H).toFixed(1)}`))
+    .filter(Boolean) as string[];
   return (
-    <Card className="p-4">
-      <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" title={label}>
-        {label}
-      </p>
-      <p className="mt-1.5 truncate text-xl font-extrabold leading-tight tracking-tight tabular-nums">{value}</p>
-      <p className={`mt-0.5 truncate text-[11px] tabular-nums text-muted-foreground ${hint ? "" : "invisible"}`}>{hint || "·"}</p>
+    <svg aria-hidden="true" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-9 w-full opacity-[0.18]">
+      <polygon points={`0,${H} ${pts.join(" ")} ${W},${H}`} fill="var(--chart-1)" />
+      <polyline points={pts.join(" ")} fill="none" stroke="var(--chart-1)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+type StatCell = { key: string; label: string; value: React.ReactNode; hint?: string | null; spark?: Array<number | null>; sparkMax?: number };
+
+/** 스탯 스트립 — 하나의 카드 안에 헤어라인으로 분할된 셀들 (개별 카드 남발 방지) */
+function StatStrip({ cells, cols }: { cells: StatCell[]; cols: string }) {
+  return (
+    <Card className="overflow-hidden">
+      <div className={`grid gap-px bg-border ${cols}`}>
+        {cells.map((c) => (
+          <div key={c.key} className="relative bg-surface px-4 pb-3 pt-3.5">
+            {c.spark && <Spark values={c.spark} max={c.sparkMax} />}
+            <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" title={c.label}>
+              {c.label}
+            </p>
+            <p className="relative mt-1 truncate text-xl font-extrabold leading-tight tracking-tight tabular-nums">{c.value}</p>
+            <p className={`relative mt-0.5 truncate text-[11px] tabular-nums text-muted-foreground ${c.hint ? "" : "invisible"}`}>{c.hint || "·"}</p>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }
 
-/** 차트 패널 — 제목/부제 + 본문 */
+/** 차트 패널 */
 function Panel({ title, sub, children, className }: { title: string; sub?: string; children: React.ReactNode; className?: string }) {
   return (
     <Card className={className}>
       <CardContent className="p-4">
-        <div className="mb-3 flex items-baseline justify-between gap-2">
+        <div className="mb-2.5 flex items-baseline justify-between gap-2">
           <p className="text-sm font-bold">{title}</p>
           {sub && <p className="shrink-0 text-[11px] text-muted-foreground">{sub}</p>}
         </div>
@@ -90,10 +116,10 @@ function Panel({ title, sub, children, className }: { title: string; sub?: strin
 }
 
 function EmptyNote({ children }: { children: React.ReactNode }) {
-  return <p className="py-10 text-center text-sm text-muted-foreground">{children}</p>;
+  return <p className="py-9 text-center text-sm text-muted-foreground">{children}</p>;
 }
 
-/** 수평 바 목록 — 단일 측정값, 값 라벨 병기 */
+/** 수평 바 목록 */
 function BarList({ rows }: { rows: Array<{ label: string; value: number; color?: string }> }) {
   const nf = new Intl.NumberFormat();
   const max = Math.max(1, ...rows.map((r) => r.value));
@@ -101,7 +127,7 @@ function BarList({ rows }: { rows: Array<{ label: string; value: number; color?:
     <div className="space-y-2.5">
       {rows.map((r) => (
         <div key={r.label} className="flex items-center gap-3">
-          <span className="w-28 shrink-0 truncate text-xs text-muted-foreground" title={r.label}>
+          <span className="w-24 shrink-0 truncate text-xs text-muted-foreground" title={r.label}>
             {r.label}
           </span>
           <span className="h-4 flex-1 overflow-hidden rounded-sm bg-surface-muted">
@@ -110,7 +136,7 @@ function BarList({ rows }: { rows: Array<{ label: string; value: number; color?:
               style={{ width: `${(r.value / max) * 100}%`, background: r.color ?? "var(--chart-1)", minWidth: r.value > 0 ? "3px" : 0 }}
             />
           </span>
-          <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums">{nf.format(r.value)}</span>
+          <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums">{nf.format(r.value)}</span>
         </div>
       ))}
     </div>
@@ -160,12 +186,13 @@ function HostSection() {
   }, []);
 
   const h = latest?.host;
+  const q = latest?.queue;
   const val = (s: string | null | undefined) => s ?? (error ? "—" : "…");
   const times = points.map((p) => p.t);
   const fmtTime = (ms: number) => tfm.format(ms);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <SectionTitle
         right={
           <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -177,34 +204,36 @@ function HostSection() {
         {t("host")}
       </SectionTitle>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <MetricTile
-          label={t("cpu")}
-          value={val(h ? (h.cpu.usagePct != null ? `${nf.format(h.cpu.usagePct)}%` : "—") : null)}
-          hint={h ? `${h.cpu.cores} cores · load ${nf.format(h.cpu.loadavg[0])}` : null}
-        />
-        <MetricTile
-          label={t("memory")}
-          value={val(h ? `${nf.format((h.memory.usedBytes / h.memory.totalBytes) * 100)}%` : null)}
-          hint={h ? `${formatBytes(h.memory.usedBytes)} / ${formatBytes(h.memory.totalBytes)}` : null}
-        />
-        <MetricTile
-          label="RSS"
-          value={val(h ? formatBytes(h.memory.processRssBytes) : null)}
-          hint={h ? `heap ${formatBytes(h.memory.heapUsedBytes)}` : null}
-        />
-        <MetricTile
-          label={t("eventLoop")}
-          value={val(h ? (h.eventLoop ? `${nf.format(h.eventLoop.p99Ms)} ms` : "—") : null)}
-          hint={h?.eventLoop ? `p50 ${nf.format(h.eventLoop.p50Ms)} ms` : null}
-        />
-        <MetricTile label={t("dbLatency")} value={val(latest ? `${nf.format(latest.db.latencyMs)} ms` : null)} />
-        <MetricTile
-          label={t("uptime")}
-          value={val(h ? formatDuration(h.processUptimeSec) : null)}
-          hint={h ? `host ${formatDuration(h.uptimeSec)}` : null}
-        />
-      </div>
+      <StatStrip
+        cols="grid-cols-2 md:grid-cols-3 xl:grid-cols-6"
+        cells={[
+          {
+            key: "cpu",
+            label: t("cpu"),
+            value: val(h ? (h.cpu.usagePct != null ? `${nf.format(h.cpu.usagePct)}%` : "—") : null),
+            hint: h ? `${h.cpu.cores} cores · load ${nf.format(h.cpu.loadavg[0])}` : null,
+            spark: points.map((p) => p.cpu),
+            sparkMax: 100,
+          },
+          {
+            key: "mem",
+            label: t("memory"),
+            value: val(h ? `${nf.format((h.memory.usedBytes / h.memory.totalBytes) * 100)}%` : null),
+            hint: h ? `${formatBytes(h.memory.usedBytes)} / ${formatBytes(h.memory.totalBytes)}` : null,
+            spark: points.map((p) => p.memPct),
+            sparkMax: 100,
+          },
+          { key: "rss", label: "RSS", value: val(h ? formatBytes(h.memory.processRssBytes) : null), hint: h ? `heap ${formatBytes(h.memory.heapUsedBytes)}` : null },
+          {
+            key: "loop",
+            label: t("eventLoop"),
+            value: val(h ? (h.eventLoop ? `${nf.format(h.eventLoop.p99Ms)} ms` : "—") : null),
+            hint: h?.eventLoop ? `p50 ${nf.format(h.eventLoop.p50Ms)} ms` : null,
+          },
+          { key: "db", label: t("dbLatency"), value: val(latest ? `${nf.format(latest.db.latencyMs)} ms` : null) },
+          { key: "up", label: t("uptime"), value: val(h ? formatDuration(h.processUptimeSec) : null), hint: h ? `host ${formatDuration(h.uptimeSec)}` : null },
+        ]}
+      />
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title={t("chartCpu")} sub={t("window5m")}>
@@ -213,6 +242,7 @@ function HostSection() {
               times={times}
               maxY={100}
               area
+              height={170}
               formatY={(v) => `${Math.round(v)}%`}
               formatTime={fmtTime}
               series={[{ key: "cpu", label: "CPU", color: "var(--chart-1)", values: points.map((p) => p.cpu) }]}
@@ -227,6 +257,7 @@ function HostSection() {
               times={times}
               maxY={100}
               area
+              height={170}
               formatY={(v) => `${Math.round(v)}%`}
               formatTime={fmtTime}
               series={[{ key: "mem", label: t("memory"), color: "var(--chart-1)", values: points.map((p) => p.memPct) }]}
@@ -237,30 +268,40 @@ function HostSection() {
         </Panel>
       </div>
 
-      <Panel title={t("chartNetwork")} sub={t("window5m")}>
-        {points.length > 1 && points.some((p) => p.rx != null) ? (
-          <LiveChart
-            times={times}
-            formatY={(v) => `${formatBytes(v)}/s`}
-            formatTime={fmtTime}
-            series={[
-              { key: "rx", label: t("rx"), color: "var(--chart-1)", values: points.map((p) => p.rx) },
-              { key: "tx", label: t("tx"), color: "var(--chart-2)", values: points.map((p) => p.tx) },
-            ]}
-          />
-        ) : (
-          <EmptyNote>{points.length > 1 ? t("netUnavailable") : t("collecting")}</EmptyNote>
-        )}
-      </Panel>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricTile label={t("queueQueued")} value={val(latest ? String(latest.queue.queued) : null)} />
-        <MetricTile label={t("queueProcessing")} value={val(latest ? String(latest.queue.processing) : null)} />
-        <MetricTile label={t("queueScheduled")} value={val(latest ? String(latest.queue.scheduled) : null)} />
-        <MetricTile
-          label={t("oldestQueued")}
-          value={val(latest ? (latest.queue.oldestQueuedSec != null ? formatDuration(latest.queue.oldestQueuedSec) : "—") : null)}
-        />
+      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+        <Panel title={t("chartNetwork")} sub={t("window5m")}>
+          {points.length > 1 && points.some((p) => p.rx != null) ? (
+            <LiveChart
+              times={times}
+              height={170}
+              formatY={(v) => `${formatBytes(v)}/s`}
+              formatTime={fmtTime}
+              series={[
+                { key: "rx", label: t("rx"), color: "var(--chart-1)", values: points.map((p) => p.rx) },
+                { key: "tx", label: t("tx"), color: "var(--chart-2)", values: points.map((p) => p.tx) },
+              ]}
+            />
+          ) : (
+            <EmptyNote>{points.length > 1 ? t("netUnavailable") : t("collecting")}</EmptyNote>
+          )}
+        </Panel>
+        <Panel className="h-full" title={t("queueTitle")}>
+          <dl className="space-y-3">
+            {(
+              [
+                [t("queueQueued"), q ? String(q.queued) : null],
+                [t("queueProcessing"), q ? String(q.processing) : null],
+                [t("queueScheduled"), q ? String(q.scheduled) : null],
+                [t("oldestQueued"), q ? (q.oldestQueuedSec != null ? formatDuration(q.oldestQueuedSec) : "—") : null],
+              ] as const
+            ).map(([label, v]) => (
+              <div key={label} className="flex items-baseline justify-between gap-2 border-b border-border pb-2.5 last:border-b-0 last:pb-0">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="text-base font-extrabold tabular-nums">{val(v)}</dd>
+              </div>
+            ))}
+          </dl>
+        </Panel>
       </div>
     </section>
   );
@@ -301,7 +342,7 @@ export default function SystemPage() {
 
       <HostSection />
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <SectionTitle>{t("delivery")}</SectionTitle>
 
         {error && (
@@ -317,14 +358,21 @@ export default function SystemPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <MetricTile label={t("statSends")} value={num(stats?.totals.sends24h)} />
-          <MetricTile label={t("statRecipients")} value={num(stats?.totals.recipients24h)} />
-          <MetricTile label={t("statSuccessRate")} value={successRate} />
-          <MetricTile label={t("statQueued")} value={num(stats?.totals.queued)} />
-          <MetricTile label={t("statActiveDevices")} value={num(stats?.totals.activeDevices)} />
-          <MetricTile label={t("statUsers")} value={num(stats?.totals.users)} />
-        </div>
+        <StatStrip
+          cols="grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+          cells={[
+            {
+              key: "sends",
+              label: t("statSends"),
+              value: num(stats?.totals.sends24h),
+              spark: stats?.hourly.map((h) => h.count),
+            },
+            { key: "recipients", label: t("statRecipients"), value: num(stats?.totals.recipients24h) },
+            { key: "rate", label: t("statSuccessRate"), value: successRate },
+            { key: "devices", label: t("statActiveDevices"), value: num(stats?.totals.activeDevices) },
+            { key: "users", label: t("statUsers"), value: num(stats?.totals.users) },
+          ]}
+        />
 
         <Panel title={t("chartHourly")} sub={t("range24h")}>
           {stats ? (
@@ -333,6 +381,7 @@ export default function SystemPage() {
                 <LiveChart
                   times={stats.hourly.map((h) => new Date(h.ts).getTime())}
                   area
+                  height={190}
                   formatY={(v) => nf.format(Math.round(v))}
                   formatTime={(ms) => hf.format(ms)}
                   series={[{ key: "sends", label: t("statSends"), color: "var(--chart-1)", values: stats.hourly.map((h) => h.count) }]}
@@ -363,8 +412,8 @@ export default function SystemPage() {
           )}
         </Panel>
 
-        <div className="grid gap-3 lg:grid-cols-2">
-          <Panel title={t("chartStatuses")} sub={t("range24h")}>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <Panel className="h-full" title={t("chartStatuses")} sub={t("range24h")}>
             {stats && Object.keys(stats.statuses).length > 0 ? (
               <BarList
                 rows={Object.entries(stats.statuses)
@@ -376,34 +425,34 @@ export default function SystemPage() {
             )}
           </Panel>
 
-          <Panel title={t("topProjects")} sub={t("range24h")}>
+          <Panel className="h-full" title={t("topProjects")} sub={t("range24h")}>
             {stats && stats.topProjects.length > 0 ? (
               <BarList rows={stats.topProjects.map((p) => ({ label: p.name, value: p.count }))} />
             ) : (
               <EmptyNote>{stats ? t("empty") : error ? "—" : tc("loading")}</EmptyNote>
             )}
           </Panel>
-        </div>
 
-        <Panel title={t("webhooks")} sub={t("range24h")}>
-          <div className="grid grid-cols-3 gap-4">
-            {(
-              [
-                ["whDelivered", stats?.webhooks24h.delivered, "var(--success)"],
-                ["whFailed", stats?.webhooks24h.failed, "var(--error)"],
-                ["whPending", stats?.webhooks24h.pending, "var(--gy400)"],
-              ] as const
-            ).map(([key, value, color]) => (
-              <div key={key} className="flex items-center gap-2.5">
-                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
-                <div className="min-w-0">
-                  <p className="truncate text-xs text-muted-foreground">{t(key)}</p>
-                  <p className="text-lg font-extrabold tabular-nums">{num(value)}</p>
+          <Panel className="h-full" title={t("webhooks")} sub={t("range24h")}>
+            <dl className="space-y-3">
+              {(
+                [
+                  ["whDelivered", stats?.webhooks24h.delivered, "var(--success)"],
+                  ["whFailed", stats?.webhooks24h.failed, "var(--error)"],
+                  ["whPending", stats?.webhooks24h.pending, "var(--gy400)"],
+                ] as const
+              ).map(([key, value, color]) => (
+                <div key={key} className="flex items-baseline justify-between gap-2 border-b border-border pb-2.5 last:border-b-0 last:pb-0">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: color }} />
+                    {t(key)}
+                  </dt>
+                  <dd className="text-base font-extrabold tabular-nums">{num(value)}</dd>
                 </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
+              ))}
+            </dl>
+          </Panel>
+        </div>
       </section>
     </div>
   );

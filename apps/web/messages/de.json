@@ -298,6 +298,7 @@
     "queueQueued": "Wartend",
     "queueProcessing": "In Verarbeitung",
     "queueScheduled": "Geplant",
-    "oldestQueued": "Älteste Wartezeit"
+    "oldestQueued": "Älteste Wartezeit",
+    "queueTitle": "Warteschlange"
   }
 }

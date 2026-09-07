@@ -298,6 +298,7 @@
     "queueQueued": "En file",
     "queueProcessing": "En traitement",
     "queueScheduled": "Planifiés",
-    "oldestQueued": "Plus ancien en file"
+    "oldestQueued": "Plus ancien en file",
+    "queueTitle": "File d'attente"
   }
 }

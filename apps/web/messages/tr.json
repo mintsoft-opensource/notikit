@@ -298,6 +298,7 @@
     "queueQueued": "Kuyrukta",
     "queueProcessing": "İşleniyor",
     "queueScheduled": "Zamanlanmış",
-    "oldestQueued": "En eski kuyrukta"
+    "oldestQueued": "En eski kuyrukta",
+    "queueTitle": "Kuyruk"
   }
 }

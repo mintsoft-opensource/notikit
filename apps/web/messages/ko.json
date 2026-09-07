@@ -298,6 +298,7 @@
     "queueQueued": "대기",
     "queueProcessing": "처리 중",
     "queueScheduled": "예약",
-    "oldestQueued": "최장 대기"
+    "oldestQueued": "최장 대기",
+    "queueTitle": "큐 상태"
   }
 }

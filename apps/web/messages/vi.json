@@ -298,6 +298,7 @@
     "queueQueued": "Đang chờ",
     "queueProcessing": "Đang xử lý",
     "queueScheduled": "Đã lên lịch",
-    "oldestQueued": "Chờ lâu nhất"
+    "oldestQueued": "Chờ lâu nhất",
+    "queueTitle": "Hàng đợi"
   }
 }

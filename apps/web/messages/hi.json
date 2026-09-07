@@ -298,6 +298,7 @@
     "queueQueued": "कतार में",
     "queueProcessing": "प्रोसेस हो रहा",
     "queueScheduled": "निर्धारित",
-    "oldestQueued": "सबसे पुराना कतार में"
+    "oldestQueued": "सबसे पुराना कतार में",
+    "queueTitle": "कतार स्थिति"
   }
 }

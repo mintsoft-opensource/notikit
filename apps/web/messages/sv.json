@@ -298,6 +298,7 @@
     "queueQueued": "I kö",
     "queueProcessing": "Bearbetas",
     "queueScheduled": "Schemalagda",
-    "oldestQueued": "Äldst i kön"
+    "oldestQueued": "Äldst i kön",
+    "queueTitle": "Kö"
   }
 }

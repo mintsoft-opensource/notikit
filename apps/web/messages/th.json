@@ -298,6 +298,7 @@
     "queueQueued": "รอคิว",
     "queueProcessing": "กำลังประมวลผล",
     "queueScheduled": "ตั้งเวลาแล้ว",
-    "oldestQueued": "รอคิวนานที่สุด"
+    "oldestQueued": "รอคิวนานที่สุด",
+    "queueTitle": "สถานะคิว"
   }
 }

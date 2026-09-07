@@ -298,6 +298,7 @@
     "queueQueued": "Dalam antrean",
     "queueProcessing": "Diproses",
     "queueScheduled": "Terjadwal",
-    "oldestQueued": "Terlama di antrean"
+    "oldestQueued": "Terlama di antrean",
+    "queueTitle": "Antrean"
   }
 }

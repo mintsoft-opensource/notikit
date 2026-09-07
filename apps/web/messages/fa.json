@@ -298,6 +298,7 @@
     "queueQueued": "در صف",
     "queueProcessing": "در حال پردازش",
     "queueScheduled": "زمان‌بندی‌شده",
-    "oldestQueued": "قدیمی‌ترین در صف"
+    "oldestQueued": "قدیمی‌ترین در صف",
+    "queueTitle": "وضعیت صف"
   }
 }

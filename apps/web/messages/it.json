@@ -298,6 +298,7 @@
     "queueQueued": "In coda",
     "queueProcessing": "In elaborazione",
     "queueScheduled": "Pianificati",
-    "oldestQueued": "Più vecchio in coda"
+    "oldestQueued": "Più vecchio in coda",
+    "queueTitle": "Coda"
   }
 }

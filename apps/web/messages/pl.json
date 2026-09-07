@@ -298,6 +298,7 @@
     "queueQueued": "W kolejce",
     "queueProcessing": "Przetwarzane",
     "queueScheduled": "Zaplanowane",
-    "oldestQueued": "Najstarsze w kolejce"
+    "oldestQueued": "Najstarsze w kolejce",
+    "queueTitle": "Kolejka"
   }
 }

@@ -298,6 +298,7 @@
     "queueQueued": "في الانتظار",
     "queueProcessing": "قيد المعالجة",
     "queueScheduled": "مجدولة",
-    "oldestQueued": "الأقدم في الانتظار"
+    "oldestQueued": "الأقدم في الانتظار",
+    "queueTitle": "قائمة الانتظار"
   }
 }
