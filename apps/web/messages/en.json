@@ -192,10 +192,7 @@
     "title": "Settings",
     "subtitle": "Manage your account and per-project delivery policies.",
     "accountTitle": "Account",
-    "accountDesc": "The currently signed-in admin account.",
-    "projectPolicyTitle": "Project delivery policy",
-    "projectPolicyDesc": "Enforce identity verification · quiet hours (UTC).",
-    "projectSettingsSaved": "Project settings saved"
+    "accountDesc": "The currently signed-in admin account."
   },
   "segments": {
     "title": "Segments",

@@ -192,10 +192,7 @@
     "title": "Pengaturan",
     "subtitle": "Kelola akun dan kebijakan pengiriman per proyek.",
     "accountTitle": "Akun",
-    "accountDesc": "Akun admin yang sedang masuk.",
-    "projectPolicyTitle": "Kebijakan pengiriman proyek",
-    "projectPolicyDesc": "Wajibkan verifikasi identitas · jam tenang (UTC).",
-    "projectSettingsSaved": "Pengaturan proyek disimpan"
+    "accountDesc": "Akun admin yang sedang masuk."
   },
   "segments": {
     "title": "Segmen",

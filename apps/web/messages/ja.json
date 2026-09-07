@@ -192,10 +192,7 @@
     "title": "設定",
     "subtitle": "アカウントとプロジェクト別送信ポリシーを管理します。",
     "accountTitle": "アカウント",
-    "accountDesc": "現在ログイン中の管理者アカウントです。",
-    "projectPolicyTitle": "プロジェクト送信ポリシー",
-    "projectPolicyDesc": "identity 検証の強制 · 通知停止時間帯(UTC)。",
-    "projectSettingsSaved": "プロジェクト設定を保存しました"
+    "accountDesc": "現在ログイン中の管理者アカウントです。"
   },
   "segments": {
     "title": "セグメント",

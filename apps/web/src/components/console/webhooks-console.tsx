@@ -14,11 +14,12 @@ import { useProjects, adminApi } from "@/lib/admin-client";
 
 type Webhook = { id: string; url: string; events: string[]; isActive: boolean; createdAt: string };
 
-export default function WebhooksPage() {
+export function WebhooksConsole({ projectId }: { projectId?: string }) {
   const t = useTranslations("webhooks");
   const tc = useTranslations("common");
   const { projects } = useProjects();
-  const [sel, setSel] = React.useState("");
+  const [picked, setPicked] = React.useState("");
+  const sel = projectId ?? picked;
   const [hooks, setHooks] = React.useState<Webhook[]>([]);
   const [url, setUrl] = React.useState("");
   const [events, setEvents] = React.useState("");
@@ -97,7 +98,7 @@ export default function WebhooksPage() {
           </Button>
         }
       />
-      <ProjectPicker projects={projects} value={sel} onChange={setSel} />
+      {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
       {sel && (
         <>

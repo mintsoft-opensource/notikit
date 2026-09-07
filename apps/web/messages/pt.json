@@ -192,10 +192,7 @@
     "title": "Definições",
     "subtitle": "Gerir a conta e as políticas de envio por projeto.",
     "accountTitle": "Conta",
-    "accountDesc": "Conta de administrador com sessão iniciada.",
-    "projectPolicyTitle": "Política de envio do projeto",
-    "projectPolicyDesc": "Verificação de identidade obrigatória · horário de silêncio (UTC).",
-    "projectSettingsSaved": "Definições do projeto guardadas"
+    "accountDesc": "Conta de administrador com sessão iniciada."
   },
   "segments": {
     "title": "Segmentos",

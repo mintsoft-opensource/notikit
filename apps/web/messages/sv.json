@@ -192,10 +192,7 @@
     "title": "Inställningar",
     "subtitle": "Hantera ditt konto och utskickspolicyer per projekt.",
     "accountTitle": "Konto",
-    "accountDesc": "Administratörskontot som är inloggat.",
-    "projectPolicyTitle": "Projektets utskickspolicy",
-    "projectPolicyDesc": "Kräv identitetsverifiering · tysta timmar (UTC).",
-    "projectSettingsSaved": "Projektinställningar sparade"
+    "accountDesc": "Administratörskontot som är inloggat."
   },
   "segments": {
     "title": "Segment",

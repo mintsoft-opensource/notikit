@@ -192,10 +192,7 @@
     "title": "Ustawienia",
     "subtitle": "Zarządzaj kontem i politykami wysyłki per projekt.",
     "accountTitle": "Konto",
-    "accountDesc": "Aktualnie zalogowane konto administratora.",
-    "projectPolicyTitle": "Polityka wysyłki projektu",
-    "projectPolicyDesc": "Wymuszaj weryfikację tożsamości · godziny ciszy (UTC).",
-    "projectSettingsSaved": "Ustawienia projektu zapisane"
+    "accountDesc": "Aktualnie zalogowane konto administratora."
   },
   "segments": {
     "title": "Segmenty",

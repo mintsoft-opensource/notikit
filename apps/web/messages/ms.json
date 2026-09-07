@@ -192,10 +192,7 @@
     "title": "Tetapan",
     "subtitle": "Urus akaun dan polisi penghantaran mengikut projek.",
     "accountTitle": "Akaun",
-    "accountDesc": "Akaun pentadbir yang sedang log masuk.",
-    "projectPolicyTitle": "Polisi penghantaran projek",
-    "projectPolicyDesc": "Wajibkan pengesahan identiti · waktu senyap (UTC).",
-    "projectSettingsSaved": "Tetapan projek disimpan"
+    "accountDesc": "Akaun pentadbir yang sedang log masuk."
   },
   "segments": {
     "title": "Segmen",

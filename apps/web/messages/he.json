@@ -192,10 +192,7 @@
     "title": "הגדרות",
     "subtitle": "ניהול החשבון ומדיניות השליחה לכל פרויקט.",
     "accountTitle": "חשבון",
-    "accountDesc": "חשבון המנהל המחובר כעת.",
-    "projectPolicyTitle": "מדיניות שליחה של הפרויקט",
-    "projectPolicyDesc": "אכיפת אימות זהות · שעות שקט (UTC).",
-    "projectSettingsSaved": "הגדרות הפרויקט נשמרו"
+    "accountDesc": "חשבון המנהל המחובר כעת."
   },
   "segments": {
     "title": "פלחים",

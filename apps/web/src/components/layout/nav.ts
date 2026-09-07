@@ -28,16 +28,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { labelKey: "overview", href: "/dashboard", icon: LayoutDashboard, exact: true },
       { labelKey: "projects", href: "/projects", icon: FolderKanban },
-      { labelKey: "send", href: "/send", icon: Send },
-      { labelKey: "logs", href: "/logs", icon: ScrollText },
-    ],
-  },
-  {
-    labelKey: "engagement",
-    items: [
-      { labelKey: "segments", href: "/segments", icon: Users },
-      { labelKey: "journeys", href: "/journeys", icon: GitBranch },
-      { labelKey: "webhooks", href: "/webhooks", icon: Webhook },
     ],
   },
   {
@@ -73,8 +63,19 @@ export function projectNavGroups(id: string): NavGroup[] {
         { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
         { labelKey: "send", href: `/projects/${id}/send`, icon: Send },
         { labelKey: "logs", href: `/projects/${id}/logs`, icon: ScrollText },
-        { labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings },
       ],
+    },
+    {
+      labelKey: "engagement",
+      items: [
+        { labelKey: "segments", href: `/projects/${id}/segments`, icon: Users },
+        { labelKey: "journeys", href: `/projects/${id}/journeys`, icon: GitBranch },
+        { labelKey: "webhooks", href: `/projects/${id}/webhooks`, icon: Webhook },
+      ],
+    },
+    {
+      labelKey: "settings",
+      items: [{ labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings }],
     },
   ];
 }

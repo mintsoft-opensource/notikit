@@ -192,10 +192,7 @@
     "title": "Einstellungen",
     "subtitle": "Konto und Senderichtlinien pro Projekt verwalten.",
     "accountTitle": "Konto",
-    "accountDesc": "Aktuell angemeldetes Administratorkonto.",
-    "projectPolicyTitle": "Projekt-Senderichtlinie",
-    "projectPolicyDesc": "Identitätsprüfung erzwingen · Ruhezeiten (UTC).",
-    "projectSettingsSaved": "Projekteinstellungen gespeichert"
+    "accountDesc": "Aktuell angemeldetes Administratorkonto."
   },
   "segments": {
     "title": "Segmente",

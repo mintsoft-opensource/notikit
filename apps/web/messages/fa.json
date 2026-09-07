@@ -192,10 +192,7 @@
     "title": "تنظیمات",
     "subtitle": "مدیریت حساب و سیاست‌های ارسال هر پروژه.",
     "accountTitle": "حساب",
-    "accountDesc": "حساب مدیر واردشده فعلی.",
-    "projectPolicyTitle": "سیاست ارسال پروژه",
-    "projectPolicyDesc": "الزام تأیید هویت · ساعات سکوت (UTC).",
-    "projectSettingsSaved": "تنظیمات پروژه ذخیره شد"
+    "accountDesc": "حساب مدیر واردشده فعلی."
   },
   "segments": {
     "title": "بخش‌ها",

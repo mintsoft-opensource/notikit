@@ -192,10 +192,7 @@
     "title": "Paramètres",
     "subtitle": "Gérez votre compte et les politiques d'envoi par projet.",
     "accountTitle": "Compte",
-    "accountDesc": "Compte administrateur actuellement connecté.",
-    "projectPolicyTitle": "Politique d'envoi du projet",
-    "projectPolicyDesc": "Vérification d'identité obligatoire · plage silencieuse (UTC).",
-    "projectSettingsSaved": "Paramètres du projet enregistrés"
+    "accountDesc": "Compte administrateur actuellement connecté."
   },
   "segments": {
     "title": "Segments",

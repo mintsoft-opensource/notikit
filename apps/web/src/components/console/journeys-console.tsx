@@ -15,11 +15,12 @@ import { useProjects, adminApi } from "@/lib/admin-client";
 type Step = { type: "send" | "wait"; title?: string; body?: string; hours?: number };
 type Journey = { id: string; name: string; steps: Step[] };
 
-export default function JourneysPage() {
+export function JourneysConsole({ projectId }: { projectId?: string }) {
   const t = useTranslations("journeys");
   const tc = useTranslations("common");
   const { projects } = useProjects();
-  const [sel, setSel] = React.useState("");
+  const [picked, setPicked] = React.useState("");
+  const sel = projectId ?? picked;
   const [journeys, setJourneys] = React.useState<Journey[]>([]);
   const [name, setName] = React.useState("");
   const [steps, setSteps] = React.useState<Step[]>([{ type: "send", title: "", body: "" }]);
@@ -92,7 +93,7 @@ export default function JourneysPage() {
           </Button>
         }
       />
-      <ProjectPicker projects={projects} value={sel} onChange={setSel} />
+      {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
       {sel && (
         <>

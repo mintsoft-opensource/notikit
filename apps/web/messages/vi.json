@@ -192,10 +192,7 @@
     "title": "Cài đặt",
     "subtitle": "Quản lý tài khoản và chính sách gửi theo dự án.",
     "accountTitle": "Tài khoản",
-    "accountDesc": "Tài khoản quản trị đang đăng nhập.",
-    "projectPolicyTitle": "Chính sách gửi của dự án",
-    "projectPolicyDesc": "Bắt buộc xác minh danh tính · giờ yên lặng (UTC).",
-    "projectSettingsSaved": "Đã lưu cài đặt dự án"
+    "accountDesc": "Tài khoản quản trị đang đăng nhập."
   },
   "segments": {
     "title": "Phân khúc",

@@ -192,10 +192,7 @@
     "title": "Configurações",
     "subtitle": "Gerencie a conta e as políticas de envio por projeto.",
     "accountTitle": "Conta",
-    "accountDesc": "Conta de administrador conectada.",
-    "projectPolicyTitle": "Política de envio do projeto",
-    "projectPolicyDesc": "Verificação de identidade obrigatória · horário de silêncio (UTC).",
-    "projectSettingsSaved": "Configurações do projeto salvas"
+    "accountDesc": "Conta de administrador conectada."
   },
   "segments": {
     "title": "Segmentos",

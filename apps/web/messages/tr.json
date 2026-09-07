@@ -192,10 +192,7 @@
     "title": "Ayarlar",
     "subtitle": "Hesabınızı ve proje bazlı gönderim politikalarını yönetin.",
     "accountTitle": "Hesap",
-    "accountDesc": "Şu anda oturum açmış yönetici hesabı.",
-    "projectPolicyTitle": "Proje gönderim politikası",
-    "projectPolicyDesc": "Kimlik doğrulamayı zorunlu kıl · sessiz saatler (UTC).",
-    "projectSettingsSaved": "Proje ayarları kaydedildi"
+    "accountDesc": "Şu anda oturum açmış yönetici hesabı."
   },
   "segments": {
     "title": "Segmentler",

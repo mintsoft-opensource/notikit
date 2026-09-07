@@ -192,10 +192,7 @@
     "title": "설정",
     "subtitle": "계정과 프로젝트별 발송 정책을 관리합니다.",
     "accountTitle": "계정",
-    "accountDesc": "현재 로그인한 관리자 계정입니다.",
-    "projectPolicyTitle": "프로젝트 발송 정책",
-    "projectPolicyDesc": "identity 검증 강제 · 방해금지 시간대(UTC 기준).",
-    "projectSettingsSaved": "프로젝트 설정 저장됨"
+    "accountDesc": "현재 로그인한 관리자 계정입니다."
   },
   "segments": {
     "title": "세그먼트",

@@ -15,11 +15,12 @@ import { useProjects, adminApi } from "@/lib/admin-client";
 type Rule = { attribute: string; value: string };
 type Segment = { id: string; name: string; rules: Rule[] };
 
-export default function SegmentsPage() {
+export function SegmentsConsole({ projectId }: { projectId?: string }) {
   const t = useTranslations("segments");
   const tc = useTranslations("common");
   const { projects } = useProjects();
-  const [sel, setSel] = React.useState("");
+  const [picked, setPicked] = React.useState("");
+  const sel = projectId ?? picked;
   const [segments, setSegments] = React.useState<Segment[]>([]);
   const [name, setName] = React.useState("");
   const [rules, setRules] = React.useState<Rule[]>([{ attribute: "", value: "" }]);
@@ -78,7 +79,7 @@ export default function SegmentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
-      <ProjectPicker projects={projects} value={sel} onChange={setSel} />
+      {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
       {sel && (
         <>

@@ -192,10 +192,7 @@
     "title": "Instellingen",
     "subtitle": "Beheer je account en verzendbeleid per project.",
     "accountTitle": "Account",
-    "accountDesc": "Momenteel ingelogd beheerdersaccount.",
-    "projectPolicyTitle": "Verzendbeleid van project",
-    "projectPolicyDesc": "Identiteitsverificatie afdwingen · stille uren (UTC).",
-    "projectSettingsSaved": "Projectinstellingen opgeslagen"
+    "accountDesc": "Momenteel ingelogd beheerdersaccount."
   },
   "segments": {
     "title": "Segmenten",

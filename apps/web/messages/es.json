@@ -192,10 +192,7 @@
     "title": "Ajustes",
     "subtitle": "Gestiona tu cuenta y las políticas de envío por proyecto.",
     "accountTitle": "Cuenta",
-    "accountDesc": "Cuenta de administrador con sesión iniciada.",
-    "projectPolicyTitle": "Política de envío del proyecto",
-    "projectPolicyDesc": "Verificación de identidad obligatoria · horario de silencio (UTC).",
-    "projectSettingsSaved": "Ajustes del proyecto guardados"
+    "accountDesc": "Cuenta de administrador con sesión iniciada."
   },
   "segments": {
     "title": "Segmentos",

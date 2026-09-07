@@ -192,10 +192,7 @@
     "title": "الإعدادات",
     "subtitle": "إدارة الحساب وسياسات الإرسال لكل مشروع.",
     "accountTitle": "الحساب",
-    "accountDesc": "حساب المسؤول المسجل الدخول حاليًا.",
-    "projectPolicyTitle": "سياسة إرسال المشروع",
-    "projectPolicyDesc": "فرض التحقق من الهوية · ساعات الهدوء (UTC).",
-    "projectSettingsSaved": "تم حفظ إعدادات المشروع"
+    "accountDesc": "حساب المسؤول المسجل الدخول حاليًا."
   },
   "segments": {
     "title": "الشرائح",

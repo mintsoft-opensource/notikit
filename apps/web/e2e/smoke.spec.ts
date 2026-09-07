@@ -23,6 +23,17 @@ async function ensureLogin(page: Page) {
   }
 }
 
+/** 세션 org 의 첫 프로젝트 id (없으면 생성) */
+async function firstProjectId(page: Page): Promise<string> {
+  const headers = { origin: ORIGIN };
+  const list = await page.request.get("/api/admin/projects");
+  const existing = (await list.json()).data?.projects?.[0]?.id;
+  if (existing) return existing;
+  const created = await page.request.post("/api/admin/projects", { data: { name: "e2e-nav" }, headers });
+  expect(created.ok()).toBeTruthy();
+  return (await created.json()).data.project.id;
+}
+
 test.describe("smoke", () => {
   test("unauthenticated console redirects to /login", async ({ page }) => {
     await page.goto("/dashboard");
@@ -71,10 +82,21 @@ test.describe("smoke", () => {
   test("sidebar shell renders nav (authed)", async ({ page }) => {
     await ensureLogin(page);
     await page.goto("/dashboard");
-    // 사이드바 네비 항목(goji 스타일 앱 셸) — exact 로 사이드바 링크만 매칭
+    // 글로벌 사이드바 — 프로젝트 스코프 메뉴(발송/로그/참여)는 프로젝트 상세로 이동됨
     await expect(page.getByRole("link", { name: "프로젝트", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "발송", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "API 테스터", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "설정", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "발송", exact: true })).toHaveCount(0);
+  });
+
+  test("project sidebar renders project-scoped nav (발송/세그먼트/웹훅)", async ({ page }) => {
+    await ensureLogin(page);
+    const projectId = await firstProjectId(page);
+    await page.goto(`/projects/${projectId}`);
+    await expect(page.getByRole("link", { name: "발송", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "세그먼트", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "저니", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "웹훅", exact: true })).toBeVisible();
   });
 
   test("tenant isolation: 세션 유저는 타 org 프로젝트에 접근 불가", async ({ page }) => {

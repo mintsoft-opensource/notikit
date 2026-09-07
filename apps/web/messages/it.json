@@ -192,10 +192,7 @@
     "title": "Impostazioni",
     "subtitle": "Gestisci l'account e le policy di invio per progetto.",
     "accountTitle": "Account",
-    "accountDesc": "Account amministratore attualmente connesso.",
-    "projectPolicyTitle": "Policy di invio del progetto",
-    "projectPolicyDesc": "Verifica identità obbligatoria · ore di silenzio (UTC).",
-    "projectSettingsSaved": "Impostazioni progetto salvate"
+    "accountDesc": "Account amministratore attualmente connesso."
   },
   "segments": {
     "title": "Segmenti",

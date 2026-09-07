@@ -192,10 +192,7 @@
     "title": "設定",
     "subtitle": "管理帳號與各專案的傳送策略。",
     "accountTitle": "帳號",
-    "accountDesc": "目前登入的管理員帳號。",
-    "projectPolicyTitle": "專案傳送策略",
-    "projectPolicyDesc": "強制 identity 驗證 · 勿擾時段(UTC)。",
-    "projectSettingsSaved": "專案設定已儲存"
+    "accountDesc": "目前登入的管理員帳號。"
   },
   "segments": {
     "title": "分群",

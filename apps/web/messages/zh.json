@@ -192,10 +192,7 @@
     "title": "设置",
     "subtitle": "管理账号与各项目的发送策略。",
     "accountTitle": "账号",
-    "accountDesc": "当前登录的管理员账号。",
-    "projectPolicyTitle": "项目发送策略",
-    "projectPolicyDesc": "强制 identity 验证 · 免打扰时段(UTC)。",
-    "projectSettingsSaved": "项目设置已保存"
+    "accountDesc": "当前登录的管理员账号。"
   },
   "segments": {
     "title": "分群",
