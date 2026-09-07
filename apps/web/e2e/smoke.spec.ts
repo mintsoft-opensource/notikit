@@ -48,9 +48,12 @@ test.describe("smoke", () => {
     expect(spec.paths["/api/admin/projects"]).toBeTruthy();
   });
 
-  test("landing page renders", async ({ page }) => {
+  test("root redirects: 미로그인 → /login, 로그인 → /dashboard", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /사용자·계정 레이어/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
+    await ensureLogin(page);
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/dashboard/);
   });
 
   test("tester page loads (authed)", async ({ page }) => {
