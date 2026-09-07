@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useLocale } from "next-intl";
 import { toast } from "sonner";
 import { Send, ScrollText, Settings, ArrowRight, Copy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ const LINKS = (id: string) => [
 ];
 
 export function ProjectOverview({ projectId }: { projectId: string }) {
+  const locale = useLocale();
   const { projects } = useProjects();
   const project = projects.find((p) => p.id === projectId);
   const [stats, setStats] = React.useState<Stats | null>(null);
@@ -41,7 +43,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
     };
   }, [projectId, statsRetry]);
 
-  const num = (v: number | undefined) => (typeof v === "number" ? v : statsError ? "—" : "…");
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : statsError ? "—" : "…");
 
   return (
     <div className="w-full space-y-6">
@@ -65,7 +68,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                 onClick={async () => { try { await navigator.clipboard.writeText(project.apiKey); toast.success("api-key 복사됨"); } catch { toast.error("복사 실패"); } }}
                 className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
               >
-                <Copy className="h-3.5 w-3.5" /> 복사
+                <Copy aria-hidden="true" className="h-3.5 w-3.5" /> 복사
               </button>
             </div>
           </CardContent>
@@ -73,9 +76,13 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       )}
 
       {statsError && (
-        <div className="flex items-center justify-between rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
+        <div role="status" aria-live="polite" className="flex items-center justify-between rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
           <span>통계를 불러오지 못했습니다.</span>
-          <button type="button" onClick={() => setStatsRetry((n) => n + 1)} className="font-semibold text-primary hover:underline">
+          <button
+            type="button"
+            onClick={() => setStatsRetry((n) => n + 1)}
+            className="rounded-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
             재시도
           </button>
         </div>
@@ -95,13 +102,13 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
               <Card className="group transition-shadow hover:shadow-md">
                 <CardContent className="flex items-center gap-3 p-5">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-primary">
-                    <Icon className="h-5 w-5" />
+                    <Icon aria-hidden="true" className="h-5 w-5" />
                   </span>
                   <div className="flex-1">
                     <p className="text-sm font-bold">{l.label}</p>
                     <p className="text-xs text-muted-foreground">{l.desc}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
                 </CardContent>
               </Card>
             </Link>

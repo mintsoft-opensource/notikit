@@ -89,7 +89,7 @@ export function SendConsole({ projectId }: { projectId?: string }) {
               </Select>
             </div>
             <Field label={type === "single" ? "external_id" : type === "broadcast" ? "대상 (불필요)" : `${type} 이름`}>
-              <Input value={target} onChange={(e) => setTarget(e.target.value)} disabled={!needsTarget} placeholder={needsTarget ? "대상" : "전체 발송"} />
+              <Input spellCheck={false} autoComplete="off" value={target} onChange={(e) => setTarget(e.target.value)} disabled={!needsTarget} placeholder={needsTarget ? "대상" : "전체 발송"} />
             </Field>
           </div>
 
@@ -100,7 +100,7 @@ export function SendConsole({ projectId }: { projectId?: string }) {
             <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder="알림 본문" />
           </Field>
           <Field label="딥링크 (선택)">
-            <Input value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path 또는 https://…" />
+            <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path 또는 https://…" />
           </Field>
 
           <div className="flex flex-col gap-2 border-t border-border pt-3 text-sm">
@@ -111,7 +111,7 @@ export function SendConsole({ projectId }: { projectId?: string }) {
           </div>
 
           <Button onClick={submit} disabled={sending} className="w-full">
-            <Send className="h-4 w-4" /> {sending ? "발송 중…" : "발송"}
+            <Send aria-hidden="true" className="h-4 w-4" /> {sending ? "발송 중…" : "발송"}
           </Button>
         </CardContent>
       </Card>

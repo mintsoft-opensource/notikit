@@ -29,7 +29,9 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
   }, [project]);
 
   const [firebase, setFirebase] = React.useState("");
+  const [firebaseBusy, setFirebaseBusy] = React.useState(false);
   const [kakao, setKakao] = React.useState({ provider_url: "", api_key: "", sender_key: "" });
+  const [kakaoBusy, setKakaoBusy] = React.useState(false);
 
   async function savePolicy() {
     if (saving) return;
@@ -53,13 +55,15 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
   }
 
   async function uploadFirebase() {
+    if (firebaseBusy) return;
     let creds: unknown;
     try {
       creds = JSON.parse(firebase);
     } catch {
-      toast.error("JSON 파싱 실패");
+      toast.error("JSON 파싱 실패 — 서비스 계정 JSON 전체를 붙여넣으세요");
       return;
     }
+    setFirebaseBusy(true);
     try {
       const d = await adminApi<{ firebase_project_id?: string }>(`/api/admin/projects/${projectId}/firebase`, {
         method: "POST",
@@ -70,10 +74,14 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "실패");
+    } finally {
+      setFirebaseBusy(false);
     }
   }
 
   async function uploadKakao() {
+    if (kakaoBusy) return;
+    setKakaoBusy(true);
     try {
       await adminApi(`/api/admin/projects/${projectId}/kakao`, { method: "POST", body: JSON.stringify(kakao) });
       toast.success("카카오 설정 저장됨");
@@ -81,6 +89,8 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "실패");
+    } finally {
+      setKakaoBusy(false);
     }
   }
 
@@ -119,35 +129,56 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             </div>
           </div>
           <Button onClick={savePolicy} disabled={saving || !project}>
-            <Save className="h-4 w-4" /> {saving ? "저장 중…" : "정책 저장"}
+            <Save aria-hidden="true" className="h-4 w-4" /> {saving ? "저장 중…" : "정책 저장"}
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-1.5"><Upload className="h-4 w-4" /> Firebase</CardTitle>
+          <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="h-4 w-4" /> Firebase</CardTitle>
           <CardDescription>{project?.hasFirebase ? "설정됨 (재업로드 시 교체)" : "미설정 — log-only 모드"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <Field label="서비스 계정 JSON">
             <Textarea value={firebase} onChange={(e) => setFirebase(e.target.value)} placeholder='{"type":"service_account",...}' className="min-h-28 font-mono text-xs" />
           </Field>
-          <Button size="sm" variant="outline" onClick={uploadFirebase} disabled={!firebase.trim()}>업로드 · 암호화 저장</Button>
+          <Button size="sm" variant="outline" onClick={uploadFirebase} disabled={firebaseBusy || !firebase.trim()}>
+            {firebaseBusy ? "업로드 중…" : "업로드 · 암호화 저장"}
+          </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-1.5"><Upload className="h-4 w-4" /> 카카오 알림톡</CardTitle>
+          <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="h-4 w-4" /> 카카오 알림톡</CardTitle>
           <CardDescription>{project?.hasKakao ? "설정됨 (재업로드 시 교체)" : "미설정"}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <Input value={kakao.provider_url} onChange={(e) => setKakao({ ...kakao, provider_url: e.target.value })} placeholder="provider_url (https://…)" />
-          <Input value={kakao.api_key} onChange={(e) => setKakao({ ...kakao, api_key: e.target.value })} placeholder="api_key" />
-          <Input value={kakao.sender_key} onChange={(e) => setKakao({ ...kakao, sender_key: e.target.value })} placeholder="sender_key" />
-          <Button size="sm" variant="outline" onClick={uploadKakao} disabled={!kakao.provider_url || !kakao.api_key || !kakao.sender_key}>
-            카카오 저장 · 암호화 저장
+        <CardContent className="space-y-3">
+          <Field label="프로바이더 URL">
+            <Input
+              type="url"
+              inputMode="url"
+              spellCheck={false}
+              autoComplete="off"
+              value={kakao.provider_url}
+              onChange={(e) => setKakao({ ...kakao, provider_url: e.target.value })}
+              placeholder="https://provider.example.com/…"
+            />
+          </Field>
+          <Field label="API 키">
+            <Input spellCheck={false} autoComplete="off" value={kakao.api_key} onChange={(e) => setKakao({ ...kakao, api_key: e.target.value })} placeholder="api_key" />
+          </Field>
+          <Field label="발신 프로필 키 (sender_key)">
+            <Input spellCheck={false} autoComplete="off" value={kakao.sender_key} onChange={(e) => setKakao({ ...kakao, sender_key: e.target.value })} placeholder="sender_key" />
+          </Field>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={uploadKakao}
+            disabled={kakaoBusy || !kakao.provider_url || !kakao.api_key || !kakao.sender_key}
+          >
+            {kakaoBusy ? "저장 중…" : "저장 · 암호화 저장"}
           </Button>
         </CardContent>
       </Card>

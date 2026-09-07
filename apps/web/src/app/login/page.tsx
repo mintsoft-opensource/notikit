@@ -63,9 +63,9 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Bell className="h-6 w-6" />
+            <Bell aria-hidden="true" className="h-6 w-6" />
           </span>
-          <h1 className="text-xl font-extrabold tracking-tight">{ta("name")}</h1>
+          <h1 translate="no" className="text-xl font-extrabold tracking-tight">{ta("name")}</h1>
           <p className="text-sm text-muted-foreground">
             {mode === "register" ? t("firstAdmin") : t("consoleLogin")}
           </p>
@@ -86,12 +86,12 @@ export default function LoginPage() {
                 {mode === "register" && tokenRequired && (
                   <div className="space-y-1">
                     <Label htmlFor="bootstrap">{t("bootstrapToken")}</Label>
-                    <Input id="bootstrap" type="password" required value={bootstrapToken} onChange={(e) => setBootstrapToken(e.target.value)} placeholder="BOOTSTRAP_TOKEN" />
+                    <Input id="bootstrap" type="password" required spellCheck={false} autoComplete="off" value={bootstrapToken} onChange={(e) => setBootstrapToken(e.target.value)} placeholder="BOOTSTRAP_TOKEN" />
                   </div>
                 )}
                 <div className="space-y-1">
                   <Label htmlFor="email">{t("email")}</Label>
-                  <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" autoComplete="email" />
+                  <Input id="email" type="email" required spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" autoComplete="email" />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="password">{mode === "register" ? t("passwordMin") : t("password")}</Label>
@@ -107,7 +107,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <Button type="submit" disabled={busy} className="w-full">
-                  {mode === "register" ? <UserPlus className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+                  {mode === "register" ? <UserPlus aria-hidden="true" className="h-4 w-4" /> : <LogIn aria-hidden="true" className="h-4 w-4" />}
                   {busy ? t("processing") : mode === "register" ? t("createAccount") : t("login")}
                 </Button>
               </form>

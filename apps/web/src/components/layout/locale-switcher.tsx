@@ -19,7 +19,7 @@ export function LocaleSwitcher() {
 
   return (
     <label className="relative flex items-center" aria-label={t("language")}>
-      <Globe className="pointer-events-none absolute left-2 h-4 w-4 text-muted-foreground" />
+      <Globe aria-hidden="true" className="pointer-events-none absolute left-2 h-4 w-4 text-muted-foreground" />
       <select
         value={locale}
         onChange={(e) => change(e.target.value)}
