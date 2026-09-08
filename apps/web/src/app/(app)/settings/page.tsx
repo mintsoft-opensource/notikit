@@ -3,12 +3,12 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, Users, FolderKanban, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
-import { StatStrip } from "@/components/console/panels";
+import { StatTile } from "@/components/console/panels";
 import { useSession, adminApi } from "@/lib/admin-client";
 
 type Org = { id: string; name: string; createdAt: string; members: number; projects: number };
@@ -57,22 +57,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
-      <StatStrip
-        cols="grid-cols-3"
-        cells={[
-          { key: "members", label: t("statMembers"), value: org ? String(org.members) : error ? "—" : "…" },
-          { key: "projects", label: t("statProjects"), value: org ? String(org.projects) : error ? "—" : "…" },
-          { key: "since", label: t("statSince"), value: org ? df.format(new Date(org.createdAt)) : error ? "—" : "…" },
-        ]}
-      />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatTile icon={Users} label={t("statMembers")} value={org ? String(org.members) : error ? "—" : "…"} />
+        <StatTile icon={FolderKanban} label={t("statProjects")} value={org ? String(org.projects) : error ? "—" : "…"} />
+        <StatTile icon={CalendarDays} label={t("statSince")} value={org ? df.format(new Date(org.createdAt)) : error ? "—" : "…"} />
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("orgTitle")}</CardTitle>
-          <CardDescription>{isOwner ? t("orgDesc") : t("orgReadOnly")}</CardDescription>
+          <div>
+            <CardTitle>{t("orgTitle")}</CardTitle>
+            <CardDescription>{isOwner ? t("orgDesc") : t("orgReadOnly")}</CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <Field label={t("orgName")}>

@@ -17,13 +17,15 @@ export default function AccountPage() {
   const { user } = useSession();
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("myAccount")}</CardTitle>
-          <CardDescription>{t("myAccountDesc")}</CardDescription>
+          <div>
+            <CardTitle>{t("myAccount")}</CardTitle>
+            <CardDescription>{t("myAccountDesc")}</CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">

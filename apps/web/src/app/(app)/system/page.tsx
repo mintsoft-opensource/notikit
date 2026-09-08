@@ -2,14 +2,16 @@
 
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { Cpu, MemoryStick, HardDrive, Timer, Database, Clock, Send, Users, Smartphone, Percent, Inbox, Activity } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
+import { StatTile, EmptyState, DataRow, SectionTitle, BarList, formatDuration } from "@/components/console/panels";
 import { LiveChart, formatBytes } from "@/components/system/live-chart";
-import { SectionTitle, StatStrip, Panel, EmptyNote, BarList, formatDuration } from "@/components/console/panels";
 import { adminApi } from "@/lib/admin-client";
 
 type SystemStats = {
   totals: { sends24h: number; recipients24h: number; success24h: number; queued: number; activeDevices: number; users: number };
-  hourly: Array<{ ts: string; count: number; recipients: number; success: number }>;
+  hourly: Array<{ ts: string; count: number }>;
   statuses: Record<string, number>;
   topProjects: Array<{ id: string; name: string; count: number }>;
   webhooks24h: { delivered: number; failed: number; pending: number };
@@ -42,6 +44,18 @@ const STATUS_COLOR: Record<string, string> = {
   scheduled: "var(--warning)",
   queued: "var(--gy400)",
 };
+
+/** 카드 헤더 — 제목 + 부제 (goji CardHeader 는 flex 라 좌측 블록으로 감싼다) */
+function PanelHead({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <CardHeader>
+      <div>
+        <CardTitle>{title}</CardTitle>
+        {sub && <CardDescription>{sub}</CardDescription>}
+      </div>
+    </CardHeader>
+  );
+}
 
 /** 호스트 실시간 섹션 — 5초 폴링, 5분 롤링 윈도우 */
 function HostSection() {
@@ -92,7 +106,7 @@ function HostSection() {
   const fmtTime = (ms: number) => tfm.format(ms);
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <SectionTitle
         right={
           <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -104,107 +118,117 @@ function HostSection() {
         {t("host")}
       </SectionTitle>
 
-      <StatStrip
-        cols="grid-cols-2 md:grid-cols-3 xl:grid-cols-6"
-        cells={[
-          {
-            key: "cpu",
-            label: t("cpu"),
-            value: val(h ? (h.cpu.usagePct != null ? `${nf.format(h.cpu.usagePct)}%` : "—") : null),
-            hint: h ? `${h.cpu.cores} cores · load ${nf.format(h.cpu.loadavg[0])}` : null,
-            spark: points.map((p) => p.cpu),
-            sparkMax: 100,
-          },
-          {
-            key: "mem",
-            label: t("memory"),
-            value: val(h ? `${nf.format((h.memory.usedBytes / h.memory.totalBytes) * 100)}%` : null),
-            hint: h ? `${formatBytes(h.memory.usedBytes, locale)} / ${formatBytes(h.memory.totalBytes, locale)}` : null,
-            spark: points.map((p) => p.memPct),
-            sparkMax: 100,
-          },
-          { key: "rss", label: "RSS", value: val(h ? formatBytes(h.memory.processRssBytes, locale) : null), hint: h ? `heap ${formatBytes(h.memory.heapUsedBytes, locale)}` : null },
-          {
-            key: "loop",
-            label: t("eventLoop"),
-            value: val(h ? (h.eventLoop ? `${nf.format(h.eventLoop.p99Ms)} ms` : "—") : null),
-            hint: h?.eventLoop ? `p50 ${nf.format(h.eventLoop.p50Ms)} ms` : null,
-          },
-          { key: "db", label: t("dbLatency"), value: val(latest ? `${nf.format(latest.db.latencyMs)} ms` : null) },
-          { key: "up", label: t("uptime"), value: val(h ? formatDuration(h.processUptimeSec) : null), hint: h ? `host ${formatDuration(h.uptimeSec)}` : null },
-        ]}
-      />
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title={t("chartCpu")} sub={t("window5m")}>
-          {points.length > 1 ? (
-            <LiveChart
-              label={t("chartCpu")}
-              times={times}
-              maxY={100}
-              area
-              height={170}
-              formatY={(v) => `${Math.round(v)}%`}
-              formatTime={fmtTime}
-              series={[{ key: "cpu", label: "CPU", color: "var(--chart-1)", values: points.map((p) => p.cpu) }]}
-            />
-          ) : (
-            <EmptyNote>{t("collecting")}</EmptyNote>
-          )}
-        </Panel>
-        <Panel title={t("chartMemory")} sub={t("window5m")}>
-          {points.length > 1 ? (
-            <LiveChart
-              label={t("chartMemory")}
-              times={times}
-              maxY={100}
-              area
-              height={170}
-              formatY={(v) => `${Math.round(v)}%`}
-              formatTime={fmtTime}
-              series={[{ key: "mem", label: t("memory"), color: "var(--chart-1)", values: points.map((p) => p.memPct) }]}
-            />
-          ) : (
-            <EmptyNote>{t("collecting")}</EmptyNote>
-          )}
-        </Panel>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+        <StatTile
+          icon={Cpu}
+          label={t("cpu")}
+          value={val(h ? (h.cpu.usagePct != null ? `${nf.format(h.cpu.usagePct)}%` : "—") : null)}
+          hint={h ? `${h.cpu.cores} cores · load ${nf.format(h.cpu.loadavg[0])}` : null}
+        />
+        <StatTile
+          icon={MemoryStick}
+          label={t("memory")}
+          value={val(h ? `${nf.format((h.memory.usedBytes / h.memory.totalBytes) * 100)}%` : null)}
+          hint={h ? `${formatBytes(h.memory.usedBytes, locale)} / ${formatBytes(h.memory.totalBytes, locale)}` : null}
+        />
+        <StatTile
+          icon={HardDrive}
+          label="RSS"
+          value={val(h ? formatBytes(h.memory.processRssBytes, locale) : null)}
+          hint={h ? `heap ${formatBytes(h.memory.heapUsedBytes, locale)}` : null}
+        />
+        <StatTile
+          icon={Timer}
+          label={t("eventLoop")}
+          value={val(h ? (h.eventLoop ? `${nf.format(h.eventLoop.p99Ms)} ms` : "—") : null)}
+          hint={h?.eventLoop ? `p50 ${nf.format(h.eventLoop.p50Ms)} ms` : null}
+        />
+        <StatTile icon={Database} label={t("dbLatency")} value={val(latest ? `${nf.format(latest.db.latencyMs)} ms` : null)} />
+        <StatTile
+          icon={Clock}
+          label={t("uptime")}
+          value={val(h ? formatDuration(h.processUptimeSec) : null)}
+          hint={h ? `host ${formatDuration(h.uptimeSec)}` : null}
+        />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
-        <Panel title={t("chartNetwork")} sub={t("window5m")}>
-          {points.length > 1 && points.some((p) => p.rx != null) ? (
-            <LiveChart
-              label={t("chartNetwork")}
-              times={times}
-              height={170}
-              formatY={(v) => `${formatBytes(v, locale)}/s`}
-              formatTime={fmtTime}
-              series={[
-                { key: "rx", label: t("rx"), color: "var(--chart-1)", values: points.map((p) => p.rx) },
-                { key: "tx", label: t("tx"), color: "var(--chart-2)", values: points.map((p) => p.tx) },
-              ]}
-            />
-          ) : (
-            <EmptyNote>{points.length > 1 ? t("netUnavailable") : t("collecting")}</EmptyNote>
-          )}
-        </Panel>
-        <Panel className="h-full" title={t("queueTitle")}>
-          <dl className="space-y-3">
-            {(
-              [
-                [t("queueQueued"), q ? String(q.queued) : null],
-                [t("queueProcessing"), q ? String(q.processing) : null],
-                [t("queueScheduled"), q ? String(q.scheduled) : null],
-                [t("oldestQueued"), q ? (q.oldestQueuedSec != null ? formatDuration(q.oldestQueuedSec) : "—") : null],
-              ] as const
-            ).map(([label, v]) => (
-              <div key={label} className="flex items-baseline justify-between gap-2 border-b border-border pb-2.5 last:border-b-0 last:pb-0">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="text-base font-extrabold tabular-nums">{val(v)}</dd>
-              </div>
-            ))}
-          </dl>
-        </Panel>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <PanelHead title={t("chartCpu")} sub={t("window5m")} />
+          <CardContent>
+            {points.length > 1 ? (
+              <LiveChart
+                label={t("chartCpu")}
+                times={times}
+                maxY={100}
+                area
+                height={170}
+                formatY={(v) => `${Math.round(v)}%`}
+                formatTime={fmtTime}
+                series={[{ key: "cpu", label: "CPU", color: "var(--chart-1)", values: points.map((p) => p.cpu) }]}
+              />
+            ) : (
+              <EmptyState icon={Activity} title={t("collecting")} />
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <PanelHead title={t("chartMemory")} sub={t("window5m")} />
+          <CardContent>
+            {points.length > 1 ? (
+              <LiveChart
+                label={t("chartMemory")}
+                times={times}
+                maxY={100}
+                area
+                height={170}
+                formatY={(v) => `${Math.round(v)}%`}
+                formatTime={fmtTime}
+                series={[{ key: "mem", label: t("memory"), color: "var(--chart-1)", values: points.map((p) => p.memPct) }]}
+              />
+            ) : (
+              <EmptyState icon={Activity} title={t("collecting")} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <Card>
+          <PanelHead title={t("chartNetwork")} sub={t("window5m")} />
+          <CardContent>
+            {points.length > 1 && points.some((p) => p.rx != null) ? (
+              <LiveChart
+                label={t("chartNetwork")}
+                times={times}
+                height={170}
+                formatY={(v) => `${formatBytes(v, locale)}/s`}
+                formatTime={fmtTime}
+                series={[
+                  { key: "rx", label: t("rx"), color: "var(--chart-1)", values: points.map((p) => p.rx) },
+                  { key: "tx", label: t("tx"), color: "var(--chart-2)", values: points.map((p) => p.tx) },
+                ]}
+              />
+            ) : (
+              <EmptyState icon={Activity} title={points.length > 1 ? t("netUnavailable") : t("collecting")} />
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <PanelHead title={t("queueTitle")} />
+          <CardContent>
+            <dl className="space-y-3">
+              <DataRow label={t("queueQueued")} value={val(q ? String(q.queued) : null)} />
+              <DataRow label={t("queueProcessing")} value={val(q ? String(q.processing) : null)} />
+              <DataRow label={t("queueScheduled")} value={val(q ? String(q.scheduled) : null)} />
+              <DataRow
+                label={t("oldestQueued")}
+                value={val(q ? (q.oldestQueuedSec != null ? formatDuration(q.oldestQueuedSec) : "—") : null)}
+                tone={q?.oldestQueuedSec != null && q.oldestQueuedSec > 300 ? "warning" : "default"}
+              />
+            </dl>
+          </CardContent>
+        </Card>
       </div>
     </section>
   );
@@ -240,49 +264,47 @@ export default function SystemPage() {
         : "…";
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <HostSection />
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <SectionTitle>{t("delivery")}</SectionTitle>
 
         {error && (
-          <div role="status" aria-live="polite" className="flex items-center justify-between rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center justify-between rounded-tile border border-border bg-surface-muted px-4 py-2.5 text-sm text-muted-foreground"
+          >
             <span>{tc("loadFailed")}</span>
             <button
               type="button"
               onClick={() => setRetryN((n) => n + 1)}
-              className="rounded-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="rounded-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               {tc("retry")}
             </button>
           </div>
         )}
 
-        <StatStrip
-          cols="grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
-          cells={[
-            {
-              key: "sends",
-              label: t("statSends"),
-              value: num(stats?.totals.sends24h),
-              spark: stats?.hourly.map((h) => h.count),
-            },
-            { key: "recipients", label: t("statRecipients"), value: num(stats?.totals.recipients24h) },
-            { key: "rate", label: t("statSuccessRate"), value: successRate },
-            { key: "devices", label: t("statActiveDevices"), value: num(stats?.totals.activeDevices) },
-            { key: "users", label: t("statUsers"), value: num(stats?.totals.users) },
-          ]}
-        />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <StatTile icon={Send} label={t("statSends")} value={num(stats?.totals.sends24h)} />
+          <StatTile icon={Inbox} label={t("statRecipients")} value={num(stats?.totals.recipients24h)} />
+          <StatTile icon={Percent} label={t("statSuccessRate")} value={successRate} accent="success" />
+          <StatTile icon={Smartphone} label={t("statActiveDevices")} value={num(stats?.totals.activeDevices)} />
+          <StatTile icon={Users} label={t("statUsers")} value={num(stats?.totals.users)} />
+        </div>
 
-        <Panel title={t("chartHourly")} sub={t("range24h")}>
-          {stats ? (
-            stats.hourly.some((h) => h.count > 0) ? (
+        <Card>
+          <PanelHead title={t("chartHourly")} sub={t("range24h")} />
+          <CardContent>
+            {stats ? (
+              stats.hourly.some((h) => h.count > 0) ? (
                 <LiveChart
-              label={t("chartHourly")}
-              integerY
+                  label={t("chartHourly")}
+                  integerY
                   times={stats.hourly.map((h) => new Date(h.ts).getTime())}
                   area
                   height={190}
@@ -290,54 +312,77 @@ export default function SystemPage() {
                   formatTime={(ms) => hf.format(ms)}
                   series={[{ key: "sends", label: t("statSends"), color: "var(--chart-1)", values: stats.hourly.map((h) => h.count) }]}
                 />
+              ) : (
+                <EmptyState icon={Send} title={t("empty")} />
+              )
             ) : (
-              <EmptyNote>{t("empty")}</EmptyNote>
-            )
-          ) : (
-            <EmptyNote>{error ? "—" : tc("loading")}</EmptyNote>
-          )}
-        </Panel>
-
-        <div className="grid gap-3 lg:grid-cols-3">
-          <Panel className="h-full" title={t("chartStatuses")} sub={t("range24h")}>
-            {stats && Object.keys(stats.statuses).length > 0 ? (
-              <BarList
-                rows={Object.entries(stats.statuses)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([s, v]) => ({ label: s, value: v, color: STATUS_COLOR[s] ?? "var(--gy400)" }))}
-              />
-            ) : (
-              <EmptyNote>{stats ? t("empty") : error ? "—" : tc("loading")}</EmptyNote>
+              <EmptyState icon={Send} title={error ? "—" : tc("loading")} />
             )}
-          </Panel>
+          </CardContent>
+        </Card>
 
-          <Panel className="h-full" title={t("topProjects")} sub={t("range24h")}>
-            {stats && stats.topProjects.length > 0 ? (
-              <BarList rows={stats.topProjects.map((p) => ({ label: p.name, value: p.count }))} />
-            ) : (
-              <EmptyNote>{stats ? t("empty") : error ? "—" : tc("loading")}</EmptyNote>
-            )}
-          </Panel>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card>
+            <PanelHead title={t("chartStatuses")} sub={t("range24h")} />
+            <CardContent>
+              {stats && Object.keys(stats.statuses).length > 0 ? (
+                <BarList
+                  rows={Object.entries(stats.statuses)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([s, v]) => ({ label: s, value: v, color: STATUS_COLOR[s] ?? "var(--gy400)" }))}
+                />
+              ) : (
+                <EmptyState icon={Activity} title={stats ? t("empty") : error ? "—" : tc("loading")} />
+              )}
+            </CardContent>
+          </Card>
 
-          <Panel className="h-full" title={t("webhooks")} sub={t("range24h")}>
-            <dl className="space-y-3">
-              {(
-                [
-                  ["whDelivered", stats?.webhooks24h.delivered, "var(--success)"],
-                  ["whFailed", stats?.webhooks24h.failed, "var(--error)"],
-                  ["whPending", stats?.webhooks24h.pending, "var(--gy400)"],
-                ] as const
-              ).map(([key, value, color]) => (
-                <div key={key} className="flex items-baseline justify-between gap-2 border-b border-border pb-2.5 last:border-b-0 last:pb-0">
-                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: color }} />
-                    {t(key)}
-                  </dt>
-                  <dd className="text-base font-extrabold tabular-nums">{num(value)}</dd>
-                </div>
-              ))}
-            </dl>
-          </Panel>
+          <Card>
+            <PanelHead title={t("topProjects")} sub={t("range24h")} />
+            <CardContent>
+              {stats && stats.topProjects.length > 0 ? (
+                <BarList rows={stats.topProjects.map((p) => ({ label: p.name, value: p.count }))} />
+              ) : (
+                <EmptyState icon={Send} title={stats ? t("empty") : error ? "—" : tc("loading")} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <PanelHead title={t("webhooks")} sub={t("range24h")} />
+            <CardContent>
+              <dl className="space-y-3">
+                <DataRow
+                  label={
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} />
+                      {t("whDelivered")}
+                    </span>
+                  }
+                  value={num(stats?.webhooks24h.delivered)}
+                />
+                <DataRow
+                  label={
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: "var(--error)" }} />
+                      {t("whFailed")}
+                    </span>
+                  }
+                  value={num(stats?.webhooks24h.failed)}
+                  tone={stats && stats.webhooks24h.failed > 0 ? "danger" : "default"}
+                />
+                <DataRow
+                  label={
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: "var(--gy400)" }} />
+                      {t("whPending")}
+                    </span>
+                  }
+                  value={num(stats?.webhooks24h.pending)}
+                />
+              </dl>
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>

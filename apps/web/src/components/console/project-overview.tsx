@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Copy, ArrowRight, Settings, Send } from "lucide-react";
+import { Copy, ArrowRight, Settings, Send, Percent, Inbox, Smartphone, Users, Activity, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
-import { StatStrip, Panel, EmptyNote, BarList } from "@/components/console/panels";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { StatTile, EmptyState, BarList, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
@@ -42,40 +43,6 @@ function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" 
   if (s === "failed") return "danger";
   if (s === "scheduled") return "primary";
   return "neutral";
-}
-
-/** 기간 선택 세그먼트 — URL(?range=)에 반영. tabpanel 이 없으므로 tablist 가 아닌 radiogroup */
-function RangeTabs({
-  value,
-  onChange,
-  label,
-  optionLabel,
-}: {
-  value: RangeKey;
-  onChange: (r: RangeKey) => void;
-  label: string;
-  /** 화면에는 컴팩트 표기(24h)를 두고 스크린리더에는 번역된 전체 라벨을 준다 */
-  optionLabel: (r: RangeKey) => string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-md border border-border bg-surface p-0.5">
-      {RANGE_KEYS.map((r) => (
-        <button
-          key={r}
-          type="button"
-          role="radio"
-          aria-checked={value === r}
-          aria-label={optionLabel(r)}
-          onClick={() => onChange(r)}
-          className={`rounded-[5px] px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
-            value === r ? "bg-accent-soft text-primary" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          {r}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function ProjectOverview({ projectId }: { projectId: string }) {
@@ -135,7 +102,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         : "…";
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-6">
       <PageHeader
         title={project?.name ?? t("projectFallback")}
         description={t("subtitle")}
@@ -152,7 +119,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       />
 
       {project && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface px-5 py-4 shadow-sm shadow-foreground/[0.02]">
           <div className="flex min-w-0 items-center gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">api-key</p>
@@ -181,11 +148,16 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{rangeLabel}</p>
-        <RangeTabs value={range} onChange={setRange} label={rangeLabel} optionLabel={rangeLabelOf} />
+        <Segmented
+          label={rangeLabel}
+          value={range}
+          onChange={setRange}
+          options={RANGE_KEYS.map((r) => ({ value: r, label: r, srLabel: rangeLabelOf(r) }))}
+        />
       </div>
 
       {statsError && (
-        <div role="status" aria-live="polite" className="flex items-center justify-between rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
+        <div role="status" aria-live="polite" className="flex items-center justify-between rounded-tile border border-border bg-surface-muted px-4 py-2.5 text-sm text-muted-foreground">
           <span>{t("statsLoadFailed")}</span>
           <button
             type="button"
@@ -197,19 +169,28 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <StatStrip
-        cols="grid-cols-2 md:grid-cols-3 xl:grid-cols-6"
-        cells={[
-          { key: "sends", label: `${t("statSends")} (${range})`, value: num(stats?.messages.sends), spark: stats?.buckets.map((h) => h.count) },
-          { key: "rate", label: `${t("successRate")} (${range})`, value: successRate },
-          { key: "queued", label: ts("statQueued"), value: num(stats?.messages.queued) },
-          { key: "devices", label: t("statDevices"), value: num(stats?.devices.total), hint: stats ? `${t("statActiveDevices")} ${nf.format(stats.devices.active)}` : null },
-          { key: "dau", label: t("dau"), value: num(stats?.devices.dau) },
-          { key: "users", label: t("statUsers"), value: num(stats?.users.total) },
-        ]}
-      />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+        <StatTile icon={Send} label={`${t("statSends")} (${range})`} value={num(stats?.messages.sends)} />
+        <StatTile icon={Percent} label={`${t("successRate")} (${range})`} value={successRate} accent="success" />
+        <StatTile icon={Inbox} label={ts("statQueued")} value={num(stats?.messages.queued)} />
+        <StatTile
+          icon={Smartphone}
+          label={t("statDevices")}
+          value={num(stats?.devices.total)}
+          hint={stats ? `${t("statActiveDevices")} ${nf.format(stats.devices.active)}` : null}
+        />
+        <StatTile icon={Activity} label={t("dau")} value={num(stats?.devices.dau)} />
+        <StatTile icon={Users} label={t("statUsers")} value={num(stats?.users.total)} />
+      </div>
 
-      <Panel title={ts("chartHourly")} sub={rangeLabel}>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{ts("chartHourly")}</CardTitle>
+            <CardDescription>{rangeLabel}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
         {stats ? (
           stats.buckets.some((h) => h.count > 0) ? (
             <LiveChart
@@ -223,15 +204,23 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
               series={[{ key: "sends", label: t("statSends"), color: "var(--chart-1)", values: stats.buckets.map((h) => h.count) }]}
             />
           ) : (
-            <EmptyNote>{ts("empty")}</EmptyNote>
+            <EmptyState icon={Send} title={ts("empty")} />
           )
         ) : (
-          <EmptyNote>{statsError ? "—" : tc("loading")}</EmptyNote>
+          <EmptyState icon={Send} title={statsError ? "—" : tc("loading")} />
         )}
-      </Panel>
+      </CardContent>
+        </Card>
 
       <div className="grid gap-3 lg:grid-cols-3">
-        <Panel className="h-full" title={ts("chartStatuses")} sub={rangeLabel}>
+        <Card className="h-full">
+          <CardHeader>
+            <div>
+              <CardTitle>{ts("chartStatuses")}</CardTitle>
+              <CardDescription>{rangeLabel}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
           {stats && Object.keys(stats.statuses).length > 0 ? (
             <BarList
               rows={Object.entries(stats.statuses)
@@ -239,11 +228,16 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                 .map(([s, v]) => ({ label: s, value: v, color: STATUS_COLOR[s] ?? "var(--gy400)" }))}
             />
           ) : (
-            <EmptyNote>{stats ? ts("empty") : statsError ? "—" : tc("loading")}</EmptyNote>
+            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? "—" : tc("loading")} />
           )}
-        </Panel>
+        </CardContent>
+        </Card>
 
-        <Panel className="h-full" title={t("platformsTitle")}>
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>{t("platformsTitle")}</CardTitle>
+          </CardHeader>
+          <CardContent>
           {stats && Object.keys(stats.platforms).length > 0 ? (
             <BarList
               rows={Object.entries(stats.platforms)
@@ -251,11 +245,16 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                 .map(([p, v]) => ({ label: p, value: v }))}
             />
           ) : (
-            <EmptyNote>{stats ? ts("empty") : statsError ? "—" : tc("loading")}</EmptyNote>
+            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? "—" : tc("loading")} />
           )}
-        </Panel>
+        </CardContent>
+        </Card>
 
-        <Panel className="h-full" title={t("recentTitle")}>
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>{t("recentTitle")}</CardTitle>
+          </CardHeader>
+          <CardContent>
           {stats && stats.recent.length > 0 ? (
             <div>
               <ul className="divide-y divide-border">
@@ -284,9 +283,10 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
               </Link>
             </div>
           ) : (
-            <EmptyNote>{stats ? ts("empty") : statsError ? "—" : tc("loading")}</EmptyNote>
+            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? "—" : tc("loading")} />
           )}
-        </Panel>
+        </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -89,8 +89,10 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("membersTitle")}</CardTitle>
-        <CardDescription>{canManage ? t("membersDesc") : t("readOnlyNote")}</CardDescription>
+        <div>
+          <CardTitle>{t("membersTitle")}</CardTitle>
+          <CardDescription>{canManage ? t("membersDesc") : t("readOnlyNote")}</CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {canManage && (

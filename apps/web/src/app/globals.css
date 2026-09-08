@@ -108,6 +108,29 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Radius scale — goji/webapp 디자인 시스템 토큰 */
+  --radius-tile: 0.75rem;   /* 12 — chip, small button */
+  --radius-card: 1rem;      /* 16 — card */
+  --radius-dialog: 1.25rem; /* 20 — modal, hero */
+
+  /* Shadow scale */
+  --shadow-card: 0 1px 2px rgba(24, 30, 45, 0.04);
+  --shadow-elevated: 0 8px 24px rgba(24, 30, 45, 0.08);
+
+  /* Spacing */
+  --spacing-card: 1.25rem;  /* 20 — 카드 padding 단일 */
+
+  /* Typography scale — 하드코딩 text-[Npx] 대체 */
+  --text-2xs: 0.6875rem;    /* 11 — caption */
+  --text-xs: 0.75rem;       /* 12 — small label */
+  --text-sm: 0.8125rem;     /* 13 — body */
+  --text-base: 0.875rem;    /* 14 — input text */
+  --text-md: 0.9375rem;     /* 15 — card title */
+  --text-lg: 1.125rem;      /* 18 — page subtitle */
+  --text-xl: 1.375rem;      /* 22 — section header */
+  --text-2xl: 1.75rem;      /* 28 — h1 */
+  --text-3xl: 2.25rem;      /* 36 — display */
 }
 
 html {
