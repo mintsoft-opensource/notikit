@@ -3,11 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { FolderKanban, Activity, ArrowRight } from "lucide-react";
+import { FolderKanban, Activity, ArrowRight, Rocket, Layers, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { StatCard } from "@/components/console/shared";
+import { StatTile } from "@/components/ui/stat-tile";
 import { useProjects } from "@/lib/admin-client";
 
 export default function DashboardPage() {
@@ -25,10 +25,10 @@ export default function DashboardPage() {
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label={t("projects")} value={loading ? "…" : projects.length} />
-        <StatCard label={t("production")} value={loading ? "…" : prod} />
-        <StatCard label={t("environments")} value={new Set(projects.map((p) => p.environment)).size || 0} hint={t("envHint")} />
-        <StatCard label={t("status")} value={t("logOnly")} hint={t("logOnlyHint")} />
+        <StatTile icon={FolderKanban} label={t("projects")} value={loading ? "…" : projects.length} />
+        <StatTile icon={Rocket} label={t("production")} value={loading ? "…" : prod} accent="primary" />
+        <StatTile icon={Layers} label={t("environments")} value={new Set(projects.map((p) => p.environment)).size || 0} hint={t("envHint")} />
+        <StatTile icon={ShieldCheck} label={t("status")} value={t("logOnly")} hint={t("logOnlyHint")} accent="muted" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

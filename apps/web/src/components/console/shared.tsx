@@ -2,19 +2,8 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/input";
 import type { Project } from "@/lib/admin-client";
-
-export function StatCard({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
-  return (
-    <Card className="p-5">
-      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-extrabold tracking-tight tabular-nums">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-    </Card>
-  );
-}
 
 export function ProjectPicker({
   projects,
