@@ -33,6 +33,7 @@ export function LiveChart({
   formatTime,
   height = 190,
   area = false,
+  label,
 }: {
   times: number[];
   series: LiveSeries[];
@@ -41,6 +42,8 @@ export function LiveChart({
   formatTime: (t: number) => string;
   height?: number;
   area?: boolean;
+  /** 접근 가능한 이름 — role="img" 는 이름이 필수이고, sr-only 데이터 표의 캡션으로도 쓰인다 */
+  label: string;
 }) {
   const [hover, setHover] = React.useState<number | null>(null);
   const [boxRef, W] = useMeasuredWidth<HTMLDivElement>();
@@ -101,7 +104,7 @@ export function LiveChart({
         </div>
       )}
       <div className="relative">
-        <svg ref={svgRef} width={W} height={H} className="block" role="img" onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        <svg ref={svgRef} width={W} height={H} className="block" role="img" aria-label={label} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
           {ticks.map((tv) => (
             <g key={tv}>
               <line x1={L} x2={W - R} y1={y(tv)} y2={y(tv)} stroke="var(--border)" strokeWidth="1" />
@@ -141,6 +144,7 @@ export function LiveChart({
         </svg>
         {hover != null && (
           <div
+            aria-hidden="true"
             className="pointer-events-none absolute top-0 z-10 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs shadow-md"
             style={{ left: x(hover), transform: `translateX(${hover > n / 2 ? "calc(-100% - 10px)" : "10px"})` }}
           >
@@ -155,6 +159,29 @@ export function LiveChart({
           </div>
         )}
       </div>
+      <table className="sr-only">
+        <caption>{label}</caption>
+        <thead>
+          <tr>
+            <th scope="col">time</th>
+            {series.map((s) => (
+              <th key={s.key} scope="col">
+                {s.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {times.map((t, i) => (
+            <tr key={t}>
+              <th scope="row">{formatTime(t)}</th>
+              {series.map((s) => (
+                <td key={s.key}>{s.values[i] != null ? formatY(s.values[i]!) : "—"}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

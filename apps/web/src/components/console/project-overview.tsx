@@ -51,6 +51,7 @@ function RangeTabs({ value, onChange, label }: { value: RangeKey; onChange: (r: 
       {RANGE_KEYS.map((r) => (
         <button
           key={r}
+          type="button"
           role="radio"
           aria-checked={value === r}
           onClick={() => onChange(r)}
@@ -183,7 +184,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       <StatStrip
         cols="grid-cols-2 md:grid-cols-3 xl:grid-cols-6"
         cells={[
-          { key: "sends", label: `${t("linkSend")} (${range})`, value: num(stats?.messages.sends), spark: stats?.buckets.map((h) => h.count) },
+          { key: "sends", label: `${t("statSends")} (${range})`, value: num(stats?.messages.sends), spark: stats?.buckets.map((h) => h.count) },
           { key: "rate", label: `${t("successRate")} (${range})`, value: successRate },
           { key: "queued", label: ts("statQueued"), value: num(stats?.messages.queued) },
           { key: "devices", label: t("statDevices"), value: num(stats?.devices.total), hint: stats ? `${t("statActiveDevices")} ${nf.format(stats.devices.active)}` : null },
@@ -196,12 +197,13 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         {stats ? (
           stats.buckets.some((h) => h.count > 0) ? (
             <LiveChart
+              label={ts("chartHourly")}
               times={stats.buckets.map((h) => new Date(h.ts).getTime())}
               area
               height={180}
               formatY={(v) => nf.format(Math.round(v))}
               formatTime={(ms) => bucketFmt.format(ms)}
-              series={[{ key: "sends", label: t("linkSend"), color: "var(--chart-1)", values: stats.buckets.map((h) => h.count) }]}
+              series={[{ key: "sends", label: t("statSends"), color: "var(--chart-1)", values: stats.buckets.map((h) => h.count) }]}
             />
           ) : (
             <EmptyNote>{ts("empty")}</EmptyNote>

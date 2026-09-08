@@ -16,9 +16,25 @@ export type HostMetrics = {
   platform: string;
 };
 
-// ── CPU — cpus() 누적 틱의 폴링 간 델타로 사용률 계산 ──
-type CpuSample = { idle: number; total: number; at: number };
+/**
+ * 델타 기반 지표(CPU/네트워크/이벤트루프)는 "직전 샘플"이라는 공유 상태를 갖는다.
+ * 요청 핸들러가 직접 샘플링하면 동시 요청끼리 서로의 직전 값을 덮어써
+ * 델타 구간이 0 으로 수렴하고(허위 100% CPU), 히스토그램 리셋이 서로를 지운다.
+ * → 샘플링은 단일 백그라운드 타이머만 수행하고, 요청은 스냅샷을 읽기만 한다.
+ */
+const SAMPLE_MS = 2000;
+const STALE_MS = 30_000;
+
+type CpuSample = { idle: number; total: number };
+type NetSample = { rx: number; tx: number; at: number };
+
 let prevCpu: CpuSample | null = null;
+let prevNet: NetSample | null = null;
+let loopHist: IntervalHistogram | null = null;
+
+let snapshot: { metrics: HostMetrics; at: number } | null = null;
+let timer: ReturnType<typeof setInterval> | null = null;
+let inflight: Promise<void> | null = null;
 
 function cpuSample(): CpuSample {
   let idle = 0;
@@ -27,27 +43,18 @@ function cpuSample(): CpuSample {
     idle += c.times.idle;
     for (const v of Object.values(c.times)) total += v;
   }
-  return { idle, total, at: Date.now() };
+  return { idle, total };
 }
 
-async function cpuUsagePct(): Promise<number | null> {
-  let base = prevCpu;
-  if (!base || Date.now() - base.at > 5 * 60_000) {
-    // 첫 호출(또는 장기 미사용): 짧은 이중 샘플로 즉시 값 제공
-    base = cpuSample();
-    await new Promise((r) => setTimeout(r, 150));
-  }
+function cpuUsagePct(): number | null {
   const now = cpuSample();
+  const base = prevCpu;
   prevCpu = now;
+  if (!base) return null; // 첫 샘플은 델타 구간이 없음
   const dTotal = now.total - base.total;
   if (dTotal <= 0) return null;
-  const dIdle = now.idle - base.idle;
-  return Math.min(100, Math.max(0, (1 - dIdle / dTotal) * 100));
+  return Math.min(100, Math.max(0, (1 - (now.idle - base.idle) / dTotal) * 100));
 }
-
-// ── 네트워크 — 인터페이스 누적 바이트의 폴링 간 델타(bytes/sec) ──
-type NetSample = { rx: number; tx: number; at: number };
-let prevNet: NetSample | null = null;
 
 async function netTotals(): Promise<{ rx: number; tx: number } | null> {
   try {
@@ -66,7 +73,7 @@ async function netTotals(): Promise<{ rx: number; tx: number } | null> {
     }
     if (process.platform === "darwin") {
       // netstat -ibn: Name ... Ibytes ... Obytes — 인터페이스별 첫 행만, lo0 제외
-      const { stdout } = await execFileAsync("netstat", ["-ibn"], { timeout: 3000 });
+      const { stdout } = await execFileAsync("/usr/sbin/netstat", ["-ibn"], { timeout: 3000 });
       const lines = stdout.split("\n");
       const header = lines[0]?.trim().split(/\s+/) ?? [];
       const iIb = header.indexOf("Ibytes");
@@ -97,43 +104,72 @@ async function netRate(): Promise<{ rxBytesPerSec: number; txBytesPerSec: number
   const now: NetSample = { ...totals, at: Date.now() };
   const base = prevNet;
   prevNet = now;
-  if (!base || now.at - base.at > 5 * 60_000 || now.at <= base.at) return null;
+  // 첫 샘플이거나 간격이 비정상(<200ms, 카운터 리셋 등)이면 값 폭발을 막기 위해 건너뜀
+  if (!base || now.at - base.at < 200 || now.rx < base.rx || now.tx < base.tx) return null;
   const sec = (now.at - base.at) / 1000;
-  return {
-    rxBytesPerSec: Math.max(0, (now.rx - base.rx) / sec),
-    txBytesPerSec: Math.max(0, (now.tx - base.tx) / sec),
-  };
+  return { rxBytesPerSec: (now.rx - base.rx) / sec, txBytesPerSec: (now.tx - base.tx) / sec };
 }
 
-// ── 이벤트루프 지연 — 프로세스 전역 히스토그램, 읽을 때마다 리셋 ──
-let loopHist: IntervalHistogram | null = null;
+/** 이벤트루프 지연 — 샘플러만 읽고 리셋하므로 구간이 다른 호출자에게 잘리지 않는다 */
 function eventLoopStats(): { p50Ms: number; p99Ms: number } | null {
   if (!loopHist) {
     loopHist = monitorEventLoopDelay({ resolution: 20 });
     loopHist.enable();
-    return null; // 첫 호출은 수집 구간이 없음
+    return null;
   }
-  const p50 = loopHist.percentile(50) / 1e6;
-  const p99 = loopHist.percentile(99) / 1e6;
+  const stats = { p50Ms: loopHist.percentile(50) / 1e6, p99Ms: loopHist.percentile(99) / 1e6 };
   loopHist.reset();
-  return { p50Ms: p50, p99Ms: p99 };
+  return stats;
 }
 
+async function sampleOnce(): Promise<void> {
+  // 콜드 스타트에 동시 요청이 몰려도 샘플링은 1회만 — 나머지는 같은 Promise 를 기다린다
+  if (inflight) return inflight;
+  inflight = (async () => {
+    const usagePct = cpuUsagePct();
+    const network = await netRate();
+    const mem = process.memoryUsage();
+    snapshot = {
+      at: Date.now(),
+      metrics: {
+        cpu: { usagePct, loadavg: os.loadavg() as [number, number, number], cores: os.cpus().length },
+        memory: {
+          totalBytes: os.totalmem(),
+          usedBytes: os.totalmem() - os.freemem(),
+          processRssBytes: mem.rss,
+          heapUsedBytes: mem.heapUsed,
+        },
+        network,
+        eventLoop: eventLoopStats(),
+        uptimeSec: os.uptime(),
+        processUptimeSec: process.uptime(),
+        platform: process.platform,
+      },
+    };
+  })().finally(() => {
+    inflight = null;
+  });
+  return inflight;
+}
+
+function ensureSampler(): void {
+  if (timer) return;
+  timer = setInterval(() => {
+    void sampleOnce();
+  }, SAMPLE_MS);
+  timer.unref?.(); // 샘플러가 프로세스 종료를 막지 않도록
+}
+
+/** 최신 스냅샷 반환 — 요청 경로는 공유 상태를 변경하지 않는다 */
 export async function collectHostMetrics(): Promise<HostMetrics> {
-  const [usagePct, network] = await Promise.all([cpuUsagePct(), netRate()]);
-  const mem = process.memoryUsage();
-  return {
-    cpu: { usagePct, loadavg: os.loadavg() as [number, number, number], cores: os.cpus().length },
-    memory: {
-      totalBytes: os.totalmem(),
-      usedBytes: os.totalmem() - os.freemem(),
-      processRssBytes: mem.rss,
-      heapUsedBytes: mem.heapUsed,
-    },
-    network,
-    eventLoop: eventLoopStats(),
-    uptimeSec: os.uptime(),
-    processUptimeSec: process.uptime(),
-    platform: process.platform,
-  };
+  ensureSampler();
+  // 콜드 스타트: 첫 샘플(델타 없음) + 한 구간 뒤 실측값을 얻기 위해 2회
+  if (!snapshot) {
+    await sampleOnce();
+    await new Promise((r) => setTimeout(r, 250)); // 네트워크 델타 최소 간격(200ms) 이상
+    await sampleOnce();
+  } else if (Date.now() - snapshot.at > STALE_MS) {
+    await sampleOnce();
+  }
+  return snapshot!.metrics;
 }

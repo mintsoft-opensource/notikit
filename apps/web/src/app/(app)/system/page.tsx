@@ -139,6 +139,7 @@ function HostSection() {
         <Panel title={t("chartCpu")} sub={t("window5m")}>
           {points.length > 1 ? (
             <LiveChart
+              label={t("chartCpu")}
               times={times}
               maxY={100}
               area
@@ -154,6 +155,7 @@ function HostSection() {
         <Panel title={t("chartMemory")} sub={t("window5m")}>
           {points.length > 1 ? (
             <LiveChart
+              label={t("chartMemory")}
               times={times}
               maxY={100}
               area
@@ -172,6 +174,7 @@ function HostSection() {
         <Panel title={t("chartNetwork")} sub={t("window5m")}>
           {points.length > 1 && points.some((p) => p.rx != null) ? (
             <LiveChart
+              label={t("chartNetwork")}
               times={times}
               height={170}
               formatY={(v) => `${formatBytes(v)}/s`}
@@ -277,8 +280,8 @@ export default function SystemPage() {
         <Panel title={t("chartHourly")} sub={t("range24h")}>
           {stats ? (
             stats.hourly.some((h) => h.count > 0) ? (
-              <>
                 <LiveChart
+              label={t("chartHourly")}
                   times={stats.hourly.map((h) => new Date(h.ts).getTime())}
                   area
                   height={190}
@@ -286,24 +289,6 @@ export default function SystemPage() {
                   formatTime={(ms) => hf.format(ms)}
                   series={[{ key: "sends", label: t("statSends"), color: "var(--chart-1)", values: stats.hourly.map((h) => h.count) }]}
                 />
-                <table className="sr-only">
-                  <caption>{t("chartHourly")}</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">{t("range24h")}</th>
-                      <th scope="col">{t("statSends")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.hourly.map((h) => (
-                      <tr key={h.ts}>
-                        <td>{new Date(h.ts).toISOString()}</td>
-                        <td>{h.count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
             ) : (
               <EmptyNote>{t("empty")}</EmptyNote>
             )

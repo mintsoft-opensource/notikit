@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function formatDuration(sec: number): string {
@@ -81,7 +82,8 @@ export function EmptyNote({ children }: { children: React.ReactNode }) {
 
 /** 수평 바 목록 */
 export function BarList({ rows }: { rows: Array<{ label: string; value: number; color?: string }> }) {
-  const nf = new Intl.NumberFormat();
+  const locale = useLocale();
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
     <div className="space-y-2.5">
