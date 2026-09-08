@@ -8,6 +8,7 @@ import {
   Webhook,
   BookOpen,
   Activity,
+  UserCog,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -37,7 +38,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "settings",
-    items: [{ labelKey: "settings", href: "/settings", icon: Settings, exact: true }],
+    items: [
+      { labelKey: "account", href: "/account", icon: UserCog, exact: true },
+      { labelKey: "settings", href: "/settings", icon: Settings, exact: true },
+    ],
   },
 ];
 

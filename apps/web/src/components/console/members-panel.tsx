@@ -15,7 +15,7 @@ type Member = { id: string; email: string; role: string; createdAt: string; isSe
 
 /** org 멤버 관리 — owner/admin 만 변경 가능(서버에서 재검증), viewer 는 목록만 */
 export function MembersPanel({ currentRole }: { currentRole?: string }) {
-  const t = useTranslations("orgSettings");
+  const t = useTranslations("account");
   const tc = useTranslations("common");
   const locale = useLocale();
   const canManage = currentRole === "owner" || currentRole === "admin";

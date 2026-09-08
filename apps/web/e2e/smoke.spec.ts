@@ -101,6 +101,7 @@ test.describe("smoke", () => {
     // 글로벌 사이드바 — 프로젝트 스코프 메뉴(발송/로그/참여)는 프로젝트 상세로 이동됨
     await expect(page.getByRole("link", { name: "프로젝트", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "시스템", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "계정", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "설정", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "발송", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "API 테스터", exact: true })).toHaveCount(0);
@@ -273,6 +274,31 @@ test.describe("smoke", () => {
       data: { email: `esc-owner-${Date.now()}@notikit.dev`, password: "esc-owner-pass-1234", role: "owner" },
     });
     expect(escalate.status()).toBe(403);
+  });
+
+  test("계정 페이지: 내 계정 + 멤버 관리 노출", async ({ page }) => {
+    await ensureLogin(page);
+    await page.goto("/account");
+    // 헤더에도 현재 메뉴명이 표시되므로 본문으로 스코프
+    const main = page.getByRole("main");
+    await expect(main.getByRole("heading", { name: "계정", exact: true })).toBeVisible();
+    await expect(main.getByText("내 계정")).toBeVisible();
+    await expect(main.getByRole("heading", { name: "멤버", exact: true })).toBeVisible();
+    await expect(main.getByRole("button", { name: /추가/ })).toBeVisible();
+  });
+
+  test("설정 페이지: 조직 정보 표시 + owner 만 이름 변경", async ({ page }) => {
+    await ensureLogin(page);
+    const org = await page.request.get("/api/admin/org");
+    expect(org.status()).toBe(200);
+    expect((await org.json()).data.org.name).toBeTruthy();
+
+    await page.goto("/settings");
+    const main = page.getByRole("main");
+    await expect(main.getByRole("heading", { name: "설정", exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "조직", exact: true })).toBeVisible();
+    // 이름 변경은 CSRF 검사를 통과해야 한다
+    expect((await page.request.patch("/api/admin/org", { data: { name: "x" } })).status()).toBe(403);
   });
 
   test("docs page loads (Scalar)", async ({ request }) => {
