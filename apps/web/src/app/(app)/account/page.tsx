@@ -11,7 +11,7 @@ export default function AccountPage() {
   const { user } = useSession();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
       <MembersPanel currentRole={user?.role} />
     </div>

@@ -97,7 +97,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>

@@ -324,7 +324,7 @@ export default function SystemPage() {
       : "—";
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <HostSection />

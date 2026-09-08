@@ -58,7 +58,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

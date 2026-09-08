@@ -101,7 +101,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       : "—";
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-6">
+    <div className="w-full space-y-6">
       <PageHeader
         title={project?.name ?? t("projectFallback")}
         description={t("subtitle")}
