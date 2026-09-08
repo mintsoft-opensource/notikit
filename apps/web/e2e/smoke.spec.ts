@@ -13,14 +13,30 @@ function scryptHash(pw: string): string {
   return `scrypt$16384$8$1$${salt.toString("hex")}$${dk.toString("hex")}`;
 }
 
-/** 세션 쿠키 확보 — 최초 실행은 부트스트랩 register, 이후는 login (page 컨텍스트에 쿠키 저장) */
+/**
+ * 세션 쿠키 확보 — 최초 실행은 부트스트랩 register, 이후는 login.
+ * 로그인은 이메일당 분당 10회로 제한되므로 한 번 받은 쿠키를 파일 전체에서 재사용한다
+ * (테스트마다 로그인하면 스위트 후반이 429 로 무너진다).
+ */
+let cachedSession: string | null = null;
 async function ensureLogin(page: Page) {
+  if (cachedSession) {
+    await page.context().addCookies([{ name: "notikit_session", value: cachedSession, url: ORIGIN }]);
+    return;
+  }
   const headers = { origin: ORIGIN };
   const reg = await page.request.post("/api/admin/register", { data: { org_name: "E2E", ...ADMIN }, headers });
   if (!reg.ok()) {
     const login = await page.request.post("/api/admin/login", { data: ADMIN, headers });
     expect(login.ok()).toBeTruthy();
   }
+  cachedSession = (await page.context().cookies()).find((c) => c.name === "notikit_session")?.value ?? null;
+  expect(cachedSession).toBeTruthy();
+}
+
+/** 로그아웃 등으로 세션을 무효화한 테스트는 캐시를 버려야 다음 테스트가 새로 받는다 */
+function invalidateSessionCache() {
+  cachedSession = null;
 }
 
 /** 세션 org 의 첫 프로젝트 id (없으면 생성) */
@@ -157,6 +173,7 @@ test.describe("smoke", () => {
     // 로그아웃 → sessionVersion 증가
     const out = await page.request.post("/api/admin/logout", { headers: { origin: ORIGIN } });
     expect(out.ok()).toBeTruthy();
+    invalidateSessionCache(); // sessionVersion 증가 → 캐시된 쿠키도 무효
     // 옛 쿠키로 admin 호출 → 무효
     const replay = await page.request.get("/api/admin/projects", {
       headers: { cookie: `notikit_session=${cookie!.value}` },
@@ -187,6 +204,75 @@ test.describe("smoke", () => {
     expect((await page.request.get("/api/admin/system/host")).status()).toBe(403);
     // 발송 집계는 org 스코프 읽기이므로 허용
     expect((await page.request.get("/api/admin/system/stats")).status()).toBe(200);
+  });
+
+  test("멤버 관리: 생성·역할변경·삭제 + 권한상승/자기잠금 차단", async ({ page }) => {
+    await ensureLogin(page);
+    const headers = { origin: ORIGIN };
+    const email = `member-${Date.now()}@notikit.dev`;
+
+    // owner 가 viewer 생성
+    const created = await page.request.post("/api/admin/users", {
+      headers,
+      data: { email, password: "member-pass-1234", role: "viewer" },
+    });
+    expect(created.status()).toBe(201);
+    const memberId = (await created.json()).data.user.id as string;
+
+    // 목록에 노출되고 해시는 절대 내려오지 않음
+    const list = await page.request.get("/api/admin/users");
+    expect(list.status()).toBe(200);
+    const body = await list.text();
+    expect(body).toContain(email);
+    expect(body).not.toContain("passwordHash");
+    expect(body).not.toContain("scrypt$");
+
+    // 중복 이메일 거부
+    const dup = await page.request.post("/api/admin/users", {
+      headers,
+      data: { email, password: "member-pass-1234", role: "viewer" },
+    });
+    expect(dup.status()).toBe(409);
+
+    // 역할 변경
+    const patched = await page.request.patch(`/api/admin/users/${memberId}`, { headers, data: { role: "admin" } });
+    expect(patched.status()).toBe(200);
+    expect((await patched.json()).data.user.role).toBe("admin");
+
+    // 자기 자신 삭제 차단 (org 잠금 방지)
+    const me = (await (await page.request.get("/api/admin/users")).json()).data.users.find(
+      (u: { isSelf: boolean }) => u.isSelf
+    );
+    expect((await page.request.delete(`/api/admin/users/${me.id}`, { headers })).status()).toBe(400);
+    // 마지막 owner 강등 차단
+    expect((await page.request.patch(`/api/admin/users/${me.id}`, { headers, data: { role: "viewer" } })).status()).toBe(400);
+
+    // CSRF: Origin 없으면 거부
+    expect((await page.request.delete(`/api/admin/users/${memberId}`)).status()).toBe(403);
+
+    // 삭제
+    expect((await page.request.delete(`/api/admin/users/${memberId}`, { headers })).status()).toBe(200);
+    expect(await (await page.request.get("/api/admin/users")).text()).not.toContain(email);
+  });
+
+  test("멤버 관리: admin 은 owner 를 만들 수 없고 viewer 는 목록만", async ({ page }) => {
+    await ensureLogin(page);
+    const headers = { origin: ORIGIN };
+
+    // owner 가 admin 을 하나 만든다
+    const adminEmail = `esc-admin-${Date.now()}@notikit.dev`;
+    const pw = "esc-admin-pass-1234";
+    expect(
+      (await page.request.post("/api/admin/users", { headers, data: { email: adminEmail, password: pw, role: "admin" } })).status()
+    ).toBe(201);
+
+    // 그 admin 으로 로그인 → owner 생성 시도는 권한 상승이므로 403
+    expect((await page.request.post("/api/admin/login", { headers, data: { email: adminEmail, password: pw } })).ok()).toBeTruthy();
+    const escalate = await page.request.post("/api/admin/users", {
+      headers,
+      data: { email: `esc-owner-${Date.now()}@notikit.dev`, password: "esc-owner-pass-1234", role: "owner" },
+    });
+    expect(escalate.status()).toBe(403);
   });
 
   test("docs page loads (Scalar)", async ({ request }) => {

@@ -6,6 +6,7 @@ import { LogOut, UserCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
+import { MembersPanel } from "@/components/console/members-panel";
 import { useSession, logout } from "@/lib/admin-client";
 
 /** 조직/계정 설정 — 프로젝트별 발송 정책은 프로젝트 상세 > 설정에서 관리 */
@@ -48,6 +49,8 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <MembersPanel currentRole={user?.role} />
     </div>
   );
 }
