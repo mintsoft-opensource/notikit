@@ -73,15 +73,10 @@ export function SidebarBrand() {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const t = useTranslations("app");
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
       <SidebarBrand />
       <SidebarNav pathname={pathname} />
-      <div className="border-t border-border px-6 py-4 text-[11px] text-muted-foreground">
-        <p className="font-semibold text-foreground">{t("tagline")}</p>
-        <p className="mt-0.5">{t("openSourceSelfHost")}</p>
-      </div>
     </aside>
   );
 }

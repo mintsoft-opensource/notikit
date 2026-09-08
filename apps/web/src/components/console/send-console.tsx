@@ -112,7 +112,7 @@ export function SendConsole({ projectId }: { projectId?: string }) {
             </label>
           </div>
         </CardContent>
-        <CardFooter className="justify-end">
+        <CardFooter className="flex justify-end">
           <Button onClick={submit} disabled={sending}>
             <Send aria-hidden="true" className="h-4 w-4" /> {sending ? t("sending") : t("submit")}
           </Button>
