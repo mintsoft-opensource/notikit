@@ -45,7 +45,18 @@ function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" 
 }
 
 /** 기간 선택 세그먼트 — URL(?range=)에 반영. tabpanel 이 없으므로 tablist 가 아닌 radiogroup */
-function RangeTabs({ value, onChange, label }: { value: RangeKey; onChange: (r: RangeKey) => void; label: string }) {
+function RangeTabs({
+  value,
+  onChange,
+  label,
+  optionLabel,
+}: {
+  value: RangeKey;
+  onChange: (r: RangeKey) => void;
+  label: string;
+  /** 화면에는 컴팩트 표기(24h)를 두고 스크린리더에는 번역된 전체 라벨을 준다 */
+  optionLabel: (r: RangeKey) => string;
+}) {
   return (
     <div role="radiogroup" aria-label={label} className="flex rounded-md border border-border bg-surface p-0.5">
       {RANGE_KEYS.map((r) => (
@@ -54,6 +65,7 @@ function RangeTabs({ value, onChange, label }: { value: RangeKey; onChange: (r: 
           type="button"
           role="radio"
           aria-checked={value === r}
+          aria-label={optionLabel(r)}
           onClick={() => onChange(r)}
           className={`rounded-[5px] px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
             value === r ? "bg-accent-soft text-primary" : "text-muted-foreground hover:text-foreground"
@@ -110,7 +122,11 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   );
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : statsError ? "—" : "…");
-  const rangeLabel = range === "24h" ? ts("range24h") : range === "7d" ? ts("range7d") : ts("range30d");
+  const rangeLabelOf = React.useCallback(
+    (r: RangeKey) => (r === "24h" ? ts("range24h") : r === "7d" ? ts("range7d") : ts("range30d")),
+    [ts]
+  );
+  const rangeLabel = rangeLabelOf(range);
   const successRate =
     stats && stats.messages.recipients > 0
       ? `${((stats.messages.success / stats.messages.recipients) * 100).toFixed(1)}%`
@@ -165,7 +181,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{rangeLabel}</p>
-        <RangeTabs value={range} onChange={setRange} label={rangeLabel} />
+        <RangeTabs value={range} onChange={setRange} label={rangeLabel} optionLabel={rangeLabelOf} />
       </div>
 
       {statsError && (
@@ -198,6 +214,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           stats.buckets.some((h) => h.count > 0) ? (
             <LiveChart
               label={ts("chartHourly")}
+              integerY
               times={stats.buckets.map((h) => new Date(h.ts).getTime())}
               area
               height={180}

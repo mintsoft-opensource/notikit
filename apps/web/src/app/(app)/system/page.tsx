@@ -119,11 +119,11 @@ function HostSection() {
             key: "mem",
             label: t("memory"),
             value: val(h ? `${nf.format((h.memory.usedBytes / h.memory.totalBytes) * 100)}%` : null),
-            hint: h ? `${formatBytes(h.memory.usedBytes)} / ${formatBytes(h.memory.totalBytes)}` : null,
+            hint: h ? `${formatBytes(h.memory.usedBytes, locale)} / ${formatBytes(h.memory.totalBytes, locale)}` : null,
             spark: points.map((p) => p.memPct),
             sparkMax: 100,
           },
-          { key: "rss", label: "RSS", value: val(h ? formatBytes(h.memory.processRssBytes) : null), hint: h ? `heap ${formatBytes(h.memory.heapUsedBytes)}` : null },
+          { key: "rss", label: "RSS", value: val(h ? formatBytes(h.memory.processRssBytes, locale) : null), hint: h ? `heap ${formatBytes(h.memory.heapUsedBytes, locale)}` : null },
           {
             key: "loop",
             label: t("eventLoop"),
@@ -177,7 +177,7 @@ function HostSection() {
               label={t("chartNetwork")}
               times={times}
               height={170}
-              formatY={(v) => `${formatBytes(v)}/s`}
+              formatY={(v) => `${formatBytes(v, locale)}/s`}
               formatTime={fmtTime}
               series={[
                 { key: "rx", label: t("rx"), color: "var(--chart-1)", values: points.map((p) => p.rx) },
@@ -282,6 +282,7 @@ export default function SystemPage() {
             stats.hourly.some((h) => h.count > 0) ? (
                 <LiveChart
               label={t("chartHourly")}
+              integerY
                   times={stats.hourly.map((h) => new Date(h.ts).getTime())}
                   area
                   height={190}
