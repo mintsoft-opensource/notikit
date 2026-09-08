@@ -25,7 +25,7 @@ export function LocaleSwitcher() {
         onChange={(e) => change(e.target.value)}
         disabled={pending}
         aria-label={t("language")}
-        className="h-9 appearance-none rounded-md border border-border bg-surface pl-7 pr-2 text-[13px] text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="h-9 appearance-none rounded-md border border-border bg-surface pl-7 pr-2 text-sm text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       >
         {LOCALES.map((l) => (
           <option key={l.code} value={l.code}>

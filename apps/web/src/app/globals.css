@@ -123,6 +123,11 @@
   /* Spacing */
   --spacing-card: 1.25rem;  /* 20 — 카드 padding 단일 */
 
+  --font-sans:
+    var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Pretendard",
+    "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), "SFMono-Regular", monospace;
+
   /* Typography scale — 하드코딩 text-[Npx] 대체 */
   --text-2xs: 0.6875rem;    /* 11 — caption */
   --text-xs: 0.75rem;       /* 12 — small label */
@@ -148,8 +153,9 @@ body {
 body {
   background: var(--background-alt);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 얇은 라운드 스크롤바 (goji 계열) */

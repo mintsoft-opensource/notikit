@@ -18,7 +18,7 @@ function NavLink({ item, label, pathname }: { item: NavItem; label: string; path
       rel={item.external ? "noopener noreferrer" : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors",
+        "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
         active ? "bg-accent-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       )}
     >
@@ -38,14 +38,14 @@ export function SidebarNav({ pathname }: { pathname: string }) {
       {projectId && (
         <Link
           href="/projects"
-          className="flex items-center gap-1.5 px-3 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1.5 px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" /> {t("projectList")}
         </Link>
       )}
       {groups.map((group) => (
         <div key={group.labelKey}>
-          <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{t(group.labelKey)}</p>
+          <p className="mb-2 px-3 text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{t(group.labelKey)}</p>
           <ul className="space-y-0.5">
             {group.items.map((item) => (
               <li key={item.href}>
@@ -65,7 +65,7 @@ export function SidebarBrand() {
     <div className="flex h-16 items-center border-b border-border px-6">
       <Link href="/dashboard" className="flex items-center gap-2.5">
         <LogoMark className="h-8 w-8" />
-        <span translate="no" className="text-[15px] font-extrabold tracking-tight text-foreground">{t("name")}</span>
+        <span translate="no" className="text-md font-extrabold tracking-tight text-foreground">{t("name")}</span>
       </Link>
     </div>
   );

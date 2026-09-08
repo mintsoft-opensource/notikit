@@ -20,7 +20,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn("inline-flex rounded-lg bg-surface-muted p-0.5 text-[13px] font-semibold", className)}
+      className={cn("inline-flex rounded-lg bg-surface-muted p-0.5 text-sm font-semibold", className)}
     >
       {options.map((opt) => (
         <button
