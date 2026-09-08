@@ -169,9 +169,9 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <StatTile icon={Send} label={`${t("statSends")} (${range})`} value={num(stats?.messages.sends)} />
-        <StatTile icon={Percent} label={`${t("successRate")} (${range})`} value={successRate} accent="success" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <StatTile icon={Send} label={t("statSends")} value={num(stats?.messages.sends)} />
+        <StatTile icon={Percent} label={t("successRate")} value={successRate} accent="success" />
         <StatTile icon={Inbox} label={ts("statQueued")} value={num(stats?.messages.queued)} />
         <StatTile
           icon={Smartphone}
