@@ -71,7 +71,7 @@ export function LogsConsole({ projectId }: { projectId?: string }) {
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" }), [locale]);
 
   return (
-    <div className="w-full space-y-6">
+    <div className="mx-auto w-full max-w-[1200px] space-y-6">
       <PageHeader
         title={t("title")}
         description={t("subtitle")}

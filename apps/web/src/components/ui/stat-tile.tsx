@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "./card";
+import { Skeleton } from "./skeleton";
 import { cn } from "@/lib/utils";
 
 export type StatTileAccent = "default" | "primary" | "success" | "warning" | "muted";
@@ -20,6 +21,7 @@ export function StatTile({
   hint,
   accent = "default",
   suffix,
+  loading,
 }: {
   label: string;
   value: string | number;
@@ -27,6 +29,8 @@ export function StatTile({
   hint?: string | null;
   accent?: StatTileAccent;
   suffix?: string;
+  /** 로딩 중 — 값 자리에 "…" 를 큰 볼드로 찍지 않고 스켈레톤을 보여준다 */
+  loading?: boolean;
 }) {
   return (
     <Card>
@@ -41,11 +45,15 @@ export function StatTile({
             </div>
           )}
         </div>
-        <p className={cn("mt-2 truncate text-2xl font-extrabold tracking-tight tabular-nums", accentClass[accent])}>
-          {value}
-          {suffix && <span className="ml-1 text-[12px] font-bold text-muted-foreground">{suffix}</span>}
-        </p>
-        <p className={cn("mt-1 truncate text-[11px] text-muted-foreground", hint ? "" : "invisible")}>{hint || "\u00b7"}</p>
+        {loading ? (
+          <Skeleton className="mt-2 h-7 w-20" />
+        ) : (
+          <p className={cn("mt-2 truncate text-xl font-extrabold tracking-tight tabular-nums", accentClass[accent])}>
+            {value}
+            {suffix && <span className="ml-1 text-[12px] font-bold text-muted-foreground">{suffix}</span>}
+          </p>
+        )}
+        {hint && <p className="mt-1 truncate text-2xs text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
   );

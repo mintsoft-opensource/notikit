@@ -43,6 +43,7 @@ const WINDOWS: Window[] = ["live", "1h", "24h", "7d"];
 
 const POLL_MS = 5000;
 const WINDOW = 60; // 5분 (60 × 5s)
+const MEM_WARN = 90; // 이 이상이면 수치에 경고색 — 색만으로 전달하지 않도록 힌트에 사용량 병기
 
 const STATUS_COLOR: Record<string, string> = {
   completed: "var(--success)",
@@ -128,7 +129,9 @@ function HostSection() {
 
   const h = latest?.host;
   const q = latest?.queue;
-  const val = (s: string | null | undefined) => s ?? (error ? "—" : "…");
+  const val = (s: string | null | undefined) => s ?? "—";
+  const busy = !latest && !error;
+  const memPct = h ? (h.memory.usedBytes / h.memory.totalBytes) * 100 : null;
   const live = win === "live";
   const src: HostPoint[] = live
     ? points
@@ -173,6 +176,7 @@ function HostSection() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatTile
           icon={Cpu}
+          loading={busy}
           label={t("cpu")}
           value={val(h ? (h.cpu.usagePct != null ? `${nf.format(h.cpu.usagePct)}%` : "—") : null)}
           hint={h ? `${h.cpu.cores} cores · load ${nf.format(h.cpu.loadavg[0])}` : null}
@@ -180,17 +184,21 @@ function HostSection() {
         <StatTile
           icon={MemoryStick}
           label={t("memory")}
-          value={val(h ? `${nf.format((h.memory.usedBytes / h.memory.totalBytes) * 100)}%` : null)}
+          value={val(memPct == null ? null : `${nf.format(memPct)}%`)}
           hint={h ? `${formatBytes(h.memory.usedBytes, locale)} / ${formatBytes(h.memory.totalBytes, locale)}` : null}
+          accent={memPct != null && memPct >= MEM_WARN ? "warning" : "default"}
+          loading={busy}
         />
         <StatTile
           icon={HardDrive}
+          loading={busy}
           label="RSS"
           value={val(h ? formatBytes(h.memory.processRssBytes, locale) : null)}
           hint={h ? `heap ${formatBytes(h.memory.heapUsedBytes, locale)}` : null}
         />
         <StatTile
           icon={Timer}
+          loading={busy}
           label={t("eventLoop")}
           value={val(h ? (h.eventLoop ? `${nf.format(h.eventLoop.p99Ms)} ms` : "—") : null)}
           hint={h?.eventLoop ? `p50 ${nf.format(h.eventLoop.p50Ms)} ms` : null}
@@ -198,6 +206,7 @@ function HostSection() {
         <StatTile icon={Database} label={t("dbLatency")} value={val(latest ? `${nf.format(latest.db.latencyMs)} ms` : null)} />
         <StatTile
           icon={Clock}
+          loading={busy}
           label={t("uptime")}
           value={val(h ? formatDuration(h.processUptimeSec) : null)}
           hint={h ? `host ${formatDuration(h.uptimeSec)}` : null}
@@ -307,16 +316,15 @@ export default function SystemPage() {
     };
   }, [retryN]);
 
-  const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : error ? "—" : "…");
+  const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
+  const statsBusy = !stats && !error;
   const successRate =
     stats && stats.totals.recipients24h > 0
       ? `${((stats.totals.success24h / stats.totals.recipients24h) * 100).toFixed(1)}%`
-      : stats || error
-        ? "—"
-        : "…";
+      : "—";
 
   return (
-    <div className="w-full space-y-6">
+    <div className="mx-auto w-full max-w-[1200px] space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <HostSection />
@@ -342,11 +350,11 @@ export default function SystemPage() {
         )}
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-          <StatTile icon={Send} label={t("statSends")} value={num(stats?.totals.sends24h)} />
-          <StatTile icon={Inbox} label={t("statRecipients")} value={num(stats?.totals.recipients24h)} />
-          <StatTile icon={Percent} label={t("statSuccessRate")} value={successRate} accent="success" />
-          <StatTile icon={Smartphone} label={t("statActiveDevices")} value={num(stats?.totals.activeDevices)} />
-          <StatTile icon={Users} label={t("statUsers")} value={num(stats?.totals.users)} />
+          <StatTile loading={statsBusy} icon={Send} label={t("statSends")} value={num(stats?.totals.sends24h)} />
+          <StatTile loading={statsBusy} icon={Inbox} label={t("statRecipients")} value={num(stats?.totals.recipients24h)} />
+          <StatTile loading={statsBusy} icon={Percent} label={t("statSuccessRate")} value={successRate} accent="success" />
+          <StatTile loading={statsBusy} icon={Smartphone} label={t("statActiveDevices")} value={num(stats?.totals.activeDevices)} />
+          <StatTile loading={statsBusy} icon={Users} label={t("statUsers")} value={num(stats?.totals.users)} />
         </div>
 
         <Card>
@@ -368,7 +376,7 @@ export default function SystemPage() {
                 <EmptyState icon={Send} title={t("empty")} />
               )
             ) : (
-              <EmptyState icon={Send} title={error ? "—" : tc("loading")} />
+              <EmptyState icon={Send} title={error ? tc("loadFailed") : tc("loading")} />
             )}
           </CardContent>
         </Card>
@@ -384,7 +392,7 @@ export default function SystemPage() {
                     .map(([s, v]) => ({ label: s, value: v, color: STATUS_COLOR[s] ?? "var(--gy400)" }))}
                 />
               ) : (
-                <EmptyState icon={Activity} title={stats ? t("empty") : error ? "—" : tc("loading")} />
+                <EmptyState icon={Activity} title={stats ? t("empty") : error ? tc("loadFailed") : tc("loading")} />
               )}
             </CardContent>
           </Card>
@@ -395,7 +403,7 @@ export default function SystemPage() {
               {stats && stats.topProjects.length > 0 ? (
                 <BarList rows={stats.topProjects.map((p) => ({ label: p.name, value: p.count }))} />
               ) : (
-                <EmptyState icon={Send} title={stats ? t("empty") : error ? "—" : tc("loading")} />
+                <EmptyState icon={Send} title={stats ? t("empty") : error ? tc("loadFailed") : tc("loading")} />
               )}
             </CardContent>
           </Card>

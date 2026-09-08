@@ -88,7 +88,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
     [locale, range]
   );
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
-  const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : statsError ? "—" : "…");
+  const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
+  const busy = !stats && !statsError;
   const rangeLabelOf = React.useCallback(
     (r: RangeKey) => (r === "24h" ? ts("range24h") : r === "7d" ? ts("range7d") : ts("range30d")),
     [ts]
@@ -97,12 +98,10 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   const successRate =
     stats && stats.messages.recipients > 0
       ? `${((stats.messages.success / stats.messages.recipients) * 100).toFixed(1)}%`
-      : stats || statsError
-        ? "—"
-        : "…";
+      : "—";
 
   return (
-    <div className="w-full space-y-6">
+    <div className="mx-auto w-full max-w-[1200px] space-y-6">
       <PageHeader
         title={project?.name ?? t("projectFallback")}
         description={t("subtitle")}
@@ -122,7 +121,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface px-5 py-4 shadow-sm shadow-foreground/[0.02]">
           <div className="flex min-w-0 items-center gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">api-key</p>
+              <p className="text-2xs font-semibold text-muted-foreground">api-key</p>
               <p className="truncate font-mono text-sm">{project.apiKey}</p>
             </div>
             <button
@@ -170,17 +169,18 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       )}
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <StatTile icon={Send} label={t("statSends")} value={num(stats?.messages.sends)} />
-        <StatTile icon={Percent} label={t("successRate")} value={successRate} accent="success" />
-        <StatTile icon={Inbox} label={ts("statQueued")} value={num(stats?.messages.queued)} />
+        <StatTile icon={Send} label={t("statSends")} value={num(stats?.messages.sends)} loading={busy} />
+        <StatTile icon={Percent} label={t("successRate")} value={successRate} accent="success" loading={busy} />
+        <StatTile icon={Inbox} label={ts("statQueued")} value={num(stats?.messages.queued)} loading={busy} />
         <StatTile
           icon={Smartphone}
           label={t("statDevices")}
           value={num(stats?.devices.total)}
+          loading={busy}
           hint={stats ? `${t("statActiveDevices")} ${nf.format(stats.devices.active)}` : null}
         />
-        <StatTile icon={Activity} label={t("dau")} value={num(stats?.devices.dau)} />
-        <StatTile icon={Users} label={t("statUsers")} value={num(stats?.users.total)} />
+        <StatTile icon={Activity} label={t("dau")} value={num(stats?.devices.dau)} loading={busy} />
+        <StatTile icon={Users} label={t("statUsers")} value={num(stats?.users.total)} loading={busy} />
       </div>
 
       <Card>
@@ -207,7 +207,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             <EmptyState icon={Send} title={ts("empty")} />
           )
         ) : (
-          <EmptyState icon={Send} title={statsError ? "—" : tc("loading")} />
+          <EmptyState icon={Send} title={statsError ? t("statsLoadFailed") : tc("loading")} />
         )}
       </CardContent>
         </Card>
@@ -228,7 +228,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                 .map(([s, v]) => ({ label: s, value: v, color: STATUS_COLOR[s] ?? "var(--gy400)" }))}
             />
           ) : (
-            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? "—" : tc("loading")} />
+            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? t("statsLoadFailed") : tc("loading")} />
           )}
         </CardContent>
         </Card>
@@ -245,7 +245,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                 .map(([p, v]) => ({ label: p, value: v }))}
             />
           ) : (
-            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? "—" : tc("loading")} />
+            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? t("statsLoadFailed") : tc("loading")} />
           )}
         </CardContent>
         </Card>
@@ -283,7 +283,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
               </Link>
             </div>
           ) : (
-            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? "—" : tc("loading")} />
+            <EmptyState icon={Activity} title={stats ? ts("empty") : statsError ? t("statsLoadFailed") : tc("loading")} />
           )}
         </CardContent>
         </Card>

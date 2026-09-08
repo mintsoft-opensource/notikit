@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
@@ -65,7 +65,7 @@ export function SendConsole({ projectId }: { projectId?: string }) {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
@@ -107,15 +107,16 @@ export function SendConsole({ projectId }: { projectId?: string }) {
 
           <div className="flex flex-col gap-2 border-t border-border pt-3 text-sm">
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={processNow} onChange={(e) => setProcessNow(e.target.checked)} className="h-4 w-4" />
+              <input type="checkbox" checked={processNow} onChange={(e) => setProcessNow(e.target.checked)} className="h-4 w-4 rounded-sm border-border accent-[var(--primary)]" />
               {t("processNow")}
             </label>
           </div>
-
-          <Button onClick={submit} disabled={sending} className="w-full">
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button onClick={submit} disabled={sending}>
             <Send aria-hidden="true" className="h-4 w-4" /> {sending ? t("sending") : t("submit")}
           </Button>
-        </CardContent>
+        </CardFooter>
       </Card>
     </div>
   );

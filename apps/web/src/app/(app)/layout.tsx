@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { AppFooter } from "@/components/layout/app-footer";
 import { SESSION_COOKIE } from "@/lib/session";
 import { isSessionValid } from "@/lib/authz";
 
@@ -14,9 +15,10 @@ export default async function AppShellLayout({ children }: { children: React.Rea
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Header />
-        <main className="min-h-0 flex-1 overflow-y-auto bg-background">
+        <main className="min-h-0 flex-1 overflow-y-auto bg-surface-alt">
           <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col md:min-h-[calc(100dvh-4rem)]">
             <div className="flex-1 p-4 md:p-8">{children}</div>
+            <AppFooter />
           </div>
         </main>
       </div>

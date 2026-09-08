@@ -21,12 +21,11 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="w-full space-y-6">
+    <div className="mx-auto w-full max-w-[1200px] space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile icon={FolderKanban} label={t("projects")} value={loading ? "…" : projects.length} />
-        <StatTile icon={Rocket} label={t("production")} value={loading ? "…" : prod} accent="primary" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatTile icon={Rocket} label={t("production")} value={prod} loading={loading} accent="primary" />
         <StatTile icon={Layers} label={t("environments")} value={new Set(projects.map((p) => p.environment)).size || 0} hint={t("envHint")} />
         <StatTile icon={ShieldCheck} label={t("status")} value={t("logOnly")} hint={t("logOnlyHint")} accent="muted" />
       </div>

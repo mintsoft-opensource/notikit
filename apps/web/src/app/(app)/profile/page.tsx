@@ -10,6 +10,7 @@ import { Input, Field } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { DataRow } from "@/components/ui/data-row";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSession, adminApi, logout } from "@/lib/admin-client";
 
 /** 프로필 — 내 계정 정보와 비밀번호 변경 */
@@ -45,7 +46,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
@@ -74,13 +75,13 @@ export default function ProfilePage() {
               <UserCircle aria-hidden="true" className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-base font-bold">{user?.email ?? "…"}</p>
+              {user ? <p className="truncate text-base font-bold">{user.email}</p> : <Skeleton className="h-5 w-48" />}
               {user?.role && <Badge variant={user.role === "owner" ? "primary" : "neutral"}>{user.role}</Badge>}
             </div>
           </div>
           <dl className="space-y-3 border-t border-border pt-4">
-            <DataRow label={t("emailLabel")} value={user?.email ?? "…"} mono />
-            <DataRow label={t("roleLabel")} value={user?.role ?? "…"} />
+            <DataRow label={t("emailLabel")} value={user ? user.email : <Skeleton className="h-4 w-40" />} mono />
+            <DataRow label={t("roleLabel")} value={user ? user.role : <Skeleton className="h-4 w-16" />} />
           </dl>
         </CardContent>
       </Card>

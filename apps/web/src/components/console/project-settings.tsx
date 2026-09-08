@@ -97,7 +97,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
@@ -107,7 +107,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="h-4 w-4" />
+            <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="h-4 w-4 rounded-sm border-border accent-[var(--primary)]" />
             {t("requireIdentity")}
           </label>
           <div className="grid grid-cols-2 gap-3">
