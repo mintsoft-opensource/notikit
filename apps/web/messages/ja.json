@@ -103,12 +103,12 @@
     "linkLogsDesc": "状態・成功/失敗の集計",
     "linkSettings": "設定",
     "linkSettingsDesc": "ポリシー・Firebase/カカオ",
-    "sends24h": "送信 (24h)",
-    "successRate24h": "成功率 (24h)",
     "dau": "DAU",
     "recentTitle": "最近の送信",
     "viewAll": "すべてのログ",
-    "kakaoConfigured": "カカオ設定済み"
+    "kakaoConfigured": "カカオ設定済み",
+    "successRate": "成功率",
+    "platformsTitle": "プラットフォーム別デバイス"
   },
   "send": {
     "title": "送信",
@@ -305,6 +305,8 @@
     "queueProcessing": "処理中",
     "queueScheduled": "予約",
     "oldestQueued": "最長待機",
-    "queueTitle": "キュー状態"
+    "queueTitle": "キュー状態",
+    "range7d": "直近7日",
+    "range30d": "直近30日"
   }
 }

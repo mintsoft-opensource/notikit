@@ -103,12 +103,12 @@
     "linkLogsDesc": "Status · lyckade/misslyckade",
     "linkSettings": "Inställningar",
     "linkSettingsDesc": "Policy · Firebase/Kakao",
-    "sends24h": "Utskick (24h)",
-    "successRate24h": "Lyckandegrad (24h)",
     "dau": "DAU",
     "recentTitle": "Senaste utskick",
     "viewAll": "Alla loggar",
-    "kakaoConfigured": "Kakao konfigurerat"
+    "kakaoConfigured": "Kakao konfigurerat",
+    "successRate": "Lyckandegrad",
+    "platformsTitle": "Enheter per plattform"
   },
   "send": {
     "title": "Skicka",
@@ -305,6 +305,8 @@
     "queueProcessing": "Bearbetas",
     "queueScheduled": "Schemalagda",
     "oldestQueued": "Äldst i kön",
-    "queueTitle": "Kö"
+    "queueTitle": "Kö",
+    "range7d": "Senaste 7 dagarna",
+    "range30d": "Senaste 30 dagarna"
   }
 }

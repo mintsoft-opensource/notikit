@@ -103,12 +103,12 @@
     "linkLogsDesc": "Estado · éxito/fallo",
     "linkSettings": "Ajustes",
     "linkSettingsDesc": "Política · Firebase/Kakao",
-    "sends24h": "Envíos (24h)",
-    "successRate24h": "Tasa de éxito (24h)",
     "dau": "DAU",
     "recentTitle": "Envíos recientes",
     "viewAll": "Ver todos los registros",
-    "kakaoConfigured": "Kakao configurado"
+    "kakaoConfigured": "Kakao configurado",
+    "successRate": "Tasa de éxito",
+    "platformsTitle": "Dispositivos por plataforma"
   },
   "send": {
     "title": "Enviar",
@@ -305,6 +305,8 @@
     "queueProcessing": "Procesando",
     "queueScheduled": "Programados",
     "oldestQueued": "Más antiguo en cola",
-    "queueTitle": "Cola"
+    "queueTitle": "Cola",
+    "range7d": "Últimos 7 días",
+    "range30d": "Últimos 30 días"
   }
 }

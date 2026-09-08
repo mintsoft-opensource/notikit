@@ -103,12 +103,12 @@
     "linkLogsDesc": "상태·성공/실패 집계",
     "linkSettings": "설정",
     "linkSettingsDesc": "정책·Firebase/카카오",
-    "sends24h": "발송 (24h)",
-    "successRate24h": "성공률 (24h)",
     "dau": "DAU",
     "recentTitle": "최근 발송",
     "viewAll": "전체 로그",
-    "kakaoConfigured": "카카오 설정됨"
+    "kakaoConfigured": "카카오 설정됨",
+    "successRate": "성공률",
+    "platformsTitle": "플랫폼별 디바이스"
   },
   "send": {
     "title": "발송",
@@ -305,6 +305,8 @@
     "queueProcessing": "처리 중",
     "queueScheduled": "예약",
     "oldestQueued": "최장 대기",
-    "queueTitle": "큐 상태"
+    "queueTitle": "큐 상태",
+    "range7d": "최근 7일",
+    "range30d": "최근 30일"
   }
 }

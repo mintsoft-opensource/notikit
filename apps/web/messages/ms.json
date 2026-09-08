@@ -103,12 +103,12 @@
     "linkLogsDesc": "Status · berjaya/gagal",
     "linkSettings": "Tetapan",
     "linkSettingsDesc": "Polisi · Firebase/Kakao",
-    "sends24h": "Penghantaran (24j)",
-    "successRate24h": "Kadar kejayaan (24j)",
     "dau": "DAU",
     "recentTitle": "Penghantaran terkini",
     "viewAll": "Semua log",
-    "kakaoConfigured": "Kakao dikonfigurasi"
+    "kakaoConfigured": "Kakao dikonfigurasi",
+    "successRate": "Kadar kejayaan",
+    "platformsTitle": "Peranti mengikut platform"
   },
   "send": {
     "title": "Hantar",
@@ -305,6 +305,8 @@
     "queueProcessing": "Sedang diproses",
     "queueScheduled": "Dijadualkan",
     "oldestQueued": "Paling lama menunggu",
-    "queueTitle": "Baris gilir"
+    "queueTitle": "Baris gilir",
+    "range7d": "7 hari lepas",
+    "range30d": "30 hari lepas"
   }
 }

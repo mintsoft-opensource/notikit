@@ -103,12 +103,12 @@
     "linkLogsDesc": "Durum · başarı/başarısız",
     "linkSettings": "Ayarlar",
     "linkSettingsDesc": "Politika · Firebase/Kakao",
-    "sends24h": "Gönderimler (24s)",
-    "successRate24h": "Başarı oranı (24s)",
     "dau": "DAU",
     "recentTitle": "Son gönderimler",
     "viewAll": "Tüm günlükler",
-    "kakaoConfigured": "Kakao yapılandırıldı"
+    "kakaoConfigured": "Kakao yapılandırıldı",
+    "successRate": "Başarı oranı",
+    "platformsTitle": "Platforma göre cihazlar"
   },
   "send": {
     "title": "Gönder",
@@ -305,6 +305,8 @@
     "queueProcessing": "İşleniyor",
     "queueScheduled": "Zamanlanmış",
     "oldestQueued": "En eski kuyrukta",
-    "queueTitle": "Kuyruk"
+    "queueTitle": "Kuyruk",
+    "range7d": "Son 7 gün",
+    "range30d": "Son 30 gün"
   }
 }

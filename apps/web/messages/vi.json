@@ -103,12 +103,12 @@
     "linkLogsDesc": "Trạng thái · thành công/thất bại",
     "linkSettings": "Cài đặt",
     "linkSettingsDesc": "Chính sách · Firebase/Kakao",
-    "sends24h": "Lượt gửi (24h)",
-    "successRate24h": "Tỷ lệ thành công (24h)",
     "dau": "DAU",
     "recentTitle": "Gửi gần đây",
     "viewAll": "Tất cả nhật ký",
-    "kakaoConfigured": "Đã cấu hình Kakao"
+    "kakaoConfigured": "Đã cấu hình Kakao",
+    "successRate": "Tỷ lệ thành công",
+    "platformsTitle": "Thiết bị theo nền tảng"
   },
   "send": {
     "title": "Gửi",
@@ -305,6 +305,8 @@
     "queueProcessing": "Đang xử lý",
     "queueScheduled": "Đã lên lịch",
     "oldestQueued": "Chờ lâu nhất",
-    "queueTitle": "Hàng đợi"
+    "queueTitle": "Hàng đợi",
+    "range7d": "7 ngày qua",
+    "range30d": "30 ngày qua"
   }
 }

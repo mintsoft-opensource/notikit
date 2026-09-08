@@ -103,12 +103,12 @@
     "linkLogsDesc": "สถานะ · สำเร็จ/ล้มเหลว",
     "linkSettings": "การตั้งค่า",
     "linkSettingsDesc": "นโยบาย · Firebase/Kakao",
-    "sends24h": "การส่ง (24ชม.)",
-    "successRate24h": "อัตราสำเร็จ (24ชม.)",
     "dau": "DAU",
     "recentTitle": "การส่งล่าสุด",
     "viewAll": "บันทึกทั้งหมด",
-    "kakaoConfigured": "ตั้งค่า Kakao แล้ว"
+    "kakaoConfigured": "ตั้งค่า Kakao แล้ว",
+    "successRate": "อัตราสำเร็จ",
+    "platformsTitle": "อุปกรณ์ตามแพลตฟอร์ม"
   },
   "send": {
     "title": "ส่ง",
@@ -305,6 +305,8 @@
     "queueProcessing": "กำลังประมวลผล",
     "queueScheduled": "ตั้งเวลาแล้ว",
     "oldestQueued": "รอคิวนานที่สุด",
-    "queueTitle": "สถานะคิว"
+    "queueTitle": "สถานะคิว",
+    "range7d": "7 วันล่าสุด",
+    "range30d": "30 วันล่าสุด"
   }
 }

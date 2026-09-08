@@ -103,12 +103,12 @@
     "linkLogsDesc": "סטטוס · הצלחה/כשל",
     "linkSettings": "הגדרות",
     "linkSettingsDesc": "מדיניות · Firebase/Kakao",
-    "sends24h": "שליחות (24ש)",
-    "successRate24h": "שיעור הצלחה (24ש)",
     "dau": "DAU",
     "recentTitle": "שליחות אחרונות",
     "viewAll": "כל היומנים",
-    "kakaoConfigured": "Kakao מוגדר"
+    "kakaoConfigured": "Kakao מוגדר",
+    "successRate": "שיעור הצלחה",
+    "platformsTitle": "מכשירים לפי פלטפורמה"
   },
   "send": {
     "title": "שליחה",
@@ -305,6 +305,8 @@
     "queueProcessing": "בעיבוד",
     "queueScheduled": "מתוזמנות",
     "oldestQueued": "הוותיק בתור",
-    "queueTitle": "מצב התור"
+    "queueTitle": "מצב התור",
+    "range7d": "7 הימים האחרונים",
+    "range30d": "30 הימים האחרונים"
   }
 }

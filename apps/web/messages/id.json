@@ -103,12 +103,12 @@
     "linkLogsDesc": "Status · sukses/gagal",
     "linkSettings": "Pengaturan",
     "linkSettingsDesc": "Kebijakan · Firebase/Kakao",
-    "sends24h": "Pengiriman (24j)",
-    "successRate24h": "Tingkat keberhasilan (24j)",
     "dau": "DAU",
     "recentTitle": "Pengiriman terbaru",
     "viewAll": "Semua log",
-    "kakaoConfigured": "Kakao dikonfigurasi"
+    "kakaoConfigured": "Kakao dikonfigurasi",
+    "successRate": "Tingkat keberhasilan",
+    "platformsTitle": "Perangkat per platform"
   },
   "send": {
     "title": "Kirim",
@@ -305,6 +305,8 @@
     "queueProcessing": "Diproses",
     "queueScheduled": "Terjadwal",
     "oldestQueued": "Terlama di antrean",
-    "queueTitle": "Antrean"
+    "queueTitle": "Antrean",
+    "range7d": "7 hari terakhir",
+    "range30d": "30 hari terakhir"
   }
 }

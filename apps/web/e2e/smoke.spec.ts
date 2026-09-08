@@ -102,10 +102,12 @@ test.describe("smoke", () => {
     await ensureLogin(page);
     const projectId = await firstProjectId(page);
     await page.goto(`/projects/${projectId}`);
-    await expect(page.getByRole("link", { name: "발송", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "세그먼트", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "저니", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "웹훅", exact: true })).toBeVisible();
+    // 본문에도 발송 바로가기 버튼이 있으므로 사이드바 네비로 스코프
+    const nav = page.getByRole("navigation");
+    await expect(nav.getByRole("link", { name: "발송", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "세그먼트", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "저니", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "웹훅", exact: true })).toBeVisible();
   });
 
   test("tenant isolation: 세션 유저는 타 org 프로젝트에 접근 불가", async ({ page }) => {

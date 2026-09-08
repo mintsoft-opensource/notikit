@@ -103,12 +103,12 @@
     "linkLogsDesc": "Статус · успех/ошибки",
     "linkSettings": "Настройки",
     "linkSettingsDesc": "Политика · Firebase/Kakao",
-    "sends24h": "Отправки (24ч)",
-    "successRate24h": "Успешность (24ч)",
     "dau": "DAU",
     "recentTitle": "Последние отправки",
     "viewAll": "Все журналы",
-    "kakaoConfigured": "Kakao настроен"
+    "kakaoConfigured": "Kakao настроен",
+    "successRate": "Успешность",
+    "platformsTitle": "Устройства по платформам"
   },
   "send": {
     "title": "Отправка",
@@ -305,6 +305,8 @@
     "queueProcessing": "В обработке",
     "queueScheduled": "Запланировано",
     "oldestQueued": "Дольше всех в очереди",
-    "queueTitle": "Очередь"
+    "queueTitle": "Очередь",
+    "range7d": "Последние 7 дней",
+    "range30d": "Последние 30 дней"
   }
 }

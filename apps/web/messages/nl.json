@@ -103,12 +103,12 @@
     "linkLogsDesc": "Status · succes/mislukt",
     "linkSettings": "Instellingen",
     "linkSettingsDesc": "Beleid · Firebase/Kakao",
-    "sends24h": "Verzendingen (24u)",
-    "successRate24h": "Succespercentage (24u)",
     "dau": "DAU",
     "recentTitle": "Recente verzendingen",
     "viewAll": "Alle logboeken",
-    "kakaoConfigured": "Kakao geconfigureerd"
+    "kakaoConfigured": "Kakao geconfigureerd",
+    "successRate": "Succespercentage",
+    "platformsTitle": "Apparaten per platform"
   },
   "send": {
     "title": "Verzenden",
@@ -305,6 +305,8 @@
     "queueProcessing": "In verwerking",
     "queueScheduled": "Gepland",
     "oldestQueued": "Oudste in wachtrij",
-    "queueTitle": "Wachtrij"
+    "queueTitle": "Wachtrij",
+    "range7d": "Laatste 7 dagen",
+    "range30d": "Laatste 30 dagen"
   }
 }

@@ -103,12 +103,12 @@
     "linkLogsDesc": "وضعیت · موفق/ناموفق",
     "linkSettings": "تنظیمات",
     "linkSettingsDesc": "سیاست · Firebase/Kakao",
-    "sends24h": "ارسال‌ها (۲۴س)",
-    "successRate24h": "نرخ موفقیت (۲۴س)",
     "dau": "DAU",
     "recentTitle": "ارسال‌های اخیر",
     "viewAll": "همه گزارش‌ها",
-    "kakaoConfigured": "Kakao پیکربندی شده"
+    "kakaoConfigured": "Kakao پیکربندی شده",
+    "successRate": "نرخ موفقیت",
+    "platformsTitle": "دستگاه‌ها بر اساس پلتفرم"
   },
   "send": {
     "title": "ارسال",
@@ -305,6 +305,8 @@
     "queueProcessing": "در حال پردازش",
     "queueScheduled": "زمان‌بندی‌شده",
     "oldestQueued": "قدیمی‌ترین در صف",
-    "queueTitle": "وضعیت صف"
+    "queueTitle": "وضعیت صف",
+    "range7d": "۷ روز اخیر",
+    "range30d": "۳۰ روز اخیر"
   }
 }

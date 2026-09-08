@@ -103,12 +103,12 @@
     "linkLogsDesc": "状态·成功/失败统计",
     "linkSettings": "设置",
     "linkSettingsDesc": "策略·Firebase/Kakao",
-    "sends24h": "发送 (24h)",
-    "successRate24h": "成功率 (24h)",
     "dau": "DAU",
     "recentTitle": "最近发送",
     "viewAll": "全部日志",
-    "kakaoConfigured": "Kakao 已配置"
+    "kakaoConfigured": "Kakao 已配置",
+    "successRate": "成功率",
+    "platformsTitle": "按平台的设备"
   },
   "send": {
     "title": "发送",
@@ -305,6 +305,8 @@
     "queueProcessing": "处理中",
     "queueScheduled": "已计划",
     "oldestQueued": "最久排队",
-    "queueTitle": "队列状态"
+    "queueTitle": "队列状态",
+    "range7d": "最近 7 天",
+    "range30d": "最近 30 天"
   }
 }

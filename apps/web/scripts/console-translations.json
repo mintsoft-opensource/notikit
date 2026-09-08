@@ -209,12 +209,14 @@
   "system.queueScheduled": "予約",
   "system.oldestQueued": "最長待機",
   "system.queueTitle": "キュー状態",
-  "overview.sends24h": "送信 (24h)",
-  "overview.successRate24h": "成功率 (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "最近の送信",
   "overview.viewAll": "すべてのログ",
-  "overview.kakaoConfigured": "カカオ設定済み"
+  "overview.kakaoConfigured": "カカオ設定済み",
+  "overview.successRate": "成功率",
+  "overview.platformsTitle": "プラットフォーム別デバイス",
+  "system.range7d": "直近7日",
+  "system.range30d": "直近30日"
  },
  "zh": {
   "meta.description": "开源 · 可自托管 · 以用户为中心的推送通知基础设施",
@@ -426,12 +428,14 @@
   "system.queueScheduled": "已计划",
   "system.oldestQueued": "最久排队",
   "system.queueTitle": "队列状态",
-  "overview.sends24h": "发送 (24h)",
-  "overview.successRate24h": "成功率 (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "最近发送",
   "overview.viewAll": "全部日志",
-  "overview.kakaoConfigured": "Kakao 已配置"
+  "overview.kakaoConfigured": "Kakao 已配置",
+  "overview.successRate": "成功率",
+  "overview.platformsTitle": "按平台的设备",
+  "system.range7d": "最近 7 天",
+  "system.range30d": "最近 30 天"
  },
  "zh-TW": {
   "meta.description": "開源 · 可自架 · 以使用者為中心的推播通知基礎設施",
@@ -643,12 +647,14 @@
   "system.queueScheduled": "已排程",
   "system.oldestQueued": "最久排隊",
   "system.queueTitle": "佇列狀態",
-  "overview.sends24h": "傳送 (24h)",
-  "overview.successRate24h": "成功率 (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "最近傳送",
   "overview.viewAll": "全部日誌",
-  "overview.kakaoConfigured": "Kakao 已設定"
+  "overview.kakaoConfigured": "Kakao 已設定",
+  "overview.successRate": "成功率",
+  "overview.platformsTitle": "依平台的裝置",
+  "system.range7d": "最近 7 天",
+  "system.range30d": "最近 30 天"
  },
  "es": {
   "meta.description": "Código abierto · autoalojable · infraestructura de notificaciones push centrada en el usuario",
@@ -860,12 +866,14 @@
   "system.queueScheduled": "Programados",
   "system.oldestQueued": "Más antiguo en cola",
   "system.queueTitle": "Cola",
-  "overview.sends24h": "Envíos (24h)",
-  "overview.successRate24h": "Tasa de éxito (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Envíos recientes",
   "overview.viewAll": "Ver todos los registros",
-  "overview.kakaoConfigured": "Kakao configurado"
+  "overview.kakaoConfigured": "Kakao configurado",
+  "overview.successRate": "Tasa de éxito",
+  "overview.platformsTitle": "Dispositivos por plataforma",
+  "system.range7d": "Últimos 7 días",
+  "system.range30d": "Últimos 30 días"
  },
  "pt": {
   "meta.description": "Código aberto · auto-hospedável · infraestrutura de notificações push centrada no utilizador",
@@ -1077,12 +1085,14 @@
   "system.queueScheduled": "Agendados",
   "system.oldestQueued": "Mais antigo na fila",
   "system.queueTitle": "Fila",
-  "overview.sends24h": "Envios (24h)",
-  "overview.successRate24h": "Taxa de sucesso (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Envios recentes",
   "overview.viewAll": "Ver todos os registos",
-  "overview.kakaoConfigured": "Kakao configurado"
+  "overview.kakaoConfigured": "Kakao configurado",
+  "overview.successRate": "Taxa de sucesso",
+  "overview.platformsTitle": "Dispositivos por plataforma",
+  "system.range7d": "Últimos 7 dias",
+  "system.range30d": "Últimos 30 dias"
  },
  "pt-BR": {
   "meta.description": "Código aberto · auto-hospedável · infraestrutura de notificações push centrada no usuário",
@@ -1294,12 +1304,14 @@
   "system.queueScheduled": "Agendados",
   "system.oldestQueued": "Mais antigo na fila",
   "system.queueTitle": "Fila",
-  "overview.sends24h": "Envios (24h)",
-  "overview.successRate24h": "Taxa de sucesso (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Envios recentes",
   "overview.viewAll": "Ver todos os logs",
-  "overview.kakaoConfigured": "Kakao configurado"
+  "overview.kakaoConfigured": "Kakao configurado",
+  "overview.successRate": "Taxa de sucesso",
+  "overview.platformsTitle": "Dispositivos por plataforma",
+  "system.range7d": "Últimos 7 dias",
+  "system.range30d": "Últimos 30 dias"
  },
  "fr": {
   "meta.description": "Open source · auto-hébergeable · infrastructure de notifications push centrée sur l'utilisateur",
@@ -1511,12 +1523,14 @@
   "system.queueScheduled": "Planifiés",
   "system.oldestQueued": "Plus ancien en file",
   "system.queueTitle": "File d'attente",
-  "overview.sends24h": "Envois (24 h)",
-  "overview.successRate24h": "Taux de réussite (24 h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Envois récents",
   "overview.viewAll": "Tous les journaux",
-  "overview.kakaoConfigured": "Kakao configuré"
+  "overview.kakaoConfigured": "Kakao configuré",
+  "overview.successRate": "Taux de réussite",
+  "overview.platformsTitle": "Appareils par plateforme",
+  "system.range7d": "7 derniers jours",
+  "system.range30d": "30 derniers jours"
  },
  "de": {
   "meta.description": "Open Source · selbst hostbar · nutzerzentrierte Push-Benachrichtigungs-Infrastruktur",
@@ -1728,12 +1742,14 @@
   "system.queueScheduled": "Geplant",
   "system.oldestQueued": "Älteste Wartezeit",
   "system.queueTitle": "Warteschlange",
-  "overview.sends24h": "Sendungen (24 h)",
-  "overview.successRate24h": "Erfolgsquote (24 h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Letzte Sendungen",
   "overview.viewAll": "Alle Protokolle",
-  "overview.kakaoConfigured": "Kakao konfiguriert"
+  "overview.kakaoConfigured": "Kakao konfiguriert",
+  "overview.successRate": "Erfolgsquote",
+  "overview.platformsTitle": "Geräte nach Plattform",
+  "system.range7d": "Letzte 7 Tage",
+  "system.range30d": "Letzte 30 Tage"
  },
  "it": {
   "meta.description": "Open source · self-hostable · infrastruttura di notifiche push centrata sull'utente",
@@ -1945,12 +1961,14 @@
   "system.queueScheduled": "Pianificati",
   "system.oldestQueued": "Più vecchio in coda",
   "system.queueTitle": "Coda",
-  "overview.sends24h": "Invii (24h)",
-  "overview.successRate24h": "Tasso di successo (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Invii recenti",
   "overview.viewAll": "Tutti i log",
-  "overview.kakaoConfigured": "Kakao configurato"
+  "overview.kakaoConfigured": "Kakao configurato",
+  "overview.successRate": "Tasso di successo",
+  "overview.platformsTitle": "Dispositivi per piattaforma",
+  "system.range7d": "Ultimi 7 giorni",
+  "system.range30d": "Ultimi 30 giorni"
  },
  "nl": {
   "meta.description": "Open source · zelf te hosten · gebruikersgerichte pushnotificatie-infrastructuur",
@@ -2162,12 +2180,14 @@
   "system.queueScheduled": "Gepland",
   "system.oldestQueued": "Oudste in wachtrij",
   "system.queueTitle": "Wachtrij",
-  "overview.sends24h": "Verzendingen (24u)",
-  "overview.successRate24h": "Succespercentage (24u)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Recente verzendingen",
   "overview.viewAll": "Alle logboeken",
-  "overview.kakaoConfigured": "Kakao geconfigureerd"
+  "overview.kakaoConfigured": "Kakao geconfigureerd",
+  "overview.successRate": "Succespercentage",
+  "overview.platformsTitle": "Apparaten per platform",
+  "system.range7d": "Laatste 7 dagen",
+  "system.range30d": "Laatste 30 dagen"
  },
  "sv": {
   "meta.description": "Öppen källkod · självhostbar · användarcentrerad push-notisinfrastruktur",
@@ -2379,12 +2399,14 @@
   "system.queueScheduled": "Schemalagda",
   "system.oldestQueued": "Äldst i kön",
   "system.queueTitle": "Kö",
-  "overview.sends24h": "Utskick (24h)",
-  "overview.successRate24h": "Lyckandegrad (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Senaste utskick",
   "overview.viewAll": "Alla loggar",
-  "overview.kakaoConfigured": "Kakao konfigurerat"
+  "overview.kakaoConfigured": "Kakao konfigurerat",
+  "overview.successRate": "Lyckandegrad",
+  "overview.platformsTitle": "Enheter per plattform",
+  "system.range7d": "Senaste 7 dagarna",
+  "system.range30d": "Senaste 30 dagarna"
  },
  "pl": {
   "meta.description": "Open source · możliwość samodzielnego hostowania · infrastruktura powiadomień push zorientowana na użytkownika",
@@ -2596,12 +2618,14 @@
   "system.queueScheduled": "Zaplanowane",
   "system.oldestQueued": "Najstarsze w kolejce",
   "system.queueTitle": "Kolejka",
-  "overview.sends24h": "Wysyłki (24h)",
-  "overview.successRate24h": "Wskaźnik sukcesu (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Ostatnie wysyłki",
   "overview.viewAll": "Wszystkie logi",
-  "overview.kakaoConfigured": "Kakao skonfigurowane"
+  "overview.kakaoConfigured": "Kakao skonfigurowane",
+  "overview.successRate": "Wskaźnik sukcesu",
+  "overview.platformsTitle": "Urządzenia wg platformy",
+  "system.range7d": "Ostatnie 7 dni",
+  "system.range30d": "Ostatnie 30 dni"
  },
  "ru": {
   "meta.description": "Открытый код · самостоятельный хостинг · пользователь-ориентированная инфраструктура push-уведомлений",
@@ -2813,12 +2837,14 @@
   "system.queueScheduled": "Запланировано",
   "system.oldestQueued": "Дольше всех в очереди",
   "system.queueTitle": "Очередь",
-  "overview.sends24h": "Отправки (24ч)",
-  "overview.successRate24h": "Успешность (24ч)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Последние отправки",
   "overview.viewAll": "Все журналы",
-  "overview.kakaoConfigured": "Kakao настроен"
+  "overview.kakaoConfigured": "Kakao настроен",
+  "overview.successRate": "Успешность",
+  "overview.platformsTitle": "Устройства по платформам",
+  "system.range7d": "Последние 7 дней",
+  "system.range30d": "Последние 30 дней"
  },
  "uk": {
   "meta.description": "Відкритий код · самостійний хостинг · орієнтована на користувача інфраструктура push-сповіщень",
@@ -3030,12 +3056,14 @@
   "system.queueScheduled": "Заплановано",
   "system.oldestQueued": "Найдовше в черзі",
   "system.queueTitle": "Черга",
-  "overview.sends24h": "Надсилання (24 год)",
-  "overview.successRate24h": "Успішність (24 год)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Останні надсилання",
   "overview.viewAll": "Усі журнали",
-  "overview.kakaoConfigured": "Kakao налаштовано"
+  "overview.kakaoConfigured": "Kakao налаштовано",
+  "overview.successRate": "Успішність",
+  "overview.platformsTitle": "Пристрої за платформами",
+  "system.range7d": "Останні 7 днів",
+  "system.range30d": "Останні 30 днів"
  },
  "tr": {
   "meta.description": "Açık kaynak · kendi sunucunuzda barındırılabilir · kullanıcı odaklı push bildirim altyapısı",
@@ -3247,12 +3275,14 @@
   "system.queueScheduled": "Zamanlanmış",
   "system.oldestQueued": "En eski kuyrukta",
   "system.queueTitle": "Kuyruk",
-  "overview.sends24h": "Gönderimler (24s)",
-  "overview.successRate24h": "Başarı oranı (24s)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Son gönderimler",
   "overview.viewAll": "Tüm günlükler",
-  "overview.kakaoConfigured": "Kakao yapılandırıldı"
+  "overview.kakaoConfigured": "Kakao yapılandırıldı",
+  "overview.successRate": "Başarı oranı",
+  "overview.platformsTitle": "Platforma göre cihazlar",
+  "system.range7d": "Son 7 gün",
+  "system.range30d": "Son 30 gün"
  },
  "ar": {
   "meta.description": "مفتوح المصدر · قابل للاستضافة الذاتية · بنية إشعارات دفع تتمحور حول المستخدم",
@@ -3464,12 +3494,14 @@
   "system.queueScheduled": "مجدولة",
   "system.oldestQueued": "الأقدم في الانتظار",
   "system.queueTitle": "قائمة الانتظار",
-  "overview.sends24h": "الإرسالات (24س)",
-  "overview.successRate24h": "معدل النجاح (24س)",
   "overview.dau": "DAU",
   "overview.recentTitle": "الإرسالات الأخيرة",
   "overview.viewAll": "كل السجلات",
-  "overview.kakaoConfigured": "تم إعداد Kakao"
+  "overview.kakaoConfigured": "تم إعداد Kakao",
+  "overview.successRate": "معدل النجاح",
+  "overview.platformsTitle": "الأجهزة حسب المنصة",
+  "system.range7d": "آخر 7 أيام",
+  "system.range30d": "آخر 30 يومًا"
  },
  "he": {
   "meta.description": "קוד פתוח · ניתן לאירוח עצמי · תשתית התראות פוש ממוקדת משתמש",
@@ -3681,12 +3713,14 @@
   "system.queueScheduled": "מתוזמנות",
   "system.oldestQueued": "הוותיק בתור",
   "system.queueTitle": "מצב התור",
-  "overview.sends24h": "שליחות (24ש)",
-  "overview.successRate24h": "שיעור הצלחה (24ש)",
   "overview.dau": "DAU",
   "overview.recentTitle": "שליחות אחרונות",
   "overview.viewAll": "כל היומנים",
-  "overview.kakaoConfigured": "Kakao מוגדר"
+  "overview.kakaoConfigured": "Kakao מוגדר",
+  "overview.successRate": "שיעור הצלחה",
+  "overview.platformsTitle": "מכשירים לפי פלטפורמה",
+  "system.range7d": "7 הימים האחרונים",
+  "system.range30d": "30 הימים האחרונים"
  },
  "fa": {
   "meta.description": "متن‌باز · قابل میزبانی شخصی · زیرساخت اعلان پوش کاربرمحور",
@@ -3898,12 +3932,14 @@
   "system.queueScheduled": "زمان‌بندی‌شده",
   "system.oldestQueued": "قدیمی‌ترین در صف",
   "system.queueTitle": "وضعیت صف",
-  "overview.sends24h": "ارسال‌ها (۲۴س)",
-  "overview.successRate24h": "نرخ موفقیت (۲۴س)",
   "overview.dau": "DAU",
   "overview.recentTitle": "ارسال‌های اخیر",
   "overview.viewAll": "همه گزارش‌ها",
-  "overview.kakaoConfigured": "Kakao پیکربندی شده"
+  "overview.kakaoConfigured": "Kakao پیکربندی شده",
+  "overview.successRate": "نرخ موفقیت",
+  "overview.platformsTitle": "دستگاه‌ها بر اساس پلتفرم",
+  "system.range7d": "۷ روز اخیر",
+  "system.range30d": "۳۰ روز اخیر"
  },
  "hi": {
   "meta.description": "ओपन सोर्स · सेल्फ-होस्ट योग्य · उपयोगकर्ता-केंद्रित पुश सूचना इन्फ्रास्ट्रक्चर",
@@ -4115,12 +4151,14 @@
   "system.queueScheduled": "निर्धारित",
   "system.oldestQueued": "सबसे पुराना कतार में",
   "system.queueTitle": "कतार स्थिति",
-  "overview.sends24h": "भेजे गए (24घं)",
-  "overview.successRate24h": "सफलता दर (24घं)",
   "overview.dau": "DAU",
   "overview.recentTitle": "हाल के भेजे गए",
   "overview.viewAll": "सभी लॉग",
-  "overview.kakaoConfigured": "Kakao कॉन्फ़िगर है"
+  "overview.kakaoConfigured": "Kakao कॉन्फ़िगर है",
+  "overview.successRate": "सफलता दर",
+  "overview.platformsTitle": "प्लेटफ़ॉर्म के अनुसार डिवाइस",
+  "system.range7d": "पिछले 7 दिन",
+  "system.range30d": "पिछले 30 दिन"
  },
  "th": {
   "meta.description": "โอเพนซอร์ส · โฮสต์เองได้ · โครงสร้างพื้นฐานการแจ้งเตือนพุชที่เน้นผู้ใช้",
@@ -4332,12 +4370,14 @@
   "system.queueScheduled": "ตั้งเวลาแล้ว",
   "system.oldestQueued": "รอคิวนานที่สุด",
   "system.queueTitle": "สถานะคิว",
-  "overview.sends24h": "การส่ง (24ชม.)",
-  "overview.successRate24h": "อัตราสำเร็จ (24ชม.)",
   "overview.dau": "DAU",
   "overview.recentTitle": "การส่งล่าสุด",
   "overview.viewAll": "บันทึกทั้งหมด",
-  "overview.kakaoConfigured": "ตั้งค่า Kakao แล้ว"
+  "overview.kakaoConfigured": "ตั้งค่า Kakao แล้ว",
+  "overview.successRate": "อัตราสำเร็จ",
+  "overview.platformsTitle": "อุปกรณ์ตามแพลตฟอร์ม",
+  "system.range7d": "7 วันล่าสุด",
+  "system.range30d": "30 วันล่าสุด"
  },
  "vi": {
   "meta.description": "Mã nguồn mở · tự lưu trữ được · hạ tầng thông báo đẩy lấy người dùng làm trung tâm",
@@ -4549,12 +4589,14 @@
   "system.queueScheduled": "Đã lên lịch",
   "system.oldestQueued": "Chờ lâu nhất",
   "system.queueTitle": "Hàng đợi",
-  "overview.sends24h": "Lượt gửi (24h)",
-  "overview.successRate24h": "Tỷ lệ thành công (24h)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Gửi gần đây",
   "overview.viewAll": "Tất cả nhật ký",
-  "overview.kakaoConfigured": "Đã cấu hình Kakao"
+  "overview.kakaoConfigured": "Đã cấu hình Kakao",
+  "overview.successRate": "Tỷ lệ thành công",
+  "overview.platformsTitle": "Thiết bị theo nền tảng",
+  "system.range7d": "7 ngày qua",
+  "system.range30d": "30 ngày qua"
  },
  "id": {
   "meta.description": "Sumber terbuka · dapat dihosting sendiri · infrastruktur notifikasi push berpusat pada pengguna",
@@ -4766,12 +4808,14 @@
   "system.queueScheduled": "Terjadwal",
   "system.oldestQueued": "Terlama di antrean",
   "system.queueTitle": "Antrean",
-  "overview.sends24h": "Pengiriman (24j)",
-  "overview.successRate24h": "Tingkat keberhasilan (24j)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Pengiriman terbaru",
   "overview.viewAll": "Semua log",
-  "overview.kakaoConfigured": "Kakao dikonfigurasi"
+  "overview.kakaoConfigured": "Kakao dikonfigurasi",
+  "overview.successRate": "Tingkat keberhasilan",
+  "overview.platformsTitle": "Perangkat per platform",
+  "system.range7d": "7 hari terakhir",
+  "system.range30d": "30 hari terakhir"
  },
  "ms": {
   "meta.description": "Sumber terbuka · boleh dihoskan sendiri · infrastruktur pemberitahuan tolak berpusatkan pengguna",
@@ -4983,11 +5027,13 @@
   "system.queueScheduled": "Dijadualkan",
   "system.oldestQueued": "Paling lama menunggu",
   "system.queueTitle": "Baris gilir",
-  "overview.sends24h": "Penghantaran (24j)",
-  "overview.successRate24h": "Kadar kejayaan (24j)",
   "overview.dau": "DAU",
   "overview.recentTitle": "Penghantaran terkini",
   "overview.viewAll": "Semua log",
-  "overview.kakaoConfigured": "Kakao dikonfigurasi"
+  "overview.kakaoConfigured": "Kakao dikonfigurasi",
+  "overview.successRate": "Kadar kejayaan",
+  "overview.platformsTitle": "Peranti mengikut platform",
+  "system.range7d": "7 hari lepas",
+  "system.range30d": "30 hari lepas"
  }
 }

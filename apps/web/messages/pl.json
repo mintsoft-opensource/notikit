@@ -103,12 +103,12 @@
     "linkLogsDesc": "Status · sukces/błąd",
     "linkSettings": "Ustawienia",
     "linkSettingsDesc": "Polityka · Firebase/Kakao",
-    "sends24h": "Wysyłki (24h)",
-    "successRate24h": "Wskaźnik sukcesu (24h)",
     "dau": "DAU",
     "recentTitle": "Ostatnie wysyłki",
     "viewAll": "Wszystkie logi",
-    "kakaoConfigured": "Kakao skonfigurowane"
+    "kakaoConfigured": "Kakao skonfigurowane",
+    "successRate": "Wskaźnik sukcesu",
+    "platformsTitle": "Urządzenia wg platformy"
   },
   "send": {
     "title": "Wyślij",
@@ -305,6 +305,8 @@
     "queueProcessing": "Przetwarzane",
     "queueScheduled": "Zaplanowane",
     "oldestQueued": "Najstarsze w kolejce",
-    "queueTitle": "Kolejka"
+    "queueTitle": "Kolejka",
+    "range7d": "Ostatnie 7 dni",
+    "range30d": "Ostatnie 30 dni"
   }
 }

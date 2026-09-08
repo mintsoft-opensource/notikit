@@ -103,12 +103,12 @@
     "linkLogsDesc": "الحالة · نجاح/فشل",
     "linkSettings": "الإعدادات",
     "linkSettingsDesc": "السياسة · Firebase/Kakao",
-    "sends24h": "الإرسالات (24س)",
-    "successRate24h": "معدل النجاح (24س)",
     "dau": "DAU",
     "recentTitle": "الإرسالات الأخيرة",
     "viewAll": "كل السجلات",
-    "kakaoConfigured": "تم إعداد Kakao"
+    "kakaoConfigured": "تم إعداد Kakao",
+    "successRate": "معدل النجاح",
+    "platformsTitle": "الأجهزة حسب المنصة"
   },
   "send": {
     "title": "إرسال",
@@ -305,6 +305,8 @@
     "queueProcessing": "قيد المعالجة",
     "queueScheduled": "مجدولة",
     "oldestQueued": "الأقدم في الانتظار",
-    "queueTitle": "قائمة الانتظار"
+    "queueTitle": "قائمة الانتظار",
+    "range7d": "آخر 7 أيام",
+    "range30d": "آخر 30 يومًا"
   }
 }
