@@ -154,7 +154,7 @@ function HostSection() {
       <SectionTitle
         right={
           <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden items-center gap-1.5 text-[11px] text-muted-foreground sm:flex">
+            <span className="hidden items-center gap-1.5 text-2xs text-muted-foreground sm:flex">
               <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${error ? "bg-error" : "bg-success"}`} />
               {error ? t("hostUnreachable") : live ? t("autoRefresh") : t("historyNote")}
             </span>
@@ -173,7 +173,7 @@ function HostSection() {
         {t("host")}
       </SectionTitle>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatTile
           icon={Cpu}
           loading={busy}
@@ -349,7 +349,7 @@ export default function SystemPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           <StatTile loading={statsBusy} icon={Send} label={t("statSends")} value={num(stats?.totals.sends24h)} />
           <StatTile loading={statsBusy} icon={Inbox} label={t("statRecipients")} value={num(stats?.totals.recipients24h)} />
           <StatTile loading={statsBusy} icon={Percent} label={t("statSuccessRate")} value={successRate} accent="success" />

@@ -19,8 +19,8 @@ export function formatDuration(sec: number): string {
 /** 섹션 구분 — 라벨 + 우측 보조 정보 */
 export function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="text-[13px] font-bold tracking-tight text-foreground">{children}</h2>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h2 className="text-sm font-bold tracking-tight text-foreground">{children}</h2>
       {right}
     </div>
   );

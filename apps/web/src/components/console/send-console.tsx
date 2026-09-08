@@ -72,44 +72,42 @@ export function SendConsole({ projectId }: { projectId?: string }) {
         <CardHeader>
           <CardTitle>{t("compose")}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {!projectId && (
-            <div className="space-y-1">
-              <Label>{t("project")}</Label>
-              <ProjectPicker projects={projects} value={picked} onChange={setPicked} />
-            </div>
-          )}
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label>{t("sendType")}</Label>
-              <Select aria-label={t("sendType")} value={type} onChange={(e) => setType(e.target.value as SendType)}>
+        <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="min-w-0 space-y-4 rounded-tile border border-border bg-surface-muted/30 p-4">
+            {!projectId && (
+              <div className="space-y-1 [&_select]:w-full">
+                <Label>{t("project")}</Label>
+                <ProjectPicker projects={projects} value={picked} onChange={setPicked} />
+              </div>
+            )}
+            <Field label={t("sendType")}>
+              <Select value={type} onChange={(e) => setType(e.target.value as SendType)}>
                 <option value="single">{t("typeSingle")}</option>
                 <option value="topic">{t("typeTopic")}</option>
                 <option value="segment">{t("typeSegment")}</option>
                 <option value="broadcast">{t("typeBroadcast")}</option>
               </Select>
-            </div>
+            </Field>
             <Field label={type === "single" ? "external_id" : type === "broadcast" ? t("targetUnneeded") : t("targetNameOf", { type })}>
               <Input spellCheck={false} autoComplete="off" value={target} onChange={(e) => setTarget(e.target.value)} disabled={!needsTarget} placeholder={needsTarget ? t("targetPlaceholder") : t("broadcastAll")} />
             </Field>
+            <Field label={t("deepLink")}>
+              <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
+            </Field>
+            <div className="border-t border-border pt-4 text-sm">
+              <label className="flex items-start gap-2 leading-relaxed">
+                <input type="checkbox" checked={processNow} onChange={(e) => setProcessNow(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary" />
+                {t("processNow")}
+              </label>
+            </div>
           </div>
-
-          <Field label={t("titleLabel")}>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
-          </Field>
-          <Field label={t("bodyLabel")}>
-            <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
-          </Field>
-          <Field label={t("deepLink")}>
-            <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
-          </Field>
-
-          <div className="flex flex-col gap-2 border-t border-border pt-3 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={processNow} onChange={(e) => setProcessNow(e.target.checked)} className="h-4 w-4 rounded-sm border-border accent-[var(--primary)]" />
-              {t("processNow")}
-            </label>
+          <div className="min-w-0 space-y-4">
+            <Field label={t("titleLabel")}>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
+            </Field>
+            <Field label={t("bodyLabel")}>
+              <Textarea className="min-h-48 lg:min-h-64" value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
+            </Field>
           </div>
         </CardContent>
         <CardFooter className="flex justify-end">

@@ -168,7 +168,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatTile icon={Send} label={t("statSends")} value={num(stats?.messages.sends)} loading={busy} />
         <StatTile icon={Percent} label={t("successRate")} value={successRate} accent="success" loading={busy} />
         <StatTile icon={Inbox} label={ts("statQueued")} value={num(stats?.messages.queued)} loading={busy} />
@@ -212,8 +212,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       </CardContent>
         </Card>
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Card className="h-full">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="h-full min-w-0">
           <CardHeader>
             <div>
               <CardTitle>{ts("chartStatuses")}</CardTitle>
@@ -233,7 +233,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </CardContent>
         </Card>
 
-        <Card className="h-full">
+        <Card className="h-full min-w-0">
           <CardHeader>
             <CardTitle>{t("platformsTitle")}</CardTitle>
           </CardHeader>
@@ -250,7 +250,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </CardContent>
         </Card>
 
-        <Card className="h-full">
+        <Card className="h-full min-w-0 md:col-span-2">
           <CardHeader>
             <CardTitle>{t("recentTitle")}</CardTitle>
           </CardHeader>
@@ -259,14 +259,14 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             <div>
               <ul className="divide-y divide-border">
                 {stats.recent.map((l) => (
-                  <li key={l.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+                  <li key={l.id} className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{l.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {l.type} · {df.format(new Date(l.createdAt))}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
+                    <div className="grid grid-cols-[3rem_6rem] items-center gap-3 text-right">
                       <span className="text-xs tabular-nums text-muted-foreground">
                         {l.successCount}/{l.totalCount}
                       </span>

@@ -3,13 +3,12 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Save, Users, FolderKanban } from "lucide-react";
+import { Save, Users, FolderKanban, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile } from "@/components/console/panels";
-import { DataRow } from "@/components/ui/data-row";
 import { useSession, adminApi } from "@/lib/admin-client";
 
 type Org = { id: string; name: string; createdAt: string; members: number; projects: number };
@@ -61,9 +60,10 @@ export default function SettingsPage() {
     <div className="w-full space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatTile icon={Users} label={t("statMembers")} value={org ? String(org.members) : "—"} loading={!org && !error} />
         <StatTile icon={FolderKanban} label={t("statProjects")} value={org ? String(org.projects) : "—"} loading={!org && !error} />
+        <StatTile icon={CalendarDays} label={t("statSince")} value={org ? df.format(new Date(org.createdAt)) : "—"} loading={!org && !error} />
       </div>
 
       <Card>
@@ -73,10 +73,7 @@ export default function SettingsPage() {
             <CardDescription>{isOwner ? t("orgDesc") : t("orgReadOnly")}</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <dl className="space-y-3 border-b border-border pb-4">
-            <DataRow label={t("statSince")} value={org ? df.format(new Date(org.createdAt)) : "—"} />
-          </dl>
+        <CardContent className="grid items-end gap-4 sm:grid-cols-[minmax(0,24rem)_auto]">
           <Field label={t("orgName")}>
             <Input
               value={name}
@@ -87,7 +84,7 @@ export default function SettingsPage() {
             />
           </Field>
           {isOwner && (
-            <Button size="sm" onClick={save} disabled={saving || !org || !name.trim() || name.trim() === org?.name}>
+            <Button className="justify-self-start" size="sm" onClick={save} disabled={saving || !org || !name.trim() || name.trim() === org?.name}>
               <Save aria-hidden="true" className="h-4 w-4" /> {saving ? t("saving") : t("save")}
             </Button>
           )}

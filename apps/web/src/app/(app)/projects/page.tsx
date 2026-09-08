@@ -4,17 +4,20 @@ import * as React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Plus, Copy, ChevronRight } from "lucide-react";
+import { Plus, Copy, ChevronRight, FolderKanban } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
 export default function ProjectsPage() {
   const t = useTranslations("projects");
-  const { projects, reload } = useProjects();
+  const ts = useTranslations("settings");
+  const { projects, loading, reload } = useProjects();
   const [name, setName] = React.useState("");
   const [environment, setEnvironment] = React.useState("dev");
   const [secret, setSecret] = React.useState<{ key: string; secret: string } | null>(null);
@@ -47,20 +50,20 @@ export default function ProjectsPage() {
         <CardHeader>
           <CardTitle>{t("newProject")}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <CardContent className="grid gap-4 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
           <div className="flex-1 space-y-1">
             <Label htmlFor="new-project-name">{t("nameLabel")}</Label>
             <Input id="new-project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
           </div>
           <div className="space-y-1">
             <Label>{t("envLabel")}</Label>
-            <Select aria-label={t("envLabel")} value={environment} onChange={(e) => setEnvironment(e.target.value)} className="sm:w-40">
+            <Select aria-label={t("envLabel")} value={environment} onChange={(e) => setEnvironment(e.target.value)} className="w-full">
               <option value="dev">dev</option>
               <option value="staging">staging</option>
               <option value="production">production</option>
             </Select>
           </div>
-          <Button onClick={create} disabled={creating || !name.trim()} className="shrink-0">
+          <Button onClick={create} disabled={creating || !name.trim()} className="sm:col-span-2 sm:justify-self-end xl:col-span-1">
             <Plus aria-hidden="true" className="h-4 w-4" /> {t("create")}
           </Button>
         </CardContent>
@@ -89,23 +92,26 @@ export default function ProjectsPage() {
         </Card>
       )}
 
-      <div className="space-y-2">
-        {projects.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
+      <div className="overflow-hidden rounded-card border border-border bg-surface shadow-card">
+        {loading && <div className="space-y-3 p-5"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>}
+        {!loading && projects.length === 0 && <EmptyState icon={FolderKanban} title={t("empty")} description={t("subtitle")} action={<Button size="sm" variant="outline" onClick={() => document.getElementById("new-project-name")?.focus()}><Plus aria-hidden="true" className="h-4 w-4" />{t("newProject")}</Button>} />}
+        {projects.length > 0 && <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem] gap-4 border-b border-border bg-surface-muted/50 px-5 py-3 text-xs font-semibold text-muted-foreground lg:grid"><span>{t("nameLabel")}</span><span>{ts("apiKeyLabel")}</span><span>{t("envLabel")}</span><span /></div>}
         {projects.map((p) => (
           <Link
             key={p.id}
             href={`/projects/${p.id}`}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:border-primary/40 hover:bg-surface-muted"
+            className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border px-5 py-4 transition-colors last:border-b-0 hover:bg-surface-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem]"
           >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-semibold">{p.name}</span>
-                <Badge variant={p.environment === "production" ? "primary" : "neutral"}>{p.environment}</Badge>
-                {p.hasFirebase ? <Badge variant="success">Firebase</Badge> : <Badge variant="neutral">log-only</Badge>}
-              </div>
-              <p className="truncate text-xs text-muted-foreground">{p.apiKey}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-tile bg-accent-soft text-primary"><FolderKanban aria-hidden="true" className="h-4 w-4" /></span>
+              <span className="truncate text-sm font-semibold">{p.name}</span>
             </div>
-            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <p className="col-start-1 row-start-2 truncate font-mono text-xs text-muted-foreground lg:col-start-auto lg:row-start-auto">{p.apiKey}</p>
+            <div className="col-start-1 flex flex-wrap items-center gap-2 lg:col-start-auto">
+              <Badge variant={p.environment === "production" ? "primary" : "neutral"}>{p.environment}</Badge>
+              {p.hasFirebase ? <Badge variant="success">Firebase</Badge> : <Badge variant="neutral">log-only</Badge>}
+            </div>
+            <ChevronRight aria-hidden="true" className="col-start-2 row-start-1 h-4 w-4 shrink-0 text-muted-foreground lg:col-start-4" />
           </Link>
         ))}
       </div>

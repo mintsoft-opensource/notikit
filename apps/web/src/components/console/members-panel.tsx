@@ -3,10 +3,12 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { UserPlus, Trash2 } from "lucide-react";
+import { UserPlus, Trash2, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { adminApi } from "@/lib/admin-client";
 import { ROLES, type Role } from "@/lib/user-roles";
@@ -96,7 +98,7 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {canManage && (
-          <form onSubmit={create} className="grid gap-3 border-b border-border pb-4 sm:grid-cols-[2fr_2fr_1fr_auto] sm:items-end">
+          <form onSubmit={create} className="grid gap-4 rounded-tile border border-border bg-surface-muted/30 p-4 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_auto]">
             <Field label={t("emailLabel")}>
               <Input
                 type="email"
@@ -135,24 +137,24 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
         )}
 
         {members === null ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">{error ? tc("loadFailed") : tc("loading")}</p>
+          error ? <EmptyState icon={Users} title={tc("loadFailed")} /> : <div className="space-y-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
         ) : members.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">{t("empty")}</p>
+          <EmptyState icon={Users} title={t("empty")} />
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-border overflow-hidden rounded-tile border border-border">
             {members.map((m) => {
               // owner 계정은 owner 만 변경 가능 — 서버 규칙을 UI 에도 반영
               const editable = canManage && !m.isSelf && (m.role !== "owner" || currentRole === "owner");
               return (
-                <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0">
+                <li key={m.id} className="grid min-h-20 grid-cols-1 items-center gap-x-4 gap-y-1 px-4 py-3 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 truncate text-sm font-medium">
-                      {m.email}
+                      <span className="truncate">{m.email}</span>
                       {m.isSelf && <Badge variant="neutral">{t("you")}</Badge>}
                     </p>
-                    <p className="text-xs text-muted-foreground">{df.format(new Date(m.createdAt))}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <time dateTime={m.createdAt} className="col-start-1 row-start-2 text-xs tabular-nums text-muted-foreground lg:col-start-auto lg:row-start-auto lg:text-right">{df.format(new Date(m.createdAt))}</time>
+                  <div className="col-start-1 row-start-3 flex items-center gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-end lg:col-start-3 lg:row-span-1">
                     {editable ? (
                       <Select
                         aria-label={t("roleLabel")}
@@ -167,7 +169,7 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
                         ))}
                       </Select>
                     ) : (
-                      <Badge variant={m.role === "owner" ? "primary" : "neutral"}>{m.role}</Badge>
+                      <span className="flex w-28 justify-center sm:mr-11"><Badge variant={m.role === "owner" ? "primary" : "neutral"}>{m.role}</Badge></span>
                     )}
                     {editable && (
                       <Button variant="ghost" size="icon" aria-label={t("remove")} onClick={() => remove(m)}>

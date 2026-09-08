@@ -3,9 +3,11 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { RefreshCw, Play } from "lucide-react";
+import { RefreshCw, Play, ScrollText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
@@ -91,25 +93,18 @@ export function LogsConsole({ projectId }: { projectId?: string }) {
 
       <Card>
         <CardContent className="p-0">
-          {!sel && <p className="p-6 text-sm text-muted-foreground">{tc("selectProjectFirst")}</p>}
-          {sel && loading && <p className="p-6 text-sm text-muted-foreground">{tc("loading")}</p>}
-          {sel && !loading && logs.length === 0 && <p className="p-6 text-sm text-muted-foreground">{t("empty")}</p>}
+          {!sel && <EmptyState icon={ScrollText} title={tc("selectProjectFirst")} />}
+          {sel && loading && <div className="space-y-3 p-5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {sel && !loading && logs.length === 0 && <EmptyState icon={ScrollText} title={t("empty")} />}
           {logs.length > 0 && (
             <ul className="divide-y divide-border">
               {logs.map((l) => (
-                <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{l.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {l.type} · {df.format(new Date(l.createdAt))}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {l.successCount}/{l.totalCount}
-                    </span>
-                    <Badge variant={statusVariant(l.status)}>{l.status}</Badge>
-                  </div>
+                <li key={l.id} className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_7rem_13rem_4rem_7rem]">
+                  <p className="truncate text-sm font-semibold" title={l.title}>{l.title}</p>
+                  <span className="col-start-1 row-start-2 text-xs text-muted-foreground xl:col-start-auto xl:row-start-auto">{l.type}</span>
+                  <time dateTime={l.createdAt} className="col-start-1 text-xs tabular-nums text-muted-foreground xl:col-start-auto xl:text-right">{df.format(new Date(l.createdAt))}</time>
+                  <span className="col-start-2 row-start-2 text-right text-xs font-semibold tabular-nums text-muted-foreground xl:col-start-auto xl:row-start-auto">{l.successCount}/{l.totalCount}</span>
+                  <div className="col-start-2 row-start-1 justify-self-end xl:col-start-5"><Badge variant={statusVariant(l.status)}>{l.status}</Badge></div>
                 </li>
               ))}
             </ul>

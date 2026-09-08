@@ -33,10 +33,10 @@ export function StatTile({
   loading?: boolean;
 }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardContent className="p-5">
         <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-[12px] font-semibold text-muted-foreground" title={label}>
+          <p className="truncate text-xs font-semibold text-muted-foreground" title={label}>
             {label}
           </p>
           {Icon && (
@@ -50,7 +50,7 @@ export function StatTile({
         ) : (
           <p className={cn("mt-2 truncate text-xl font-extrabold tracking-tight tabular-nums", accentClass[accent])}>
             {value}
-            {suffix && <span className="ml-1 text-[12px] font-bold text-muted-foreground">{suffix}</span>}
+            {suffix && <span className="ml-1 text-xs font-bold text-muted-foreground">{suffix}</span>}
           </p>
         )}
         {hint && <p className="mt-1 truncate text-2xs text-muted-foreground">{hint}</p>}

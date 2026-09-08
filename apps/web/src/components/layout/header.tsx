@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -47,6 +47,7 @@ export function Header() {
 
   const titleKey = currentTitleKey(pathname);
   const title = titleKey ? t(titleKey) : ta("name");
+  const projectId = projectIdFromPath(pathname);
 
   // 라우트 변경 시 드로어 자동 닫기
   React.useEffect(() => {
@@ -116,13 +117,27 @@ export function Header() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <span className="flex-1 truncate text-[15px] font-bold tracking-tight md:text-base">{title}</span>
+        <nav aria-label={th("menu")} className="min-w-0 flex-1 text-sm">
+          <ol className="flex min-w-0 items-center gap-1.5">
+            <li className="hidden shrink-0 sm:block">
+              <Link href="/dashboard" className="text-muted-foreground transition-colors hover:text-foreground">{ta("name")}</Link>
+            </li>
+            <li aria-hidden="true" className="hidden text-muted-foreground/60 sm:block"><ChevronRight className="h-3.5 w-3.5" /></li>
+            {projectId && (
+              <>
+                <li className="shrink-0"><Link href="/projects" className="text-muted-foreground hover:text-foreground">{t("projects")}</Link></li>
+                <li aria-hidden="true" className="text-muted-foreground/60"><ChevronRight className="h-3.5 w-3.5" /></li>
+              </>
+            )}
+            <li aria-current="page" className="truncate font-medium text-foreground">{title}</li>
+          </ol>
+        </nav>
 
         <Link
           href="/docs"
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden rounded-md px-3 py-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:inline-flex"
+          className="hidden rounded-md px-3 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:inline-flex"
         >
           {th("apiDocs")}
         </Link>
