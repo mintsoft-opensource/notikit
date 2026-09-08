@@ -33,7 +33,8 @@ export async function GET(req: Request) {
   const [hourlyRows, statusRows, queuedRow, deviceRow, userRow, topRows, whRows] = await Promise.all([
     db
       .select({
-        hour: sql<string>`date_trunc('hour', ${pushLogs.createdAt})`,
+        // DB 세션 TZ 와 무관하게 UTC 경계 — 아래 시간 버킷 채우기와 키가 일치해야 함
+        hour: sql<string>`date_trunc('hour', ${pushLogs.createdAt} at time zone 'UTC') at time zone 'UTC'`,
         count: sql<number>`count(*)::int`,
         recipients: sql<number>`coalesce(sum(${pushLogs.totalCount}), 0)::int`,
         success: sql<number>`coalesce(sum(${pushLogs.successCount}), 0)::int`,
@@ -75,7 +76,7 @@ export async function GET(req: Request) {
   const byHour = new Map(hourlyRows.map((r) => [new Date(r.hour).toISOString(), r]));
   const hourly: Array<{ ts: string; count: number; recipients: number; success: number }> = [];
   const start = new Date(dayAgo);
-  start.setMinutes(0, 0, 0);
+  start.setUTCMinutes(0, 0, 0); // 30분/45분 오프셋 TZ(예: +05:30)에서도 UTC 시각 경계와 일치
   for (let i = 0; i < 25; i++) {
     const ts = new Date(start.getTime() + i * 3600_000).toISOString();
     const row = byHour.get(ts);

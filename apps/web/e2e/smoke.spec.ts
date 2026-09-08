@@ -183,6 +183,10 @@ test.describe("smoke", () => {
     // 쓰기 거부 (viewer)
     const create = await page.request.post("/api/admin/projects", { headers: { origin: ORIGIN }, data: { name: "viewer-nope" } });
     expect(create.status()).toBe(403);
+    // 호스트 인프라 지표는 viewer 에게 비공개 (멀티테넌트에서 타 org 부하 유추 방지)
+    expect((await page.request.get("/api/admin/system/host")).status()).toBe(403);
+    // 발송 집계는 org 스코프 읽기이므로 허용
+    expect((await page.request.get("/api/admin/system/stats")).status()).toBe(200);
   });
 
   test("docs page loads (Scalar)", async ({ request }) => {

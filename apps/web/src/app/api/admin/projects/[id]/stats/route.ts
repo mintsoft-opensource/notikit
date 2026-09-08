@@ -12,6 +12,8 @@ const RANGES = {
   "30d": { ms: 30 * 86400_000, bucketMs: 86400_000, trunc: "day" },
 } as const;
 type RangeKey = keyof typeof RANGES;
+// 프로토타입 체인(constructor/__proto__ 등)이 통과하지 않도록 명시적 허용 목록으로 검증
+const RANGE_KEYS = Object.keys(RANGES) as RangeKey[];
 
 /** [Web Admin] 프로젝트 분석 — 디바이스/유저 + 기간별(24h/7d/30d) 발송 추이/상태/집계 + 최근 로그 */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -19,8 +21,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const authz = await requireProject(req, id);
   if (!authz.ok) return fail(authz.error, authz.status);
 
-  const rangeParam = new URL(req.url).searchParams.get("range") ?? "24h";
-  const range: RangeKey = rangeParam in RANGES ? (rangeParam as RangeKey) : "24h";
+  const rangeParam = new URL(req.url).searchParams.get("range");
+  const range: RangeKey = RANGE_KEYS.includes(rangeParam as RangeKey) ? (rangeParam as RangeKey) : "24h";
   const { ms, bucketMs, trunc } = RANGES[range];
   const since = new Date(Date.now() - ms);
   const dayAgo = new Date(Date.now() - 24 * 3600_000);
@@ -39,7 +41,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       count(db.select({ c: sql<number>`coalesce(sum(success_count),0)` }).from(pushLogs).where(eq(pushLogs.projectId, id))),
       count(db.select({ c: sql<number>`count(*)` }).from(pushLogs).where(and(eq(pushLogs.projectId, id), eq(pushLogs.status, "queued")))),
       db
-        .select({ bucket: sql<string>`date_trunc(${sql.raw(`'${trunc}'`)}, ${pushLogs.createdAt})`, count: sql<number>`count(*)::int` })
+        // DB 세션 TZ 와 무관하게 UTC 경계로 자름 — 아래 버킷 채우기(UTC)와 키가 일치해야 함
+        .select({
+          bucket: sql<string>`date_trunc(${sql.raw(`'${trunc}'`)}, ${pushLogs.createdAt} at time zone 'UTC') at time zone 'UTC'`,
+          count: sql<number>`count(*)::int`,
+        })
         .from(pushLogs)
         .where(inRange)
         .groupBy(sql`1`)
@@ -93,12 +99,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     messages: {
       total_sends: totalSends,
       total_delivered: delivered,
-      sends_24h: agg[0]?.sends ?? 0,
-      recipients_24h: agg[0]?.recipients ?? 0,
-      success_24h: agg[0]?.success ?? 0,
+      // range 스코프 집계 (기간에 따라 24h/7d/30d) — 전체 누적은 total_*
+      sends: agg[0]?.sends ?? 0,
+      recipients: agg[0]?.recipients ?? 0,
+      success: agg[0]?.success ?? 0,
       queued,
     },
-    hourly: buckets,
+    buckets,
     statuses: Object.fromEntries(statusRows.map((r) => [r.status, r.count])),
     platforms: Object.fromEntries(platformRows.map((r) => [r.platform, r.count])),
     recent,

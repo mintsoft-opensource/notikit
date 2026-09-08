@@ -19,8 +19,8 @@ type Stats = {
   range: string;
   devices: { total: number; active: number; dau: number };
   users: { total: number };
-  messages: { total_sends: number; total_delivered: number; sends_24h: number; recipients_24h: number; success_24h: number; queued: number };
-  hourly: Array<{ ts: string; count: number }>;
+  messages: { total_sends: number; total_delivered: number; sends: number; recipients: number; success: number; queued: number };
+  buckets: Array<{ ts: string; count: number }>;
   statuses: Record<string, number>;
   platforms: Record<string, number>;
   recent: RecentLog[];
@@ -44,15 +44,15 @@ function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" 
   return "neutral";
 }
 
-/** 기간 선택 세그먼트 — URL(?range=)에 반영 */
-function RangeTabs({ value, onChange }: { value: RangeKey; onChange: (r: RangeKey) => void }) {
+/** 기간 선택 세그먼트 — URL(?range=)에 반영. tabpanel 이 없으므로 tablist 가 아닌 radiogroup */
+function RangeTabs({ value, onChange, label }: { value: RangeKey; onChange: (r: RangeKey) => void; label: string }) {
   return (
-    <div role="tablist" className="flex rounded-md border border-border bg-surface p-0.5">
+    <div role="radiogroup" aria-label={label} className="flex rounded-md border border-border bg-surface p-0.5">
       {RANGE_KEYS.map((r) => (
         <button
           key={r}
-          role="tab"
-          aria-selected={value === r}
+          role="radio"
+          aria-checked={value === r}
           onClick={() => onChange(r)}
           className={`rounded-[5px] px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
             value === r ? "bg-accent-soft text-primary" : "text-muted-foreground hover:text-foreground"
@@ -80,16 +80,16 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   const [statsError, setStatsError] = React.useState(false);
   const [statsRetry, setStatsRetry] = React.useState(0);
 
+  // 요청 시퀀스 가드 — range 를 빠르게 바꿀 때 늦게 도착한 옛 응답이 최신 응답을 덮어쓰지 않도록
+  const reqRef = React.useRef(0);
+
   React.useEffect(() => {
-    let alive = true;
+    const my = ++reqRef.current;
     setStats(null);
     setStatsError(false);
     adminApi<Stats>(`/api/admin/projects/${projectId}/stats?range=${range}`)
-      .then((d) => alive && setStats(d))
-      .catch(() => alive && setStatsError(true));
-    return () => {
-      alive = false;
-    };
+      .then((d) => my === reqRef.current && setStats(d))
+      .catch(() => my === reqRef.current && setStatsError(true));
   }, [projectId, range, statsRetry]);
 
   function setRange(r: RangeKey) {
@@ -111,8 +111,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : statsError ? "—" : "…");
   const rangeLabel = range === "24h" ? ts("range24h") : range === "7d" ? ts("range7d") : ts("range30d");
   const successRate =
-    stats && stats.messages.recipients_24h > 0
-      ? `${((stats.messages.success_24h / stats.messages.recipients_24h) * 100).toFixed(1)}%`
+    stats && stats.messages.recipients > 0
+      ? `${((stats.messages.success / stats.messages.recipients) * 100).toFixed(1)}%`
       : stats || statsError
         ? "—"
         : "…";
@@ -164,7 +164,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{rangeLabel}</p>
-        <RangeTabs value={range} onChange={setRange} />
+        <RangeTabs value={range} onChange={setRange} label={rangeLabel} />
       </div>
 
       {statsError && (
@@ -183,7 +183,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       <StatStrip
         cols="grid-cols-2 md:grid-cols-3 xl:grid-cols-6"
         cells={[
-          { key: "sends", label: `${t("linkSend")} (${range})`, value: num(stats?.messages.sends_24h), spark: stats?.hourly.map((h) => h.count) },
+          { key: "sends", label: `${t("linkSend")} (${range})`, value: num(stats?.messages.sends), spark: stats?.buckets.map((h) => h.count) },
           { key: "rate", label: `${t("successRate")} (${range})`, value: successRate },
           { key: "queued", label: ts("statQueued"), value: num(stats?.messages.queued) },
           { key: "devices", label: t("statDevices"), value: num(stats?.devices.total), hint: stats ? `${t("statActiveDevices")} ${nf.format(stats.devices.active)}` : null },
@@ -194,14 +194,14 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 
       <Panel title={ts("chartHourly")} sub={rangeLabel}>
         {stats ? (
-          stats.hourly.some((h) => h.count > 0) ? (
+          stats.buckets.some((h) => h.count > 0) ? (
             <LiveChart
-              times={stats.hourly.map((h) => new Date(h.ts).getTime())}
+              times={stats.buckets.map((h) => new Date(h.ts).getTime())}
               area
               height={180}
               formatY={(v) => nf.format(Math.round(v))}
               formatTime={(ms) => bucketFmt.format(ms)}
-              series={[{ key: "sends", label: t("linkSend"), color: "var(--chart-1)", values: stats.hourly.map((h) => h.count) }]}
+              series={[{ key: "sends", label: t("linkSend"), color: "var(--chart-1)", values: stats.buckets.map((h) => h.count) }]}
             />
           ) : (
             <EmptyNote>{ts("empty")}</EmptyNote>
