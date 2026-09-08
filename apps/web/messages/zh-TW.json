@@ -21,7 +21,8 @@
     "projectList": "專案清單",
     "project": "專案",
     "system": "系統",
-    "account": "帳號"
+    "account": "帳號",
+    "profile": "個人資料"
   },
   "header": {
     "openMenu": "開啟選單",
@@ -306,13 +307,21 @@
     "oldestQueued": "最久排隊",
     "queueTitle": "佇列狀態",
     "range7d": "最近 7 天",
-    "range30d": "最近 30 天"
+    "range30d": "最近 30 天",
+    "live": "即時 (5分鐘)",
+    "history1h": "1小時",
+    "history24h": "24小時",
+    "history7d": "7天",
+    "historyNote": "背景每分鐘儲存",
+    "historyEmpty": "尚無已儲存的取樣",
+    "rangeLive": "即時，最近 5 分鐘",
+    "rangeStored1h": "已儲存，最近 1 小時",
+    "rangeStored24h": "已儲存，最近 24 小時",
+    "rangeStored7d": "已儲存，最近 7 天"
   },
   "account": {
     "title": "帳號",
-    "subtitle": "管理你的資料與此組織的管理員帳號。",
-    "myAccount": "我的帳號",
-    "myAccountDesc": "目前登入的帳號。",
+    "subtitle": "管理此組織的管理員帳號。",
     "membersTitle": "成員",
     "membersDesc": "此組織的管理員帳號。",
     "addMember": "新增成員",
@@ -337,5 +346,23 @@
     "readOnlyNote": "僅 owner 與 admin 可管理成員。",
     "accountTitle": "帳號",
     "accountDesc": "目前登入的管理員帳號。"
+  },
+  "profile": {
+    "title": "個人資料",
+    "subtitle": "管理你的帳號資訊與密碼。",
+    "myAccount": "我的帳號",
+    "myAccountDesc": "目前登入的帳號。",
+    "emailLabel": "電子郵件",
+    "roleLabel": "角色",
+    "passwordTitle": "密碼",
+    "passwordDesc": "變更密碼後，其他裝置的登入將全部失效。",
+    "currentPassword": "目前密碼",
+    "newPassword": "新密碼（至少 8 碼）",
+    "confirmPassword": "確認新密碼",
+    "passwordMismatch": "密碼不一致",
+    "changePassword": "變更密碼",
+    "changing": "變更中…",
+    "passwordChanged": "密碼已變更",
+    "passwordChangeFailed": "無法變更密碼"
   }
 }

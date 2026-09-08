@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Cpu, MemoryStick, HardDrive, Timer, Database, Clock, Send, Users, Smartphone, Percent, Inbox, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/page-header";
-import { StatTile, EmptyState, DataRow, SectionTitle, BarList, formatDuration } from "@/components/console/panels";
+import { StatTile, EmptyState, DataRow, SectionTitle, BarList, Segmented, formatDuration } from "@/components/console/panels";
 import { LiveChart, formatBytes } from "@/components/system/live-chart";
 import { adminApi } from "@/lib/admin-client";
 
@@ -32,7 +32,14 @@ type HostStats = {
   at: string;
 };
 
-type HostPoint = { t: number; cpu: number | null; memPct: number; rx: number | null; tx: number | null };
+type HostPoint = { t: number; cpu: number | null; memPct: number | null; rx: number | null; tx: number | null };
+
+type HistoryPoint = { at: string; cpuPct: number | null; memPct: number | null; netRxBps: number | null; netTxBps: number | null };
+type HistoryRes = { range: string; points: HistoryPoint[] };
+
+/** 실시간(메모리 5분) vs 저장 이력(DB) */
+type Window = "live" | "1h" | "24h" | "7d";
+const WINDOWS: Window[] = ["live", "1h", "24h", "7d"];
 
 const POLL_MS = 5000;
 const WINDOW = 60; // 5분 (60 × 5s)
@@ -64,8 +71,14 @@ function HostSection() {
   const [latest, setLatest] = React.useState<HostStats | null>(null);
   const [points, setPoints] = React.useState<HostPoint[]>([]);
   const [error, setError] = React.useState(false);
+  const [win, setWin] = React.useState<Window>("live");
+  const [history, setHistory] = React.useState<HistoryPoint[] | null>(null);
   const nf = React.useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
   const tfm = React.useMemo(() => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" }), [locale]);
+  const tfLong = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, win === "7d" ? { month: "short", day: "numeric" } : { hour: "2-digit", minute: "2-digit" }),
+    [locale, win]
+  );
 
   React.useEffect(() => {
     let alive = true;
@@ -99,20 +112,59 @@ function HostSection() {
     };
   }, []);
 
+  // 저장 이력 — 실시간이 아닐 때만 조회 (윈도우 전환 시 옛 응답이 덮어쓰지 않도록 시퀀스 가드)
+  const histRef = React.useRef(0);
+  React.useEffect(() => {
+    if (win === "live") {
+      setHistory(null);
+      return;
+    }
+    const my = ++histRef.current;
+    setHistory(null);
+    adminApi<HistoryRes>(`/api/admin/system/history?range=${win}`)
+      .then((d) => my === histRef.current && setHistory(d.points))
+      .catch(() => my === histRef.current && setHistory([]));
+  }, [win]);
+
   const h = latest?.host;
   const q = latest?.queue;
   const val = (s: string | null | undefined) => s ?? (error ? "—" : "…");
-  const times = points.map((p) => p.t);
-  const fmtTime = (ms: number) => tfm.format(ms);
+  const live = win === "live";
+  const src: HostPoint[] = live
+    ? points
+    : (history ?? []).map((p) => ({
+        t: new Date(p.at).getTime(),
+        cpu: p.cpuPct,
+        memPct: p.memPct,
+        rx: p.netRxBps,
+        tx: p.netTxBps,
+      }));
+  const times = src.map((p) => p.t);
+  const fmtTime = (ms: number) => (live ? tfm.format(ms) : tfLong.format(ms));
+  const ready = live ? points.length > 1 : history != null && history.length > 1;
+  const windowLabel =
+    win === "live" ? t("rangeLive") : win === "1h" ? t("rangeStored1h") : win === "24h" ? t("rangeStored24h") : t("rangeStored7d");
+  const chartEmpty = live ? t("collecting") : history == null ? t("collecting") : t("historyEmpty");
 
   return (
     <section className="space-y-4">
       <SectionTitle
         right={
-          <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${error ? "bg-error" : "bg-success"}`} />
-            {error ? t("hostUnreachable") : t("autoRefresh")}
-          </span>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="hidden items-center gap-1.5 text-[11px] text-muted-foreground sm:flex">
+              <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${error ? "bg-error" : "bg-success"}`} />
+              {error ? t("hostUnreachable") : live ? t("autoRefresh") : t("historyNote")}
+            </span>
+            <Segmented
+              label={windowLabel}
+              value={win}
+              onChange={setWin}
+              options={WINDOWS.map((w) => ({
+                value: w,
+                label: w === "live" ? t("live") : w === "1h" ? t("history1h") : w === "24h" ? t("history24h") : t("history7d"),
+              }))}
+            />
+          </div>
         }
       >
         {t("host")}
@@ -154,9 +206,9 @@ function HostSection() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <PanelHead title={t("chartCpu")} sub={t("window5m")} />
+          <PanelHead title={t("chartCpu")} sub={windowLabel} />
           <CardContent>
-            {points.length > 1 ? (
+            {ready ? (
               <LiveChart
                 label={t("chartCpu")}
                 times={times}
@@ -165,17 +217,17 @@ function HostSection() {
                 height={170}
                 formatY={(v) => `${Math.round(v)}%`}
                 formatTime={fmtTime}
-                series={[{ key: "cpu", label: "CPU", color: "var(--chart-1)", values: points.map((p) => p.cpu) }]}
+                series={[{ key: "cpu", label: "CPU", color: "var(--chart-1)", values: src.map((p) => p.cpu) }]}
               />
             ) : (
-              <EmptyState icon={Activity} title={t("collecting")} />
+              <EmptyState icon={Activity} title={chartEmpty} />
             )}
           </CardContent>
         </Card>
         <Card>
-          <PanelHead title={t("chartMemory")} sub={t("window5m")} />
+          <PanelHead title={t("chartMemory")} sub={windowLabel} />
           <CardContent>
-            {points.length > 1 ? (
+            {ready ? (
               <LiveChart
                 label={t("chartMemory")}
                 times={times}
@@ -184,10 +236,10 @@ function HostSection() {
                 height={170}
                 formatY={(v) => `${Math.round(v)}%`}
                 formatTime={fmtTime}
-                series={[{ key: "mem", label: t("memory"), color: "var(--chart-1)", values: points.map((p) => p.memPct) }]}
+                series={[{ key: "mem", label: t("memory"), color: "var(--chart-1)", values: src.map((p) => p.memPct) }]}
               />
             ) : (
-              <EmptyState icon={Activity} title={t("collecting")} />
+              <EmptyState icon={Activity} title={chartEmpty} />
             )}
           </CardContent>
         </Card>
@@ -195,9 +247,9 @@ function HostSection() {
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Card>
-          <PanelHead title={t("chartNetwork")} sub={t("window5m")} />
+          <PanelHead title={t("chartNetwork")} sub={windowLabel} />
           <CardContent>
-            {points.length > 1 && points.some((p) => p.rx != null) ? (
+            {ready && src.some((p) => p.rx != null) ? (
               <LiveChart
                 label={t("chartNetwork")}
                 times={times}
@@ -205,12 +257,12 @@ function HostSection() {
                 formatY={(v) => `${formatBytes(v, locale)}/s`}
                 formatTime={fmtTime}
                 series={[
-                  { key: "rx", label: t("rx"), color: "var(--chart-1)", values: points.map((p) => p.rx) },
-                  { key: "tx", label: t("tx"), color: "var(--chart-2)", values: points.map((p) => p.tx) },
+                  { key: "rx", label: t("rx"), color: "var(--chart-1)", values: src.map((p) => p.rx) },
+                  { key: "tx", label: t("tx"), color: "var(--chart-2)", values: src.map((p) => p.tx) },
                 ]}
               />
             ) : (
-              <EmptyState icon={Activity} title={points.length > 1 ? t("netUnavailable") : t("collecting")} />
+              <EmptyState icon={Activity} title={ready ? t("netUnavailable") : chartEmpty} />
             )}
           </CardContent>
         </Card>

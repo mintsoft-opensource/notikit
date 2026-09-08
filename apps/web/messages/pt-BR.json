@@ -21,7 +21,8 @@
     "projectList": "Lista de projetos",
     "project": "Projeto",
     "system": "Sistema",
-    "account": "Conta"
+    "account": "Conta",
+    "profile": "Perfil"
   },
   "header": {
     "openMenu": "Abrir menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Mais antigo na fila",
     "queueTitle": "Fila",
     "range7d": "Últimos 7 dias",
-    "range30d": "Últimos 30 dias"
+    "range30d": "Últimos 30 dias",
+    "live": "Ao vivo (5 min)",
+    "history1h": "1 h",
+    "history24h": "24 h",
+    "history7d": "7 d",
+    "historyNote": "Salvo a cada minuto em segundo plano",
+    "historyEmpty": "Ainda sem amostras salvas",
+    "rangeLive": "Ao vivo, últimos 5 minutos",
+    "rangeStored1h": "Salvo, última hora",
+    "rangeStored24h": "Salvo, últimas 24 horas",
+    "rangeStored7d": "Salvo, últimos 7 dias"
   },
   "account": {
-    "title": "Conta",
-    "subtitle": "Seu perfil e as contas de administrador desta organização.",
-    "myAccount": "Minha conta",
-    "myAccountDesc": "A conta com que você está conectado.",
+    "title": "Contas",
+    "subtitle": "Contas de administrador desta organização.",
     "membersTitle": "Membros",
     "membersDesc": "Contas de administrador desta organização.",
     "addMember": "Adicionar membro",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Apenas owner e admin podem gerenciar membros.",
     "accountTitle": "Conta",
     "accountDesc": "Conta de administrador conectada."
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Os dados da sua conta e a senha.",
+    "myAccount": "Minha conta",
+    "myAccountDesc": "A conta com que você está conectado.",
+    "emailLabel": "E-mail",
+    "roleLabel": "Função",
+    "passwordTitle": "Senha",
+    "passwordDesc": "Alterar a senha desconecta seus outros dispositivos.",
+    "currentPassword": "Senha atual",
+    "newPassword": "Nova senha (8+ caracteres)",
+    "confirmPassword": "Confirmar nova senha",
+    "passwordMismatch": "As senhas não coincidem",
+    "changePassword": "Alterar senha",
+    "changing": "Alterando…",
+    "passwordChanged": "Senha alterada",
+    "passwordChangeFailed": "Não foi possível alterar a senha"
   }
 }

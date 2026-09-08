@@ -8,6 +8,8 @@ import {
   integer,
   index,
   uniqueIndex,
+  doublePrecision,
+  bigint,
 } from "drizzle-orm/pg-core";
 
 /** 조직/워크스페이스 (테넌트 최상위) */
@@ -255,6 +257,30 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   userIdx: index("notifications_user_idx").on(t.projectId, t.userId, t.createdAt),
+}));
+
+/**
+ * 호스트 메트릭 시계열 — 웹 인스턴스가 주기적으로(기본 60s) 적재.
+ * 인스턴스별로 자기 행을 쓰므로 다중 인스턴스에서도 각 호스트를 구분해 볼 수 있다.
+ * 보존 기간은 SYSTEM_METRICS_RETENTION_DAYS(기본 7일) 로 purge.
+ */
+export const systemMetrics = pgTable("system_metrics", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  instanceId: text("instance_id").notNull(),
+  at: timestamp("at", { withTimezone: true }).defaultNow().notNull(),
+  cpuPct: doublePrecision("cpu_pct"),
+  loadavg1: doublePrecision("loadavg_1"),
+  memUsedBytes: bigint("mem_used_bytes", { mode: "number" }),
+  memTotalBytes: bigint("mem_total_bytes", { mode: "number" }),
+  rssBytes: bigint("rss_bytes", { mode: "number" }),
+  heapBytes: bigint("heap_bytes", { mode: "number" }),
+  netRxBps: doublePrecision("net_rx_bps"),
+  netTxBps: doublePrecision("net_tx_bps"),
+  loopP50Ms: doublePrecision("loop_p50_ms"),
+  loopP99Ms: doublePrecision("loop_p99_ms"),
+}, (t) => ({
+  atIdx: index("system_metrics_at_idx").on(t.at),
+  instanceIdx: index("system_metrics_instance_idx").on(t.instanceId, t.at),
 }));
 
 export type Project = typeof projects.$inferSelect;

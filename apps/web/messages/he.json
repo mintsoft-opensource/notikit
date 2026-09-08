@@ -21,7 +21,8 @@
     "projectList": "רשימת פרויקטים",
     "project": "פרויקט",
     "system": "מערכת",
-    "account": "חשבון"
+    "account": "חשבון",
+    "profile": "פרופיל"
   },
   "header": {
     "openMenu": "פתח תפריט",
@@ -306,13 +307,21 @@
     "oldestQueued": "הוותיק בתור",
     "queueTitle": "מצב התור",
     "range7d": "7 הימים האחרונים",
-    "range30d": "30 הימים האחרונים"
+    "range30d": "30 הימים האחרונים",
+    "live": "בזמן אמת (5 דק')",
+    "history1h": "שעה",
+    "history24h": "24 שעות",
+    "history7d": "7 ימים",
+    "historyNote": "נשמר כל דקה ברקע",
+    "historyEmpty": "אין עדיין דגימות שמורות",
+    "rangeLive": "בזמן אמת, 5 הדקות האחרונות",
+    "rangeStored1h": "שמור, השעה האחרונה",
+    "rangeStored24h": "שמור, 24 השעות האחרונות",
+    "rangeStored7d": "שמור, 7 הימים האחרונים"
   },
   "account": {
-    "title": "חשבון",
-    "subtitle": "הפרופיל שלך וחשבונות המנהל בארגון זה.",
-    "myAccount": "החשבון שלי",
-    "myAccountDesc": "החשבון שאיתו נכנסת.",
+    "title": "חשבונות",
+    "subtitle": "חשבונות המנהל בארגון זה.",
     "membersTitle": "חברים",
     "membersDesc": "חשבונות מנהל בארגון זה.",
     "addMember": "הוספת חבר",
@@ -337,5 +346,23 @@
     "readOnlyNote": "רק owner ו-admin יכולים לנהל חברים.",
     "accountTitle": "חשבון",
     "accountDesc": "חשבון המנהל המחובר כעת."
+  },
+  "profile": {
+    "title": "פרופיל",
+    "subtitle": "פרטי החשבון והסיסמה שלך.",
+    "myAccount": "החשבון שלי",
+    "myAccountDesc": "החשבון שאיתו נכנסת.",
+    "emailLabel": "אימייל",
+    "roleLabel": "תפקיד",
+    "passwordTitle": "סיסמה",
+    "passwordDesc": "שינוי הסיסמה מנתק את שאר המכשירים שלך.",
+    "currentPassword": "סיסמה נוכחית",
+    "newPassword": "סיסמה חדשה (8+ תווים)",
+    "confirmPassword": "אישור סיסמה חדשה",
+    "passwordMismatch": "הסיסמאות אינן תואמות",
+    "changePassword": "שנה סיסמה",
+    "changing": "משנה…",
+    "passwordChanged": "הסיסמה שונתה",
+    "passwordChangeFailed": "לא ניתן לשנות את הסיסמה"
   }
 }

@@ -21,7 +21,8 @@
     "projectList": "Lista projektów",
     "project": "Projekt",
     "system": "System",
-    "account": "Konto"
+    "account": "Konto",
+    "profile": "Profil"
   },
   "header": {
     "openMenu": "Otwórz menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Najstarsze w kolejce",
     "queueTitle": "Kolejka",
     "range7d": "Ostatnie 7 dni",
-    "range30d": "Ostatnie 30 dni"
+    "range30d": "Ostatnie 30 dni",
+    "live": "Na żywo (5 min)",
+    "history1h": "1 godz",
+    "history24h": "24 godz",
+    "history7d": "7 dni",
+    "historyNote": "Zapisywane co minutę w tle",
+    "historyEmpty": "Brak zapisanych próbek",
+    "rangeLive": "Na żywo, ostatnie 5 minut",
+    "rangeStored1h": "Zapisane, ostatnia godzina",
+    "rangeStored24h": "Zapisane, ostatnie 24 godziny",
+    "rangeStored7d": "Zapisane, ostatnie 7 dni"
   },
   "account": {
-    "title": "Konto",
-    "subtitle": "Twój profil i konta administratorów tej organizacji.",
-    "myAccount": "Moje konto",
-    "myAccountDesc": "Konto, na które jesteś zalogowany.",
+    "title": "Konta",
+    "subtitle": "Konta administratorów tej organizacji.",
     "membersTitle": "Członkowie",
     "membersDesc": "Konta administratorów tej organizacji.",
     "addMember": "Dodaj członka",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Członkami mogą zarządzać tylko owner i admin.",
     "accountTitle": "Konto",
     "accountDesc": "Aktualnie zalogowane konto administratora."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Dane Twojego konta i hasło.",
+    "myAccount": "Moje konto",
+    "myAccountDesc": "Konto, na które jesteś zalogowany.",
+    "emailLabel": "E-mail",
+    "roleLabel": "Rola",
+    "passwordTitle": "Hasło",
+    "passwordDesc": "Zmiana hasła wyloguje Twoje pozostałe urządzenia.",
+    "currentPassword": "Obecne hasło",
+    "newPassword": "Nowe hasło (min. 8 znaków)",
+    "confirmPassword": "Potwierdź nowe hasło",
+    "passwordMismatch": "Hasła nie są zgodne",
+    "changePassword": "Zmień hasło",
+    "changing": "Zmienianie…",
+    "passwordChanged": "Hasło zmienione",
+    "passwordChangeFailed": "Nie udało się zmienić hasła"
   }
 }

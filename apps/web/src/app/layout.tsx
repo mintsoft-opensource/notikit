@@ -11,7 +11,12 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta");
-  return { title: t("title"), description: t("description") };
+  return {
+    title: t("title"),
+    description: t("description"),
+    // favicon.ico / icon.svg / apple-icon.png 은 app 디렉터리 규칙으로 자동 연결됨
+    manifest: "/manifest.webmanifest",
+  };
 }
 
 const darkModeFlashGuard = `try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(_){}`;

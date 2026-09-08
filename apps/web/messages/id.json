@@ -21,7 +21,8 @@
     "projectList": "Daftar proyek",
     "project": "Proyek",
     "system": "Sistem",
-    "account": "Akun"
+    "account": "Akun",
+    "profile": "Profil"
   },
   "header": {
     "openMenu": "Buka menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Terlama di antrean",
     "queueTitle": "Antrean",
     "range7d": "7 hari terakhir",
-    "range30d": "30 hari terakhir"
+    "range30d": "30 hari terakhir",
+    "live": "Langsung (5 mnt)",
+    "history1h": "1 jam",
+    "history24h": "24 jam",
+    "history7d": "7 hari",
+    "historyNote": "Disimpan tiap menit di latar belakang",
+    "historyEmpty": "Belum ada sampel tersimpan",
+    "rangeLive": "Langsung, 5 menit terakhir",
+    "rangeStored1h": "Tersimpan, 1 jam terakhir",
+    "rangeStored24h": "Tersimpan, 24 jam terakhir",
+    "rangeStored7d": "Tersimpan, 7 hari terakhir"
   },
   "account": {
     "title": "Akun",
-    "subtitle": "Profil Anda dan akun admin di organisasi ini.",
-    "myAccount": "Akun saya",
-    "myAccountDesc": "Akun yang sedang Anda gunakan.",
+    "subtitle": "Akun admin di organisasi ini.",
     "membersTitle": "Anggota",
     "membersDesc": "Akun admin di organisasi ini.",
     "addMember": "Tambah anggota",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Hanya owner dan admin yang dapat mengelola anggota.",
     "accountTitle": "Akun",
     "accountDesc": "Akun admin yang sedang masuk."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Detail akun dan kata sandi Anda.",
+    "myAccount": "Akun saya",
+    "myAccountDesc": "Akun yang sedang Anda gunakan.",
+    "emailLabel": "Email",
+    "roleLabel": "Peran",
+    "passwordTitle": "Kata sandi",
+    "passwordDesc": "Mengubah kata sandi akan mengeluarkan perangkat Anda yang lain.",
+    "currentPassword": "Kata sandi saat ini",
+    "newPassword": "Kata sandi baru (8+ karakter)",
+    "confirmPassword": "Konfirmasi kata sandi baru",
+    "passwordMismatch": "Kata sandi tidak cocok",
+    "changePassword": "Ubah kata sandi",
+    "changing": "Mengubah…",
+    "passwordChanged": "Kata sandi diubah",
+    "passwordChangeFailed": "Tidak dapat mengubah kata sandi"
   }
 }

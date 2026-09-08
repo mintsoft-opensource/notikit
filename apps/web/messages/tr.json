@@ -21,7 +21,8 @@
     "projectList": "Proje listesi",
     "project": "Proje",
     "system": "Sistem",
-    "account": "Hesap"
+    "account": "Hesap",
+    "profile": "Profil"
   },
   "header": {
     "openMenu": "Menüyü aç",
@@ -306,13 +307,21 @@
     "oldestQueued": "En eski kuyrukta",
     "queueTitle": "Kuyruk",
     "range7d": "Son 7 gün",
-    "range30d": "Son 30 gün"
+    "range30d": "Son 30 gün",
+    "live": "Canlı (5 dk)",
+    "history1h": "1 sa",
+    "history24h": "24 sa",
+    "history7d": "7 g",
+    "historyNote": "Arka planda her dakika kaydedilir",
+    "historyEmpty": "Henüz kaydedilmiş örnek yok",
+    "rangeLive": "Canlı, son 5 dakika",
+    "rangeStored1h": "Kayıtlı, son bir saat",
+    "rangeStored24h": "Kayıtlı, son 24 saat",
+    "rangeStored7d": "Kayıtlı, son 7 gün"
   },
   "account": {
-    "title": "Hesap",
-    "subtitle": "Profiliniz ve bu kuruluşun yönetici hesapları.",
-    "myAccount": "Hesabım",
-    "myAccountDesc": "Oturum açtığınız hesap.",
+    "title": "Hesaplar",
+    "subtitle": "Bu kuruluşun yönetici hesapları.",
     "membersTitle": "Üyeler",
     "membersDesc": "Bu kuruluşun yönetici hesapları.",
     "addMember": "Üye ekle",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Üyeleri yalnızca owner ve admin yönetebilir.",
     "accountTitle": "Hesap",
     "accountDesc": "Şu anda oturum açmış yönetici hesabı."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Hesap bilgileriniz ve parolanız.",
+    "myAccount": "Hesabım",
+    "myAccountDesc": "Oturum açtığınız hesap.",
+    "emailLabel": "E-posta",
+    "roleLabel": "Rol",
+    "passwordTitle": "Parola",
+    "passwordDesc": "Parolanızı değiştirmek diğer cihazlardaki oturumları kapatır.",
+    "currentPassword": "Mevcut parola",
+    "newPassword": "Yeni parola (en az 8 karakter)",
+    "confirmPassword": "Yeni parolayı doğrula",
+    "passwordMismatch": "Parolalar eşleşmiyor",
+    "changePassword": "Parolayı değiştir",
+    "changing": "Değiştiriliyor…",
+    "passwordChanged": "Parola değiştirildi",
+    "passwordChangeFailed": "Parola değiştirilemedi"
   }
 }

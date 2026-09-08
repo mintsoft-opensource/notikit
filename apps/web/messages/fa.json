@@ -21,7 +21,8 @@
     "projectList": "فهرست پروژه‌ها",
     "project": "پروژه",
     "system": "سیستم",
-    "account": "حساب"
+    "account": "حساب",
+    "profile": "نمایه"
   },
   "header": {
     "openMenu": "باز کردن منو",
@@ -306,13 +307,21 @@
     "oldestQueued": "قدیمی‌ترین در صف",
     "queueTitle": "وضعیت صف",
     "range7d": "۷ روز اخیر",
-    "range30d": "۳۰ روز اخیر"
+    "range30d": "۳۰ روز اخیر",
+    "live": "زنده (۵ دقیقه)",
+    "history1h": "۱ ساعت",
+    "history24h": "۲۴ ساعت",
+    "history7d": "۷ روز",
+    "historyNote": "هر دقیقه در پس‌زمینه ذخیره می‌شود",
+    "historyEmpty": "هنوز نمونه ذخیره‌شده‌ای نیست",
+    "rangeLive": "زنده، ۵ دقیقه اخیر",
+    "rangeStored1h": "ذخیره‌شده، یک ساعت اخیر",
+    "rangeStored24h": "ذخیره‌شده، ۲۴ ساعت اخیر",
+    "rangeStored7d": "ذخیره‌شده، ۷ روز اخیر"
   },
   "account": {
-    "title": "حساب",
-    "subtitle": "نمایه شما و حساب‌های مدیر این سازمان.",
-    "myAccount": "حساب من",
-    "myAccountDesc": "حسابی که با آن وارد شده‌اید.",
+    "title": "حساب‌ها",
+    "subtitle": "حساب‌های مدیر این سازمان.",
     "membersTitle": "اعضا",
     "membersDesc": "حساب‌های مدیر این سازمان.",
     "addMember": "افزودن عضو",
@@ -337,5 +346,23 @@
     "readOnlyNote": "مدیریت اعضا فقط برای owner و admin است.",
     "accountTitle": "حساب",
     "accountDesc": "حساب مدیر واردشده فعلی."
+  },
+  "profile": {
+    "title": "نمایه",
+    "subtitle": "اطلاعات حساب و رمز عبور شما.",
+    "myAccount": "حساب من",
+    "myAccountDesc": "حسابی که با آن وارد شده‌اید.",
+    "emailLabel": "ایمیل",
+    "roleLabel": "نقش",
+    "passwordTitle": "رمز عبور",
+    "passwordDesc": "تغییر رمز عبور، دستگاه‌های دیگر شما را خارج می‌کند.",
+    "currentPassword": "رمز عبور فعلی",
+    "newPassword": "رمز عبور جدید (۸ نویسه یا بیشتر)",
+    "confirmPassword": "تأیید رمز عبور جدید",
+    "passwordMismatch": "رمزهای عبور یکسان نیستند",
+    "changePassword": "تغییر رمز عبور",
+    "changing": "در حال تغییر…",
+    "passwordChanged": "رمز عبور تغییر کرد",
+    "passwordChangeFailed": "تغییر رمز عبور ممکن نشد"
   }
 }

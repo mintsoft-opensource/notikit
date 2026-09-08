@@ -21,7 +21,8 @@
     "projectList": "项目列表",
     "project": "项目",
     "system": "系统",
-    "account": "账号"
+    "account": "账号",
+    "profile": "个人资料"
   },
   "header": {
     "openMenu": "打开菜单",
@@ -306,13 +307,21 @@
     "oldestQueued": "最久排队",
     "queueTitle": "队列状态",
     "range7d": "最近 7 天",
-    "range30d": "最近 30 天"
+    "range30d": "最近 30 天",
+    "live": "实时 (5分钟)",
+    "history1h": "1小时",
+    "history24h": "24小时",
+    "history7d": "7天",
+    "historyNote": "后台每分钟保存",
+    "historyEmpty": "尚无已保存的采样",
+    "rangeLive": "实时，最近 5 分钟",
+    "rangeStored1h": "已保存，最近 1 小时",
+    "rangeStored24h": "已保存，最近 24 小时",
+    "rangeStored7d": "已保存，最近 7 天"
   },
   "account": {
     "title": "账号",
-    "subtitle": "管理你的资料和此组织的管理员账号。",
-    "myAccount": "我的账号",
-    "myAccountDesc": "当前登录的账号。",
+    "subtitle": "管理此组织的管理员账号。",
     "membersTitle": "成员",
     "membersDesc": "此组织的管理员账号。",
     "addMember": "添加成员",
@@ -337,5 +346,23 @@
     "readOnlyNote": "仅 owner 和 admin 可管理成员。",
     "accountTitle": "账号",
     "accountDesc": "当前登录的管理员账号。"
+  },
+  "profile": {
+    "title": "个人资料",
+    "subtitle": "管理你的账号信息和密码。",
+    "myAccount": "我的账号",
+    "myAccountDesc": "当前登录的账号。",
+    "emailLabel": "邮箱",
+    "roleLabel": "角色",
+    "passwordTitle": "密码",
+    "passwordDesc": "修改密码后，其他设备的登录将全部失效。",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码（至少 8 位）",
+    "confirmPassword": "确认新密码",
+    "passwordMismatch": "密码不一致",
+    "changePassword": "修改密码",
+    "changing": "修改中…",
+    "passwordChanged": "密码已修改",
+    "passwordChangeFailed": "无法修改密码"
   }
 }

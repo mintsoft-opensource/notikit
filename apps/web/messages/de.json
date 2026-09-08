@@ -21,7 +21,8 @@
     "projectList": "Projektliste",
     "project": "Projekt",
     "system": "System",
-    "account": "Konto"
+    "account": "Konto",
+    "profile": "Profil"
   },
   "header": {
     "openMenu": "Menü öffnen",
@@ -306,13 +307,21 @@
     "oldestQueued": "Älteste Wartezeit",
     "queueTitle": "Warteschlange",
     "range7d": "Letzte 7 Tage",
-    "range30d": "Letzte 30 Tage"
+    "range30d": "Letzte 30 Tage",
+    "live": "Live (5 Min)",
+    "history1h": "1 Std",
+    "history24h": "24 Std",
+    "history7d": "7 T",
+    "historyNote": "Im Hintergrund jede Minute gespeichert",
+    "historyEmpty": "Noch keine gespeicherten Messwerte",
+    "rangeLive": "Live, letzte 5 Minuten",
+    "rangeStored1h": "Gespeichert, letzte Stunde",
+    "rangeStored24h": "Gespeichert, letzte 24 Stunden",
+    "rangeStored7d": "Gespeichert, letzte 7 Tage"
   },
   "account": {
-    "title": "Konto",
-    "subtitle": "Ihr Profil und die Administratorkonten dieser Organisation.",
-    "myAccount": "Mein Konto",
-    "myAccountDesc": "Das Konto, mit dem Sie angemeldet sind.",
+    "title": "Konten",
+    "subtitle": "Administratorkonten dieser Organisation.",
     "membersTitle": "Mitglieder",
     "membersDesc": "Administratorkonten dieser Organisation.",
     "addMember": "Mitglied hinzufügen",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Nur owner und admin können Mitglieder verwalten.",
     "accountTitle": "Konto",
     "accountDesc": "Aktuell angemeldetes Administratorkonto."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Ihre Kontodaten und Ihr Passwort.",
+    "myAccount": "Mein Konto",
+    "myAccountDesc": "Das Konto, mit dem Sie angemeldet sind.",
+    "emailLabel": "E-Mail",
+    "roleLabel": "Rolle",
+    "passwordTitle": "Passwort",
+    "passwordDesc": "Eine Passwortänderung meldet Ihre anderen Geräte ab.",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort (8+ Zeichen)",
+    "confirmPassword": "Neues Passwort bestätigen",
+    "passwordMismatch": "Passwörter stimmen nicht überein",
+    "changePassword": "Passwort ändern",
+    "changing": "Wird geändert…",
+    "passwordChanged": "Passwort geändert",
+    "passwordChangeFailed": "Passwort konnte nicht geändert werden"
   }
 }

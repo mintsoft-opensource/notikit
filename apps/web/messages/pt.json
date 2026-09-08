@@ -21,7 +21,8 @@
     "projectList": "Lista de projetos",
     "project": "Projeto",
     "system": "Sistema",
-    "account": "Conta"
+    "account": "Conta",
+    "profile": "Perfil"
   },
   "header": {
     "openMenu": "Abrir menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Mais antigo na fila",
     "queueTitle": "Fila",
     "range7d": "Últimos 7 dias",
-    "range30d": "Últimos 30 dias"
+    "range30d": "Últimos 30 dias",
+    "live": "Ao vivo (5 min)",
+    "history1h": "1 h",
+    "history24h": "24 h",
+    "history7d": "7 d",
+    "historyNote": "Guardado a cada minuto em segundo plano",
+    "historyEmpty": "Ainda sem amostras guardadas",
+    "rangeLive": "Ao vivo, últimos 5 minutos",
+    "rangeStored1h": "Guardado, última hora",
+    "rangeStored24h": "Guardado, últimas 24 horas",
+    "rangeStored7d": "Guardado, últimos 7 dias"
   },
   "account": {
-    "title": "Conta",
-    "subtitle": "O seu perfil e as contas de administrador desta organização.",
-    "myAccount": "A minha conta",
-    "myAccountDesc": "A conta com que tem sessão iniciada.",
+    "title": "Contas",
+    "subtitle": "Contas de administrador desta organização.",
     "membersTitle": "Membros",
     "membersDesc": "Contas de administrador desta organização.",
     "addMember": "Adicionar membro",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Apenas owner e admin podem gerir membros.",
     "accountTitle": "Conta",
     "accountDesc": "Conta de administrador com sessão iniciada."
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Os dados da sua conta e a palavra-passe.",
+    "myAccount": "A minha conta",
+    "myAccountDesc": "A conta com que tem sessão iniciada.",
+    "emailLabel": "E-mail",
+    "roleLabel": "Função",
+    "passwordTitle": "Palavra-passe",
+    "passwordDesc": "Alterar a palavra-passe termina a sessão nos seus outros dispositivos.",
+    "currentPassword": "Palavra-passe atual",
+    "newPassword": "Nova palavra-passe (8+ caracteres)",
+    "confirmPassword": "Confirmar nova palavra-passe",
+    "passwordMismatch": "As palavras-passe não coincidem",
+    "changePassword": "Alterar palavra-passe",
+    "changing": "A alterar…",
+    "passwordChanged": "Palavra-passe alterada",
+    "passwordChangeFailed": "Não foi possível alterar a palavra-passe"
   }
 }

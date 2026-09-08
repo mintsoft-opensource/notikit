@@ -152,7 +152,8 @@ async function sampleOnce(): Promise<void> {
   return inflight;
 }
 
-function ensureSampler(): void {
+/** 백그라운드 샘플러 기동 (idempotent) — 부팅 훅과 요청 경로 양쪽에서 호출 */
+export function startHostSampler(): void {
   if (timer) return;
   timer = setInterval(() => {
     void sampleOnce();
@@ -162,7 +163,7 @@ function ensureSampler(): void {
 
 /** 최신 스냅샷 반환 — 요청 경로는 공유 상태를 변경하지 않는다 */
 export async function collectHostMetrics(): Promise<HostMetrics> {
-  ensureSampler();
+  startHostSampler();
   // 콜드 스타트: 첫 샘플(델타 없음) + 한 구간 뒤 실측값을 얻기 위해 2회
   if (!snapshot) {
     await sampleOnce();

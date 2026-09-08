@@ -21,7 +21,8 @@
     "projectList": "Danh sách dự án",
     "project": "Dự án",
     "system": "Hệ thống",
-    "account": "Tài khoản"
+    "account": "Tài khoản",
+    "profile": "Hồ sơ"
   },
   "header": {
     "openMenu": "Mở menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Chờ lâu nhất",
     "queueTitle": "Hàng đợi",
     "range7d": "7 ngày qua",
-    "range30d": "30 ngày qua"
+    "range30d": "30 ngày qua",
+    "live": "Trực tiếp (5 phút)",
+    "history1h": "1 giờ",
+    "history24h": "24 giờ",
+    "history7d": "7 ngày",
+    "historyNote": "Lưu mỗi phút ở nền",
+    "historyEmpty": "Chưa có mẫu nào được lưu",
+    "rangeLive": "Trực tiếp, 5 phút gần nhất",
+    "rangeStored1h": "Đã lưu, 1 giờ gần nhất",
+    "rangeStored24h": "Đã lưu, 24 giờ gần nhất",
+    "rangeStored7d": "Đã lưu, 7 ngày gần nhất"
   },
   "account": {
     "title": "Tài khoản",
-    "subtitle": "Hồ sơ của bạn và các tài khoản quản trị của tổ chức này.",
-    "myAccount": "Tài khoản của tôi",
-    "myAccountDesc": "Tài khoản bạn đang đăng nhập.",
+    "subtitle": "Các tài khoản quản trị của tổ chức này.",
     "membersTitle": "Thành viên",
     "membersDesc": "Tài khoản quản trị của tổ chức này.",
     "addMember": "Thêm thành viên",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Chỉ owner và admin mới quản lý được thành viên.",
     "accountTitle": "Tài khoản",
     "accountDesc": "Tài khoản quản trị đang đăng nhập."
+  },
+  "profile": {
+    "title": "Hồ sơ",
+    "subtitle": "Thông tin tài khoản và mật khẩu của bạn.",
+    "myAccount": "Tài khoản của tôi",
+    "myAccountDesc": "Tài khoản bạn đang đăng nhập.",
+    "emailLabel": "Email",
+    "roleLabel": "Vai trò",
+    "passwordTitle": "Mật khẩu",
+    "passwordDesc": "Đổi mật khẩu sẽ đăng xuất các thiết bị khác của bạn.",
+    "currentPassword": "Mật khẩu hiện tại",
+    "newPassword": "Mật khẩu mới (từ 8 ký tự)",
+    "confirmPassword": "Xác nhận mật khẩu mới",
+    "passwordMismatch": "Mật khẩu không khớp",
+    "changePassword": "Đổi mật khẩu",
+    "changing": "Đang đổi…",
+    "passwordChanged": "Đã đổi mật khẩu",
+    "passwordChangeFailed": "Không thể đổi mật khẩu"
   }
 }

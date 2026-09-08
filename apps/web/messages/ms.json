@@ -21,7 +21,8 @@
     "projectList": "Senarai projek",
     "project": "Projek",
     "system": "Sistem",
-    "account": "Akaun"
+    "account": "Akaun",
+    "profile": "Profil"
   },
   "header": {
     "openMenu": "Buka menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Paling lama menunggu",
     "queueTitle": "Baris gilir",
     "range7d": "7 hari lepas",
-    "range30d": "30 hari lepas"
+    "range30d": "30 hari lepas",
+    "live": "Langsung (5 min)",
+    "history1h": "1 jam",
+    "history24h": "24 jam",
+    "history7d": "7 hari",
+    "historyNote": "Disimpan setiap minit di latar belakang",
+    "historyEmpty": "Belum ada sampel disimpan",
+    "rangeLive": "Langsung, 5 minit lepas",
+    "rangeStored1h": "Disimpan, 1 jam lepas",
+    "rangeStored24h": "Disimpan, 24 jam lepas",
+    "rangeStored7d": "Disimpan, 7 hari lepas"
   },
   "account": {
     "title": "Akaun",
-    "subtitle": "Profil anda dan akaun pentadbir dalam organisasi ini.",
-    "myAccount": "Akaun saya",
-    "myAccountDesc": "Akaun yang anda log masuk.",
+    "subtitle": "Akaun pentadbir dalam organisasi ini.",
     "membersTitle": "Ahli",
     "membersDesc": "Akaun pentadbir dalam organisasi ini.",
     "addMember": "Tambah ahli",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Hanya owner dan admin boleh mengurus ahli.",
     "accountTitle": "Akaun",
     "accountDesc": "Akaun pentadbir yang sedang log masuk."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Butiran akaun dan kata laluan anda.",
+    "myAccount": "Akaun saya",
+    "myAccountDesc": "Akaun yang anda log masuk.",
+    "emailLabel": "E-mel",
+    "roleLabel": "Peranan",
+    "passwordTitle": "Kata laluan",
+    "passwordDesc": "Menukar kata laluan akan log keluar peranti anda yang lain.",
+    "currentPassword": "Kata laluan semasa",
+    "newPassword": "Kata laluan baharu (8+ aksara)",
+    "confirmPassword": "Sahkan kata laluan baharu",
+    "passwordMismatch": "Kata laluan tidak sepadan",
+    "changePassword": "Tukar kata laluan",
+    "changing": "Menukar…",
+    "passwordChanged": "Kata laluan ditukar",
+    "passwordChangeFailed": "Tidak dapat menukar kata laluan"
   }
 }

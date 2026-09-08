@@ -9,6 +9,7 @@ import {
   BookOpen,
   Activity,
   UserCog,
+  UserRound,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -39,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "settings",
     items: [
+      { labelKey: "profile", href: "/profile", icon: UserRound, exact: true },
       { labelKey: "account", href: "/account", icon: UserCog, exact: true },
       { labelKey: "settings", href: "/settings", icon: Settings, exact: true },
     ],

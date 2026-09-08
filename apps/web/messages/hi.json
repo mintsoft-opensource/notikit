@@ -21,7 +21,8 @@
     "projectList": "प्रोजेक्ट सूची",
     "project": "प्रोजेक्ट",
     "system": "सिस्टम",
-    "account": "खाता"
+    "account": "खाता",
+    "profile": "प्रोफ़ाइल"
   },
   "header": {
     "openMenu": "मेनू खोलें",
@@ -306,13 +307,21 @@
     "oldestQueued": "सबसे पुराना कतार में",
     "queueTitle": "कतार स्थिति",
     "range7d": "पिछले 7 दिन",
-    "range30d": "पिछले 30 दिन"
+    "range30d": "पिछले 30 दिन",
+    "live": "लाइव (5 मिनट)",
+    "history1h": "1 घं",
+    "history24h": "24 घं",
+    "history7d": "7 दिन",
+    "historyNote": "पृष्ठभूमि में हर मिनट सहेजा जाता है",
+    "historyEmpty": "अभी कोई सहेजा गया नमूना नहीं",
+    "rangeLive": "लाइव, पिछले 5 मिनट",
+    "rangeStored1h": "सहेजा गया, पिछला 1 घंटा",
+    "rangeStored24h": "सहेजा गया, पिछले 24 घंटे",
+    "rangeStored7d": "सहेजा गया, पिछले 7 दिन"
   },
   "account": {
-    "title": "खाता",
-    "subtitle": "आपकी प्रोफ़ाइल और इस संगठन के व्यवस्थापक खाते।",
-    "myAccount": "मेरा खाता",
-    "myAccountDesc": "वह खाता जिससे आप साइन इन हैं।",
+    "title": "खाते",
+    "subtitle": "इस संगठन के व्यवस्थापक खाते।",
     "membersTitle": "सदस्य",
     "membersDesc": "इस संगठन के व्यवस्थापक खाते।",
     "addMember": "सदस्य जोड़ें",
@@ -337,5 +346,23 @@
     "readOnlyNote": "सदस्य प्रबंधन केवल owner और admin कर सकते हैं।",
     "accountTitle": "खाता",
     "accountDesc": "वर्तमान में लॉग-इन व्यवस्थापक खाता।"
+  },
+  "profile": {
+    "title": "प्रोफ़ाइल",
+    "subtitle": "आपके खाते की जानकारी और पासवर्ड।",
+    "myAccount": "मेरा खाता",
+    "myAccountDesc": "वह खाता जिससे आप साइन इन हैं।",
+    "emailLabel": "ईमेल",
+    "roleLabel": "भूमिका",
+    "passwordTitle": "पासवर्ड",
+    "passwordDesc": "पासवर्ड बदलने पर आपके अन्य डिवाइस साइन आउट हो जाएँगे।",
+    "currentPassword": "वर्तमान पासवर्ड",
+    "newPassword": "नया पासवर्ड (8+ अक्षर)",
+    "confirmPassword": "नया पासवर्ड दोबारा",
+    "passwordMismatch": "पासवर्ड मेल नहीं खाते",
+    "changePassword": "पासवर्ड बदलें",
+    "changing": "बदला जा रहा है…",
+    "passwordChanged": "पासवर्ड बदल गया",
+    "passwordChangeFailed": "पासवर्ड नहीं बदला जा सका"
   }
 }

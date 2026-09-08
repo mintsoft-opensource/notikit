@@ -21,7 +21,8 @@
     "projectList": "プロジェクト一覧",
     "project": "プロジェクト",
     "system": "システム",
-    "account": "アカウント"
+    "account": "アカウント",
+    "profile": "プロフィール"
   },
   "header": {
     "openMenu": "メニューを開く",
@@ -306,13 +307,21 @@
     "oldestQueued": "最長待機",
     "queueTitle": "キュー状態",
     "range7d": "直近7日",
-    "range30d": "直近30日"
+    "range30d": "直近30日",
+    "live": "リアルタイム (5分)",
+    "history1h": "1時間",
+    "history24h": "24時間",
+    "history7d": "7日",
+    "historyNote": "バックグラウンドで1分ごとに保存",
+    "historyEmpty": "保存されたサンプルがまだありません",
+    "rangeLive": "リアルタイム、直近5分",
+    "rangeStored1h": "保存データ、直近1時間",
+    "rangeStored24h": "保存データ、直近24時間",
+    "rangeStored7d": "保存データ、直近7日"
   },
   "account": {
     "title": "アカウント",
-    "subtitle": "自分のプロフィールとこの組織の管理者アカウントを管理します。",
-    "myAccount": "マイアカウント",
-    "myAccountDesc": "現在ログイン中のアカウントです。",
+    "subtitle": "この組織の管理者アカウントを管理します。",
     "membersTitle": "メンバー",
     "membersDesc": "この組織の管理者アカウントです。",
     "addMember": "メンバーを追加",
@@ -337,5 +346,23 @@
     "readOnlyNote": "メンバー管理は owner・admin のみ可能です。",
     "accountTitle": "アカウント",
     "accountDesc": "現在ログイン中の管理者アカウントです。"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "subtitle": "自分のアカウント情報とパスワードを管理します。",
+    "myAccount": "マイアカウント",
+    "myAccountDesc": "現在ログイン中のアカウントです。",
+    "emailLabel": "メール",
+    "roleLabel": "役割",
+    "passwordTitle": "パスワード",
+    "passwordDesc": "パスワードを変更すると他の端末のログインがすべて解除されます。",
+    "currentPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード（8文字以上）",
+    "confirmPassword": "新しいパスワード（確認）",
+    "passwordMismatch": "パスワードが一致しません",
+    "changePassword": "パスワードを変更",
+    "changing": "変更中…",
+    "passwordChanged": "パスワードを変更しました",
+    "passwordChangeFailed": "パスワードを変更できませんでした"
   }
 }

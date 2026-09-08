@@ -21,7 +21,8 @@
     "projectList": "รายการโปรเจกต์",
     "project": "โปรเจกต์",
     "system": "ระบบ",
-    "account": "บัญชี"
+    "account": "บัญชี",
+    "profile": "โปรไฟล์"
   },
   "header": {
     "openMenu": "เปิดเมนู",
@@ -306,13 +307,21 @@
     "oldestQueued": "รอคิวนานที่สุด",
     "queueTitle": "สถานะคิว",
     "range7d": "7 วันล่าสุด",
-    "range30d": "30 วันล่าสุด"
+    "range30d": "30 วันล่าสุด",
+    "live": "เรียลไทม์ (5 นาที)",
+    "history1h": "1 ชม.",
+    "history24h": "24 ชม.",
+    "history7d": "7 วัน",
+    "historyNote": "บันทึกทุกนาทีในเบื้องหลัง",
+    "historyEmpty": "ยังไม่มีข้อมูลที่บันทึกไว้",
+    "rangeLive": "เรียลไทม์ 5 นาทีล่าสุด",
+    "rangeStored1h": "บันทึกไว้ 1 ชั่วโมงล่าสุด",
+    "rangeStored24h": "บันทึกไว้ 24 ชั่วโมงล่าสุด",
+    "rangeStored7d": "บันทึกไว้ 7 วันล่าสุด"
   },
   "account": {
     "title": "บัญชี",
-    "subtitle": "โปรไฟล์ของคุณและบัญชีผู้ดูแลขององค์กรนี้",
-    "myAccount": "บัญชีของฉัน",
-    "myAccountDesc": "บัญชีที่คุณกำลังใช้งานอยู่",
+    "subtitle": "บัญชีผู้ดูแลขององค์กรนี้",
     "membersTitle": "สมาชิก",
     "membersDesc": "บัญชีผู้ดูแลขององค์กรนี้",
     "addMember": "เพิ่มสมาชิก",
@@ -337,5 +346,23 @@
     "readOnlyNote": "เฉพาะ owner และ admin เท่านั้นที่จัดการสมาชิกได้",
     "accountTitle": "บัญชี",
     "accountDesc": "บัญชีผู้ดูแลที่เข้าสู่ระบบอยู่"
+  },
+  "profile": {
+    "title": "โปรไฟล์",
+    "subtitle": "ข้อมูลบัญชีและรหัสผ่านของคุณ",
+    "myAccount": "บัญชีของฉัน",
+    "myAccountDesc": "บัญชีที่คุณกำลังใช้งานอยู่",
+    "emailLabel": "อีเมล",
+    "roleLabel": "บทบาท",
+    "passwordTitle": "รหัสผ่าน",
+    "passwordDesc": "การเปลี่ยนรหัสผ่านจะออกจากระบบอุปกรณ์อื่นทั้งหมด",
+    "currentPassword": "รหัสผ่านปัจจุบัน",
+    "newPassword": "รหัสผ่านใหม่ (8 ตัวขึ้นไป)",
+    "confirmPassword": "ยืนยันรหัสผ่านใหม่",
+    "passwordMismatch": "รหัสผ่านไม่ตรงกัน",
+    "changePassword": "เปลี่ยนรหัสผ่าน",
+    "changing": "กำลังเปลี่ยน…",
+    "passwordChanged": "เปลี่ยนรหัสผ่านแล้ว",
+    "passwordChangeFailed": "เปลี่ยนรหัสผ่านไม่สำเร็จ"
   }
 }

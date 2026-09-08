@@ -21,7 +21,8 @@
     "projectList": "Projektlista",
     "project": "Projekt",
     "system": "System",
-    "account": "Konto"
+    "account": "Konto",
+    "profile": "Profil"
   },
   "header": {
     "openMenu": "Öppna meny",
@@ -306,13 +307,21 @@
     "oldestQueued": "Äldst i kön",
     "queueTitle": "Kö",
     "range7d": "Senaste 7 dagarna",
-    "range30d": "Senaste 30 dagarna"
+    "range30d": "Senaste 30 dagarna",
+    "live": "Live (5 min)",
+    "history1h": "1 tim",
+    "history24h": "24 tim",
+    "history7d": "7 d",
+    "historyNote": "Sparas varje minut i bakgrunden",
+    "historyEmpty": "Inga sparade mätvärden ännu",
+    "rangeLive": "Live, senaste 5 minuterna",
+    "rangeStored1h": "Sparat, senaste timmen",
+    "rangeStored24h": "Sparat, senaste 24 timmarna",
+    "rangeStored7d": "Sparat, senaste 7 dagarna"
   },
   "account": {
-    "title": "Konto",
-    "subtitle": "Din profil och administratörskontona i denna organisation.",
-    "myAccount": "Mitt konto",
-    "myAccountDesc": "Kontot du är inloggad med.",
+    "title": "Konton",
+    "subtitle": "Administratörskonton i denna organisation.",
     "membersTitle": "Medlemmar",
     "membersDesc": "Administratörskonton i denna organisation.",
     "addMember": "Lägg till medlem",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Endast owner och admin kan hantera medlemmar.",
     "accountTitle": "Konto",
     "accountDesc": "Administratörskontot som är inloggat."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Dina kontouppgifter och lösenord.",
+    "myAccount": "Mitt konto",
+    "myAccountDesc": "Kontot du är inloggad med.",
+    "emailLabel": "E-post",
+    "roleLabel": "Roll",
+    "passwordTitle": "Lösenord",
+    "passwordDesc": "Att byta lösenord loggar ut dina andra enheter.",
+    "currentPassword": "Nuvarande lösenord",
+    "newPassword": "Nytt lösenord (8+ tecken)",
+    "confirmPassword": "Bekräfta nytt lösenord",
+    "passwordMismatch": "Lösenorden matchar inte",
+    "changePassword": "Byt lösenord",
+    "changing": "Byter…",
+    "passwordChanged": "Lösenordet har bytts",
+    "passwordChangeFailed": "Kunde inte byta lösenord"
   }
 }

@@ -21,7 +21,8 @@
     "projectList": "Project list",
     "project": "Project",
     "system": "System",
-    "account": "Account"
+    "account": "Account",
+    "profile": "Profile"
   },
   "header": {
     "openMenu": "Open menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Oldest queued",
     "queueTitle": "Queue",
     "range7d": "Last 7 days",
-    "range30d": "Last 30 days"
+    "range30d": "Last 30 days",
+    "live": "Live (5m)",
+    "history1h": "1h",
+    "history24h": "24h",
+    "history7d": "7d",
+    "historyNote": "Stored every minute in the background",
+    "historyEmpty": "No stored samples yet",
+    "rangeLive": "Live, last 5 minutes",
+    "rangeStored1h": "Stored, last hour",
+    "rangeStored24h": "Stored, last 24 hours",
+    "rangeStored7d": "Stored, last 7 days"
   },
   "account": {
-    "title": "Account",
-    "subtitle": "Your profile and the admin accounts in this organization.",
-    "myAccount": "My account",
-    "myAccountDesc": "The account you are signed in with.",
+    "title": "Accounts",
+    "subtitle": "Admin accounts in this organization.",
     "membersTitle": "Members",
     "membersDesc": "Admin accounts in this organization.",
     "addMember": "Add member",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Only owners and admins can manage members.",
     "accountTitle": "Account",
     "accountDesc": "The currently signed-in admin account."
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Your account details and password.",
+    "myAccount": "My account",
+    "myAccountDesc": "The account you are signed in with.",
+    "emailLabel": "Email",
+    "roleLabel": "Role",
+    "passwordTitle": "Password",
+    "passwordDesc": "Changing your password signs out your other devices.",
+    "currentPassword": "Current password",
+    "newPassword": "New password (8+ chars)",
+    "confirmPassword": "Confirm new password",
+    "passwordMismatch": "Passwords do not match",
+    "changePassword": "Change password",
+    "changing": "Changing…",
+    "passwordChanged": "Password changed",
+    "passwordChangeFailed": "Could not change the password"
   }
 }

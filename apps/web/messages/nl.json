@@ -21,7 +21,8 @@
     "projectList": "Projectenlijst",
     "project": "Project",
     "system": "Systeem",
-    "account": "Account"
+    "account": "Account",
+    "profile": "Profiel"
   },
   "header": {
     "openMenu": "Menu openen",
@@ -306,13 +307,21 @@
     "oldestQueued": "Oudste in wachtrij",
     "queueTitle": "Wachtrij",
     "range7d": "Laatste 7 dagen",
-    "range30d": "Laatste 30 dagen"
+    "range30d": "Laatste 30 dagen",
+    "live": "Live (5 min)",
+    "history1h": "1 u",
+    "history24h": "24 u",
+    "history7d": "7 d",
+    "historyNote": "Elke minuut op de achtergrond opgeslagen",
+    "historyEmpty": "Nog geen opgeslagen metingen",
+    "rangeLive": "Live, laatste 5 minuten",
+    "rangeStored1h": "Opgeslagen, laatste uur",
+    "rangeStored24h": "Opgeslagen, laatste 24 uur",
+    "rangeStored7d": "Opgeslagen, laatste 7 dagen"
   },
   "account": {
-    "title": "Account",
-    "subtitle": "Je profiel en de beheerdersaccounts van deze organisatie.",
-    "myAccount": "Mijn account",
-    "myAccountDesc": "Het account waarmee je bent ingelogd.",
+    "title": "Accounts",
+    "subtitle": "Beheerdersaccounts van deze organisatie.",
     "membersTitle": "Leden",
     "membersDesc": "Beheerdersaccounts van deze organisatie.",
     "addMember": "Lid toevoegen",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Alleen owner en admin kunnen leden beheren.",
     "accountTitle": "Account",
     "accountDesc": "Momenteel ingelogd beheerdersaccount."
+  },
+  "profile": {
+    "title": "Profiel",
+    "subtitle": "Je accountgegevens en wachtwoord.",
+    "myAccount": "Mijn account",
+    "myAccountDesc": "Het account waarmee je bent ingelogd.",
+    "emailLabel": "E-mail",
+    "roleLabel": "Rol",
+    "passwordTitle": "Wachtwoord",
+    "passwordDesc": "Je wachtwoord wijzigen logt je andere apparaten uit.",
+    "currentPassword": "Huidig wachtwoord",
+    "newPassword": "Nieuw wachtwoord (8+ tekens)",
+    "confirmPassword": "Bevestig nieuw wachtwoord",
+    "passwordMismatch": "Wachtwoorden komen niet overeen",
+    "changePassword": "Wachtwoord wijzigen",
+    "changing": "Wijzigen…",
+    "passwordChanged": "Wachtwoord gewijzigd",
+    "passwordChangeFailed": "Kon wachtwoord niet wijzigen"
   }
 }

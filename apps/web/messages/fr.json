@@ -21,7 +21,8 @@
     "projectList": "Liste des projets",
     "project": "Projet",
     "system": "Système",
-    "account": "Compte"
+    "account": "Compte",
+    "profile": "Profil"
   },
   "header": {
     "openMenu": "Ouvrir le menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Plus ancien en file",
     "queueTitle": "File d'attente",
     "range7d": "7 derniers jours",
-    "range30d": "30 derniers jours"
+    "range30d": "30 derniers jours",
+    "live": "Direct (5 min)",
+    "history1h": "1 h",
+    "history24h": "24 h",
+    "history7d": "7 j",
+    "historyNote": "Enregistré chaque minute en arrière-plan",
+    "historyEmpty": "Aucun échantillon enregistré",
+    "rangeLive": "Direct, 5 dernières minutes",
+    "rangeStored1h": "Enregistré, dernière heure",
+    "rangeStored24h": "Enregistré, 24 dernières heures",
+    "rangeStored7d": "Enregistré, 7 derniers jours"
   },
   "account": {
-    "title": "Compte",
-    "subtitle": "Votre profil et les comptes administrateur de cette organisation.",
-    "myAccount": "Mon compte",
-    "myAccountDesc": "Le compte avec lequel vous êtes connecté.",
+    "title": "Comptes",
+    "subtitle": "Comptes administrateur de cette organisation.",
     "membersTitle": "Membres",
     "membersDesc": "Comptes administrateur de cette organisation.",
     "addMember": "Ajouter un membre",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Seuls owner et admin peuvent gérer les membres.",
     "accountTitle": "Compte",
     "accountDesc": "Compte administrateur actuellement connecté."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Les informations de votre compte et votre mot de passe.",
+    "myAccount": "Mon compte",
+    "myAccountDesc": "Le compte avec lequel vous êtes connecté.",
+    "emailLabel": "E-mail",
+    "roleLabel": "Rôle",
+    "passwordTitle": "Mot de passe",
+    "passwordDesc": "Changer votre mot de passe déconnecte vos autres appareils.",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe (8+ caractères)",
+    "confirmPassword": "Confirmer le nouveau mot de passe",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "changePassword": "Changer le mot de passe",
+    "changing": "Changement…",
+    "passwordChanged": "Mot de passe changé",
+    "passwordChangeFailed": "Impossible de changer le mot de passe"
   }
 }

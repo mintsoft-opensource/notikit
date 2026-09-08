@@ -21,7 +21,8 @@
     "projectList": "프로젝트 목록",
     "project": "프로젝트",
     "system": "시스템",
-    "account": "계정"
+    "account": "계정",
+    "profile": "프로필"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -306,13 +307,21 @@
     "oldestQueued": "최장 대기",
     "queueTitle": "큐 상태",
     "range7d": "최근 7일",
-    "range30d": "최근 30일"
+    "range30d": "최근 30일",
+    "live": "실시간 (5분)",
+    "history1h": "1시간",
+    "history24h": "24시간",
+    "history7d": "7일",
+    "historyNote": "백그라운드에서 1분마다 저장",
+    "historyEmpty": "저장된 샘플이 아직 없습니다",
+    "rangeLive": "실시간, 최근 5분",
+    "rangeStored1h": "저장된 데이터, 최근 1시간",
+    "rangeStored24h": "저장된 데이터, 최근 24시간",
+    "rangeStored7d": "저장된 데이터, 최근 7일"
   },
   "account": {
     "title": "계정",
-    "subtitle": "내 프로필과 이 조직의 관리자 계정을 관리합니다.",
-    "myAccount": "내 계정",
-    "myAccountDesc": "현재 로그인한 계정입니다.",
+    "subtitle": "이 조직의 관리자 계정을 관리합니다.",
     "membersTitle": "멤버",
     "membersDesc": "이 조직의 관리자 계정입니다.",
     "addMember": "멤버 추가",
@@ -337,5 +346,23 @@
     "readOnlyNote": "멤버 관리는 owner·admin 만 가능합니다.",
     "accountTitle": "계정",
     "accountDesc": "현재 로그인한 관리자 계정입니다."
+  },
+  "profile": {
+    "title": "프로필",
+    "subtitle": "내 계정 정보와 비밀번호를 관리합니다.",
+    "myAccount": "내 계정",
+    "myAccountDesc": "현재 로그인한 계정입니다.",
+    "emailLabel": "이메일",
+    "roleLabel": "역할",
+    "passwordTitle": "비밀번호",
+    "passwordDesc": "비밀번호를 바꾸면 다른 기기의 로그인이 모두 해제됩니다.",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호 (8자 이상)",
+    "confirmPassword": "새 비밀번호 확인",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다",
+    "changePassword": "비밀번호 변경",
+    "changing": "변경 중…",
+    "passwordChanged": "비밀번호가 변경되었습니다",
+    "passwordChangeFailed": "비밀번호를 변경하지 못했습니다"
   }
 }

@@ -101,6 +101,7 @@ test.describe("smoke", () => {
     // 글로벌 사이드바 — 프로젝트 스코프 메뉴(발송/로그/참여)는 프로젝트 상세로 이동됨
     await expect(page.getByRole("link", { name: "프로젝트", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "시스템", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "프로필", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "계정", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "설정", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "발송", exact: true })).toHaveCount(0);
@@ -282,9 +283,38 @@ test.describe("smoke", () => {
     // 헤더에도 현재 메뉴명이 표시되므로 본문으로 스코프
     const main = page.getByRole("main");
     await expect(main.getByRole("heading", { name: "계정", exact: true })).toBeVisible();
-    await expect(main.getByText("내 계정")).toBeVisible();
     await expect(main.getByRole("heading", { name: "멤버", exact: true })).toBeVisible();
     await expect(main.getByRole("button", { name: /추가/ })).toBeVisible();
+    // 내 계정은 프로필로 분리됨
+    await expect(main.getByRole("heading", { name: "내 계정", exact: true })).toHaveCount(0);
+  });
+
+  test("프로필 페이지: 내 계정 + 비밀번호 변경", async ({ page }) => {
+    await ensureLogin(page);
+    await page.goto("/profile");
+    const main = page.getByRole("main");
+    await expect(main.getByRole("heading", { name: "프로필", exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "내 계정", exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: /비밀번호/ })).toBeVisible();
+    // 현재 비밀번호가 틀리면 403, CSRF 없으면 403
+    const headers = { origin: ORIGIN };
+    const wrong = await page.request.post("/api/admin/me/password", {
+      headers,
+      data: { current_password: "definitely-wrong-pw", new_password: "another-pass-1234" },
+    });
+    expect(wrong.status()).toBe(403);
+    expect((await page.request.post("/api/admin/me/password", { data: { current_password: "x", new_password: "yyyyyyyy" } })).status()).toBe(403);
+  });
+
+  test("시스템 메트릭 이력: owner 는 조회, viewer 는 거부", async ({ page }) => {
+    await ensureLogin(page);
+    const res = await page.request.get("/api/admin/system/history?range=1h");
+    expect(res.status()).toBe(200);
+    const d = (await res.json()).data;
+    expect(Array.isArray(d.points)).toBeTruthy();
+    expect(d.range).toBe("1h");
+    // 잘못된 range 는 기본값으로 폴백
+    expect((await (await page.request.get("/api/admin/system/history?range=__proto__")).json()).data.range).toBe("1h");
   });
 
   test("설정 페이지: 조직 정보 표시 + owner 만 이름 변경", async ({ page }) => {

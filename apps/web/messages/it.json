@@ -21,7 +21,8 @@
     "projectList": "Elenco progetti",
     "project": "Progetto",
     "system": "Sistema",
-    "account": "Account"
+    "account": "Account",
+    "profile": "Profilo"
   },
   "header": {
     "openMenu": "Apri menu",
@@ -306,13 +307,21 @@
     "oldestQueued": "Più vecchio in coda",
     "queueTitle": "Coda",
     "range7d": "Ultimi 7 giorni",
-    "range30d": "Ultimi 30 giorni"
+    "range30d": "Ultimi 30 giorni",
+    "live": "Live (5 min)",
+    "history1h": "1 h",
+    "history24h": "24 h",
+    "history7d": "7 g",
+    "historyNote": "Salvato ogni minuto in background",
+    "historyEmpty": "Nessun campione salvato",
+    "rangeLive": "Live, ultimi 5 minuti",
+    "rangeStored1h": "Salvato, ultima ora",
+    "rangeStored24h": "Salvato, ultime 24 ore",
+    "rangeStored7d": "Salvato, ultimi 7 giorni"
   },
   "account": {
     "title": "Account",
-    "subtitle": "Il tuo profilo e gli account amministratore di questa organizzazione.",
-    "myAccount": "Il mio account",
-    "myAccountDesc": "L'account con cui hai effettuato l'accesso.",
+    "subtitle": "Account amministratore di questa organizzazione.",
     "membersTitle": "Membri",
     "membersDesc": "Account amministratore di questa organizzazione.",
     "addMember": "Aggiungi membro",
@@ -337,5 +346,23 @@
     "readOnlyNote": "Solo owner e admin possono gestire i membri.",
     "accountTitle": "Account",
     "accountDesc": "Account amministratore attualmente connesso."
+  },
+  "profile": {
+    "title": "Profilo",
+    "subtitle": "I dati del tuo account e la password.",
+    "myAccount": "Il mio account",
+    "myAccountDesc": "L'account con cui hai effettuato l'accesso.",
+    "emailLabel": "E-mail",
+    "roleLabel": "Ruolo",
+    "passwordTitle": "Password",
+    "passwordDesc": "Cambiare la password disconnette gli altri dispositivi.",
+    "currentPassword": "Password attuale",
+    "newPassword": "Nuova password (8+ caratteri)",
+    "confirmPassword": "Conferma nuova password",
+    "passwordMismatch": "Le password non coincidono",
+    "changePassword": "Cambia password",
+    "changing": "Modifica…",
+    "passwordChanged": "Password modificata",
+    "passwordChangeFailed": "Impossibile modificare la password"
   }
 }

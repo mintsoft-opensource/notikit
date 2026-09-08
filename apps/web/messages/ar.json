@@ -21,7 +21,8 @@
     "projectList": "قائمة المشاريع",
     "project": "المشروع",
     "system": "النظام",
-    "account": "الحساب"
+    "account": "الحساب",
+    "profile": "الملف الشخصي"
   },
   "header": {
     "openMenu": "فتح القائمة",
@@ -306,13 +307,21 @@
     "oldestQueued": "الأقدم في الانتظار",
     "queueTitle": "قائمة الانتظار",
     "range7d": "آخر 7 أيام",
-    "range30d": "آخر 30 يومًا"
+    "range30d": "آخر 30 يومًا",
+    "live": "مباشر (5 دقائق)",
+    "history1h": "ساعة",
+    "history24h": "24 ساعة",
+    "history7d": "7 أيام",
+    "historyNote": "يُحفظ كل دقيقة في الخلفية",
+    "historyEmpty": "لا توجد عينات محفوظة بعد",
+    "rangeLive": "مباشر، آخر 5 دقائق",
+    "rangeStored1h": "محفوظ، آخر ساعة",
+    "rangeStored24h": "محفوظ، آخر 24 ساعة",
+    "rangeStored7d": "محفوظ، آخر 7 أيام"
   },
   "account": {
-    "title": "الحساب",
-    "subtitle": "ملفك الشخصي وحسابات المسؤولين في هذه المؤسسة.",
-    "myAccount": "حسابي",
-    "myAccountDesc": "الحساب الذي سجّلت الدخول به.",
+    "title": "الحسابات",
+    "subtitle": "حسابات المسؤولين في هذه المؤسسة.",
     "membersTitle": "الأعضاء",
     "membersDesc": "حسابات المسؤولين في هذه المؤسسة.",
     "addMember": "إضافة عضو",
@@ -337,5 +346,23 @@
     "readOnlyNote": "إدارة الأعضاء متاحة لـ owner و admin فقط.",
     "accountTitle": "الحساب",
     "accountDesc": "حساب المسؤول المسجل الدخول حاليًا."
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "subtitle": "بيانات حسابك وكلمة المرور.",
+    "myAccount": "حسابي",
+    "myAccountDesc": "الحساب الذي سجّلت الدخول به.",
+    "emailLabel": "البريد الإلكتروني",
+    "roleLabel": "الدور",
+    "passwordTitle": "كلمة المرور",
+    "passwordDesc": "تغيير كلمة المرور يسجّل الخروج من أجهزتك الأخرى.",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة مرور جديدة (8 أحرف فأكثر)",
+    "confirmPassword": "تأكيد كلمة المرور الجديدة",
+    "passwordMismatch": "كلمتا المرور غير متطابقتين",
+    "changePassword": "تغيير كلمة المرور",
+    "changing": "جارٍ التغيير…",
+    "passwordChanged": "تم تغيير كلمة المرور",
+    "passwordChangeFailed": "تعذّر تغيير كلمة المرور"
   }
 }
