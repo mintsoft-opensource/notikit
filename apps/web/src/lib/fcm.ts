@@ -8,6 +8,8 @@ export interface FcmMessage {
   body: string;
   imageUrl?: string;
   deepLink?: string;
+  /** 발송 로그 id — 클릭 회신이 어떤 발송의 것인지 매칭하는 유일한 키 */
+  logId?: string;
   data?: Record<string, unknown>;
 }
 
@@ -48,6 +50,8 @@ function buildData(msg: FcmMessage): Record<string, string> {
   for (const [k, v] of Object.entries(msg.data ?? {})) {
     data[k] = typeof v === "string" ? v : JSON.stringify(v);
   }
+  // 커스텀 data 가 덮어쓰지 못하도록 마지막에 — 클릭 추적의 무결성이 우선
+  if (msg.logId) data.notikit_log_id = msg.logId;
   return data;
 }
 

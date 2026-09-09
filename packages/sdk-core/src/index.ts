@@ -3,11 +3,13 @@ import {
   type RegisterDeviceInput,
   type IdentifyInput,
   type SendInput,
+  type ReportClickInput,
   type ApiEnvelope,
   NotikitError,
 } from "./types";
 
 export * from "./types";
+export * from "./session";
 
 /**
  * Notikit 코어 클라이언트 — 모든 플랫폼 SDK 의 공용 HTTP 계층.
@@ -77,6 +79,30 @@ export class NotikitClient {
       attributes: input.attributes,
       locale: input.locale,
       timezone: input.timezone,
+    });
+  }
+
+  /**
+   * 디바이스 바인딩 해제 (로그아웃/계정전환).
+   * 해제하지 않으면 이후 클릭이 이전 계정에 계속 귀속된다.
+   */
+  unbindDevice(token: string, platform: RegisterDeviceInput["platform"]) {
+    return this.request<{ device: unknown }>("/api/v1/devices", {
+      token,
+      platform,
+      external_id: null,
+    });
+  }
+
+  /**
+   * 푸시 클릭(알림 탭) 보고.
+   * 유저는 서버가 토큰의 바인딩에서 해석하므로 external_id 를 보내지 않는다.
+   */
+  reportClick(input: ReportClickInput) {
+    return this.request<{ recorded: boolean }>("/api/v1/messages/click", {
+      log_id: input.logId,
+      token: input.token,
+      destination: input.destination,
     });
   }
 

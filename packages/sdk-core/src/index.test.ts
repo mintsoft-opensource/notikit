@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { NotikitClient, NotikitError } from "./index";
+import { NotikitClient, NotikitError, NotikitSession, memoryStorage } from "./index";
 
 function mockFetch(response: unknown, ok = true, status = 200) {
   return vi.fn(async () =>
@@ -56,5 +56,80 @@ describe("NotikitClient", () => {
     const noSecret = mockFetch({ success: true, data: {}, error: null });
     await new NotikitClient({ baseUrl: base.baseUrl, apiKey: "nk", fetch: noSecret }).identify({ externalId: "u1" });
     expect((noSecret as any).mock.calls[0][1].headers["api-secret"]).toBeUndefined();
+  });
+});
+
+describe("NotikitSession", () => {
+  function setup(fail = false) {
+    const calls: { path: string; body: Record<string, unknown> }[] = [];
+    const fetchImpl = (async (url: string, init: { body: string }) => {
+      const path = new URL(url).pathname;
+      calls.push({ path, body: JSON.parse(init.body) });
+      if (fail && path === "/api/v1/messages/click") throw new Error("offline");
+      return { ok: true, status: 200, json: async () => ({ success: true, data: { recorded: true } }) };
+    }) as unknown as typeof fetch;
+
+    const client = new NotikitClient({ baseUrl: "https://p.test", apiKey: "nk", fetch: fetchImpl });
+    return { calls, session: new NotikitSession(client, memoryStorage(), "android") };
+  }
+
+  it("login stores the user and binds the device", async () => {
+    const { calls, session } = setup();
+    await session.login({ externalId: "u1", identityHash: "h1" }, "tok");
+
+    expect(await session.getUser()).toEqual({ externalId: "u1", identityHash: "h1" });
+    expect(calls[0].path).toBe("/api/v1/devices");
+    expect(calls[0].body).toMatchObject({ external_id: "u1", identity_hash: "h1", token: "tok" });
+  });
+
+  it("logout clears the user and unbinds the device", async () => {
+    const { calls, session } = setup();
+    await session.login({ externalId: "u1" }, "tok");
+    await session.logout("tok");
+
+    expect(await session.getUser()).toBeNull();
+    expect(calls.at(-1)?.body).toMatchObject({ external_id: null, token: "tok" });
+  });
+
+  it("never sends external_id with a click — the server resolves the user from the binding", async () => {
+    const { calls, session } = setup();
+    await session.login({ externalId: "u1", identityHash: "h1" }, "tok");
+    await session.reportClick("log1", "tok", "myapp://x");
+
+    const click = calls.find((c) => c.path === "/api/v1/messages/click");
+    expect(click?.body).toEqual({ log_id: "log1", token: "tok", destination: "myapp://x" });
+    expect(click?.body).not.toHaveProperty("external_id");
+  });
+
+  it("queues a failed click and resends it on flush", async () => {
+    const failing = setup(true);
+    expect(await failing.session.reportClick("log1", "tok")).toBe(false);
+
+    // 같은 발송의 재클릭은 큐에서 접힌다
+    await failing.session.reportClick("log1", "tok");
+
+    const storage = memoryStorage();
+    const client = new NotikitClient({ baseUrl: "https://p.test", apiKey: "nk", fetch: (async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) })) as unknown as typeof fetch });
+    const s2 = new NotikitSession(client, storage, "android");
+    await storage.setItem("notikit.clickQueue", JSON.stringify([{ logId: "log1", token: "tok", at: Date.now() }]));
+    expect(await s2.flush()).toBe(1);
+    expect(await storage.getItem("notikit.clickQueue")).toBeNull();
+  });
+
+  it("drops queued clicks older than the TTL", async () => {
+    const storage = memoryStorage();
+    const client = new NotikitClient({ baseUrl: "https://p.test", apiKey: "nk", fetch: (async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) })) as unknown as typeof fetch });
+    const session = new NotikitSession(client, storage, "android");
+    const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    await storage.setItem("notikit.clickQueue", JSON.stringify([{ logId: "old", token: "tok", at: eightDaysAgo }]));
+
+    expect(await session.flush()).toBe(0);
+  });
+
+  it("survives a corrupted storage value instead of throwing", async () => {
+    const storage = memoryStorage();
+    await storage.setItem("notikit.user", "{not json");
+    const client = new NotikitClient({ baseUrl: "https://p.test", apiKey: "nk", fetch: (async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) })) as unknown as typeof fetch });
+    expect(await new NotikitSession(client, storage, "web").getUser()).toBeNull();
   });
 });

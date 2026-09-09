@@ -54,6 +54,25 @@ export type SendInput =
   | (SendBase & { type: "single" | "topic"; target: string })
   | (SendBase & { type: "broadcast"; target?: string });
 
+export interface ReportClickInput {
+  /** 푸시 페이로드의 data.notikit_log_id */
+  logId: string;
+  /** 알림을 받은 디바이스의 푸시 토큰 — 서버가 이 토큰으로 유저를 해석한다 */
+  token: string;
+  /** 실제 착지한 화면/URL (발송의 deepLink 와 다를 수 있음) */
+  destination?: string;
+}
+
+/** 푸시 페이로드에서 notikit 이 예약해 쓰는 data 키 */
+export const NOTIKIT_LOG_ID_KEY = "notikit_log_id";
+
+/** 수신 페이로드의 data 에서 발송 id 추출 — 없으면 notikit 발송이 아니다 */
+export function logIdFromPayload(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const v = (data as Record<string, unknown>)[NOTIKIT_LOG_ID_KEY];
+  return typeof v === "string" && v.length > 0 ? v : undefined;
+}
+
 export interface ApiEnvelope<T> {
   success: boolean;
   data: T | null;

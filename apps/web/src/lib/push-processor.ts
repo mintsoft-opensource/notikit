@@ -137,6 +137,52 @@ async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
 }
 
 /**
+ * 클릭률 분모 — 이 발송이 도달할 수 있었던 **고유 유저 수**를 발송 시점에 확정한다.
+ * 구독·디바이스는 계속 변하므로 나중에 세면 과거 발송의 비율이 흔들린다.
+ * 유저에 바인딩되지 않은 익명 디바이스는 세지 않는다(클릭도 유저로 귀속되지 않으므로).
+ */
+async function countAudienceUsers(db: Db, log: PushLog): Promise<number> {
+  const active = and(eq(devices.projectId, log.projectId), eq(devices.isActive, true));
+
+  if (log.type === "topic") {
+    if (!log.target) return 0;
+    const t = (
+      await db.select({ id: topics.id }).from(topics)
+        .where(and(eq(topics.projectId, log.projectId), eq(topics.name, log.target))).limit(1)
+    )[0];
+    if (!t) return 0;
+    const r = await db
+      .select({ n: sql<number>`count(distinct ${devices.userId})::int` })
+      .from(subscriptions)
+      .innerJoin(devices, eq(subscriptions.deviceId, devices.id))
+      .where(and(eq(subscriptions.topicId, t.id), active));
+    return r[0]?.n ?? 0;
+  }
+
+  if (log.type === "single") return log.target ? 1 : 0;
+
+  if (log.type === "segment") {
+    if (!log.target) return 0;
+    const seg = (
+      await db.select({ rules: segments.rules }).from(segments)
+        .where(and(eq(segments.projectId, log.projectId), eq(segments.name, log.target))).limit(1)
+    )[0];
+    if (!seg) return 0;
+    const conds: SQL[] = [eq(devices.projectId, log.projectId), eq(devices.isActive, true)];
+    for (const r of seg.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
+    const r = await db
+      .select({ n: sql<number>`count(distinct ${devices.userId})::int` })
+      .from(devices)
+      .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+      .where(and(...conds));
+    return r[0]?.n ?? 0;
+  }
+
+  const r = await db.select({ n: sql<number>`count(distinct ${devices.userId})::int` }).from(devices).where(active);
+  return r[0]?.n ?? 0;
+}
+
+/**
  * 큐잉 로그 1건 처리. 원자적 클레임(+stale 'processing' 재클레임)으로 중복/유실 방지.
  * 대상은 페이지 스트리밍, FCM 배치는 동시성 제한 병렬. 크레덴셜 없으면 log-only.
  */
@@ -200,7 +246,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
           if (logOnly || groups[vi].length === 0) continue;
           const v = variants[vi];
           const results = await mapLimit(chunk(groups[vi], BATCH), CONCURRENCY, (b) =>
-            sendToTokens(project!.id, sa!, b, { title: v.title, body: v.body, deepLink: log.deepLink ?? undefined, data: log.data ?? undefined })
+            sendToTokens(project!.id, sa!, b, { title: v.title, body: v.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined })
           );
           for (const r of results) {
             success += r.success;
@@ -211,7 +257,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
         }
       } else if (!logOnly) {
         const results = await mapLimit(chunk(tokens, BATCH), CONCURRENCY, (b) =>
-          sendToTokens(project!.id, sa!, b, { title: log.title, body: log.body, deepLink: log.deepLink ?? undefined, data: log.data ?? undefined })
+          sendToTokens(project!.id, sa!, b, { title: log.title, body: log.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined })
         );
         for (const r of results) {
           success += r.success;
@@ -228,9 +274,10 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
 
     // fencing: 우리가 여전히 이 로그의 소유자일 때만 완료 처리(부작용 1회 보장)
     const finalStatus = logOnly ? "logged" : "completed";
+    const audienceUserCount = await countAudienceUsers(db, log);
     const finalized = await db
       .update(pushLogs)
-      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure, ...(variants ? { variantStats } : {}) })
+      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure, audienceUserCount, ...(variants ? { variantStats } : {}) })
       .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)))
       .returning({ id: pushLogs.id });
     if (finalized.length === 0) return reload(db, logId); // stale 재클레임에 의해 대체됨 → 부작용 스킵

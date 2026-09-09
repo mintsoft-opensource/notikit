@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 const schema = z.object({
   token: z.string().min(1).max(4096),
   platform: z.enum(["android", "ios", "web", "webview", "electron", "flutter", "react-native"]),
-  external_id: z.string().max(255).optional(),
+  // null = 명시적 언바인딩(로그아웃). 생략과 구분된다: 생략은 기존 바인딩 유지.
+  external_id: z.string().max(255).nullable().optional(),
   identity_hash: z.string().max(128).optional(),
   app_version: z.string().max(64).optional(),
   os_version: z.string().max(64).optional(),
@@ -45,6 +46,9 @@ export async function POST(req: Request) {
   }
 
   const db = getDb();
+
+  // 로그아웃/계정전환: external_id: null 이면 바인딩 해제. 없으면 이후 클릭이 이전 계정에 계속 귀속된다.
+  const unbind = b.external_id === null;
 
   let userId: string | null = null;
   if (b.external_id) {
@@ -79,7 +83,7 @@ export async function POST(req: Request) {
       target: [devices.projectId, devices.token],
       set: {
         platform: b.platform,
-        ...(b.external_id ? { userId } : {}),
+        ...(b.external_id || unbind ? { userId } : {}),
         appVersion: b.app_version,
         osVersion: b.os_version,
         locale: b.locale,

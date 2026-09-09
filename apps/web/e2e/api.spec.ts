@@ -445,4 +445,94 @@ test.describe("App SDK API 전체 플로우", () => {
     });
     expect(res.status()).toBe(422);
   });
+
+  test("클릭 추적: 유저 귀속은 서버가 바인딩에서 해석 + 재클릭은 1회로 집계", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `click-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const ext = "click-user";
+    const token = `ck-tok-${Date.now()}`;
+
+    await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token, platform: "android", external_id: ext, identity_hash: idHash(ext, apiSecret) },
+    });
+    const send = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "클릭", body: "본문", type: "single", target: ext },
+    });
+    const logId = (await send.json()).data.message.id as string;
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    // 첫 클릭 기록됨
+    const first = await request.post("/api/v1/messages/click", {
+      headers: { "api-key": apiKey },
+      data: { log_id: logId, token, destination: "myapp://orders/1" },
+    });
+    expect(first.status()).toBe(202);
+    expect((await first.json()).data.recorded).toBe(true);
+
+    // 재클릭은 무시 — 클릭률이 부풀지 않아야 한다
+    const again = await request.post("/api/v1/messages/click", {
+      headers: { "api-key": apiKey },
+      data: { log_id: logId, token },
+    });
+    expect((await again.json()).data.recorded).toBe(false);
+
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    const row = (await logs.json()).data.logs.find((l: { id: string }) => l.id === logId);
+    expect(row.clickCount).toBe(1);
+    expect(row.clickUserCount).toBe(1); // 서버가 devices.userId 로 유저를 해석했다
+    expect(row.audienceUserCount).toBe(1);
+  });
+
+  test("클릭 추적: 타 프로젝트 로그·미등록 토큰은 거부", async ({ request }) => {
+    const a = await createProject(request);
+    const b = await createProject(request);
+    const token = `x-tok-${Date.now()}`;
+    await request.post("/api/v1/devices", { headers: { "api-key": a.apiKey }, data: { token, platform: "ios" } });
+    const send = await request.post("/api/v1/messages", {
+      headers: { "api-key": a.apiKey, "api-secret": a.apiSecret },
+      data: { title: "t", body: "b", type: "broadcast" },
+    });
+    const logId = (await send.json()).data.message.id as string;
+
+    // 타 테넌트의 api-key 로는 이 로그에 클릭을 심을 수 없다
+    const cross = await request.post("/api/v1/messages/click", {
+      headers: { "api-key": b.apiKey },
+      data: { log_id: logId, token },
+    });
+    expect(cross.status()).toBe(404);
+
+    // 등록되지 않은 토큰도 거부 — 익명 클릭이 통계에 섞이지 않게
+    const unknown = await request.post("/api/v1/messages/click", {
+      headers: { "api-key": a.apiKey },
+      data: { log_id: logId, token: "never-registered" },
+    });
+    expect(unknown.status()).toBe(404);
+  });
+
+  test("언바인딩: external_id: null 이면 이후 클릭이 이전 계정에 귀속되지 않는다", async ({ request }) => {
+    const { apiKey, apiSecret } = await createProject(request);
+    const ext = "shared-device-user";
+    const token = `ub-tok-${Date.now()}`;
+
+    await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token, platform: "android", external_id: ext, identity_hash: idHash(ext, apiSecret) },
+    });
+    // 생략은 기존 바인딩 유지
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token, platform: "android" } });
+    const kept = await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token, platform: "android" } });
+    expect((await kept.json()).data.device.userId).not.toBeNull();
+
+    // null 은 명시적 해제
+    const unbound = await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token, platform: "android", external_id: null },
+    });
+    expect((await unbound.json()).data.device.userId).toBeNull();
+  });
 });

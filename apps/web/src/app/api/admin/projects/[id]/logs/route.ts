@@ -22,6 +22,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       totalCount: pushLogs.totalCount,
       successCount: pushLogs.successCount,
       failureCount: pushLogs.failureCount,
+      // 클릭률 = clickUserCount / audienceUserCount (분모는 발송 시점 스냅샷)
+      audienceUserCount: pushLogs.audienceUserCount,
+      clickCount: pushLogs.clickCount,
+      clickUserCount: pushLogs.clickUserCount,
       variantStats: pushLogs.variantStats,
       createdAt: pushLogs.createdAt,
     })

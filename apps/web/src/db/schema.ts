@@ -171,10 +171,37 @@ export const pushLogs = pgTable("push_logs", {
   // 카카오 알림톡 폴백 (단건 발송에서 device 실패/부재 시 phone 으로)
   kakaoFallback: boolean("kakao_fallback").notNull().default(false),
   kakaoCount: integer("kakao_count").notNull().default(0),
+  // 클릭률 분모 — 발송 시점 스냅샷. 구독은 계속 변하므로 나중에 세면 과거 발송의 비율이 흔들린다.
+  audienceUserCount: integer("audience_user_count").notNull().default(0),
+  // 클릭률 분자 — push_clicks 집계 캐시(유니크 클릭 기준)
+  clickCount: integer("click_count").notNull().default(0),
+  clickUserCount: integer("click_user_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("push_logs_project_idx").on(t.projectId, t.createdAt),
   statusIdx: index("push_logs_status_idx").on(t.projectId, t.status),
+}));
+
+/**
+ * 푸시 클릭(알림 탭) 이벤트. 디바이스당 발송 1건에 1행 — 재클릭은 무시(유니크)해서
+ * 클릭률이 부풀지 않게 한다. userId 는 클라이언트가 보낸 값이 아니라 서버가
+ * devices.userId 바인딩에서 해석한 값이다(사칭 방지).
+ */
+export const pushClicks = pgTable("push_clicks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").references(() => devices.id, { onDelete: "set null" }),
+  userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
+  platform: text("platform"),
+  // 클릭으로 이동한 목적지 — 발송의 deepLink 와 다를 수 있어 실제 착지점을 따로 남긴다
+  destination: text("destination"),
+  clickedAt: timestamp("clicked_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uniqDevice: uniqueIndex("push_clicks_uniq_idx").on(t.logId, t.deviceId),
+  logIdx: index("push_clicks_log_idx").on(t.logId),
+  userIdx: index("push_clicks_user_idx").on(t.projectId, t.userId),
+  atIdx: index("push_clicks_at_idx").on(t.projectId, t.clickedAt),
 }));
 
 /** 아웃바운드 웹훅 엔드포인트 */
@@ -287,3 +314,4 @@ export type Project = typeof projects.$inferSelect;
 export type Device = typeof devices.$inferSelect;
 export type PushUser = typeof pushUsers.$inferSelect;
 export type PushLog = typeof pushLogs.$inferSelect;
+export type PushClick = typeof pushClicks.$inferSelect;
