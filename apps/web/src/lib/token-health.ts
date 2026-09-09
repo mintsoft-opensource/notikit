@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { devices, projects } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
@@ -15,6 +15,29 @@ export interface TokenHealthResult {
   deactivated: number;
   /** 크레덴셜이 없어 검사 자체를 못한 경우 */
   skipped: boolean;
+  /** 최근에 이미 검사되어 이번 호출은 건너뛴 경우(야간 스윕 중복 방지) */
+  alreadyChecked?: boolean;
+}
+
+/**
+ * 최근 minIntervalHours 안에 검사됐으면 false 를 돌려 스윕을 건너뛰게 한다.
+ * 조건부 UPDATE 한 번으로 클레임하므로 워커가 여러 대여도 한 대만 이긴다
+ * (인메모리 레이트리밋은 인스턴스 간에 공유되지 않아 여기선 쓸 수 없다).
+ */
+async function claimSweep(projectId: string, minIntervalHours: number): Promise<boolean> {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - minIntervalHours * 3_600_000);
+  const claimed = await db
+    .update(projects)
+    .set({ tokensCheckedAt: new Date() })
+    .where(
+      and(
+        eq(projects.id, projectId),
+        or(isNull(projects.tokensCheckedAt), lt(projects.tokensCheckedAt, cutoff))
+      )
+    )
+    .returning({ id: projects.id });
+  return claimed.length > 0;
 }
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -41,8 +64,15 @@ function chunk<T>(arr: T[], size: number): T[][] {
  * 한계: FCM 에 등록된 토큰인지까지만 알 수 있다. 앱이 지워졌는데 토큰이 아직
  * 만료되지 않았다면 여기서는 유효하게 보인다. 확정적인 신호는 실제 발송의 응답이다.
  */
-export async function checkProjectTokens(projectId: string): Promise<TokenHealthResult> {
+export async function checkProjectTokens(
+  projectId: string,
+  opts: { minIntervalHours?: number } = {}
+): Promise<TokenHealthResult> {
   const db = getDb();
+
+  if (opts.minIntervalHours !== undefined && !(await claimSweep(projectId, opts.minIntervalHours))) {
+    return { checked: 0, invalid: 0, deactivated: 0, skipped: false, alreadyChecked: true };
+  }
   const project = (await db.select().from(projects).where(eq(projects.id, projectId)).limit(1))[0];
   if (!project?.firebaseCredentialsEnc) {
     return { checked: 0, invalid: 0, deactivated: 0, skipped: true };

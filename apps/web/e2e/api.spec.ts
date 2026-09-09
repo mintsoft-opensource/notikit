@@ -560,4 +560,32 @@ test.describe("App SDK API 전체 플로우", () => {
     const limited = await request.post(`/api/admin/projects/${pid}/devices/check`, { headers: { "x-admin-token": ADMIN }, data: {} });
     expect(limited.status()).toBe(429);
   });
+
+  test("야간 스윕: min_interval_hours 로 하루 1회만 클레임된다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `sweep-${Date.now()}` } });
+    const pid = (await created.json()).data.project.id as string;
+    const check = (h: number) =>
+      request.post(`/api/admin/projects/${pid}/devices/check?min_interval_hours=${h}`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    // 첫 호출은 클레임 성공 (크레덴셜이 없어 skipped 지만 클레임은 소비된다)
+    const first = await check(20);
+    expect(first.status()).toBe(200);
+    expect((await first.json()).data.alreadyChecked).toBeUndefined();
+
+    // 같은 창에서 재호출·다중 워커는 건너뛴다
+    const second = await check(20);
+    expect((await second.json()).data.alreadyChecked).toBe(true);
+
+    // 0 이면 항상 재검사 — 콘솔에서 수동 실행하는 경우.
+    // 분당 2회 제한이 있으므로 별도 프로젝트로 확인한다.
+    const other = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `sweep2-${Date.now()}` } });
+    const pid2 = (await other.json()).data.project.id as string;
+    await request.post(`/api/admin/projects/${pid2}/devices/check?min_interval_hours=20`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    const forced = await request.post(`/api/admin/projects/${pid2}/devices/check?min_interval_hours=0`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    expect(forced.status()).toBe(200);
+    expect((await forced.json()).data.alreadyChecked).toBeUndefined();
+
+    const bad = await request.post(`/api/admin/projects/${pid2}/devices/check?min_interval_hours=-1`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    expect(bad.status()).toBe(422);
+  });
 });

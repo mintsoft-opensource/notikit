@@ -16,10 +16,20 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
   if (!authz.ok) return fail(authz.error, authz.status);
+  // min_interval_hours 를 주면 그 안에 이미 검사된 프로젝트는 건너뛴다.
+  // 야간 스윕에서 워커가 반복 호출하거나 여러 대가 동시에 돌아도 하루 1회만 수행된다.
+  // 검증은 레이트리밋보다 먼저 — 잘못된 입력이 비싼 스윕의 예산을 소모할 이유가 없다.
+  const url = new URL(req.url);
+  const raw = url.searchParams.get("min_interval_hours");
+  const parsed = raw === null ? undefined : Number(raw);
+  if (parsed !== undefined && (!Number.isFinite(parsed) || parsed < 0 || parsed > 24 * 30)) {
+    return fail("min_interval_hours must be between 0 and 720", 422);
+  }
+
   if (!rateLimit(`tokens:check:${id}`, 2, 60_000)) return fail("Rate limit exceeded", 429);
 
   try {
-    return ok(await checkProjectTokens(id));
+    return ok(await checkProjectTokens(id, { minIntervalHours: parsed }));
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Token check failed", 500);
   }

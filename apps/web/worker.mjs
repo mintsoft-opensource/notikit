@@ -8,6 +8,13 @@ const BASE = (process.env.WORKER_BASE_URL ?? "http://localhost:3000").replace(/\
 const ADMIN = process.env.ADMIN_TOKEN;
 const INTERVAL = Number(process.env.WORKER_INTERVAL_MS ?? 10_000);
 
+// 죽은 토큰 야간 스윕. FCM dry-run 이라 배달되지 않으므로 유저를 깨우지 않는다 —
+// 새벽에 도는 이유는 방해 회피가 아니라 부하와 FCM 할당량 때문이다.
+// 서버 로컬시각이 아니라 UTC 기준: 프로젝트 방해금지 시간대도 UTC 로 저장한다.
+const TOKEN_CHECK_ENABLED = process.env.TOKEN_CHECK_ENABLED !== "false";
+const TOKEN_CHECK_HOUR_UTC = Number(process.env.TOKEN_CHECK_HOUR_UTC ?? 0);
+const TOKEN_CHECK_MIN_INTERVAL_HOURS = Number(process.env.TOKEN_CHECK_MIN_INTERVAL_HOURS ?? 20);
+
 if (!ADMIN) {
   console.error("[worker] ADMIN_TOKEN is required");
   process.exit(1);
@@ -23,6 +30,28 @@ async function post(path) {
   }
 }
 
+/** 프로젝트 id → 0-59 분. 전 테넌트가 정각에 한꺼번에 몰려 FCM/DB 를 때리지 않게 분산한다. */
+function staggerMinute(projectId) {
+  let h = 0;
+  for (let i = 0; i < projectId.length; i++) h = (h * 31 + projectId.charCodeAt(i)) >>> 0;
+  return h % 60;
+}
+
+// 프로젝트별 마지막 스윕 시도 분 — tick 이 10초라 같은 분에 6번 걸린다.
+// 서버 CAS 가 중복을 막긴 하지만, 굳이 레이트리밋에 걸리는 호출을 반복할 이유가 없다.
+const lastSweepMinute = new Map();
+
+/** 이 프로젝트의 야간 스윕 시각인가 (UTC 기준, 분 단위로 분산) — 분당 1회만 true */
+function isSweepWindow(projectId, now) {
+  if (now.getUTCHours() !== TOKEN_CHECK_HOUR_UTC) return false;
+  const minute = now.getUTCMinutes();
+  if (minute !== staggerMinute(projectId)) return false;
+  const key = `${now.getUTCDate()}:${minute}`;
+  if (lastSweepMinute.get(projectId) === key) return false;
+  lastSweepMinute.set(projectId, key);
+  return true;
+}
+
 async function tick() {
   let projects = [];
   try {
@@ -32,14 +61,24 @@ async function tick() {
   } catch {
     return;
   }
+  const now = new Date();
   for (const p of projects) {
     await post(`/api/admin/projects/${p.id}/process-queue`);
     await post(`/api/admin/projects/${p.id}/journeys/process`);
     await post(`/api/admin/projects/${p.id}/webhooks/retry`);
+
+    // 스윕 창이 tick 간격보다 넓어 같은 분에 여러 번 호출될 수 있다.
+    // min_interval_hours 로 서버가 CAS 클레임하므로 하루 1회만 실제로 수행된다.
+    if (TOKEN_CHECK_ENABLED && isSweepWindow(p.id, now)) {
+      await post(`/api/admin/projects/${p.id}/devices/check?min_interval_hours=${TOKEN_CHECK_MIN_INTERVAL_HOURS}`);
+    }
   }
 }
 
-console.log(`[worker] started — polling ${BASE} every ${INTERVAL}ms`);
+console.log(
+  `[worker] started — polling ${BASE} every ${INTERVAL}ms` +
+    (TOKEN_CHECK_ENABLED ? `; token sweep at ${TOKEN_CHECK_HOUR_UTC}:xx UTC (staggered per project)` : "; token sweep disabled")
+);
 setInterval(() => {
   tick().catch(() => {});
 }, INTERVAL);

@@ -51,6 +51,8 @@ export const projects = pgTable("projects", {
   firebaseCredentialsEnc: text("firebase_credentials_enc"),
   // 카카오 알림톡 설정(provider_url/api_key/sender_key) — AES-256-GCM 암호문
   kakaoConfigEnc: text("kakao_config_enc"),
+  // 마지막 토큰 검사 시각 — 야간 스윕의 중복 실행 방지(다중 워커 CAS 클레임 기준)
+  tokensCheckedAt: timestamp("tokens_checked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   apiKeyIdx: uniqueIndex("projects_api_key_idx").on(t.apiKey),

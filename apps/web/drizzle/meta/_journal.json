@@ -29,6 +29,13 @@
       "when": 1788947214554,
       "tag": "0003_clammy_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788969569900,
+      "tag": "0004_wealthy_madripoor",
+      "breakpoints": true
     }
   ]
 }
