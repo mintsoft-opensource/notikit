@@ -61,12 +61,18 @@ const INVALID_CODES = new Set([
   "messaging/invalid-registration-token",
 ]);
 
-/** 최대 500개 토큰에 멀티캐스트 전송 → 성공/실패/무효토큰 반환 */
+/**
+ * 최대 500개 토큰에 멀티캐스트 전송 → 성공/실패/무효토큰 반환.
+ *
+ * dryRun 이면 FCM 이 요청과 토큰을 **검증만 하고 실제로 배달하지 않는다**(validate_only).
+ * 유저에게 아무것도 보이지 않으므로 죽은 토큰 청소에 쓸 수 있다.
+ */
 export async function sendToTokens(
   projectId: string,
   sa: ServiceAccount,
   tokens: string[],
-  msg: FcmMessage
+  msg: FcmMessage,
+  dryRun = false
 ): Promise<FcmResult> {
   if (tokens.length === 0) return { success: 0, failure: 0, invalidTokens: [] };
 
@@ -75,7 +81,7 @@ export async function sendToTokens(
     tokens,
     notification: { title: msg.title, body: msg.body, imageUrl: msg.imageUrl },
     data: buildData(msg),
-  });
+  }, dryRun);
 
   const invalidTokens: string[] = [];
   res.responses.forEach((r, i) => {

@@ -535,4 +535,29 @@ test.describe("App SDK API 전체 플로우", () => {
     });
     expect((await unbound.json()).data.device.userId).toBeNull();
   });
+
+  test("토큰 검사: dry-run 은 크레덴셜 없으면 skip, 인증·레이트리밋 적용", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `tok-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const pid = cj.data.project.id as string;
+
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `hc-${Date.now()}`, platform: "android" } });
+
+    // Firebase 미설정 프로젝트는 검사 자체를 못하므로 skipped — 조용히 0건 성공으로 위장하지 않는다
+    const res = await request.post(`/api/admin/projects/${pid}/devices/check`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    expect(res.status()).toBe(200);
+    const body = (await res.json()).data;
+    expect(body.skipped).toBe(true);
+    expect(body.deactivated).toBe(0);
+
+    // 인증 없이는 거부 — Origin 없는 상태변경은 CSRF 검사에서 먼저 막힌다(403)
+    const anon = await request.post(`/api/admin/projects/${pid}/devices/check`, { data: {} });
+    expect(anon.status()).toBe(403);
+
+    // 분당 2회 제한 — 프로젝트 전체 토큰을 도는 무거운 작업
+    await request.post(`/api/admin/projects/${pid}/devices/check`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    const limited = await request.post(`/api/admin/projects/${pid}/devices/check`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    expect(limited.status()).toBe(429);
+  });
 });
