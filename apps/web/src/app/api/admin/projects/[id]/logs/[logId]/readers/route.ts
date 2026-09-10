@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushClicks, pushLogs, pushUsers } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -31,7 +31,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
   const log = (
     await db
       .select({ id: pushLogs.id, title: pushLogs.title, type: pushLogs.type, target: pushLogs.target,
-                audienceUserCount: pushLogs.audienceUserCount, clickUserCount: pushLogs.clickUserCount })
+                createdAt: pushLogs.createdAt,
+                audienceUserCount: pushLogs.audienceUserCount, audienceDeviceCount: pushLogs.audienceDeviceCount,
+                clickCount: pushLogs.clickCount, clickUserCount: pushLogs.clickUserCount })
       .from(pushLogs)
       .where(and(eq(pushLogs.id, logId), eq(pushLogs.projectId, id)))
       .limit(1)
@@ -57,5 +59,52 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
 
   const hasMore = rows.length > LIMIT;
   const readers = hasMore ? rows.slice(0, LIMIT) : rows;
-  return ok({ log, readers, next: hasMore ? readers[readers.length - 1]?.clickedAt : null });
+
+  // 읽은 수 추이 — 발송 시각부터 마지막 클릭까지. 하루를 넘기면 일 단위로 접는다
+  // (시간 버킷으로 몇 주를 그리면 축이 읽히지 않는다).
+  const [span] = await db
+    .select({ last: sql<string | null>`max(${pushClicks.clickedAt})` })
+    .from(pushClicks)
+    .where(and(eq(pushClicks.logId, logId), eq(pushClicks.projectId, id)));
+
+  const startMs = new Date(log.createdAt).getTime();
+  const lastMs = span?.last ? new Date(span.last).getTime() : startMs;
+  const HOUR = 3_600_000;
+  const byDay = lastMs - startMs > 48 * HOUR;
+  const bucketMs = byDay ? 24 * HOUR : HOUR;
+  const trunc = byDay ? "day" : "hour";
+
+  const bucketRows = await db
+    .select({
+      // DB 세션 TZ 와 무관하게 UTC 경계로 자른다 — 아래 빈 버킷 채우기와 키가 맞아야 한다
+      bucket: sql<string>`date_trunc(${sql.raw(`'${trunc}'`)}, ${pushClicks.clickedAt} at time zone 'UTC') at time zone 'UTC'`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(pushClicks)
+    .where(and(eq(pushClicks.logId, logId), eq(pushClicks.projectId, id)))
+    .groupBy(sql`1`)
+    .orderBy(sql`1`);
+
+  const byBucket = new Map(bucketRows.map((r) => [new Date(r.bucket).toISOString(), r.count]));
+  const start = new Date(startMs);
+  if (byDay) start.setUTCHours(0, 0, 0, 0);
+  else start.setUTCMinutes(0, 0, 0);
+
+  const series: Array<{ ts: string; count: number; cumulative: number }> = [];
+  let running = 0;
+  for (let t = start.getTime(); t <= lastMs; t += bucketMs) {
+    const ts = new Date(t).toISOString();
+    const count = byBucket.get(ts) ?? 0;
+    running += count;
+    series.push({ ts, count, cumulative: running });
+    if (series.length >= 400) break; // 축이 감당 못 하는 길이는 끊는다
+  }
+
+  return ok({
+    log,
+    readers,
+    series,
+    bucket: trunc,
+    next: hasMore ? readers[readers.length - 1]?.clickedAt : null,
+  });
 }

@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   FolderKanban,
   Send,
-  ScrollText,
   Users,
   UsersRound,
   Smartphone,
@@ -77,7 +76,6 @@ export function projectNavGroups(id: string): NavGroup[] {
     {
       labelKey: "logs",
       items: [
-        { labelKey: "logsAll", href: `/projects/${id}/logs`, icon: ScrollText, exact: true },
         { labelKey: "logsSingle", href: `/projects/${id}/logs/single`, icon: MailCheck },
         { labelKey: "logsTopic", href: `/projects/${id}/logs/topic`, icon: Megaphone },
       ],

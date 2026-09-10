@@ -28,7 +28,6 @@
     "devices": "디바이스",
     "topics": "토픽",
     "suppressions": "수신 거부",
-    "logsAll": "전체",
     "logsSingle": "단건 푸시",
     "logsTopic": "토픽 푸시"
   },
@@ -208,7 +207,15 @@
     "readers": "읽은 사람",
     "noReaders": "아직 읽은 사람이 없습니다",
     "anonymousReader": "익명 디바이스",
-    "readRateHint": "유저 {audience}명 중 {read}명이 읽었습니다"
+    "readRateHint": "유저 {audience}명 중 {read}명이 읽었습니다",
+    "readTrend": "읽은 수 추이",
+    "readsPerBucket": "읽음",
+    "readsCumulative": "누적",
+    "readerTable": "전체 목록 ({count})",
+    "colUser": "유저",
+    "colPlatform": "플랫폼",
+    "colDestination": "이동한 곳",
+    "colReadAt": "읽은 시각"
   },
   "projects": {
     "title": "프로젝트",

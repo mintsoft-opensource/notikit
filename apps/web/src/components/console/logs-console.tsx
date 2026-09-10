@@ -4,6 +4,7 @@ import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { RefreshCw, Play, ScrollText, ChevronDown, ChevronRight, MousePointerClick } from "lucide-react";
+import { LiveChart } from "@/components/system/live-chart";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -46,45 +47,130 @@ function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" 
   return "neutral";
 }
 
+type ReadPoint = { ts: string; count: number; cumulative: number };
+type ReadersResponse = { readers: Reader[]; series: ReadPoint[]; bucket: "hour" | "day"; next: string | null };
+
 /**
- * 이 발송을 읽은(알림을 누른) 사람 목록.
- * 펼칠 때 처음 한 번만 불러온다 — 목록 전체를 미리 받으면 로그 화면이 느려진다.
+ * 이 발송을 읽은(알림을 누른) 사람 — 시간순 추이 + 전체 표.
+ * 펼칠 때 처음 한 번만 불러온다. 목록 50건의 수신자를 미리 다 받으면 로그 화면이 느려진다.
  */
-function Readers({ projectId, logId }: { projectId: string; logId: string }) {
+function ReaderDetail({ projectId, logId }: { projectId: string; logId: string }) {
   const t = useTranslations("logs");
+  const tc = useTranslations("common");
   const locale = useLocale();
-  const [readers, setReaders] = React.useState<Reader[] | null>(null);
+  const [data, setData] = React.useState<ReadersResponse | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const [more, setMore] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
-    adminApi<{ readers: Reader[] }>(`/api/admin/projects/${projectId}/logs/${logId}/readers`)
-      .then((d) => alive && setReaders(d.readers))
+    adminApi<ReadersResponse>(`/api/admin/projects/${projectId}/logs/${logId}/readers`)
+      .then((d) => alive && setData(d))
       .catch(() => alive && setFailed(true));
     return () => { alive = false; };
   }, [projectId, logId]);
 
-  const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
+  async function loadMore() {
+    if (!data?.next || more) return;
+    setMore(true);
+    try {
+      const d = await adminApi<ReadersResponse>(
+        `/api/admin/projects/${projectId}/logs/${logId}/readers?before=${encodeURIComponent(data.next)}`
+      );
+      setData((cur) => (cur ? { ...cur, readers: [...cur.readers, ...d.readers], next: d.next } : cur));
+    } catch {
+      /* 다음 시도에서 재요청 */
+    } finally {
+      setMore(false);
+    }
+  }
 
-  if (failed) return <p className="px-5 py-4 text-sm text-muted-foreground">{t("loadFailed")}</p>;
-  if (!readers) return <div className="space-y-2 px-5 py-4"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /></div>;
-  if (readers.length === 0) return <p className="px-5 py-4 text-sm text-muted-foreground">{t("noReaders")}</p>;
+  const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const bucketFmt = React.useMemo(
+    () =>
+      data?.bucket === "day"
+        ? new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" })
+        : new Intl.DateTimeFormat(locale, { hour: "numeric" }),
+    [locale, data?.bucket]
+  );
+
+  if (failed) return <p className="border-t border-border px-5 py-4 text-sm text-muted-foreground">{t("loadFailed")}</p>;
+  if (!data) {
+    return (
+      <div className="space-y-2 border-t border-border px-5 py-4">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+    );
+  }
 
   return (
-    <ul className="divide-y divide-border border-t border-border bg-surface-muted/20">
-      {readers.map((r) => (
-        <li key={r.id} className="grid gap-x-4 gap-y-1 py-2.5 pl-10 pr-5 sm:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_9rem] sm:items-center">
-          <span className="truncate font-mono text-xs font-semibold">
-            {r.externalId ?? <span className="font-sans font-normal text-muted-foreground">{t("anonymousReader")}</span>}
-          </span>
-          <span className="text-2xs text-muted-foreground">{r.platform ?? "—"}</span>
-          <span className="truncate text-2xs text-muted-foreground">{r.destination ?? "—"}</span>
-          <time dateTime={r.clickedAt} className="text-2xs tabular-nums text-muted-foreground sm:text-right">
-            {df.format(new Date(r.clickedAt))}
-          </time>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-4 border-t border-border bg-surface-muted/20 px-5 py-4">
+      <section>
+        <h4 className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("readTrend")}</h4>
+        {data.series.some((p) => p.count > 0) ? (
+          <LiveChart
+            label={t("readTrend")}
+            integerY
+            area
+            height={140}
+            times={data.series.map((p) => new Date(p.ts).getTime())}
+            formatY={(v) => nf.format(Math.round(v))}
+            formatTime={(ms) => bucketFmt.format(ms)}
+            series={[
+              { key: "reads", label: t("readsPerBucket"), color: "var(--chart-2)", values: data.series.map((p) => p.count) },
+              { key: "cumulative", label: t("readsCumulative"), color: "var(--chart-1)", values: data.series.map((p) => p.cumulative) },
+            ]}
+          />
+        ) : (
+          <p className="py-6 text-center text-sm text-muted-foreground">{t("noReaders")}</p>
+        )}
+      </section>
+
+      <section>
+        <h4 className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          {t("readerTable", { count: nf.format(data.readers.length) })}
+        </h4>
+        {data.readers.length === 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">{t("noReaders")}</p>
+        ) : (
+          <div className="overflow-x-auto rounded-tile border border-border bg-surface">
+            <table className="w-full min-w-[36rem] text-left">
+              <thead className="border-b border-border">
+                <tr className="text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                  <th scope="col" className="px-3 py-2">{t("colUser")}</th>
+                  <th scope="col" className="px-3 py-2">{t("colPlatform")}</th>
+                  <th scope="col" className="px-3 py-2">{t("colDestination")}</th>
+                  <th scope="col" className="px-3 py-2 text-right">{t("colReadAt")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {data.readers.map((r) => (
+                  <tr key={r.id}>
+                    <td className="max-w-0 truncate px-3 py-2 font-mono text-xs font-semibold">
+                      {r.externalId ?? <span className="font-sans font-normal text-muted-foreground">{t("anonymousReader")}</span>}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{r.platform ?? "—"}</td>
+                    <td className="max-w-0 truncate px-3 py-2 text-xs text-muted-foreground">{r.destination ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-muted-foreground">
+                      <time dateTime={r.clickedAt}>{df.format(new Date(r.clickedAt))}</time>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.next && (
+              <div className="flex justify-center border-t border-border p-2">
+                <Button variant="outline" size="sm" onClick={loadMore} disabled={more}>
+                  {more ? tc("loading") : tc("loadMore")}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -212,7 +298,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                       </span>
                       <div className="justify-self-end"><Badge variant={statusVariant(l.status)}>{l.status}</Badge></div>
                     </div>
-                    {expandable && isOpen && <Readers projectId={sel} logId={l.id} />}
+                    {expandable && isOpen && <ReaderDetail projectId={sel} logId={l.id} />}
                   </li>
                 );
               })}

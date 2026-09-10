@@ -28,7 +28,6 @@
     "devices": "Devices",
     "topics": "Topics",
     "suppressions": "Suppressions",
-    "logsAll": "All",
     "logsSingle": "Direct pushes",
     "logsTopic": "Topic pushes"
   },
@@ -208,7 +207,15 @@
     "readers": "Who opened it",
     "noReaders": "Nobody has opened this yet",
     "anonymousReader": "Anonymous device",
-    "readRateHint": "{read} of {audience} users opened it"
+    "readRateHint": "{read} of {audience} users opened it",
+    "readTrend": "Reads over time",
+    "readsPerBucket": "Reads",
+    "readsCumulative": "Cumulative",
+    "readerTable": "All readers ({count})",
+    "colUser": "User",
+    "colPlatform": "Platform",
+    "colDestination": "Landed on",
+    "colReadAt": "Read at"
   },
   "projects": {
     "title": "פרויקטים",
