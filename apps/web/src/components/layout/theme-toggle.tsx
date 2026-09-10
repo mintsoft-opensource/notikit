@@ -3,14 +3,12 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Moon, Sun } from "lucide-react";
+import { useDarkMode } from "./use-dark-mode";
 
 export function ThemeToggle() {
   const t = useTranslations("common");
-  const [dark, setDark] = React.useState(false);
-
-  React.useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  // 클래스 변화를 관찰하므로 다른 곳에서 테마가 바뀌어도 아이콘이 어긋나지 않는다
+  const dark = useDarkMode();
 
   function toggle() {
     const next = !document.documentElement.classList.contains("dark");
@@ -20,7 +18,6 @@ export function ThemeToggle() {
     } catch {
       /* ignore */
     }
-    setDark(next);
   }
 
   return (

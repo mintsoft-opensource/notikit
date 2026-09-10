@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
-import { Toaster } from "sonner";
+import { AppToaster } from "@/components/layout/app-toaster";
 import { localeDir } from "@/i18n/request";
 import "./globals.css";
 
@@ -40,7 +40,7 @@ export default async function RootLayout({
       <body className="min-h-full bg-background-alt text-foreground">
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
-          <Toaster position="top-center" richColors />
+          <AppToaster />
         </NextIntlClientProvider>
       </body>
     </html>

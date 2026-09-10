@@ -145,15 +145,15 @@
    * 글씨 크기는 **여기서만** 조절한다. html{font-size} 를 건드리면 rem 기반 spacing
    * (padding/gap/width)까지 같이 움직여 레이아웃이 통째로 바뀐다.
    * px 주석은 브라우저 기본 16px 기준. 관리 콘솔이라 goji 보다 한 단계 촘촘하게 잡았다. */
-  --text-2xs: 0.625rem;     /* 10 — caption */
+  --text-2xs: 0.625rem;     /* 10 — caption. 아래 두 단계는 가독성 하한이라 더 줄이지 않는다 */
   --text-xs: 0.6875rem;     /* 11 — small label */
-  --text-sm: 0.75rem;       /* 12 — body */
-  --text-base: 0.8125rem;   /* 13 — input text */
-  --text-md: 0.875rem;      /* 14 — card title */
-  --text-lg: 1rem;          /* 16 — page subtitle */
-  --text-xl: 1.25rem;       /* 20 — section header */
-  --text-2xl: 1.5rem;       /* 24 — h1 */
-  --text-3xl: 1.875rem;     /* 30 — display */
+  --text-sm: 0.71875rem;    /* 11.5 — body */
+  --text-base: 0.75rem;     /* 12 — input text */
+  --text-md: 0.8125rem;     /* 13 — card title */
+  --text-lg: 0.9375rem;     /* 15 — page subtitle */
+  --text-xl: 1.125rem;      /* 18 — section header */
+  --text-2xl: 1.375rem;     /* 22 — h1 */
+  --text-3xl: 1.6875rem;    /* 27 — display */
 }
 
 html,
