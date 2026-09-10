@@ -3,6 +3,8 @@ import postgres from "postgres";
 import { scryptSync, randomBytes } from "node:crypto";
 
 const ADMIN = { email: "e2e-admin@notikit.dev", password: "e2e-password-1234" };
+/** 프로그램적 superadmin 토큰 — 세션 로그인 계정(ADMIN)과 다르다 */
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? "e2e-admin-token";
 const ORIGIN = `http://localhost:${process.env.E2E_PORT ?? "3100"}`;
 const DB_URL = process.env.DATABASE_URL ?? "postgres://notikit:notikit@localhost:5432/notikit_e2e";
 
@@ -336,5 +338,69 @@ test.describe("smoke", () => {
     expect(res.status()).toBe(200);
     const html = await res.text();
     expect(html).toContain("api-reference");
+  });
+
+  test("오디언스: 유저·디바이스·토픽·수신거부 화면이 뜨고 나란히 링크된다", async ({ page, request }) => {
+    await ensureLogin(page);
+    const res = await request.get("/api/admin/projects", { headers: { "x-admin-token": ADMIN_TOKEN } });
+    const pid = (await res.json()).data.projects[0].id as string;
+
+    for (const [path, heading] of [
+      ["users", "유저"],
+      ["devices", "디바이스"],
+      ["topics", "토픽"],
+      ["suppressions", "수신 거부"],
+    ] as const) {
+      await page.goto(`/projects/${pid}/${path}`);
+      await expect(page.getByRole("main").getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    }
+
+    // 사이드바에 오디언스 그룹이 노출된다
+    const nav = page.getByRole("navigation").first();
+    for (const label of ["유저", "디바이스", "토픽", "수신 거부"]) {
+      await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+    }
+  });
+
+  test("오디언스 API: 토픽 생성·삭제 + 수신거부 추가·해제", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN_TOKEN }, data: { name: `aud-${Date.now()}` } });
+    const pid = (await created.json()).data.project.id as string;
+    const admin = { "x-admin-token": ADMIN_TOKEN };
+
+    const mk = await request.post(`/api/admin/projects/${pid}/audience/topics`, { headers: admin, data: { name: "news" } });
+    expect(mk.status()).toBe(201);
+    const list = await request.get(`/api/admin/projects/${pid}/audience/topics`, { headers: admin });
+    expect((await list.json()).data.topics[0]).toMatchObject({ name: "news", userCount: 0, deviceCount: 0 });
+    const del = await request.delete(`/api/admin/projects/${pid}/audience/topics?name=news`, { headers: admin });
+    expect(del.status()).toBe(200);
+
+    const sup = await request.post(`/api/admin/projects/${pid}/audience/suppressions`, { headers: admin, data: { external_id: "user-9", reason: "opt_out" } });
+    expect(sup.status()).toBe(201);
+    const sid = (await sup.json()).data.suppression.id as string;
+
+    // 타 프로젝트 id 로는 지울 수 없다
+    const other = await request.post("/api/admin/projects", { headers: admin, data: { name: `aud2-${Date.now()}` } });
+    const otherPid = (await other.json()).data.project.id as string;
+    const cross = await request.delete(`/api/admin/projects/${otherPid}/audience/suppressions?id=${sid}`, { headers: admin });
+    expect(cross.status()).toBe(404);
+
+    const gone = await request.delete(`/api/admin/projects/${pid}/audience/suppressions?id=${sid}`, { headers: admin });
+    expect(gone.status()).toBe(200);
+  });
+
+  test("디바이스 목록: 토큰 원문을 노출하지 않는다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN_TOKEN }, data: { name: `dev-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const token = `secret-token-${Date.now()}`;
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token, platform: "android" } });
+
+    const res = await request.get(`/api/admin/projects/${pid}/audience/devices`, { headers: { "x-admin-token": ADMIN_TOKEN } });
+    const body = await res.text();
+    expect(body).not.toContain(token);
+    const d = JSON.parse(body).data;
+    expect(d.devices[0].tokenPreview).toContain("…");
+    expect(d.summary).toMatchObject({ total: 1, active: 1, anonymous: 1 });
   });
 });

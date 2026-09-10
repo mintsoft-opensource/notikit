@@ -4,6 +4,10 @@ import {
   Send,
   ScrollText,
   Users,
+  UsersRound,
+  Smartphone,
+  Radio,
+  BellOff,
   GitBranch,
   Webhook,
   BookOpen,
@@ -67,6 +71,15 @@ export function projectNavGroups(id: string): NavGroup[] {
         { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
         { labelKey: "send", href: `/projects/${id}/send`, icon: Send },
         { labelKey: "logs", href: `/projects/${id}/logs`, icon: ScrollText },
+      ],
+    },
+    {
+      labelKey: "audience",
+      items: [
+        { labelKey: "users", href: `/projects/${id}/users`, icon: UsersRound },
+        { labelKey: "devices", href: `/projects/${id}/devices`, icon: Smartphone },
+        { labelKey: "topics", href: `/projects/${id}/topics`, icon: Radio },
+        { labelKey: "suppressions", href: `/projects/${id}/suppressions`, icon: BellOff },
       ],
     },
     {
