@@ -403,4 +403,24 @@ test.describe("smoke", () => {
     expect(d.devices[0].tokenPreview).toContain("…");
     expect(d.summary).toMatchObject({ total: 1, active: 1, anonymous: 1 });
   });
+
+  test("통계 그룹: 접속·참여·설치 변동 화면이 뜨고 사이드바에 묶여 있다", async ({ page, request }) => {
+    await ensureLogin(page);
+    const res = await request.get("/api/admin/projects", { headers: { "x-admin-token": ADMIN_TOKEN } });
+    const pid = (await res.json()).data.projects[0].id as string;
+
+    for (const [path, heading] of [
+      ["activity", "접속 통계"],
+      ["engagement", "참여"],
+      ["installs", "설치 변동"],
+    ] as const) {
+      await page.goto(`/projects/${pid}/${path}`);
+      await expect(page.getByRole("main").getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    }
+
+    const nav = page.getByRole("navigation").first();
+    for (const label of ["접속", "참여", "설치 변동"]) {
+      await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+    }
+  });
 });

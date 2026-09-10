@@ -30,7 +30,10 @@
     "suppressions": "Suppressions",
     "logsSingle": "Direct pushes",
     "logsTopic": "Topic pushes",
-    "activity": "Activity"
+    "stats": "Analytics",
+    "statsActivity": "Activity",
+    "statsEngagement": "Engagement",
+    "statsInstalls": "Installs"
   },
   "header": {
     "openMenu": "打开菜单",
@@ -483,5 +486,23 @@
     "opensHint": "Every reported open, not deduplicated",
     "platformsTitle": "By platform",
     "empty": "No activity recorded yet"
+  },
+  "engagementStats": {
+    "title": "Engagement",
+    "subtitle": "Click funnel and read rate per message",
+    "byMessage": "By message",
+    "byMessageHint": "Sorted by read rate — sends with no audience sort last",
+    "colMessage": "Message",
+    "colType": "Target",
+    "colAudience": "Audience",
+    "colReaders": "Read",
+    "colRate": "Rate",
+    "colSentAt": "Sent"
+  },
+  "installs": {
+    "title": "Installs",
+    "eventLog": "Event log",
+    "filterEvent": "Event",
+    "allEvents": "All events"
   }
 }

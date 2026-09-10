@@ -9,6 +9,8 @@ import {
   BellOff,
   Megaphone,
   MailCheck,
+  BarChart3,
+  PackageMinus,
   GitBranch,
   Webhook,
   BookOpen,
@@ -81,9 +83,16 @@ export function projectNavGroups(id: string): NavGroup[] {
       ],
     },
     {
+      labelKey: "stats",
+      items: [
+        { labelKey: "statsActivity", href: `/projects/${id}/activity`, icon: Activity },
+        { labelKey: "statsEngagement", href: `/projects/${id}/engagement`, icon: BarChart3 },
+        { labelKey: "statsInstalls", href: `/projects/${id}/installs`, icon: PackageMinus },
+      ],
+    },
+    {
       labelKey: "audience",
       items: [
-        { labelKey: "activity", href: `/projects/${id}/activity`, icon: Activity },
         { labelKey: "users", href: `/projects/${id}/users`, icon: UsersRound },
         { labelKey: "devices", href: `/projects/${id}/devices`, icon: Smartphone },
         { labelKey: "topics", href: `/projects/${id}/topics`, icon: Radio },

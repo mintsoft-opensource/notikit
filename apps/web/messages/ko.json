@@ -30,7 +30,10 @@
     "suppressions": "수신 거부",
     "logsSingle": "단건 푸시",
     "logsTopic": "토픽 푸시",
-    "activity": "접속 통계"
+    "stats": "통계",
+    "statsActivity": "접속",
+    "statsEngagement": "참여",
+    "statsInstalls": "설치 변동"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -483,5 +486,23 @@
     "opensHint": "보고된 모든 열림 — 중복 제거하지 않습니다",
     "platformsTitle": "플랫폼별",
     "empty": "기록된 접속이 없습니다"
+  },
+  "engagementStats": {
+    "title": "참여",
+    "subtitle": "클릭 퍼널과 발송별 읽음률",
+    "byMessage": "발송별",
+    "byMessageHint": "읽음률 순 — 대상이 없는 발송은 뒤로 정렬됩니다",
+    "colMessage": "메시지",
+    "colType": "대상",
+    "colAudience": "대상 수",
+    "colReaders": "읽음",
+    "colRate": "읽음률",
+    "colSentAt": "발송"
+  },
+  "installs": {
+    "title": "설치 변동",
+    "eventLog": "이벤트 로그",
+    "filterEvent": "이벤트",
+    "allEvents": "전체 이벤트"
   }
 }
