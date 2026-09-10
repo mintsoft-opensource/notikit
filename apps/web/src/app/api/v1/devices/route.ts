@@ -6,6 +6,7 @@ import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { verifyIdentity } from "@/lib/keys";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { recordReinstall } from "@/lib/device-events";
+import { recordAccess } from "@/lib/device-activity";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -126,6 +127,8 @@ export async function POST(req: Request) {
     .returning();
 
   const device = rows[0];
+  // 등록도 접속이다 — 첫 실행 직후의 활동이 통계에서 빠지지 않게
+  if (device) await recordAccess(db, project.id, device);
   if (before && !before.isActive && device) {
     await recordReinstall(db, project.id, { id: device.id, userId: device.userId, platform: device.platform });
   }

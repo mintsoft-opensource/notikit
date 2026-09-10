@@ -29,7 +29,8 @@
     "topics": "Topics",
     "suppressions": "Suppressions",
     "logsSingle": "Direct pushes",
-    "logsTopic": "Topic pushes"
+    "logsTopic": "Topic pushes",
+    "activity": "Activity"
   },
   "header": {
     "openMenu": "開啟選單",
@@ -460,5 +461,27 @@
     "suppressionRemoved": "Removed",
     "suppressionRemove": "Remove",
     "noSuppressions": "Nothing suppressed"
+  },
+  "activity": {
+    "title": "Activity",
+    "subtitle": "App opens and active devices over time",
+    "rangeLabel": "Range",
+    "range_7d": "Last 7 days",
+    "range_30d": "Last 30 days",
+    "range_90d": "Last 90 days",
+    "dau": "Daily active",
+    "wau": "Weekly active",
+    "mau": "Monthly active",
+    "usersHint": "{count} users",
+    "stickiness": "Stickiness",
+    "stickinessHint": "DAU / MAU",
+    "chartTitle": "Active devices per day",
+    "chartHint": "A device counts once per UTC day",
+    "activeDevices": "Devices",
+    "activeUsers": "Users",
+    "opensTitle": "App opens",
+    "opensHint": "Every reported open, not deduplicated",
+    "platformsTitle": "By platform",
+    "empty": "No activity recorded yet"
   }
 }

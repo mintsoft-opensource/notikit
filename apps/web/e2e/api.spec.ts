@@ -663,4 +663,52 @@ test.describe("App SDK API 전체 플로우", () => {
     const cross = await request.get(`/api/admin/projects/${otherPid}/logs/${topicLog}/readers`, { headers: admin });
     expect(cross.status()).toBe(404);
   });
+
+  test("접속 통계: ping 이 일별 롤업을 만들고 같은 날 재호출은 opens 만 올린다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `act-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const admin = { "x-admin-token": ADMIN };
+    const ext = "active-user";
+    const token = `act-tok-${Date.now()}`;
+
+    // 등록 자체가 접속 1회로 잡힌다
+    await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token, platform: "ios", external_id: ext, identity_hash: idHash(ext, apiSecret) },
+    });
+
+    const first = await request.get(`/api/admin/projects/${pid}/activity`, { headers: admin });
+    const f = (await first.json()).data;
+    expect(f.dau).toMatchObject({ devices: 1, users: 1 });
+    expect(f.mau.devices).toBe(1);
+    expect(f.opens).toBe(1);
+    expect(f.platforms).toMatchObject({ ios: 1 });
+    // DAU/MAU 는 1/1
+    expect(f.stickiness).toBe(1);
+
+    // 같은 날 ping 두 번 → 디바이스는 그대로, opens 만 증가
+    for (let i = 0; i < 2; i++) {
+      const p = await request.post("/api/v1/devices/ping", { headers: { "api-key": apiKey }, data: { token } });
+      expect(p.status()).toBe(202);
+    }
+    const second = await request.get(`/api/admin/projects/${pid}/activity`, { headers: admin });
+    const sJson = (await second.json()).data;
+    expect(sJson.dau.devices).toBe(1);
+    expect(sJson.opens).toBe(3);
+
+    // 버킷은 요청 범위만큼 빠짐없이 채워진다
+    expect(sJson.buckets).toHaveLength(30);
+    expect(sJson.buckets.at(-1)).toMatchObject({ devices: 1, users: 1, opens: 3 });
+
+    // 미등록 토큰은 거부 — 아무 토큰이나 DAU 를 만들 수 없게
+    const unknown = await request.post("/api/v1/devices/ping", { headers: { "api-key": apiKey }, data: { token: "nope" } });
+    expect(unknown.status()).toBe(404);
+
+    // 범위 밖 값은 기본(30d)으로 떨어진다
+    const bad = await request.get(`/api/admin/projects/${pid}/activity?range=constructor`, { headers: admin });
+    expect((await bad.json()).data.range).toBe("30d");
+  });
 });

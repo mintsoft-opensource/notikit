@@ -86,6 +86,13 @@ class Notikit {
     });
   }
 
+  /// 앱 열림 보고 — 접속 통계(DAU/WAU/MAU)의 원천.
+  ///
+  /// registerDevice 는 무거우므로 앱을 열 때마다는 이쪽을 쓴다.
+  Future<Map<String, dynamic>> ping(String token) {
+    return _post('/api/v1/devices/ping', {'token': token});
+  }
+
   /// 토픽 구독
   Future<Map<String, dynamic>> subscribe(String topic, String token) {
     return _post('/api/v1/topics/subscribe', {'topic': topic, 'token': token});

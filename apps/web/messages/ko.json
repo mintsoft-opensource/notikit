@@ -29,7 +29,8 @@
     "topics": "토픽",
     "suppressions": "수신 거부",
     "logsSingle": "단건 푸시",
-    "logsTopic": "토픽 푸시"
+    "logsTopic": "토픽 푸시",
+    "activity": "접속 통계"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -460,5 +461,27 @@
     "suppressionRemoved": "해제했습니다",
     "suppressionRemove": "해제",
     "noSuppressions": "등록된 대상이 없습니다"
+  },
+  "activity": {
+    "title": "접속 통계",
+    "subtitle": "앱 열림과 활성 디바이스 추이",
+    "rangeLabel": "기간",
+    "range_7d": "최근 7일",
+    "range_30d": "최근 30일",
+    "range_90d": "최근 90일",
+    "dau": "일간 활성",
+    "wau": "주간 활성",
+    "mau": "월간 활성",
+    "usersHint": "유저 {count}",
+    "stickiness": "고착도",
+    "stickinessHint": "DAU / MAU",
+    "chartTitle": "일별 활성 디바이스",
+    "chartHint": "한 디바이스는 UTC 하루에 한 번만 셉니다",
+    "activeDevices": "디바이스",
+    "activeUsers": "유저",
+    "opensTitle": "앱 열림",
+    "opensHint": "보고된 모든 열림 — 중복 제거하지 않습니다",
+    "platformsTitle": "플랫폼별",
+    "empty": "기록된 접속이 없습니다"
   }
 }

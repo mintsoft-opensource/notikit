@@ -158,6 +158,19 @@ export class NotikitSession {
     }
   }
 
+  /**
+   * 앱 열림 보고. 실패해도 재시도하지 않는다 — 접속 통계는 하루 단위 집계라
+   * 한 번 놓쳐도 그 날의 DAU 는 다음 열림에서 회복된다.
+   */
+  async trackOpen(token: string): Promise<boolean> {
+    try {
+      await this.client.ping(token);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** 밀린 클릭 재전송 — SDK 초기화 직후·앱 포그라운드 진입 시 호출 */
   async flush(): Promise<number> {
     await this.retryPendingUnbind();

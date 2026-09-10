@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   doublePrecision,
   bigint,
+  date,
 } from "drizzle-orm/pg-core";
 
 /** 조직/워크스페이스 (테넌트 최상위) */
@@ -194,6 +195,30 @@ export const pushLogs = pgTable("push_logs", {
 }));
 
 /**
+ * 일별 접속 롤업 — 디바이스가 활동한 날 하루당 한 행.
+ *
+ * 접속을 이벤트로 전부 쌓으면 앱을 열 때마다 행이 생겨 감당이 안 된다. 하루 단위로
+ * 접어두면 DAU/WAU/MAU 와 추이를 낼 수 있으면서 크기가 (디바이스 × 활동일)로 묶인다.
+ * devices.lastActiveAt 은 "마지막"만 알려주므로 과거 추이를 만들 수 없다.
+ *
+ * day 는 UTC 날짜다. 서버 로컬시각을 쓰면 배포 지역에 따라 같은 데이터가 다르게 집계된다.
+ */
+export const deviceActivity = pgTable("device_activity", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
+  platform: text("platform"),
+  day: date("day").notNull(),
+  // 그 날 몇 번 열었는지 — DAU 와 별개로 사용 강도를 본다
+  opens: integer("opens").notNull().default(1),
+  lastAt: timestamp("last_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uniqDay: uniqueIndex("device_activity_uniq_idx").on(t.deviceId, t.day),
+  projDayIdx: index("device_activity_day_idx").on(t.projectId, t.day),
+}));
+
+/**
  * 디바이스 생애 이벤트 — 앱 삭제/재설치 추적.
  *
  * FCM 이 `registration-token-not-registered` 를 돌려주는 것이 사실상 유일한 **앱 삭제 신호**다.
@@ -353,3 +378,4 @@ export type Device = typeof devices.$inferSelect;
 export type PushUser = typeof pushUsers.$inferSelect;
 export type PushLog = typeof pushLogs.$inferSelect;
 export type PushClick = typeof pushClicks.$inferSelect;
+export type DeviceActivity = typeof deviceActivity.$inferSelect;

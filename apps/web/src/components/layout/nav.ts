@@ -83,6 +83,7 @@ export function projectNavGroups(id: string): NavGroup[] {
     {
       labelKey: "audience",
       items: [
+        { labelKey: "activity", href: `/projects/${id}/activity`, icon: Activity },
         { labelKey: "users", href: `/projects/${id}/users`, icon: UsersRound },
         { labelKey: "devices", href: `/projects/${id}/devices`, icon: Smartphone },
         { labelKey: "topics", href: `/projects/${id}/topics`, icon: Radio },
