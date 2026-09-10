@@ -3,6 +3,7 @@
 /// FCM 토큰은 firebase_messaging 플러그인이 획득하고, 이 SDK 가 서버에 등록한다.
 library notikit;
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -153,6 +154,42 @@ class Notikit {
     if (logId == null) return false;
     await reportClick(logId: logId, token: token, destination: destination);
     return true;
+  }
+
+  /// 알림 탭 스트림을 붙여 클릭 보고를 자동화한다.
+  ///
+  /// firebase_messaging 에 의존하지 않으려고 스트림과 초기 메시지를 **인자로 받는다**.
+  /// 앱에서 한 번만 연결하면 이후 탭은 자동으로 보고된다:
+  ///
+  ///     final sub = notikit.attachTapStream(
+  ///       onOpened: FirebaseMessaging.onMessageOpenedApp.map((m) => m.data),
+  ///       initialMessage: (await FirebaseMessaging.instance.getInitialMessage())?.data,
+  ///       token: () => currentToken,
+  ///     );
+  ///
+  /// 토큰은 갱신될 수 있어 값이 아니라 콜백으로 받는다 — 값으로 받으면 갱신 후
+  /// 클릭이 서버에서 매칭되지 않는다.
+  ///
+  /// 반환한 구독은 앱 종료 시 취소한다.
+  StreamSubscription<Map<String, dynamic>> attachTapStream({
+    required Stream<Map<String, dynamic>> onOpened,
+    required String? Function() token,
+    Map<String, dynamic>? initialMessage,
+  }) {
+    // 앱이 알림 탭으로 콜드 스타트된 경우 — 스트림에는 오지 않으므로 따로 처리한다
+    if (initialMessage != null) {
+      final tok = token();
+      if (tok != null) {
+        unawaited(handleNotificationOpen(data: initialMessage, token: tok));
+      }
+    }
+
+    return onOpened.listen((data) {
+      final tok = token();
+      if (tok == null) return;
+      // 보고 실패가 앱 흐름을 막지 않는다
+      unawaited(handleNotificationOpen(data: data, token: tok).catchError((_) => false));
+    });
   }
 
   /// 푸시 페이로드에서 notikit 이 예약해 쓰는 data 키
