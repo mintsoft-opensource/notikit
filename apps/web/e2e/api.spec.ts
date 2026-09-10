@@ -608,4 +608,59 @@ test.describe("App SDK API 전체 플로우", () => {
     const bad = await request.post(`/api/admin/projects/${pid2}/devices/check?min_interval_hours=-1`, { headers: { "x-admin-token": ADMIN }, data: {} });
     expect(bad.status()).toBe(422);
   });
+
+  test("로그 분리: type 필터 + 읽은 사람 목록(타 테넌트 차단)", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `rd-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const admin = { "x-admin-token": ADMIN };
+
+    const ext = "reader-1";
+    const token = `rd-tok-${Date.now()}`;
+    await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token, platform: "android", external_id: ext, identity_hash: idHash(ext, apiSecret) },
+    });
+    await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", token } });
+
+    const priv = { "api-key": apiKey, "api-secret": apiSecret };
+    const topicSend = await request.post("/api/v1/messages", { headers: priv, data: { title: "토픽", body: "b", type: "topic", target: "news" } });
+    const topicLog = (await topicSend.json()).data.message.id as string;
+    await request.post("/api/v1/messages", { headers: priv, data: { title: "단건", body: "b", type: "single", target: ext } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: admin, data: {} });
+
+    // type 필터가 실제로 갈라놓는다
+    const topics = await request.get(`/api/admin/projects/${pid}/logs?type=topic`, { headers: admin });
+    const tl = (await topics.json()).data.logs;
+    expect(tl).toHaveLength(1);
+    expect(tl[0]).toMatchObject({ type: "topic", target: "news" });
+
+    const singles = await request.get(`/api/admin/projects/${pid}/logs?type=single`, { headers: admin });
+    const sl = (await singles.json()).data.logs;
+    expect(sl).toHaveLength(1);
+    expect(sl[0].type).toBe("single");
+
+    // 클릭 전에는 읽은 사람이 없다
+    const before = await request.get(`/api/admin/projects/${pid}/logs/${topicLog}/readers`, { headers: admin });
+    expect((await before.json()).data.readers).toHaveLength(0);
+
+    await request.post("/api/v1/messages/click", {
+      headers: { "api-key": apiKey },
+      data: { log_id: topicLog, token, destination: "myapp://x" },
+    });
+
+    const after = await request.get(`/api/admin/projects/${pid}/logs/${topicLog}/readers`, { headers: admin });
+    const rj = (await after.json()).data;
+    expect(rj.readers).toHaveLength(1);
+    expect(rj.readers[0]).toMatchObject({ externalId: ext, platform: "android", destination: "myapp://x" });
+    expect(rj.log).toMatchObject({ type: "topic", clickUserCount: 1 });
+
+    // 타 프로젝트 경로로는 이 발송의 수신자 명단을 볼 수 없다
+    const other = await request.post("/api/admin/projects", { headers: admin, data: { name: `rd2-${Date.now()}` } });
+    const otherPid = (await other.json()).data.project.id as string;
+    const cross = await request.get(`/api/admin/projects/${otherPid}/logs/${topicLog}/readers`, { headers: admin });
+    expect(cross.status()).toBe(404);
+  });
 });

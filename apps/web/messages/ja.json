@@ -27,7 +27,10 @@
     "users": "Users",
     "devices": "Devices",
     "topics": "Topics",
-    "suppressions": "Suppressions"
+    "suppressions": "Suppressions",
+    "logsAll": "All",
+    "logsSingle": "Direct pushes",
+    "logsTopic": "Topic pushes"
   },
   "header": {
     "openMenu": "メニューを開く",
@@ -197,7 +200,15 @@
     "processResult": "処理 {processed} · 失敗 {failed}",
     "processFailed": "処理失敗",
     "loadFailed": "読み込み失敗",
-    "empty": "ログがありません。"
+    "empty": "ログがありません。",
+    "titleSingle": "Direct push log",
+    "subtitleSingle": "Pushes sent to one identified user",
+    "titleTopic": "Topic push log",
+    "subtitleTopic": "Broadcasts to a topic — expand a row to see who opened it",
+    "readers": "Who opened it",
+    "noReaders": "Nobody has opened this yet",
+    "anonymousReader": "Anonymous device",
+    "readRateHint": "{read} of {audience} users opened it"
   },
   "projects": {
     "title": "プロジェクト",

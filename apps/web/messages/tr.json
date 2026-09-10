@@ -27,7 +27,10 @@
     "users": "Users",
     "devices": "Devices",
     "topics": "Topics",
-    "suppressions": "Suppressions"
+    "suppressions": "Suppressions",
+    "logsAll": "All",
+    "logsSingle": "Direct pushes",
+    "logsTopic": "Topic pushes"
   },
   "header": {
     "openMenu": "Menüyü aç",
@@ -197,7 +200,15 @@
     "processResult": "İşlenen {processed} · başarısız {failed}",
     "processFailed": "İşleme başarısız",
     "loadFailed": "Yükleme başarısız",
-    "empty": "Günlük yok."
+    "empty": "Günlük yok.",
+    "titleSingle": "Direct push log",
+    "subtitleSingle": "Pushes sent to one identified user",
+    "titleTopic": "Topic push log",
+    "subtitleTopic": "Broadcasts to a topic — expand a row to see who opened it",
+    "readers": "Who opened it",
+    "noReaders": "Nobody has opened this yet",
+    "anonymousReader": "Anonymous device",
+    "readRateHint": "{read} of {audience} users opened it"
   },
   "projects": {
     "title": "Projeler",

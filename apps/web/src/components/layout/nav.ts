@@ -8,6 +8,8 @@ import {
   Smartphone,
   Radio,
   BellOff,
+  Megaphone,
+  MailCheck,
   GitBranch,
   Webhook,
   BookOpen,
@@ -70,7 +72,14 @@ export function projectNavGroups(id: string): NavGroup[] {
       items: [
         { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
         { labelKey: "send", href: `/projects/${id}/send`, icon: Send },
-        { labelKey: "logs", href: `/projects/${id}/logs`, icon: ScrollText },
+      ],
+    },
+    {
+      labelKey: "logs",
+      items: [
+        { labelKey: "logsAll", href: `/projects/${id}/logs`, icon: ScrollText, exact: true },
+        { labelKey: "logsSingle", href: `/projects/${id}/logs/single`, icon: MailCheck },
+        { labelKey: "logsTopic", href: `/projects/${id}/logs/topic`, icon: Megaphone },
       ],
     },
     {

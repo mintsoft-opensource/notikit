@@ -27,7 +27,10 @@
     "users": "유저",
     "devices": "디바이스",
     "topics": "토픽",
-    "suppressions": "수신 거부"
+    "suppressions": "수신 거부",
+    "logsAll": "전체",
+    "logsSingle": "단건 푸시",
+    "logsTopic": "토픽 푸시"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -197,7 +200,15 @@
     "processResult": "처리 {processed} · 실패 {failed}",
     "processFailed": "처리 실패",
     "loadFailed": "로드 실패",
-    "empty": "로그가 없습니다."
+    "empty": "로그가 없습니다.",
+    "titleSingle": "단건 푸시 로그",
+    "subtitleSingle": "특정 유저 한 명에게 보낸 푸시",
+    "titleTopic": "토픽 푸시 로그",
+    "subtitleTopic": "토픽 구독자에게 보낸 발송 — 행을 펼치면 읽은 사람이 보입니다",
+    "readers": "읽은 사람",
+    "noReaders": "아직 읽은 사람이 없습니다",
+    "anonymousReader": "익명 디바이스",
+    "readRateHint": "유저 {audience}명 중 {read}명이 읽었습니다"
   },
   "projects": {
     "title": "프로젝트",

@@ -27,7 +27,10 @@
     "users": "Users",
     "devices": "Devices",
     "topics": "Topics",
-    "suppressions": "Suppressions"
+    "suppressions": "Suppressions",
+    "logsAll": "All",
+    "logsSingle": "Direct pushes",
+    "logsTopic": "Topic pushes"
   },
   "header": {
     "openMenu": "打开菜单",
@@ -197,7 +200,15 @@
     "processResult": "处理 {processed} · 失败 {failed}",
     "processFailed": "处理失败",
     "loadFailed": "加载失败",
-    "empty": "暂无日志。"
+    "empty": "暂无日志。",
+    "titleSingle": "Direct push log",
+    "subtitleSingle": "Pushes sent to one identified user",
+    "titleTopic": "Topic push log",
+    "subtitleTopic": "Broadcasts to a topic — expand a row to see who opened it",
+    "readers": "Who opened it",
+    "noReaders": "Nobody has opened this yet",
+    "anonymousReader": "Anonymous device",
+    "readRateHint": "{read} of {audience} users opened it"
   },
   "projects": {
     "title": "项目",
