@@ -37,10 +37,15 @@ export async function POST(req: Request) {
     await db
       .select({ id: devices.id, userId: devices.userId, platform: devices.platform })
       .from(devices)
-      .where(and(eq(devices.projectId, project.id), eq(devices.token, parsed.data.token)))
+      // 비활성(앱 삭제 판정) 디바이스는 세지 않는다 — 세면 DAU 가 활성 디바이스 수를
+      // 넘는 자기모순이 생긴다. 재설치하면 등록이 다시 활성으로 되돌린다.
+      .where(and(eq(devices.projectId, project.id), eq(devices.token, parsed.data.token), eq(devices.isActive, true)))
       .limit(1)
   )[0];
-  if (!device) return fail("Device not found", 404);
+
+  // 모르는 토큰이어도 202 로 답한다. 404 로 갈라주면 공개 api-key 만 가진 쪽이
+  // 임의 토큰의 등록 여부를 확인하는 오라클이 된다. 기록은 하지 않으므로 통계는 안전하다.
+  if (!device) return ok({ recorded: false }, undefined, 202);
 
   await db
     .update(devices)

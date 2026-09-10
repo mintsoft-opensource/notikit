@@ -1,4 +1,5 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { suppressions } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -9,6 +10,7 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 const REASONS = ["opt_out", "bounced", "complaint", "manual"] as const;
+const LIMIT = 50;
 
 /**
  * [Web Admin] 억제 목록 — 절대 발송하지 않을 대상.
@@ -19,14 +21,37 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const authz = await requireProject(req, id);
   if (!authz.ok) return fail(authz.error, authz.status);
 
+  const cursor = parseCursor(new URL(req.url));
+  const conds = [eq(suppressions.projectId, id)];
+  // 200 하드캡이면 그 뒤의 억제는 조회도 해제도 불가능해진다(DELETE 가 id 를 요구하는데
+  // id 를 알 방법이 없다). 다른 목록과 같은 커서 페이징으로 맞춘다.
+  if (cursor) conds.push(beforeCursor(suppressions.createdAt, suppressions.id, cursor));
+
   const db = getDb();
   const rows = await db
-    .select()
+    // select() 로 통째로 내보내면 억제된 **토큰 원문**이 그대로 나간다 —
+    // 디바이스 목록에서 가려둔 값이 이쪽으로 새면 마스킹이 무의미해진다.
+    .select({
+      id: suppressions.id,
+      externalId: suppressions.externalId,
+      tokenPreview: sql<string | null>`case when ${suppressions.token} is null then null
+        when length(${suppressions.token}) <= 16 then '…' || right(${suppressions.token}, 4)
+        else left(${suppressions.token}, 8) || '…' || right(${suppressions.token}, 4) end`,
+      reason: suppressions.reason,
+      createdAt: suppressions.createdAt,
+      cursorTs: cursorExpr(suppressions.createdAt),
+    })
     .from(suppressions)
-    .where(eq(suppressions.projectId, id))
-    .orderBy(desc(suppressions.createdAt))
-    .limit(200);
-  return ok({ suppressions: rows });
+    .where(and(...conds))
+    .orderBy(desc(suppressions.createdAt), desc(suppressions.id))
+    .limit(LIMIT + 1);
+
+  const hasMore = rows.length > LIMIT;
+  const list = hasMore ? rows.slice(0, LIMIT) : rows;
+  return ok({
+    suppressions: list.map(({ cursorTs: _cursorTs, ...r }) => r),
+    next: nextCursor(list, hasMore),
+  });
 }
 
 const createSchema = z

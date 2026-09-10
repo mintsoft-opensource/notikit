@@ -24,6 +24,14 @@ type Lifecycle = {
   };
 };
 
+/** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
+type Cursor = { ts: string; id: string } | null;
+
+/** 커서를 쿼리스트링으로 */
+function cursorQuery(c: Cursor): string {
+  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
+}
+
 type DeviceEvent = {
   id: string;
   event: string;
@@ -49,7 +57,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
   const [failed, setFailed] = React.useState(false);
   const [event, setEvent] = React.useState("");
   const [events, setEvents] = React.useState<DeviceEvent[] | null>(null);
-  const [next, setNext] = React.useState<string | null>(null);
+  const [next, setNext] = React.useState<Cursor>(null);
   const [more, setMore] = React.useState(false);
   const reqRef = React.useRef(0);
   const evtRef = React.useRef(0);
@@ -71,7 +79,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
     const my = ++evtRef.current;
     setEvents(null);
     const q = event ? `?event=${event}` : "";
-    adminApi<{ events: DeviceEvent[]; next: string | null }>(`/api/admin/projects/${projectId}/device-events${q}`)
+    adminApi<{ events: DeviceEvent[]; next: Cursor }>(`/api/admin/projects/${projectId}/device-events${q}`)
       .then((d) => {
         if (my !== evtRef.current) return;
         setEvents(d.events);
@@ -86,8 +94,9 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
     try {
       const q = new URLSearchParams();
       if (event) q.set("event", event);
-      q.set("before", next);
-      const d = await adminApi<{ events: DeviceEvent[]; next: string | null }>(
+      q.set("before", next.ts);
+      q.set("before_id", next.id);
+      const d = await adminApi<{ events: DeviceEvent[]; next: Cursor }>(
         `/api/admin/projects/${projectId}/device-events?${q}`
       );
       setEvents((cur) => [...(cur ?? []), ...d.events]);

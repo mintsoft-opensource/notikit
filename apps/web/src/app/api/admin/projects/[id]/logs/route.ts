@@ -1,4 +1,5 @@
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { pushLogs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -20,13 +21,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const typeParam = url.searchParams.get("type");
   // 프로토타입 체인이 통과하지 않도록 명시적 허용 목록
   const type = TYPES.includes(typeParam as LogType) ? (typeParam as LogType) : null;
-  const beforeParam = url.searchParams.get("before");
-  const before = beforeParam ? new Date(beforeParam) : null;
-  if (before && Number.isNaN(before.getTime())) return fail("before must be an ISO timestamp", 422);
+  const cursor = parseCursor(url);
 
   const conds = [eq(pushLogs.projectId, id)];
   if (type) conds.push(eq(pushLogs.type, type));
-  if (before) conds.push(lt(pushLogs.createdAt, before));
+  if (cursor) conds.push(beforeCursor(pushLogs.createdAt, pushLogs.id, cursor));
 
   const db = getDb();
   // 요약 필드만 (수신자/본문/데이터/딥링크 등 민감정보 노출 방지)
@@ -48,13 +47,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       clickUserCount: pushLogs.clickUserCount,
       variantStats: pushLogs.variantStats,
       createdAt: pushLogs.createdAt,
+      cursorTs: cursorExpr(pushLogs.createdAt),
     })
     .from(pushLogs)
     .where(and(...conds))
-    .orderBy(desc(pushLogs.createdAt))
+    .orderBy(desc(pushLogs.createdAt), desc(pushLogs.id))
     .limit(LIMIT + 1);
 
   const hasMore = rows.length > LIMIT;
   const logs = hasMore ? rows.slice(0, LIMIT) : rows;
-  return ok({ logs, next: hasMore ? logs[logs.length - 1]?.createdAt : null });
+  return ok({ logs: logs.map(({ cursorTs: _cursorTs, ...l }) => l), next: nextCursor(logs, hasMore) });
 }

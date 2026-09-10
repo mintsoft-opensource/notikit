@@ -1,4 +1,5 @@
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { devices, pushUsers } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -25,23 +26,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const platformParam = url.searchParams.get("platform");
   const platform = PLATFORMS.includes(platformParam as Platform) ? (platformParam as Platform) : null;
   const activeParam = url.searchParams.get("active");
-  const beforeParam = url.searchParams.get("before");
-  const before = beforeParam ? new Date(beforeParam) : null;
-  if (before && Number.isNaN(before.getTime())) return fail("before must be an ISO timestamp", 422);
+  const cursor = parseCursor(url);
 
   const conds = [eq(devices.projectId, id)];
   if (platform) conds.push(eq(devices.platform, platform));
   if (activeParam === "true") conds.push(eq(devices.isActive, true));
   if (activeParam === "false") conds.push(eq(devices.isActive, false));
-  if (before) conds.push(lt(devices.createdAt, before));
+  if (cursor) conds.push(beforeCursor(devices.createdAt, devices.id, cursor));
 
   const db = getDb();
   const [rows, summary] = await Promise.all([
     db
       .select({
         id: devices.id,
-        // 앞 8 / 뒤 4 만 — 식별에는 충분하고 재사용에는 쓸 수 없다
-        tokenPreview: sql<string>`left(${devices.token}, 8) || '…' || right(${devices.token}, 4)`,
+        // 앞 8 / 뒤 4 만 — 식별에는 충분하고 재사용에는 쓸 수 없다.
+        // 짧은 토큰은 그 규칙이면 전부 드러나므로 뒤 4 만 남긴다.
+        tokenPreview: sql<string>`case when length(${devices.token}) <= 16
+          then '…' || right(${devices.token}, 4)
+          else left(${devices.token}, 8) || '…' || right(${devices.token}, 4) end`,
         platform: devices.platform,
         isActive: devices.isActive,
         appVersion: devices.appVersion,
@@ -50,12 +52,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         country: devices.country,
         lastActiveAt: devices.lastActiveAt,
         createdAt: devices.createdAt,
+        cursorTs: cursorExpr(devices.createdAt),
         externalId: pushUsers.externalId,
       })
       .from(devices)
       .leftJoin(pushUsers, eq(devices.userId, pushUsers.id))
       .where(and(...conds))
-      .orderBy(desc(devices.createdAt))
+      .orderBy(desc(devices.createdAt), desc(devices.id))
       .limit(LIMIT + 1),
     db
       .select({
@@ -71,8 +74,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const hasMore = rows.length > LIMIT;
   const list = hasMore ? rows.slice(0, LIMIT) : rows;
   return ok({
-    devices: list,
+    devices: list.map(({ cursorTs: _cursorTs, ...d }) => d),
     summary: summary[0] ?? { total: 0, active: 0, anonymous: 0 },
-    next: hasMore ? list[list.length - 1]?.createdAt : null,
+    next: nextCursor(list, hasMore),
   });
 }

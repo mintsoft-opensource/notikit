@@ -13,6 +13,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { adminApi } from "@/lib/admin-client";
 
+/** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
+type Cursor = { ts: string; id: string } | null;
+
+/** 커서를 쿼리스트링으로 */
+function cursorQuery(c: Cursor): string {
+  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
+}
+
 type PushUser = {
   id: string;
   externalId: string;
@@ -34,7 +42,7 @@ export function UsersConsole({ projectId }: { projectId: string }) {
 
   const [q, setQ] = React.useState("");
   const [users, setUsers] = React.useState<PushUser[] | null>(null);
-  const [next, setNext] = React.useState<string | null>(null);
+  const [next, setNext] = React.useState<Cursor>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const reqRef = React.useRef(0);
 
@@ -43,7 +51,7 @@ export function UsersConsole({ projectId }: { projectId: string }) {
       const my = ++reqRef.current;
       setUsers(null);
       try {
-        const d = await adminApi<{ users: PushUser[]; next: string | null }>(
+        const d = await adminApi<{ users: PushUser[]; next: Cursor }>(
           `/api/admin/projects/${projectId}/audience/users?q=${encodeURIComponent(search)}`
         );
         if (my !== reqRef.current) return; // 늦게 온 옛 응답이 최신 결과를 덮지 않게
@@ -68,8 +76,8 @@ export function UsersConsole({ projectId }: { projectId: string }) {
     if (!next || loadingMore) return;
     setLoadingMore(true);
     try {
-      const d = await adminApi<{ users: PushUser[]; next: string | null }>(
-        `/api/admin/projects/${projectId}/audience/users?q=${encodeURIComponent(q)}&before=${encodeURIComponent(next)}`
+      const d = await adminApi<{ users: PushUser[]; next: Cursor }>(
+        `/api/admin/projects/${projectId}/audience/users?q=${encodeURIComponent(q)}&${cursorQuery(next)}`
       );
       setUsers((cur) => [...(cur ?? []), ...d.users]);
       setNext(d.next);

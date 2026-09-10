@@ -1,4 +1,5 @@
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { pushClicks, pushLogs, pushUsers } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -21,9 +22,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
   if (!authz.ok) return fail(authz.error, authz.status);
 
   const url = new URL(req.url);
-  const beforeParam = url.searchParams.get("before");
-  const before = beforeParam ? new Date(beforeParam) : null;
-  if (before && Number.isNaN(before.getTime())) return fail("before must be an ISO timestamp", 422);
+  const cursor = parseCursor(url);
 
   const db = getDb();
 
@@ -41,7 +40,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
   if (!log) return fail("Message not found", 404);
 
   const conds = [eq(pushClicks.logId, logId), eq(pushClicks.projectId, id)];
-  if (before) conds.push(lt(pushClicks.clickedAt, before));
+  if (cursor) conds.push(beforeCursor(pushClicks.clickedAt, pushClicks.id, cursor));
 
   const rows = await db
     .select({
@@ -50,11 +49,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
       platform: pushClicks.platform,
       destination: pushClicks.destination,
       clickedAt: pushClicks.clickedAt,
+      cursorTs: cursorExpr(pushClicks.clickedAt),
     })
     .from(pushClicks)
     .leftJoin(pushUsers, eq(pushClicks.userId, pushUsers.id))
     .where(and(...conds))
-    .orderBy(desc(pushClicks.clickedAt))
+    .orderBy(desc(pushClicks.clickedAt), desc(pushClicks.id))
     .limit(LIMIT + 1);
 
   const hasMore = rows.length > LIMIT;
@@ -62,17 +62,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
 
   // 읽은 수 추이 — 발송 시각부터 마지막 클릭까지. 하루를 넘기면 일 단위로 접는다
   // (시간 버킷으로 몇 주를 그리면 축이 읽히지 않는다).
-  const [span] = await db
+  const [lastClick] = await db
     .select({ last: sql<string | null>`max(${pushClicks.clickedAt})` })
     .from(pushClicks)
     .where(and(eq(pushClicks.logId, logId), eq(pushClicks.projectId, id)));
 
   const startMs = new Date(log.createdAt).getTime();
-  const lastMs = span?.last ? new Date(span.last).getTime() : startMs;
+  const lastMs = lastClick?.last ? new Date(lastClick.last).getTime() : startMs;
   const HOUR = 3_600_000;
-  const byDay = lastMs - startMs > 48 * HOUR;
-  const bucketMs = byDay ? 24 * HOUR : HOUR;
-  const trunc = byDay ? "day" : "hour";
+  const DAY = 24 * HOUR;
+  const MAX_BUCKETS = 400;
+
+  /**
+   * 버킷 폭은 **구간 길이에 맞춰 고른다**. 고정 폭으로 400개에서 끊으면 오래된 발송의
+   * 최근 클릭이 창 밖으로 밀려나, 표에는 있는데 차트는 비는 상태가 된다.
+   */
+  const span = lastMs - startMs;
+  const bucketMs = span <= 48 * HOUR ? HOUR : span <= MAX_BUCKETS * DAY ? DAY : 7 * DAY;
+  const trunc = bucketMs === HOUR ? "hour" : bucketMs === DAY ? "day" : "week";
 
   const bucketRows = await db
     .select({
@@ -87,8 +94,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
 
   const byBucket = new Map(bucketRows.map((r) => [new Date(r.bucket).toISOString(), r.count]));
   const start = new Date(startMs);
-  if (byDay) start.setUTCHours(0, 0, 0, 0);
-  else start.setUTCMinutes(0, 0, 0);
+  if (bucketMs === HOUR) start.setUTCMinutes(0, 0, 0);
+  else start.setUTCHours(0, 0, 0, 0);
 
   const series: Array<{ ts: string; count: number; cumulative: number }> = [];
   let running = 0;
@@ -97,14 +104,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
     const count = byBucket.get(ts) ?? 0;
     running += count;
     series.push({ ts, count, cumulative: running });
-    if (series.length >= 400) break; // 축이 감당 못 하는 길이는 끊는다
+    // 폭을 구간에 맞췄으므로 정상적으로는 도달하지 않는다 — 방어용 상한
+    if (series.length >= MAX_BUCKETS) break;
   }
 
   return ok({
     log,
-    readers,
+    readers: readers.map(({ cursorTs: _cursorTs, ...r }) => r),
     series,
     bucket: trunc,
-    next: hasMore ? readers[readers.length - 1]?.clickedAt : null,
+    next: nextCursor(readers, hasMore),
   });
 }

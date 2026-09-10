@@ -89,6 +89,9 @@ export const pushUsers = pgTable("push_users", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   extIdx: uniqueIndex("push_users_ext_idx").on(t.projectId, t.externalId),
+  // 목록 커서용 — 없으면 정렬을 인덱스로 못 타서 전건 스캔 + 상관 서브쿼리가
+  // 반환 행이 아니라 스캔 행마다 실행된다
+  createdIdx: index("push_users_created_idx").on(t.projectId, t.createdAt),
 }));
 
 /** 디바이스 (토큰) — 유저에 연결(다중 기기) */

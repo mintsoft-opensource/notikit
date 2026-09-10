@@ -27,6 +27,14 @@ type Device = {
   createdAt: string;
   externalId: string | null;
 };
+/** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
+type Cursor = { ts: string; id: string } | null;
+
+/** 커서를 쿼리스트링으로 */
+function cursorQuery(c: Cursor): string {
+  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
+}
+
 type Summary = { total: number; active: number; anonymous: number };
 type CheckResult = { checked: number; invalid: number; deactivated: number; skipped: boolean };
 
@@ -42,16 +50,16 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
   const [active, setActive] = React.useState("");
   const [devices, setDevices] = React.useState<Device[] | null>(null);
   const [summary, setSummary] = React.useState<Summary | null>(null);
-  const [next, setNext] = React.useState<string | null>(null);
+  const [next, setNext] = React.useState<Cursor>(null);
   const [checking, setChecking] = React.useState(false);
   const reqRef = React.useRef(0);
 
   const query = React.useCallback(
-    (cursor?: string) => {
+    (cursor?: Cursor) => {
       const p = new URLSearchParams();
       if (platform) p.set("platform", platform);
       if (active) p.set("active", active);
-      if (cursor) p.set("before", cursor);
+      if (cursor) { p.set("before", cursor.ts); p.set("before_id", cursor.id); }
       return p.toString();
     },
     [platform, active]
@@ -61,7 +69,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
     const my = ++reqRef.current;
     setDevices(null);
     try {
-      const d = await adminApi<{ devices: Device[]; summary: Summary; next: string | null }>(
+      const d = await adminApi<{ devices: Device[]; summary: Summary; next: Cursor }>(
         `/api/admin/projects/${projectId}/audience/devices?${query()}`
       );
       if (my !== reqRef.current) return;
@@ -99,7 +107,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
   async function loadMore() {
     if (!next) return;
     try {
-      const d = await adminApi<{ devices: Device[]; next: string | null }>(
+      const d = await adminApi<{ devices: Device[]; next: Cursor }>(
         `/api/admin/projects/${projectId}/audience/devices?${query(next)}`
       );
       setDevices((cur) => [...(cur ?? []), ...d.devices]);

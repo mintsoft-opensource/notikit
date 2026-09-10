@@ -1,0 +1,1 @@
+CREATE INDEX "push_users_created_idx" ON "push_users" USING btree ("project_id","created_at");

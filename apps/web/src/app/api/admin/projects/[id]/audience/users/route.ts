@@ -1,4 +1,5 @@
-import { and, desc, eq, ilike, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { pushUsers } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -21,9 +22,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
-  const beforeParam = url.searchParams.get("before");
-  const before = beforeParam ? new Date(beforeParam) : null;
-  if (before && Number.isNaN(before.getTime())) return fail("before must be an ISO timestamp", 422);
+  const cursor = parseCursor(url);
 
   const conds = [eq(pushUsers.projectId, id)];
   if (q) {
@@ -32,7 +31,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     const like = `%${esc}%`;
     conds.push(or(ilike(pushUsers.externalId, like), ilike(pushUsers.phone, like))!);
   }
-  if (before) conds.push(lt(pushUsers.createdAt, before));
+  if (cursor) conds.push(beforeCursor(pushUsers.createdAt, pushUsers.id, cursor));
 
   const db = getDb();
   const rows = await db
@@ -44,6 +43,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       locale: pushUsers.locale,
       timezone: pushUsers.timezone,
       createdAt: pushUsers.createdAt,
+      cursorTs: cursorExpr(pushUsers.createdAt),
       // 상관 서브쿼리는 별칭 + 원문 컬럼으로 쓴다. drizzle 의 컬럼 보간을 섞으면
       // 바깥 테이블과 이름이 겹쳐 ambiguous 로 터지거나 조용히 0 을 돌려준다.
       deviceCount: sql<number>`(
@@ -59,10 +59,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     })
     .from(pushUsers)
     .where(and(...conds))
-    .orderBy(desc(pushUsers.createdAt))
+    .orderBy(desc(pushUsers.createdAt), desc(pushUsers.id))
     .limit(LIMIT + 1);
 
   const hasMore = rows.length > LIMIT;
   const users = hasMore ? rows.slice(0, LIMIT) : rows;
-  return ok({ users, next: hasMore ? users[users.length - 1]?.createdAt : null });
+  return ok({ users: users.map(({ cursorTs: _cursorTs, ...u }) => u), next: nextCursor(users, hasMore) });
 }

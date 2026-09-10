@@ -1,4 +1,5 @@
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { deviceEvents, pushUsers } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -26,14 +27,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   // 프로토타입 체인이 통과하지 않도록 명시적 허용 목록
   const event = EVENTS.includes(eventParam as Event) ? (eventParam as Event) : null;
 
-  // keyset 커서 — offset 은 깊은 페이지에서 느려지고 새 이벤트가 들어오면 행이 밀린다
-  const beforeParam = url.searchParams.get("before");
-  const before = beforeParam ? new Date(beforeParam) : null;
-  if (before && Number.isNaN(before.getTime())) return fail("before must be an ISO timestamp", 422);
+  // keyset 커서 — offset 은 깊은 페이지에서 느려지고 새 이벤트가 들어오면 행이 밀린다.
+  // (at, id) 복합인 이유는 keyset.ts 참조 — 무효토큰 정리가 한 문장에 1000행을 넣어
+  // 같은 at 이 대량 발생한다.
+  const cursor = parseCursor(url);
 
   const conds = [eq(deviceEvents.projectId, id)];
   if (event) conds.push(eq(deviceEvents.event, event));
-  if (before) conds.push(lt(deviceEvents.at, before));
+  if (cursor) conds.push(beforeCursor(deviceEvents.at, deviceEvents.id, cursor));
 
   const db = getDb();
   const rows = await db
@@ -43,18 +44,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       source: deviceEvents.source,
       platform: deviceEvents.platform,
       at: deviceEvents.at,
+      cursorTs: cursorExpr(deviceEvents.at),
       externalId: pushUsers.externalId,
     })
     .from(deviceEvents)
     .leftJoin(pushUsers, eq(deviceEvents.userId, pushUsers.id))
     .where(and(...conds))
-    .orderBy(desc(deviceEvents.at))
+    .orderBy(desc(deviceEvents.at), desc(deviceEvents.id))
     .limit(LIMIT + 1);
 
   const hasMore = rows.length > LIMIT;
   const events = hasMore ? rows.slice(0, LIMIT) : rows;
   return ok({
-    events,
-    next: hasMore ? events[events.length - 1]?.at : null,
+    events: events.map(({ cursorTs: _cursorTs, ...e }) => e),
+    next: nextCursor(events, hasMore),
   });
 }

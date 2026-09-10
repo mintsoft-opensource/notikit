@@ -16,7 +16,8 @@ import { adminApi } from "@/lib/admin-client";
 type Suppression = {
   id: string;
   externalId: string | null;
-  token: string | null;
+  /** 서버가 마스킹한 값 — 원문 토큰은 내려오지 않는다 */
+  tokenPreview: string | null;
   reason: string;
   createdAt: string;
 };
@@ -120,7 +121,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
               {rows.map((s) => (
                 <li key={s.id} className="grid gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto] sm:items-center">
                   <p className="truncate font-mono text-sm font-semibold">
-                    {s.externalId ?? `${s.token?.slice(0, 8)}…`}
+                    {s.externalId ?? s.tokenPreview ?? "—"}
                   </p>
                   <Badge variant={reasonVariant(s.reason)}>{t(`reason_${s.reason}` as "reason_manual")}</Badge>
                   <time dateTime={s.createdAt} className="text-xs tabular-nums text-muted-foreground">

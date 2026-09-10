@@ -53,10 +53,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     activeWithin(30),
     db
       .select({
-        day: sql<string>`${deviceActivity.day}::text`,
+        // ::text 는 DateStyle 설정에 좌우된다(German 이면 10.09.2026). 버킷 키가
+        // ISO 라 전부 미스가 나므로 형식을 명시한다.
+        day: sql<string>`to_char(${deviceActivity.day}, 'YYYY-MM-DD')`,
         devices: sql<number>`count(distinct ${deviceActivity.deviceId})::int`,
         users: sql<number>`count(distinct ${deviceActivity.userId})::int`,
-        opens: sql<number>`coalesce(sum(${deviceActivity.opens}), 0)::int`,
+        // sum(integer) 는 bigint — ::int 캐스트는 2^31 을 넘는 순간 쿼리가 통째로
+        // 에러가 나 통계 화면이 영구히 500 이 된다. 문자열로 받아 JS 에서 좁힌다.
+        opens: sql<string>`coalesce(sum(${deviceActivity.opens}), 0)::text`,
       })
       .from(deviceActivity)
       .where(inRange)
@@ -68,7 +72,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       .where(inRange)
       .groupBy(deviceActivity.platform),
     db
-      .select({ opens: sql<number>`coalesce(sum(${deviceActivity.opens}), 0)::int` })
+      .select({ opens: sql<string>`coalesce(sum(${deviceActivity.opens}), 0)::text` })
       .from(deviceActivity)
       .where(inRange),
   ]);
@@ -81,7 +85,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(end - i * DAY_MS).toISOString().slice(0, 10);
     const row = byDay.get(d);
-    buckets.push({ day: d, devices: row?.devices ?? 0, users: row?.users ?? 0, opens: row?.opens ?? 0 });
+    buckets.push({ day: d, devices: row?.devices ?? 0, users: row?.users ?? 0, opens: Number(row?.opens ?? 0) });
   }
 
   const stick = (mau[0]?.devices ?? 0) > 0 ? (dau[0]?.devices ?? 0) / (mau[0]!.devices) : null;
@@ -93,7 +97,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     mau: mau[0] ?? { devices: 0, users: 0 },
     // DAU/MAU — 분모가 0이면 비율은 정의되지 않는다(0% 로 위장하지 않는다)
     stickiness: stick,
-    opens: totals[0]?.opens ?? 0,
+    opens: Number(totals[0]?.opens ?? 0),
     buckets,
     platforms: Object.fromEntries(platforms.map((p) => [p.platform ?? "unknown", p.count])),
   });

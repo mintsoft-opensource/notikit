@@ -703,12 +703,67 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(sJson.buckets).toHaveLength(30);
     expect(sJson.buckets.at(-1)).toMatchObject({ devices: 1, users: 1, opens: 3 });
 
-    // 미등록 토큰은 거부 — 아무 토큰이나 DAU 를 만들 수 없게
+    // 미등록 토큰은 기록되지 않는다. 상태코드는 202 로 통일 — 404 로 갈라주면
+    // 공개 api-key 만으로 토큰 등록 여부를 확인하는 오라클이 된다.
     const unknown = await request.post("/api/v1/devices/ping", { headers: { "api-key": apiKey }, data: { token: "nope" } });
-    expect(unknown.status()).toBe(404);
+    expect(unknown.status()).toBe(202);
+    expect((await unknown.json()).data.recorded).toBe(false);
 
     // 범위 밖 값은 기본(30d)으로 떨어진다
     const bad = await request.get(`/api/admin/projects/${pid}/activity?range=constructor`, { headers: admin });
     expect((await bad.json()).data.range).toBe("30d");
+  });
+
+  test("커서 페이징: 같은 시각 행이 누락되지 않는다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `cur-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const admin = { "x-admin-token": ADMIN };
+
+    // 디바이스 60대 → 무효 토큰 정리와 같은 형태로 한 번에 삭제 이벤트 적재
+    for (let i = 0; i < 60; i++) {
+      await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `cur-${i}-${Date.now()}`, platform: "android" } });
+    }
+    await request.post(`/api/admin/projects/${pid}/audience/suppressions`, { headers: admin, data: { external_id: "x", reason: "manual" } });
+
+    // 이벤트를 만들 수 없으므로 디바이스 목록으로 커서를 검증한다(같은 원리)
+    const seen = new Set<string>();
+    let cursor: { ts: string; id: string } | null = null;
+    for (let page = 0; page < 10; page++) {
+      const q = cursor ? `?before=${encodeURIComponent(cursor.ts)}&before_id=${encodeURIComponent(cursor.id)}` : "";
+      const r = await request.get(`/api/admin/projects/${pid}/audience/devices${q}`, { headers: admin });
+      const d = (await r.json()).data;
+      d.devices.forEach((x: { id: string }) => seen.add(x.id));
+      if (!d.next) break;
+      cursor = d.next;
+    }
+    // 전부 조회돼야 한다 — 타임스탬프 단독 커서였다면 동시각 행이 스킵됐다
+    expect(seen.size).toBe(60);
+
+    // 커서는 (시각, id) 복합이라 id 없이 주면 무시된다(첫 페이지로 취급)
+    const noId = await request.get(`/api/admin/projects/${pid}/audience/devices?before=2020-01-01T00:00:00.000000Z`, { headers: admin });
+    expect((await noId.json()).data.devices.length).toBeGreaterThan(0);
+  });
+
+  test("핑: 모르는 토큰도 202 (존재 오라클 없음), 비활성은 집계 안 함", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `ping-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const token = `ping-tok-${Date.now()}`;
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token, platform: "ios" } });
+
+    const known = await request.post("/api/v1/devices/ping", { headers: { "api-key": apiKey }, data: { token } });
+    const unknown = await request.post("/api/v1/devices/ping", { headers: { "api-key": apiKey }, data: { token: "no-such-token" } });
+    // 두 경우의 상태코드가 같아야 등록 여부를 알아낼 수 없다
+    expect(known.status()).toBe(202);
+    expect(unknown.status()).toBe(202);
+    expect((await known.json()).data.recorded).toBe(true);
+    expect((await unknown.json()).data.recorded).toBe(false);
+
+    // 모르는 토큰은 통계에 잡히지 않는다
+    const act = await request.get(`/api/admin/projects/${pid}/activity`, { headers: { "x-admin-token": ADMIN } });
+    expect((await act.json()).data.dau.devices).toBe(1);
   });
 });
