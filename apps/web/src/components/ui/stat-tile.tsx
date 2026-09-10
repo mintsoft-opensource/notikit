@@ -3,13 +3,14 @@ import { Card, CardContent } from "./card";
 import { Skeleton } from "./skeleton";
 import { cn } from "@/lib/utils";
 
-export type StatTileAccent = "default" | "primary" | "success" | "warning" | "muted";
+export type StatTileAccent = "default" | "primary" | "success" | "warning" | "danger" | "muted";
 
 const accentClass: Record<StatTileAccent, string> = {
   default: "text-foreground",
   primary: "text-primary",
   success: "text-success",
   warning: "text-warning",
+  danger: "text-error",
   muted: "text-muted-foreground",
 };
 

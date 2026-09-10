@@ -7,6 +7,7 @@ import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
 import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
+import { recordUninstalls } from "@/lib/device-events";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -300,11 +301,9 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
         }
       }
     }
-    // 무효 토큰 일괄 비활성화 (완료 후 · 1000개씩 청크로 과대 IN 쿼리 방지)
-    for (const c of chunk(invalidAll, 1000)) {
-      await db.update(devices).set({ isActive: false })
-        .where(and(eq(devices.projectId, project!.id), inArray(devices.token, c)));
-    }
+    // 무효 토큰 비활성화 + **앱 삭제로 기록**. FCM 의 not-registered 판정이
+    // 사실상 유일한 삭제 신호라, 여기서 버리면 삭제 추이를 볼 방법이 없다.
+    await recordUninstalls(db, project!.id, invalidAll, "send");
 
     // fencing: 우리가 여전히 이 로그의 소유자일 때만 완료 처리(부작용 1회 보장)
     const finalStatus = logOnly ? "logged" : "completed";

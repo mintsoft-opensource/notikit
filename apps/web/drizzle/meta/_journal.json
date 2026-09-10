@@ -50,6 +50,13 @@
       "when": 1789003328609,
       "tag": "0006_cooing_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789006426185,
+      "tag": "0007_narrow_vulture",
+      "breakpoints": true
     }
   ]
 }

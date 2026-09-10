@@ -4,6 +4,7 @@ import { devices, projects } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
+import { recordUninstalls } from "@/lib/device-events";
 
 const PAGE = 2000;
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -151,14 +152,7 @@ export async function checkProjectTokens(
   /** 무효 토큰 비활성화 — **페이지마다 즉시** 반영한다. 루프 끝으로 미루면 중간에
    *  FCM 이 던졌을 때 그때까지 찾은 죽은 토큰이 전부 버려진다. */
   async function deactivate(tokens: string[]): Promise<void> {
-    for (const c of chunk(tokens, 1000)) {
-      const res = await db
-        .update(devices)
-        .set({ isActive: false })
-        .where(and(eq(devices.projectId, projectId), inArray(devices.token, c)))
-        .returning({ id: devices.id });
-      deactivated += res.length;
-    }
+    deactivated += await recordUninstalls(db, projectId, tokens, "sweep");
   }
 
   // keyset 페이지네이션 — 대량 프로젝트에서 전체 토큰을 메모리에 올리지 않는다

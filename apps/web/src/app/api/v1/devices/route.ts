@@ -5,6 +5,7 @@ import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { verifyIdentity } from "@/lib/keys";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { recordReinstall } from "@/lib/device-events";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -70,6 +71,15 @@ export async function POST(req: Request) {
     }
   }
 
+  // 업서트 전 상태 — 비활성이던 기기가 다시 등록되면 재설치로 남긴다
+  const before = (
+    await db
+      .select({ id: devices.id, isActive: devices.isActive })
+      .from(devices)
+      .where(and(eq(devices.projectId, project.id), eq(devices.token, b.token)))
+      .limit(1)
+  )[0];
+
   let userId: string | null = null;
   if (b.external_id) {
     const u = await db
@@ -115,5 +125,10 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  return ok({ device: rows[0] }, undefined, 201);
+  const device = rows[0];
+  if (before && !before.isActive && device) {
+    await recordReinstall(db, project.id, { id: device.id, userId: device.userId, platform: device.platform });
+  }
+
+  return ok({ device }, undefined, 201);
 }

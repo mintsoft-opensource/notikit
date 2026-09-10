@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { devices, pushUsers, pushLogs } from "@/db/schema";
+import { devices, pushUsers, pushLogs, pushClicks, deviceEvents } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject } from "@/lib/authz";
 
@@ -31,7 +31,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const count = async (q: Promise<{ c: number }[]>) => Number((await q)[0]?.c ?? 0);
   const inRange = and(eq(pushLogs.projectId, id), gte(pushLogs.createdAt, since));
 
-  const [totalDevices, activeDevices, dau, totalUsers, totalSends, delivered, queued, bucketRows, statusRows, agg, recent, platformRows] =
+  const inEventRange = and(eq(deviceEvents.projectId, id), gte(deviceEvents.at, since));
+
+  const [
+    totalDevices, activeDevices, dau, totalUsers, totalSends, delivered, queued,
+    bucketRows, statusRows, agg, recent, platformRows,
+    clickAgg, clickBucketRows, uninstallAgg, uninstallBucketRows, topClicked,
+  ] =
     await Promise.all([
       count(db.select({ c: sql<number>`count(*)` }).from(devices).where(eq(devices.projectId, id))),
       count(db.select({ c: sql<number>`count(*)` }).from(devices).where(and(eq(devices.projectId, id), eq(devices.isActive, true)))),
@@ -78,6 +84,56 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         .from(devices)
         .where(eq(devices.projectId, id))
         .groupBy(devices.platform),
+      // 클릭 퍼널 — 분자/분모를 각각 짝이 맞는 것끼리 합산한다.
+      // clickCount(디바이스) ↔ audienceDeviceCount, clickUserCount(유저) ↔ audienceUserCount
+      db
+        .select({
+          clicks: sql<number>`coalesce(sum(${pushLogs.clickCount}), 0)::int`,
+          clickUsers: sql<number>`coalesce(sum(${pushLogs.clickUserCount}), 0)::int`,
+          audienceDevices: sql<number>`coalesce(sum(${pushLogs.audienceDeviceCount}), 0)::int`,
+          audienceUsers: sql<number>`coalesce(sum(${pushLogs.audienceUserCount}), 0)::int`,
+        })
+        .from(pushLogs)
+        .where(inRange),
+      db
+        .select({
+          bucket: sql<string>`date_trunc(${sql.raw(`'${trunc}'`)}, ${pushClicks.clickedAt} at time zone 'UTC') at time zone 'UTC'`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(pushClicks)
+        .where(and(eq(pushClicks.projectId, id), gte(pushClicks.clickedAt, since)))
+        .groupBy(sql`1`)
+        .orderBy(sql`1`),
+      db
+        .select({ event: deviceEvents.event, count: sql<number>`count(*)::int` })
+        .from(deviceEvents)
+        .where(inEventRange)
+        .groupBy(deviceEvents.event),
+      db
+        .select({
+          bucket: sql<string>`date_trunc(${sql.raw(`'${trunc}'`)}, ${deviceEvents.at} at time zone 'UTC') at time zone 'UTC'`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(deviceEvents)
+        .where(and(inEventRange, eq(deviceEvents.event, "uninstalled")))
+        .groupBy(sql`1`)
+        .orderBy(sql`1`),
+      // 클릭 상위 발송 — 어떤 메시지가 실제로 먹혔는지
+      db
+        .select({
+          id: pushLogs.id,
+          title: pushLogs.title,
+          type: pushLogs.type,
+          clickCount: pushLogs.clickCount,
+          clickUserCount: pushLogs.clickUserCount,
+          audienceUserCount: pushLogs.audienceUserCount,
+          audienceDeviceCount: pushLogs.audienceDeviceCount,
+          createdAt: pushLogs.createdAt,
+        })
+        .from(pushLogs)
+        .where(and(inRange, sql`${pushLogs.clickCount} > 0`))
+        .orderBy(desc(pushLogs.clickCount))
+        .limit(5),
     ]);
 
   // 빈 버킷 = 0 으로 채움
@@ -86,11 +142,23 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   // date_trunc 는 DB 세션 TZ(UTC) 기준 — 버킷 키도 UTC 로 정렬해야 매칭됨
   if (trunc === "hour") start.setUTCMinutes(0, 0, 0);
   else start.setUTCHours(0, 0, 0, 0);
+  const byClick = new Map(clickBucketRows.map((r) => [new Date(r.bucket).toISOString(), r.count]));
+  const byUninstall = new Map(uninstallBucketRows.map((r) => [new Date(r.bucket).toISOString(), r.count]));
+
   const buckets: Array<{ ts: string; count: number }> = [];
+  const clickBuckets: Array<{ ts: string; count: number }> = [];
+  const uninstallBuckets: Array<{ ts: string; count: number }> = [];
   for (let t = start.getTime(); t <= Date.now(); t += bucketMs) {
     const ts = new Date(t).toISOString();
     buckets.push({ ts, count: byBucket.get(ts) ?? 0 });
+    clickBuckets.push({ ts, count: byClick.get(ts) ?? 0 });
+    uninstallBuckets.push({ ts, count: byUninstall.get(ts) ?? 0 });
   }
+
+  const c = clickAgg[0];
+  const uninstalls = Object.fromEntries(uninstallAgg.map((r) => [r.event, r.count]));
+  /** 분모가 0이면 비율은 정의되지 않는다 — 0% 로 위장하지 않고 null 로 낸다 */
+  const rate = (num: number, den: number) => (den > 0 ? num / den : null);
 
   return ok({
     range,
@@ -106,6 +174,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       queued,
     },
     buckets,
+    clicks: {
+      // 디바이스 단위(clicks/audience_devices)와 유저 단위(click_users/audience_users)를
+      // 섞어 쓰면 100% 를 넘는 비율이 나온다. 짝을 맞춰 쓴다.
+      clicks: c?.clicks ?? 0,
+      click_users: c?.clickUsers ?? 0,
+      audience_devices: c?.audienceDevices ?? 0,
+      audience_users: c?.audienceUsers ?? 0,
+      device_rate: rate(c?.clicks ?? 0, c?.audienceDevices ?? 0),
+      user_rate: rate(c?.clickUsers ?? 0, c?.audienceUsers ?? 0),
+      buckets: clickBuckets,
+      top: topClicked,
+    },
+    devices_lifecycle: {
+      uninstalled: uninstalls.uninstalled ?? 0,
+      reinstalled: uninstalls.reinstalled ?? 0,
+      net: (uninstalls.reinstalled ?? 0) - (uninstalls.uninstalled ?? 0),
+      buckets: uninstallBuckets,
+    },
     statuses: Object.fromEntries(statusRows.map((r) => [r.status, r.count])),
     platforms: Object.fromEntries(platformRows.map((r) => [r.platform, r.count])),
     recent,

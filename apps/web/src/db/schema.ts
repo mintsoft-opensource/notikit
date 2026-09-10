@@ -194,6 +194,31 @@ export const pushLogs = pgTable("push_logs", {
 }));
 
 /**
+ * 디바이스 생애 이벤트 — 앱 삭제/재설치 추적.
+ *
+ * FCM 이 `registration-token-not-registered` 를 돌려주는 것이 사실상 유일한 **앱 삭제 신호**다.
+ * 발송 경로와 야간 스윕 양쪽에서 이 판정이 나오는데, 지금까지는 토큰을 비활성화만 하고
+ * 버렸다. 여기 남겨야 "언제 몇 명이 지웠는지"를 볼 수 있다.
+ *
+ * 한계: FCM 이 토큰을 무효로 표시하기까지 지연이 있어 실제 삭제 시각보다 늦다.
+ * 앱 삭제와 토큰 회전을 완전히 구분하지도 못한다 — 재설치는 reinstalled 로 잡힌다.
+ */
+export const deviceEvents = pgTable("device_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").references(() => devices.id, { onDelete: "set null" }),
+  userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
+  platform: text("platform"),
+  event: text("event").notNull(), // uninstalled | reinstalled
+  // 어디서 감지했는지 — send(실제 발송 응답) 가 sweep(주기 검사) 보다 신뢰도가 높다
+  source: text("source").notNull(), // send | sweep | register
+  at: timestamp("at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  projIdx: index("device_events_project_idx").on(t.projectId, t.at),
+  eventIdx: index("device_events_event_idx").on(t.projectId, t.event, t.at),
+}));
+
+/**
  * 푸시 클릭(알림 탭) 이벤트. 디바이스당 발송 1건에 1행 — 재클릭은 무시(유니크)해서
  * 클릭률이 부풀지 않게 한다. userId 는 클라이언트가 보낸 값이 아니라 서버가
  * devices.userId 바인딩에서 해석한 값이다(사칭 방지).
