@@ -131,6 +131,30 @@ class Notikit {
     });
   }
 
+  /// 알림 탭 처리 — `RemoteMessage.data` 를 그대로 넘기면 된다.
+  ///
+  /// 탭 스트림(`FirebaseMessaging.onMessageOpenedApp`, `getInitialMessage`)은 앱이
+  /// 구독하는 것이라 SDK 가 가로챌 수 없다. 앱에서 이렇게 연결한다:
+  ///
+  ///     FirebaseMessaging.onMessageOpenedApp.listen((m) {
+  ///       notikit.handleNotificationOpen(data: m.data, token: token);
+  ///     });
+  ///     final initial = await FirebaseMessaging.instance.getInitialMessage();
+  ///     if (initial != null) await notikit.handleNotificationOpen(data: initial.data, token: token);
+  ///
+  /// notikit 이 보낸 알림이 아니면 아무 것도 하지 않는다 — 다른 경로의 알림까지
+  /// 클릭으로 세면 클릭률이 부풀려진다.
+  Future<bool> handleNotificationOpen({
+    required Map<String, dynamic>? data,
+    required String token,
+    String? destination,
+  }) async {
+    final logId = logIdFromPayload(data);
+    if (logId == null) return false;
+    await reportClick(logId: logId, token: token, destination: destination);
+    return true;
+  }
+
   /// 푸시 페이로드에서 notikit 이 예약해 쓰는 data 키
   static const String logIdKey = 'notikit_log_id';
 

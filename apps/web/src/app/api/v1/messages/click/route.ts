@@ -52,13 +52,13 @@ export async function POST(req: Request) {
   if (!log) return fail("Message not found", 404);
 
   const device = (
-    await db.select({ id: devices.id, userId: devices.userId, platform: devices.platform }).from(devices)
+    await db.select({ id: devices.id, userId: devices.userId, platform: devices.platform, createdAt: devices.createdAt }).from(devices)
       .where(and(eq(devices.projectId, project.id), eq(devices.token, b.token))).limit(1)
   )[0];
   if (!device) return fail("Device not found", 404);
 
   // 이 디바이스가 애초에 이 발송의 대상이었는지 — 아무 토큰이나 등록해 클릭을 찍는 것을 막는다
-  if (!(await isPlausibleRecipient(db, log, device.id, device.userId))) {
+  if (!(await isPlausibleRecipient(db, log, device))) {
     return fail("Device was not a recipient of this message", 403);
   }
 

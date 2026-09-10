@@ -474,7 +474,10 @@
     "suppressionAdded": "Added to suppressions",
     "suppressionRemoved": "Removed",
     "suppressionRemove": "Remove",
-    "noSuppressions": "Nothing suppressed"
+    "noSuppressions": "Nothing suppressed",
+    "statUnverified": "Unverified",
+    "unverifiedHint": "Never accepted by FCM",
+    "badgeUnverified": "unverified"
   },
   "activity": {
     "title": "Activity",

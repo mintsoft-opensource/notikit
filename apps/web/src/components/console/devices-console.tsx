@@ -24,6 +24,8 @@ type Device = {
   locale: string | null;
   country: string | null;
   lastActiveAt: string | null;
+  /** FCM 이 받아준 적이 있으면 그 시각 — null 이면 아직 실재가 확인되지 않았다 */
+  verifiedAt: string | null;
   createdAt: string;
   externalId: string | null;
 };
@@ -35,7 +37,7 @@ function cursorQuery(c: Cursor): string {
   return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
 }
 
-type Summary = { total: number; active: number; anonymous: number };
+type Summary = { total: number; active: number; anonymous: number; unverified: number };
 type CheckResult = { checked: number; invalid: number; deactivated: number; skipped: boolean };
 
 const PLATFORMS = ["android", "ios", "web", "webview", "electron", "flutter", "react-native"];
@@ -145,10 +147,11 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
         />
         <StatTile
           icon={RefreshCw}
-          label={t("statInactive")}
-          value={summary ? nf.format(summary.total - summary.active) : "—"}
-          accent="warning"
+          label={t("statUnverified")}
+          value={num(summary?.unverified)}
+          accent={summary && summary.unverified > 0 ? "warning" : "default"}
           loading={!summary}
+          hint={t("unverifiedHint")}
         />
       </div>
 
@@ -183,6 +186,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
                       <time dateTime={d.lastActiveAt ?? undefined} className="text-xs tabular-nums text-muted-foreground">
                         {d.lastActiveAt ? df.format(new Date(d.lastActiveAt)) : "—"}
                       </time>
+                      {!d.verifiedAt && d.isActive && <Badge variant="warning">{t("badgeUnverified")}</Badge>}
                       <Badge variant={d.isActive ? "success" : "danger"}>
                         {d.isActive ? t("statActive") : t("statInactive")}
                       </Badge>

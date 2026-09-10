@@ -108,6 +108,10 @@ export const devices = pgTable("devices", {
   timezone: text("timezone"),
   country: text("country"),
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }).defaultNow(),
+  // FCM 이 이 토큰을 받아들인 마지막 시각. 등록만으로는 토큰이 진짜인지 알 수 없어
+  // (공개 api-key + 임의 문자열로 등록이 된다) 실제 발송이나 dry-run 검증에 성공했을 때만 찍는다.
+  // 미검증 기기가 통계에 섞여도 최소한 그 규모가 보이게 하는 것이 목적이다.
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   tokenIdx: uniqueIndex("devices_token_idx").on(t.projectId, t.token),

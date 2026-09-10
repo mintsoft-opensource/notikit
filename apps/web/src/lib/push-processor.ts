@@ -7,7 +7,7 @@ import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
 import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
-import { recordUninstalls } from "@/lib/device-events";
+import { recordUninstalls, markVerified } from "@/lib/device-events";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -258,6 +258,8 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     const variantStats: Record<string, { sent: number; success: number }> = {};
     if (variants) variants.forEach((_, i) => (variantStats[String(i)] = { sent: 0, success: 0 }));
     const invalidAll: string[] = [];
+    // FCM 이 받아준 토큰 — 실재하는 기기로 신뢰할 수 있는 유일한 근거
+    const validAll: string[] = [];
 
     for await (const page of tokenPages(db, log)) {
       // fencing: 각 페이지 발송 전 소유권(하트비트) 확인 — 잃었으면 즉시 중단(중복 발송 방지)
@@ -288,6 +290,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
             failure += r.failure;
             variantStats[String(vi)].success += r.success;
             invalidAll.push(...r.invalidTokens);
+            validAll.push(...r.validTokens);
           }
         }
       } else if (!logOnly) {
@@ -298,12 +301,14 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
           success += r.success;
           failure += r.failure;
           invalidAll.push(...r.invalidTokens);
+          validAll.push(...r.validTokens);
         }
       }
     }
     // 무효 토큰 비활성화 + **앱 삭제로 기록**. FCM 의 not-registered 판정이
     // 사실상 유일한 삭제 신호라, 여기서 버리면 삭제 추이를 볼 방법이 없다.
     await recordUninstalls(db, project!.id, invalidAll, "send");
+    await markVerified(db, project!.id, validAll);
 
     // fencing: 우리가 여전히 이 로그의 소유자일 때만 완료 처리(부작용 1회 보장)
     const finalStatus = logOnly ? "logged" : "completed";

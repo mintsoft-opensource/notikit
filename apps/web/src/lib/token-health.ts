@@ -4,7 +4,7 @@ import { devices, projects } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
-import { recordUninstalls } from "@/lib/device-events";
+import { recordUninstalls, markVerified } from "@/lib/device-events";
 
 const PAGE = 2000;
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -191,14 +191,18 @@ export async function checkProjectTokens(
 
     checked += tokens.length;
     const pageInvalid: string[] = [];
+    const pageValid: string[] = [];
     let pageFailed = 0;
     for (const r of results) {
       pageInvalid.push(...r.invalidTokens);
+      pageValid.push(...r.validTokens);
       // 무효 판정이 아닌 실패(쿼터·일시 장애)는 "검사 못 함"이다
       pageFailed += r.failure - r.invalidTokens.length;
     }
     invalid += pageInvalid.length;
     await deactivate(pageInvalid);
+    // dry-run 이 통과한 토큰은 실재가 확인된 것 — 등록만으로는 알 수 없던 사실이다
+    await markVerified(db, projectId, pageValid);
 
     cursor = rows[rows.length - 1].id;
 

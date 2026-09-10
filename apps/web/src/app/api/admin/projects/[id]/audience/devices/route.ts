@@ -51,6 +51,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         locale: devices.locale,
         country: devices.country,
         lastActiveAt: devices.lastActiveAt,
+        verifiedAt: devices.verifiedAt,
         createdAt: devices.createdAt,
         cursorTs: cursorExpr(devices.createdAt),
         externalId: pushUsers.externalId,
@@ -66,6 +67,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         active: sql<number>`count(*) filter (where ${devices.isActive})::int`,
         // 유저에 바인딩되지 않은 기기 — 유저 타겟 발송과 유저 단위 통계에서 빠진다
         anonymous: sql<number>`count(*) filter (where ${devices.userId} is null)::int`,
+        // FCM 이 아직 받아준 적 없는 기기 — 등록만으로는 토큰 진위를 알 수 없다
+        unverified: sql<number>`count(*) filter (where ${devices.verifiedAt} is null and ${devices.isActive})::int`,
       })
       .from(devices)
       .where(eq(devices.projectId, id)),
@@ -75,7 +78,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const list = hasMore ? rows.slice(0, LIMIT) : rows;
   return ok({
     devices: list.map(({ cursorTs: _cursorTs, ...d }) => d),
-    summary: summary[0] ?? { total: 0, active: 0, anonymous: 0 },
+    summary: summary[0] ?? { total: 0, active: 0, anonymous: 0, unverified: 0 },
     next: nextCursor(list, hasMore),
   });
 }

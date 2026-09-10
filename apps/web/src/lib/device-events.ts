@@ -11,6 +11,19 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 /**
+ * FCM 이 받아준 토큰을 검증 완료로 표시한다.
+ * 등록 시점에는 토큰 진위를 알 수 없어, 실제 발송/dry-run 이 통과한 것만 신뢰한다.
+ */
+export async function markVerified(db: Db, projectId: string, tokens: string[]): Promise<void> {
+  for (const c of chunk(tokens, 1000)) {
+    await db
+      .update(devices)
+      .set({ verifiedAt: new Date() })
+      .where(and(eq(devices.projectId, projectId), inArray(devices.token, c)));
+  }
+}
+
+/**
  * 무효 토큰을 비활성화하고 **앱 삭제 이벤트로 기록**한다.
  *
  * 이미 비활성인 디바이스는 건너뛴다 — 스윕이 매일 같은 죽은 토큰을 다시 만나면

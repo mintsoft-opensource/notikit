@@ -4,6 +4,13 @@ import { devices, pushUsers, segments, subscriptions, topics, type PushLog } fro
 
 type Db = ReturnType<typeof getDb>;
 
+export interface ClickDevice {
+  id: string;
+  userId: string | null;
+  /** 발송 시점에 이 기기가 존재했는지 판단하는 기준 */
+  createdAt: Date;
+}
+
 /**
  * 이 디바이스가 이 발송의 수신 대상이었을 수 있는가.
  *
@@ -12,10 +19,17 @@ type Db = ReturnType<typeof getDb>;
  * (유니크는 디바이스당 1회만 막을 뿐 디바이스 수를 막지 못한다).
  *
  * 발송 시점의 수신자 명단을 따로 남기지 않으므로 **자격 검사**로 근사한다.
- * broadcast 는 프로젝트의 모든 디바이스가 대상이라 좁힐 여지가 없다 — 그 경우
- * 남는 방어선은 레이트리밋과 (log_id, device) 유니크뿐이다.
+ *
+ * 모든 타입에 공통으로 거는 조건: **발송보다 나중에 생긴 기기는 그 발송을 받을 수 없다.**
+ * 이 한 줄이 "지금 가짜 토큰을 등록해 과거 발송을 클릭"하는 경로를 전부 닫는다.
+ * 남는 것은 앞으로 나갈 발송을 기다렸다가 클릭하는 경우뿐이고, 그건 레이트리밋과
+ * (log_id, device) 유니크가 받는다.
  */
-export async function isPlausibleRecipient(db: Db, log: PushLog, deviceId: string, userId: string | null): Promise<boolean> {
+export async function isPlausibleRecipient(db: Db, log: PushLog, device: ClickDevice): Promise<boolean> {
+  // 발송 이후에 등록된 기기는 대상이 될 수 없다
+  if (device.createdAt.getTime() > new Date(log.createdAt).getTime()) return false;
+
+  const { id: deviceId, userId } = device;
   if (log.type === "broadcast") return true;
   if (!log.target) return false;
 

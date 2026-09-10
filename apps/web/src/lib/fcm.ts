@@ -17,6 +17,8 @@ export interface FcmResult {
   success: number;
   failure: number;
   invalidTokens: string[];
+  /** FCM 이 받아들인 토큰 — 이것만 "실재하는 기기"로 신뢰할 수 있다 */
+  validTokens: string[];
 }
 
 /** 크레덴셜 지문 — 회전 감지용 */
@@ -74,7 +76,7 @@ export async function sendToTokens(
   msg: FcmMessage,
   dryRun = false
 ): Promise<FcmResult> {
-  if (tokens.length === 0) return { success: 0, failure: 0, invalidTokens: [] };
+  if (tokens.length === 0) return { success: 0, failure: 0, invalidTokens: [], validTokens: [] };
 
   const messaging = getMessaging(appForProject(projectId, sa));
   const res = await messaging.sendEachForMulticast({
@@ -84,11 +86,12 @@ export async function sendToTokens(
   }, dryRun);
 
   const invalidTokens: string[] = [];
+  const validTokens: string[] = [];
   res.responses.forEach((r, i) => {
-    if (!r.success && r.error && INVALID_CODES.has(r.error.code)) {
-      invalidTokens.push(tokens[i]);
-    }
+    if (r.success) validTokens.push(tokens[i]);
+    else if (r.error && INVALID_CODES.has(r.error.code)) invalidTokens.push(tokens[i]);
+    // 나머지(쿼터·일시 장애)는 판정 불가 — 어느 쪽에도 넣지 않는다
   });
 
-  return { success: res.successCount, failure: res.failureCount, invalidTokens };
+  return { success: res.successCount, failure: res.failureCount, invalidTokens, validTokens };
 }

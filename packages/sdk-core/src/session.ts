@@ -1,5 +1,5 @@
 import { NotikitClient } from "./index";
-import type { Platform } from "./types";
+import { logIdFromPayload, type Platform } from "./types";
 
 /**
  * 플랫폼별 영속 저장소. 푸시 클릭은 앱이 죽은 상태에서 콜드 스타트로 들어오므로
@@ -169,6 +169,22 @@ export class NotikitSession {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * 알림 탭 처리 — **푸시 페이로드를 그대로 넘기면 된다.**
+   *
+   * 플랫폼마다 탭 이벤트를 받는 지점이 달라(Android 는 Intent extras, iOS 는
+   * userInfo, 웹은 notificationclick) SDK 가 그 자리를 대신 잡을 수 없다. 대신
+   * "페이로드에서 발송 id 를 꺼내 클릭을 보고한다"는 공통 부분을 여기서 처리한다.
+   *
+   * notikit 이 보낸 알림이 아니면(발송 id 없음) 아무 것도 하지 않고 false 를 준다 —
+   * 다른 경로로 온 알림까지 클릭으로 세면 클릭률이 부풀려진다.
+   */
+  async handleNotificationOpen(payload: unknown, token: string, destination?: string): Promise<boolean> {
+    const logId = logIdFromPayload(payload);
+    if (!logId) return false;
+    return this.reportClick(logId, token, destination);
   }
 
   /** 밀린 클릭 재전송 — SDK 초기화 직후·앱 포그라운드 진입 시 호출 */

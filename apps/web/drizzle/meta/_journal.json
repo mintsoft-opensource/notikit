@@ -71,6 +71,13 @@
       "when": 1789020109014,
       "tag": "0009_eminent_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789026774199,
+      "tag": "0010_secret_mach_iv",
+      "breakpoints": true
     }
   ]
 }

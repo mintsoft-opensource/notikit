@@ -809,4 +809,39 @@ test.describe("App SDK API 전체 플로우", () => {
     // 관측 가능한 코호트가 없으므로 요약도 null
     expect(d.summary.every((s: { rate: number | null }) => s.rate === null)).toBe(true);
   });
+
+  test("클릭 자격: 발송 이후 등록한 기기는 broadcast 도 차단", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `bc-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+
+    // 발송 전에 존재하던 기기
+    const early = `bc-early-${Date.now()}`;
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: early, platform: "android" } });
+
+    const send = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "전체", body: "b", type: "broadcast" },
+    });
+    const logId = (await send.json()).data.message.id as string;
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    // 발송 이후에 등록한 기기 — 이 발송을 받을 수 없었다
+    const late = `bc-late-${Date.now()}`;
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: late, platform: "android" } });
+
+    const okClick = await request.post("/api/v1/messages/click", { headers: { "api-key": apiKey }, data: { log_id: logId, token: early } });
+    expect(okClick.status()).toBe(202);
+    expect((await okClick.json()).data.recorded).toBe(true);
+
+    // 과거 발송을 소급해서 클릭하는 경로가 막혀야 한다
+    const lateClick = await request.post("/api/v1/messages/click", { headers: { "api-key": apiKey }, data: { log_id: logId, token: late } });
+    expect(lateClick.status()).toBe(403);
+
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    const row = (await logs.json()).data.logs.find((l: { id: string }) => l.id === logId);
+    expect(row.clickCount).toBe(1);
+  });
 });
