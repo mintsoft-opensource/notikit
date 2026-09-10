@@ -74,7 +74,18 @@
     "projectsCount": "Dự án ({count})",
     "noProjects": "Chưa có dự án. Tạo một dự án từ menu Dự án.",
     "quickSystem": "Trình xem hệ thống",
-    "quickSystemDesc": "Xu hướng · hàng đợi · webhook"
+    "quickSystemDesc": "Xu hướng · hàng đợi · webhook",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "Ngôn ngữ",

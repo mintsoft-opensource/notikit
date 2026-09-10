@@ -74,7 +74,18 @@
     "projectsCount": "المشاريع ({count})",
     "noProjects": "لا توجد مشاريع. أنشئ مشروعًا من قائمة المشاريع.",
     "quickSystem": "عارض النظام",
-    "quickSystemDesc": "الاتجاهات · قائمة الانتظار · webhooks"
+    "quickSystemDesc": "الاتجاهات · قائمة الانتظار · webhooks",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "اللغة",

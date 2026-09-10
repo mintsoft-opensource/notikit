@@ -74,7 +74,18 @@
     "projectsCount": "פרויקטים ({count})",
     "noProjects": "אין פרויקטים. צור אחד מתפריט הפרויקטים.",
     "quickSystem": "מציג מערכת",
-    "quickSystemDesc": "מגמות · תור · webhooks"
+    "quickSystemDesc": "מגמות · תור · webhooks",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "שפה",

@@ -74,7 +74,18 @@
     "projectsCount": "프로젝트 ({count})",
     "noProjects": "프로젝트가 없습니다. 프로젝트 메뉴에서 생성하세요.",
     "quickSystem": "시스템 뷰어",
-    "quickSystemDesc": "발송 추이 · 큐 · 웹훅"
+    "quickSystemDesc": "발송 추이 · 큐 · 웹훅",
+    "sends24h": "발송 (24h)",
+    "activeDevices": "활성 디바이스",
+    "platformsTitle": "플랫폼별 디바이스",
+    "platformsHint": "전체 프로젝트의 활성 디바이스",
+    "topProjects": "발송 많은 프로젝트",
+    "healthTitle": "상태",
+    "whDelivered": "성공",
+    "whFailed": "실패",
+    "whPending": "대기",
+    "noWebhooks": "웹훅 전송 없음",
+    "productionHint": "production {count}개"
   },
   "common": {
     "language": "언어",

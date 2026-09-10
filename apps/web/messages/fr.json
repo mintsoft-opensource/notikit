@@ -74,7 +74,18 @@
     "projectsCount": "Projets ({count})",
     "noProjects": "Aucun projet. Créez-en un depuis le menu Projets.",
     "quickSystem": "Visualiseur système",
-    "quickSystemDesc": "Tendances · file · webhooks"
+    "quickSystemDesc": "Tendances · file · webhooks",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "Langue",

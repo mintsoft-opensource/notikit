@@ -74,7 +74,18 @@
     "projectsCount": "專案 ({count})",
     "noProjects": "尚無專案。請從專案選單建立。",
     "quickSystem": "系統檢視器",
-    "quickSystemDesc": "傳送趨勢 · 佇列 · Webhook"
+    "quickSystemDesc": "傳送趨勢 · 佇列 · Webhook",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "語言",

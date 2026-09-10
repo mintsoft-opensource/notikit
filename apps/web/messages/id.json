@@ -74,7 +74,18 @@
     "projectsCount": "Proyek ({count})",
     "noProjects": "Tidak ada proyek. Buat satu dari menu Proyek.",
     "quickSystem": "Penampil sistem",
-    "quickSystemDesc": "Tren · antrean · webhook"
+    "quickSystemDesc": "Tren · antrean · webhook",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "Bahasa",

@@ -74,7 +74,18 @@
     "projectsCount": "Projecten ({count})",
     "noProjects": "Geen projecten. Maak er een via het menu Projecten.",
     "quickSystem": "Systeemviewer",
-    "quickSystemDesc": "Trends · wachtrij · webhooks"
+    "quickSystemDesc": "Trends · wachtrij · webhooks",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "Taal",

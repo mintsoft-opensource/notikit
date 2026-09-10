@@ -74,7 +74,18 @@
     "projectsCount": "Projeler ({count})",
     "noProjects": "Proje yok. Projeler menüsünden bir tane oluşturun.",
     "quickSystem": "Sistem görüntüleyici",
-    "quickSystemDesc": "Eğilimler · kuyruk · webhook'lar"
+    "quickSystemDesc": "Eğilimler · kuyruk · webhook'lar",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "Dil",

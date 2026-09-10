@@ -74,7 +74,18 @@
     "projectsCount": "プロジェクト ({count})",
     "noProjects": "プロジェクトがありません。プロジェクトメニューから作成してください。",
     "quickSystem": "システムビューア",
-    "quickSystemDesc": "送信推移 · キュー · Webhook"
+    "quickSystemDesc": "送信推移 · キュー · Webhook",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "言語",

@@ -74,7 +74,18 @@
     "projectsCount": "โปรเจกต์ ({count})",
     "noProjects": "ไม่มีโปรเจกต์ สร้างจากเมนูโปรเจกต์",
     "quickSystem": "ตัวดูระบบ",
-    "quickSystemDesc": "แนวโน้ม · คิว · webhook"
+    "quickSystemDesc": "แนวโน้ม · คิว · webhook",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "ภาษา",

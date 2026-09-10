@@ -74,7 +74,18 @@
     "projectsCount": "Projek ({count})",
     "noProjects": "Tiada projek. Cipta satu daripada menu Projek.",
     "quickSystem": "Pemapar sistem",
-    "quickSystemDesc": "Aliran · baris gilir · webhook"
+    "quickSystemDesc": "Aliran · baris gilir · webhook",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "Bahasa",

@@ -74,7 +74,18 @@
     "projectsCount": "项目 ({count})",
     "noProjects": "暂无项目。请从项目菜单创建。",
     "quickSystem": "系统查看器",
-    "quickSystemDesc": "发送趋势 · 队列 · Webhook"
+    "quickSystemDesc": "发送趋势 · 队列 · Webhook",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "语言",

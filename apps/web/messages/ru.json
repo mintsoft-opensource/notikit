@@ -74,7 +74,18 @@
     "projectsCount": "Проекты ({count})",
     "noProjects": "Проектов нет. Создайте проект в меню «Проекты».",
     "quickSystem": "Системный обзор",
-    "quickSystemDesc": "Тренды · очередь · вебхуки"
+    "quickSystemDesc": "Тренды · очередь · вебхуки",
+    "sends24h": "Sends (24h)",
+    "activeDevices": "Active devices",
+    "platformsTitle": "Devices by platform",
+    "platformsHint": "Active devices, all projects",
+    "topProjects": "Busiest projects",
+    "healthTitle": "Health",
+    "whDelivered": "Delivered",
+    "whFailed": "Failed",
+    "whPending": "Pending",
+    "noWebhooks": "No webhook deliveries",
+    "productionHint": "{count} in production"
   },
   "common": {
     "language": "Язык",

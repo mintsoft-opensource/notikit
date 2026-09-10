@@ -1,6 +1,6 @@
 import { sql, eq, and, gte, inArray, count as countFn } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { projects, pushLogs, devices, pushUsers, webhookDeliveries, webhooks } from "@/db/schema";
+import { projects, pushLogs, devices, pushUsers, webhookDeliveries, webhooks, deviceActivity, deviceEvents } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireAuth } from "@/lib/authz";
 
@@ -27,10 +27,33 @@ export async function GET(req: Request) {
       statuses: {},
       topProjects: [],
       webhooks24h: { delivered: 0, failed: 0, pending: 0 },
+      activity: { dau: { devices: 0, users: 0 }, mau: { devices: 0, users: 0 }, daily: [] },
+      platforms: [],
+      clicks: { clicks: 0, click_users: 0, audience_users: 0, user_rate: null },
+      lifecycle: { uninstalled: 0, reinstalled: 0 },
     });
   }
 
-  const [hourlyRows, statusRows, queuedRow, deviceRow, userRow, topRows, whRows] = await Promise.all([
+  const ACTIVITY_DAYS = 30;
+  const activeWithin = (n: number) =>
+    db
+      .select({
+        devices: sql<number>`count(distinct ${deviceActivity.deviceId})::int`,
+        users: sql<number>`count(distinct ${deviceActivity.userId})::int`,
+      })
+      .from(deviceActivity)
+      .where(
+        and(
+          inArray(deviceActivity.projectId, ids),
+          // date - $n 은 파라미터 타입이 추론되지 않아 캐스트가 필요하다
+          gte(deviceActivity.day, sql`((now() at time zone 'UTC')::date - ${n - 1}::int)`)
+        )
+      );
+
+  const [
+    hourlyRows, statusRows, queuedRow, deviceRow, userRow, topRows, whRows,
+    dauRow, mauRow, activityRows, platformRows, clickRow, lifecycleRows,
+  ] = await Promise.all([
     db
       .select({
         // DB 세션 TZ 와 무관하게 UTC 경계 — 아래 시간 버킷 채우기와 키가 일치해야 함
@@ -70,6 +93,42 @@ export async function GET(req: Request) {
       .innerJoin(webhooks, eq(webhookDeliveries.webhookId, webhooks.id))
       .where(and(inArray(webhooks.projectId, ids), gte(webhookDeliveries.createdAt, dayAgo)))
       .groupBy(webhookDeliveries.status),
+    activeWithin(1),
+    activeWithin(30),
+    db
+      .select({
+        day: sql<string>`${deviceActivity.day}::text`,
+        devices: sql<number>`count(distinct ${deviceActivity.deviceId})::int`,
+        users: sql<number>`count(distinct ${deviceActivity.userId})::int`,
+      })
+      .from(deviceActivity)
+      .where(
+        and(
+          inArray(deviceActivity.projectId, ids),
+          gte(deviceActivity.day, sql`((now() at time zone 'UTC')::date - ${ACTIVITY_DAYS - 1}::int)`)
+        )
+      )
+      .groupBy(sql`1`)
+      .orderBy(sql`1`),
+    db
+      .select({ platform: devices.platform, count: sql<number>`count(*)::int` })
+      .from(devices)
+      .where(and(inArray(devices.projectId, ids), eq(devices.isActive, true)))
+      .groupBy(devices.platform)
+      .orderBy(sql`count(*) desc`),
+    db
+      .select({
+        clicks: sql<number>`coalesce(sum(${pushLogs.clickCount}), 0)::int`,
+        clickUsers: sql<number>`coalesce(sum(${pushLogs.clickUserCount}), 0)::int`,
+        audienceUsers: sql<number>`coalesce(sum(${pushLogs.audienceUserCount}), 0)::int`,
+      })
+      .from(pushLogs)
+      .where(and(inArray(pushLogs.projectId, ids), gte(pushLogs.createdAt, dayAgo))),
+    db
+      .select({ event: deviceEvents.event, count: sql<number>`count(*)::int` })
+      .from(deviceEvents)
+      .where(and(inArray(deviceEvents.projectId, ids), gte(deviceEvents.at, dayAgo)))
+      .groupBy(deviceEvents.event),
   ]);
 
   // 24개 시간 버킷 채우기 (빈 시간대 = 0)
@@ -89,6 +148,20 @@ export async function GET(req: Request) {
   const success24h = hourlyRows.reduce((a, r) => a + r.success, 0);
   const wh = Object.fromEntries(whRows.map((r) => [r.status, r.count]));
 
+  // 일별 활성 — 빈 날은 0 으로 채운다(없는 날을 건너뛰면 차트가 시간축을 왜곡한다)
+  const byDay = new Map(activityRows.map((r) => [r.day, r]));
+  const today = new Date();
+  const endDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const daily: Array<{ day: string; devices: number; users: number }> = [];
+  for (let i = ACTIVITY_DAYS - 1; i >= 0; i--) {
+    const d = new Date(endDay - i * 86_400_000).toISOString().slice(0, 10);
+    const row = byDay.get(d);
+    daily.push({ day: d, devices: row?.devices ?? 0, users: row?.users ?? 0 });
+  }
+
+  const c = clickRow[0];
+  const lifecycle = Object.fromEntries(lifecycleRows.map((r) => [r.event, r.count]));
+
   return ok({
     totals: {
       sends24h,
@@ -102,5 +175,20 @@ export async function GET(req: Request) {
     statuses,
     topProjects: topRows.map((r) => ({ id: r.projectId, name: nameById.get(r.projectId) ?? r.projectId, count: r.count })),
     webhooks24h: { delivered: wh.delivered ?? 0, failed: wh.failed ?? 0, pending: wh.pending ?? 0 },
+    activity: {
+      dau: dauRow[0] ?? { devices: 0, users: 0 },
+      mau: mauRow[0] ?? { devices: 0, users: 0 },
+      daily,
+    },
+    // 파이 차트용 — 활성 디바이스의 플랫폼 분포
+    platforms: platformRows.map((r) => ({ platform: r.platform, count: r.count })),
+    clicks: {
+      clicks: c?.clicks ?? 0,
+      click_users: c?.clickUsers ?? 0,
+      audience_users: c?.audienceUsers ?? 0,
+      // 분모가 0이면 비율은 정의되지 않는다 — 0% 로 위장하지 않는다
+      user_rate: (c?.audienceUsers ?? 0) > 0 ? (c!.clickUsers) / (c!.audienceUsers) : null,
+    },
+    lifecycle: { uninstalled: lifecycle.uninstalled ?? 0, reinstalled: lifecycle.reinstalled ?? 0 },
   });
 }
