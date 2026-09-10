@@ -496,7 +496,12 @@
     "opensTitle": "App opens",
     "opensHint": "Every reported open, not deduplicated",
     "platformsTitle": "By platform",
-    "empty": "No activity recorded yet"
+    "empty": "No activity recorded yet",
+    "retentionTitle": "Retention",
+    "retentionHint": "Share of each install cohort still active — blank means the day has not arrived yet",
+    "cohortDay": "Installed",
+    "cohortSize": "Devices",
+    "cohortAverage": "All cohorts"
   },
   "engagementStats": {
     "title": "Engagement",
@@ -508,7 +513,25 @@
     "colAudience": "Audience",
     "colReaders": "Read",
     "colRate": "Rate",
-    "colSentAt": "Sent"
+    "colSentAt": "Sent",
+    "heatmapTitle": "When people open",
+    "heatmapHint": "Clicks by weekday and hour (UTC)",
+    "peakHint": "Busiest: {day} {hour}:00 UTC · {count} clicks",
+    "cellLabel": "{day} {hour}:00 UTC, {count} clicks",
+    "latencyTitle": "Time to open",
+    "latencyHint": "Delay between send and open",
+    "latencyAvg": "Average {value}",
+    "latency_lt1m": "< 1 min",
+    "latency_lt5m": "< 5 min",
+    "latency_lt30m": "< 30 min",
+    "latency_lt2h": "< 2 h",
+    "latency_lt1d": "< 1 day",
+    "latency_gte1d": "1 day+",
+    "platformTitle": "Opens by platform",
+    "secondsShort": "{n}s",
+    "minutesShort": "{n}m",
+    "hoursShort": "{n}h",
+    "daysShort": "{n}d"
   },
   "installs": {
     "title": "Installs",

@@ -766,4 +766,47 @@ test.describe("App SDK API 전체 플로우", () => {
     const act = await request.get(`/api/admin/projects/${pid}/activity`, { headers: { "x-admin-token": ADMIN } });
     expect((await act.json()).data.dau.devices).toBe(1);
   });
+
+  test("참여 심화: 히트맵 격자·지연 구간·피크가 데이터와 일치", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `deep-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const admin = { "x-admin-token": ADMIN };
+
+    // 클릭이 없어도 격자는 7×24 로 채워져야 한다(빈 칸 생략 시 격자가 어긋난다)
+    const empty = await request.get(`/api/admin/projects/${pid}/engagement`, { headers: admin });
+    const ej = (await empty.json()).data;
+    expect(ej.heatmap).toHaveLength(7);
+    expect(ej.heatmap[0]).toHaveLength(24);
+    expect(ej.heatmap.flat().every((v: number) => v === 0)).toBe(true);
+    // 클릭이 없으면 피크는 존재하지 않는다 — 0시로 위장하면 안 된다
+    expect(ej.peak).toBeNull();
+    expect(ej.latencyAvgSeconds).toBeNull();
+
+    // 범위 밖 값은 기본(30d)으로 떨어진다
+    const bad = await request.get(`/api/admin/projects/${pid}/engagement?range=constructor`, { headers: admin });
+    expect((await bad.json()).data.range).toBe("30d");
+  });
+
+  test("리텐션: 아직 오지 않은 날짜는 0% 가 아니라 null", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `ret-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+
+    // 오늘 설치된 디바이스 하나 → 코호트 크기 1
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `ret-${Date.now()}`, platform: "ios" } });
+
+    const r = await request.get(`/api/admin/projects/${pid}/retention`, { headers: { "x-admin-token": ADMIN } });
+    const d = (await r.json()).data;
+    expect(d.cohorts).toHaveLength(1);
+    expect(d.cohorts[0].size).toBe(1);
+    // D1 부터 전부 미래 → 관측 불가
+    for (const p of d.cohorts[0].points) {
+      expect(p.rate).toBeNull();
+      expect(p.retained).toBeNull();
+    }
+    // 관측 가능한 코호트가 없으므로 요약도 null
+    expect(d.summary.every((s: { rate: number | null }) => s.rate === null)).toBe(true);
+  });
 });

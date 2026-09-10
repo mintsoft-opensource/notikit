@@ -496,7 +496,12 @@
     "opensTitle": "앱 열림",
     "opensHint": "보고된 모든 열림 — 중복 제거하지 않습니다",
     "platformsTitle": "플랫폼별",
-    "empty": "기록된 접속이 없습니다"
+    "empty": "기록된 접속이 없습니다",
+    "retentionTitle": "리텐션",
+    "retentionHint": "설치 코호트별 잔존 비율 — 빈 칸은 아직 그 날짜가 오지 않았다는 뜻입니다",
+    "cohortDay": "설치일",
+    "cohortSize": "디바이스",
+    "cohortAverage": "전체 평균"
   },
   "engagementStats": {
     "title": "참여",
@@ -508,7 +513,25 @@
     "colAudience": "대상 수",
     "colReaders": "읽음",
     "colRate": "읽음률",
-    "colSentAt": "발송"
+    "colSentAt": "발송",
+    "heatmapTitle": "언제 읽는가",
+    "heatmapHint": "요일·시간대별 클릭 (UTC)",
+    "peakHint": "가장 많이 읽는 때: {day} {hour}시 UTC · {count}회",
+    "cellLabel": "{day} {hour}시 UTC, {count}회",
+    "latencyTitle": "읽기까지 걸린 시간",
+    "latencyHint": "발송에서 열람까지의 간격",
+    "latencyAvg": "평균 {value}",
+    "latency_lt1m": "1분 미만",
+    "latency_lt5m": "5분 미만",
+    "latency_lt30m": "30분 미만",
+    "latency_lt2h": "2시간 미만",
+    "latency_lt1d": "하루 미만",
+    "latency_gte1d": "하루 이상",
+    "platformTitle": "플랫폼별 열람",
+    "secondsShort": "{n}초",
+    "minutesShort": "{n}분",
+    "hoursShort": "{n}시간",
+    "daysShort": "{n}일"
   },
   "installs": {
     "title": "설치 변동",

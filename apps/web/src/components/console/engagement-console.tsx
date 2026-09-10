@@ -3,12 +3,14 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { MousePointerClick, Percent, Send, Users } from "lucide-react";
+import { MousePointerClick, Percent, Send, Users, CalendarClock, Timer } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
+import { Heatmap } from "@/components/system/heatmap";
+import { BarList } from "@/components/console/panels";
 import { adminApi } from "@/lib/admin-client";
 
 type Stats = {
@@ -36,8 +38,22 @@ type Log = {
   createdAt: string;
 };
 
+type Deep = {
+  total: number;
+  /** [요일][시간] — 요일 0 = 일요일 */
+  heatmap: number[][];
+  /** 클릭이 없으면 null — 0시로 위장하지 않는다 */
+  peak: { dow: number; hour: number; count: number } | null;
+  latency: Record<string, number>;
+  latencyAvgSeconds: number | null;
+  platforms: Array<{ platform: string; count: number }>;
+};
+
 type RangeKey = "24h" | "7d" | "30d";
 const RANGE_KEYS: RangeKey[] = ["24h", "7d", "30d"];
+/** 심화 통계는 24h 구간이 너무 얕아 최소 7d 로 조회한다 */
+const DEEP_RANGE: Record<RangeKey, "7d" | "30d" | "90d"> = { "24h": "7d", "7d": "7d", "30d": "30d" };
+const LATENCY_KEYS = ["lt1m", "lt5m", "lt30m", "lt2h", "lt1d", "gte1d"] as const;
 
 /** 참여 통계 — 클릭 퍼널과 발송별 읽음률. 개요의 요약보다 깊게 본다. */
 export function EngagementConsole({ projectId }: { projectId: string }) {
@@ -50,6 +66,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
   const [range, setRange] = React.useState<RangeKey>("7d");
   const [stats, setStats] = React.useState<Stats | null>(null);
   const [logs, setLogs] = React.useState<Log[] | null>(null);
+  const [deep, setDeep] = React.useState<Deep | null>(null);
   const [failed, setFailed] = React.useState(false);
   const reqRef = React.useRef(0);
 
@@ -57,14 +74,17 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
     const my = ++reqRef.current;
     setStats(null);
     setLogs(null);
+    setDeep(null);
     setFailed(false);
     Promise.all([
       adminApi<Stats>(`/api/admin/projects/${projectId}/stats?range=${range}`),
       adminApi<{ logs: Log[] }>(`/api/admin/projects/${projectId}/logs`),
+      adminApi<Deep>(`/api/admin/projects/${projectId}/engagement?range=${DEEP_RANGE[range]}`),
     ])
-      .then(([s, l]) => {
+      .then(([s, l, d]) => {
         if (my !== reqRef.current) return;
         setStats(s);
+        setDeep(d);
         // 읽음률 높은 순 — 대상이 0인 발송은 비율이 정의되지 않으므로 뒤로 민다
         setLogs(
           [...l.logs].sort(
@@ -94,6 +114,20 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
   const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(1)}%` : "—");
   const rangeLabelOf = (r: RangeKey) => (r === "24h" ? ts("range24h") : r === "7d" ? ts("range7d") : ts("range30d"));
+
+  /** 요일 이름은 로케일에서 뽑는다 — 하드코딩하면 25개 언어에 키가 또 늘어난다 */
+  const dayLabels = React.useMemo(() => {
+    const f = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" });
+    // 2024-01-07 이 일요일 — Postgres extract(dow) 의 0 과 맞춘다
+    return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(2024, 0, 7 + i))));
+  }, [locale]);
+
+  const humanSeconds = (s: number) => {
+    if (s < 60) return t("secondsShort", { n: s });
+    if (s < 3600) return t("minutesShort", { n: Math.round(s / 60) });
+    if (s < 86400) return t("hoursShort", { n: Math.round(s / 3600) });
+    return t("daysShort", { n: Math.round(s / 86400) });
+  };
 
   return (
     <div className="w-full space-y-6">
@@ -157,6 +191,77 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
           )}
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card className="min-w-0">
+          <CardHeader>
+            <div>
+              <CardTitle className="flex items-center gap-1.5">
+                <CalendarClock aria-hidden="true" className="h-4 w-4" /> {t("heatmapTitle")}
+              </CardTitle>
+              <CardDescription>
+                {deep?.peak
+                  ? t("peakHint", { day: dayLabels[deep.peak.dow], hour: deep.peak.hour, count: nf.format(deep.peak.count) })
+                  : t("heatmapHint")}
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {deep ? (
+              deep.total > 0 ? (
+                <Heatmap
+                  label={t("heatmapTitle")}
+                  grid={deep.heatmap}
+                  dayLabels={dayLabels}
+                  formatValue={(v) => nf.format(v)}
+                  cellLabel={(day, hour, value) => t("cellLabel", { day, hour, count: nf.format(value) })}
+                />
+              ) : (
+                <EmptyState icon={CalendarClock} title={to("noClicks")} />
+              )
+            ) : (
+              <EmptyState icon={CalendarClock} title={failed ? tc("loadFailed") : tc("loading")} />
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="grid min-w-0 gap-4">
+          <Card className="min-w-0">
+            <CardHeader>
+              <div>
+                <CardTitle className="flex items-center gap-1.5">
+                  <Timer aria-hidden="true" className="h-4 w-4" /> {t("latencyTitle")}
+                </CardTitle>
+                <CardDescription>
+                  {deep?.latencyAvgSeconds !== null && deep?.latencyAvgSeconds !== undefined
+                    ? t("latencyAvg", { value: humanSeconds(deep.latencyAvgSeconds) })
+                    : t("latencyHint")}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {deep && deep.total > 0 ? (
+                <BarList rows={LATENCY_KEYS.map((k) => ({ label: t(`latency_${k}` as "latency_lt1m"), value: deep.latency[k] ?? 0 }))} />
+              ) : (
+                <EmptyState icon={Timer} title={deep ? to("noClicks") : failed ? tc("loadFailed") : tc("loading")} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="min-w-0">
+            <CardHeader>
+              <CardTitle>{t("platformTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {deep && deep.platforms.length > 0 ? (
+                <BarList rows={deep.platforms.map((p) => ({ label: p.platform, value: p.count }))} />
+              ) : (
+                <EmptyState icon={Users} title={deep ? to("noClicks") : failed ? tc("loadFailed") : tc("loading")} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
