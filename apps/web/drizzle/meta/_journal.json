@@ -36,6 +36,13 @@
       "when": 1788969569900,
       "tag": "0004_wealthy_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789002493958,
+      "tag": "0005_open_alex_power",
+      "breakpoints": true
     }
   ]
 }

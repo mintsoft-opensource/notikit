@@ -555,10 +555,13 @@ test.describe("App SDK API 전체 플로우", () => {
     const anon = await request.post(`/api/admin/projects/${pid}/devices/check`, { data: {} });
     expect(anon.status()).toBe(403);
 
-    // 분당 2회 제한 — 프로젝트 전체 토큰을 도는 무거운 작업
-    await request.post(`/api/admin/projects/${pid}/devices/check`, { headers: { "x-admin-token": ADMIN }, data: {} });
-    const limited = await request.post(`/api/admin/projects/${pid}/devices/check`, { headers: { "x-admin-token": ADMIN }, data: {} });
-    expect(limited.status()).toBe(429);
+    // 레이트리밋 — partial 이어받기를 막지 않을 만큼 여유가 있지만 상한은 있다
+    let limited = 0;
+    for (let i = 0; i < 35; i++) {
+      const r = await request.post(`/api/admin/projects/${pid}/devices/check`, { headers: { "x-admin-token": ADMIN }, data: {} });
+      if (r.status() === 429) limited++;
+    }
+    expect(limited).toBeGreaterThan(0);
   });
 
   test("야간 스윕: min_interval_hours 로 하루 1회만 클레임된다", async ({ request }) => {

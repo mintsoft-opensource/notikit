@@ -51,8 +51,14 @@ export const projects = pgTable("projects", {
   firebaseCredentialsEnc: text("firebase_credentials_enc"),
   // 카카오 알림톡 설정(provider_url/api_key/sender_key) — AES-256-GCM 암호문
   kakaoConfigEnc: text("kakao_config_enc"),
-  // 마지막 토큰 검사 시각 — 야간 스윕의 중복 실행 방지(다중 워커 CAS 클레임 기준)
+  // 마지막으로 **완주한** 토큰 스윕 시각 — 하루 1회 판단 기준
   tokensCheckedAt: timestamp("tokens_checked_at", { withTimezone: true }),
+  // 스윕 재개 지점(devices.id). null 이면 진행 중인 스윕이 없다.
+  // 토큰이 많아 한 번에 끝나지 않는 프로젝트는 여기서 이어서 돈다.
+  tokensCheckCursor: uuid("tokens_check_cursor"),
+  // 진행 중 스윕의 리스. 워커가 죽으면 만료되어 다른 워커가 이어받는다.
+  // 정상적으로 한 구간을 마치면 null 로 풀어 즉시 이어 돌 수 있게 한다.
+  tokensSweepLeaseAt: timestamp("tokens_sweep_lease_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   apiKeyIdx: uniqueIndex("projects_api_key_idx").on(t.apiKey),
