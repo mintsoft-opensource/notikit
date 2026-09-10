@@ -10,10 +10,21 @@ const BATCH = 500; // FCM 멀티캐스트 한도
 const CONCURRENCY = 4;
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 
+/**
+ * 양의 정수 env 파싱. `??` 는 빈 문자열을 잡지 못해 `Number("") === 0` 이 되고,
+ * MAX_PER_RUN 이 0 이면 매번 아무것도 검사하지 않은 채 partial 로 남아 영구히 멈춘다.
+ */
+function positiveEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 /** 한 번의 호출에서 검사할 최대 토큰 수. 넘으면 커서를 저장하고 다음 호출에서 이어 돈다. */
-const MAX_PER_RUN = Number(process.env.TOKEN_CHECK_MAX_PER_RUN ?? 50_000);
+const MAX_PER_RUN = positiveEnv("TOKEN_CHECK_MAX_PER_RUN", 50_000);
 /** 진행 중 스윕의 리스 — 워커가 죽어도 이 시간이 지나면 다른 워커가 이어받는다. */
-const LEASE_MS = Number(process.env.TOKEN_CHECK_LEASE_MS ?? 5 * 60_000);
+const LEASE_MS = positiveEnv("TOKEN_CHECK_LEASE_MS", 5 * 60_000);
 
 export interface TokenHealthResult {
   checked: number;
@@ -25,11 +36,17 @@ export interface TokenHealthResult {
   alreadyChecked?: boolean;
   /** 상한에 걸려 아직 남았다 — 호출자가 이어서 한 번 더 불러야 한다 */
   partial?: boolean;
+  /** FCM 이 무효 판정이 아닌 오류를 낸 토큰 수 — 검사되지 않았다 */
+  unverified?: number;
+  /** 리스가 만료되어 다른 워커가 이어받았다 — 이번 결과는 기록하지 않았다 */
+  leaseLost?: boolean;
 }
 
 interface Claim {
   ok: boolean;
   cursor: string;
+  /** 이 클레임의 소유권 증표. 최종 기록 시 이 값이 그대로 남아 있을 때만 쓴다. */
+  lease: Date;
 }
 
 /**
@@ -49,9 +66,10 @@ async function claimSweep(projectId: string, minIntervalHours: number): Promise<
   const leaseCutoff = new Date(now - LEASE_MS);
   const leaseFree = or(isNull(projects.tokensSweepLeaseAt), lt(projects.tokensSweepLeaseAt, leaseCutoff));
 
+  const lease = new Date();
   const claimed = await db
     .update(projects)
-    .set({ tokensSweepLeaseAt: new Date() })
+    .set({ tokensSweepLeaseAt: lease })
     .where(
       and(
         eq(projects.id, projectId),
@@ -67,8 +85,8 @@ async function claimSweep(projectId: string, minIntervalHours: number): Promise<
     )
     .returning({ cursor: projects.tokensCheckCursor });
 
-  if (claimed.length === 0) return { ok: false, cursor: ZERO_UUID };
-  return { ok: true, cursor: claimed[0].cursor ?? ZERO_UUID };
+  if (claimed.length === 0) return { ok: false, cursor: ZERO_UUID, lease };
+  return { ok: true, cursor: claimed[0].cursor ?? ZERO_UUID, lease };
 }
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -105,12 +123,12 @@ export async function checkProjectTokens(
 ): Promise<TokenHealthResult> {
   const db = getDb();
 
-  let cursor = ZERO_UUID;
-  if (opts.minIntervalHours !== undefined) {
-    const claim = await claimSweep(projectId, opts.minIntervalHours);
-    if (!claim.ok) return { checked: 0, invalid: 0, deactivated: 0, skipped: false, alreadyChecked: true };
-    cursor = claim.cursor;
-  }
+  // 클레임은 항상 거친다. 예전에는 파라미터가 없으면 클레임을 건너뛰고도 커서와 리스를
+  // 덮어썼다 — 수동 호출이 진행 중인 야간 스윕의 진행 상황을 날릴 수 있었다.
+  // minIntervalHours 0 = "간격 조건 없이 지금 실행"(수동), 단 리스는 여전히 존중한다.
+  const claim = await claimSweep(projectId, opts.minIntervalHours ?? 0);
+  if (!claim.ok) return { checked: 0, invalid: 0, deactivated: 0, skipped: false, alreadyChecked: true };
+  let cursor = claim.cursor;
 
   const project = (await db.select().from(projects).where(eq(projects.id, projectId)).limit(1))[0];
   if (!project?.firebaseCredentialsEnc) {
@@ -119,14 +137,29 @@ export async function checkProjectTokens(
     await db
       .update(projects)
       .set({ tokensCheckCursor: null, tokensSweepLeaseAt: null, tokensCheckedAt: sql`now()` })
-      .where(eq(projects.id, projectId));
+      .where(and(eq(projects.id, projectId), eq(projects.tokensSweepLeaseAt, claim.lease)));
     return { checked: 0, invalid: 0, deactivated: 0, skipped: true };
   }
   const sa = parseServiceAccount(decryptSecret(project.firebaseCredentialsEnc));
 
   let checked = 0;
   let partial = false;
-  const invalidAll: string[] = [];
+  let unverified = 0;
+  let deactivated = 0;
+  let invalid = 0;
+
+  /** 무효 토큰 비활성화 — **페이지마다 즉시** 반영한다. 루프 끝으로 미루면 중간에
+   *  FCM 이 던졌을 때 그때까지 찾은 죽은 토큰이 전부 버려진다. */
+  async function deactivate(tokens: string[]): Promise<void> {
+    for (const c of chunk(tokens, 1000)) {
+      const res = await db
+        .update(devices)
+        .set({ isActive: false })
+        .where(and(eq(devices.projectId, projectId), inArray(devices.token, c)))
+        .returning({ id: devices.id });
+      deactivated += res.length;
+    }
+  }
 
   // keyset 페이지네이션 — 대량 프로젝트에서 전체 토큰을 메모리에 올리지 않는다
   for (;;) {
@@ -136,51 +169,84 @@ export async function checkProjectTokens(
       break;
     }
 
+    const want = Math.min(PAGE, remaining);
     const rows = await db
       .select({ id: devices.id, token: devices.token })
       .from(devices)
       .where(and(eq(devices.projectId, projectId), eq(devices.isActive, true), gt(devices.id, cursor)))
       .orderBy(devices.id)
-      .limit(Math.min(PAGE, remaining));
+      .limit(want);
     if (rows.length === 0) break;
 
     const tokens = rows.map((r) => r.token);
-    checked += tokens.length;
 
-    const results = await mapLimit(chunk(tokens, BATCH), CONCURRENCY, (b) =>
-      // dry-run 은 배달되지 않으므로 내용은 보이지 않는다. 다만 빈 페이로드로 검증이
-      // 거부될 여지를 없애려고 마커 한 개를 실어 보낸다.
-      sendToTokens(projectId, sa, b, { title: "", body: "", data: { notikit_check: "1" } }, true)
-    );
-    for (const r of results) invalidAll.push(...r.invalidTokens);
+    let results;
+    try {
+      results = await mapLimit(chunk(tokens, BATCH), CONCURRENCY, (b) =>
+        // dry-run 은 배달되지 않으므로 내용은 보이지 않는다. 다만 빈 페이로드로 검증이
+        // 거부될 여지를 없애려고 마커 한 개를 실어 보낸다.
+        sendToTokens(projectId, sa, b, { title: "", body: "", data: { notikit_check: "1" } }, true)
+      );
+    } catch {
+      // FCM 장애 — 이 페이지는 검사하지 못했다. 커서를 넘기지 않고 여기서 멈춰
+      // 다음 호출이 같은 지점부터 재시도하게 한다.
+      unverified += tokens.length;
+      partial = true;
+      break;
+    }
+
+    checked += tokens.length;
+    const pageInvalid: string[] = [];
+    let pageFailed = 0;
+    for (const r of results) {
+      pageInvalid.push(...r.invalidTokens);
+      // 무효 판정이 아닌 실패(쿼터·일시 장애)는 "검사 못 함"이다
+      pageFailed += r.failure - r.invalidTokens.length;
+    }
+    invalid += pageInvalid.length;
+    await deactivate(pageInvalid);
 
     cursor = rows[rows.length - 1].id;
-    // 요청한 만큼 못 받았으면 더 없다
-    if (rows.length < Math.min(PAGE, remaining)) break;
+
+    if (pageFailed > 0) {
+      // 남은 구간은 다음 호출로 넘긴다 — 완주로 찍어 다음 창까지 건너뛰지 않게
+      unverified += pageFailed;
+      partial = true;
+      break;
+    }
+    if (rows.length < want) break; // 요청한 만큼 못 받았으면 더 없다
   }
 
-  // 비활성화는 청크 단위로 즉시 반영 — 중간에 끊겨도 여기까지의 결과는 남는다
-  let deactivated = 0;
-  for (const c of chunk(invalidAll, 1000)) {
-    const res = await db
-      .update(devices)
-      .set({ isActive: false })
-      .where(and(eq(devices.projectId, projectId), inArray(devices.token, c)))
-      .returning({ id: devices.id });
-    deactivated += res.length;
+  // MAX_PER_RUN 에 정확히 걸린 경우 실제로 남았는지 1행만 확인한다 —
+  // 안 하면 남은 게 없는데도 partial 로 보고해 불필요한 왕복이 한 번 생긴다
+  if (partial && unverified === 0) {
+    const more = await db
+      .select({ id: devices.id })
+      .from(devices)
+      .where(and(eq(devices.projectId, projectId), eq(devices.isActive, true), gt(devices.id, cursor)))
+      .limit(1);
+    if (more.length === 0) partial = false;
   }
 
-  // partial 이면 커서를 남기고 리스를 풀어 다음 tick 이 곧바로 이어받게 한다.
-  // 완주했을 때만 tokensCheckedAt 을 찍는다 — 중간 구간을 완주로 기록하면
-  // 남은 토큰이 다음 창까지 검사되지 않는다.
-  await db
+  // fencing: 리스가 만료되어 다른 워커가 이어받았다면 우리 커서를 쓰면 안 된다.
+  // 조건이 깨지면 0행이 갱신되고, 우리는 조용히 물러난다(이미 후임이 진행 중).
+  const wrote = await db
     .update(projects)
     .set({
       tokensCheckCursor: partial ? cursor : null,
       tokensSweepLeaseAt: null,
       ...(partial ? {} : { tokensCheckedAt: sql`now()` }),
     })
-    .where(eq(projects.id, projectId));
+    .where(and(eq(projects.id, projectId), eq(projects.tokensSweepLeaseAt, claim.lease)))
+    .returning({ id: projects.id });
 
-  return { checked, invalid: invalidAll.length, deactivated, skipped: false, partial };
+  return {
+    checked,
+    invalid,
+    deactivated,
+    skipped: false,
+    partial: wrote.length === 0 ? false : partial,
+    ...(unverified > 0 ? { unverified } : {}),
+    ...(wrote.length === 0 ? { leaseLost: true } : {}),
+  };
 }

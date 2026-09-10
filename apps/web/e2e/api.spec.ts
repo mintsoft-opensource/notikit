@@ -481,6 +481,16 @@ test.describe("App SDK API 전체 플로우", () => {
     });
     expect((await again.json()).data.recorded).toBe(false);
 
+    // 수신 대상이 아니었던 디바이스는 거부 — 공개 api-key 로 가짜 토큰을 등록해
+    // 클릭을 무한히 찍는 경로를 막는다
+    const fakeToken = `fake-${Date.now()}`;
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: fakeToken, platform: "android" } });
+    const forged = await request.post("/api/v1/messages/click", {
+      headers: { "api-key": apiKey },
+      data: { log_id: logId, token: fakeToken },
+    });
+    expect(forged.status()).toBe(403);
+
     const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
     const row = (await logs.json()).data.logs.find((l: { id: string }) => l.id === logId);
     expect(row.clickCount).toBe(1);
@@ -528,10 +538,17 @@ test.describe("App SDK API 전체 플로우", () => {
     const kept = await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token, platform: "android" } });
     expect((await kept.json()).data.device.userId).not.toBeNull();
 
-    // null 은 명시적 해제
-    const unbound = await request.post("/api/v1/devices", {
+    // 해제도 identity 증명을 요구한다 — 없으면 403
+    const noProof = await request.post("/api/v1/devices", {
       headers: { "api-key": apiKey },
       data: { token, platform: "android", external_id: null },
+    });
+    expect(noProof.status()).toBe(403);
+
+    // 올바른 해시가 있으면 해제
+    const unbound = await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token, platform: "android", external_id: null, identity_hash: idHash(ext, apiSecret) },
     });
     expect((await unbound.json()).data.device.userId).toBeNull();
   });

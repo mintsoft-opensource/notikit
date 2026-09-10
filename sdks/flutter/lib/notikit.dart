@@ -98,10 +98,13 @@ class Notikit {
   Future<Map<String, dynamic>> unbindDevice({
     required String token,
     required String platform,
+    String? identityHash,
   }) {
     return _postRaw('/api/v1/devices', {
       'token': token,
       'platform': platform,
+      // 서버가 현재 바인딩된 유저의 해시를 검증한다 — 남의 토큰으로 해제하는 것을 막는다
+      if (identityHash != null) 'identity_hash': identityHash,
       'external_id': null,
     });
   }

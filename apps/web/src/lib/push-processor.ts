@@ -137,49 +137,79 @@ async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
 }
 
 /**
- * 클릭률 분모 — 이 발송이 도달할 수 있었던 **고유 유저 수**를 발송 시점에 확정한다.
- * 구독·디바이스는 계속 변하므로 나중에 세면 과거 발송의 비율이 흔들린다.
- * 유저에 바인딩되지 않은 익명 디바이스는 세지 않는다(클릭도 유저로 귀속되지 않으므로).
+ * 클릭률 분모 — 이 발송이 도달할 수 있었던 **고유 유저 수**와 **디바이스 수**를
+ * 발송 시작 전에 확정한다. 구독·디바이스는 계속 변하므로 나중에 세면 과거 발송의 비율이 흔들린다.
+ *
+ * 두 값을 모두 남기는 이유: 익명 디바이스(userId null)는 유저 분모에 0으로 잡히는데
+ * 그 디바이스의 클릭은 clickCount 를 올린다. 짝이 맞는 분모가 없으면 100% 를 넘는 비율이 나온다.
+ * → clickUserCount/audienceUserCount, clickCount/audienceDeviceCount 로 짝지어 쓴다.
+ *
+ * 억제(suppression) 대상은 발송에서 제외되므로 분모에서도 뺀다.
  */
-async function countAudienceUsers(db: Db, log: PushLog): Promise<number> {
-  const active = and(eq(devices.projectId, log.projectId), eq(devices.isActive, true));
+async function countAudience(db: Db, log: PushLog): Promise<{ users: number; devices: number }> {
+  const suppressed = await loadSuppression(db, log.projectId);
+  const base = [eq(devices.projectId, log.projectId), eq(devices.isActive, true)];
+
+  // 억제 토큰은 목록이 크지 않다고 보고 애플리케이션에서 뺀다(발송 경로와 동일한 기준).
+  const tally = (rows: { userId: string | null; token: string }[]) => {
+    const users = new Set<string>();
+    let deviceCount = 0;
+    for (const r of rows) {
+      if (suppressed.has(r.token)) continue;
+      deviceCount++;
+      if (r.userId) users.add(r.userId);
+    }
+    return { users: users.size, devices: deviceCount };
+  };
+
+  if (log.type === "single") {
+    if (!log.target) return { users: 0, devices: 0 };
+    const u = (
+      await db.select({ id: pushUsers.id }).from(pushUsers)
+        .where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.externalId, log.target))).limit(1)
+    )[0];
+    // 없는 external_id 로 보내면 수신자가 0인데 분모만 1이 되어 클릭률이 영원히 0% 로 남는다
+    if (!u) return { users: 0, devices: 0 };
+    const rows = await db
+      .select({ userId: devices.userId, token: devices.token }).from(devices)
+      .where(and(...base, eq(devices.userId, u.id)));
+    return tally(rows);
+  }
 
   if (log.type === "topic") {
-    if (!log.target) return 0;
+    if (!log.target) return { users: 0, devices: 0 };
     const t = (
       await db.select({ id: topics.id }).from(topics)
         .where(and(eq(topics.projectId, log.projectId), eq(topics.name, log.target))).limit(1)
     )[0];
-    if (!t) return 0;
-    const r = await db
-      .select({ n: sql<number>`count(distinct ${devices.userId})::int` })
+    if (!t) return { users: 0, devices: 0 };
+    const rows = await db
+      .select({ userId: devices.userId, token: devices.token })
       .from(subscriptions)
       .innerJoin(devices, eq(subscriptions.deviceId, devices.id))
-      .where(and(eq(subscriptions.topicId, t.id), active));
-    return r[0]?.n ?? 0;
+      .where(and(eq(subscriptions.topicId, t.id), ...base));
+    return tally(rows);
   }
 
-  if (log.type === "single") return log.target ? 1 : 0;
-
   if (log.type === "segment") {
-    if (!log.target) return 0;
+    if (!log.target) return { users: 0, devices: 0 };
     const seg = (
       await db.select({ rules: segments.rules }).from(segments)
         .where(and(eq(segments.projectId, log.projectId), eq(segments.name, log.target))).limit(1)
     )[0];
-    if (!seg) return 0;
-    const conds: SQL[] = [eq(devices.projectId, log.projectId), eq(devices.isActive, true)];
+    if (!seg) return { users: 0, devices: 0 };
+    const conds: SQL[] = [...base];
     for (const r of seg.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
-    const r = await db
-      .select({ n: sql<number>`count(distinct ${devices.userId})::int` })
+    const rows = await db
+      .select({ userId: devices.userId, token: devices.token })
       .from(devices)
       .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
       .where(and(...conds));
-    return r[0]?.n ?? 0;
+    return tally(rows);
   }
 
-  const r = await db.select({ n: sql<number>`count(distinct ${devices.userId})::int` }).from(devices).where(active);
-  return r[0]?.n ?? 0;
+  const rows = await db.select({ userId: devices.userId, token: devices.token }).from(devices).where(and(...base));
+  return tally(rows);
 }
 
 /**
@@ -214,6 +244,10 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     const logOnly = !project?.firebaseCredentialsEnc;
     const sa = logOnly ? null : parseServiceAccount(decryptSecret(project!.firebaseCredentialsEnc!));
     const suppression = await loadSuppression(db, log.projectId);
+
+    // 분모는 **발송 시작 전에** 확정한다. 발송 뒤에 세면 그 사이의 구독 해지·바인딩 변경·
+    // 무효토큰 비활성화가 반영되어, 실제로 받은 사람보다 작은(때로는 큰) 분모가 남는다.
+    const audience = await countAudience(db, log);
 
     let total = 0;
     let success = 0;
@@ -274,10 +308,9 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
 
     // fencing: 우리가 여전히 이 로그의 소유자일 때만 완료 처리(부작용 1회 보장)
     const finalStatus = logOnly ? "logged" : "completed";
-    const audienceUserCount = await countAudienceUsers(db, log);
     const finalized = await db
       .update(pushLogs)
-      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure, audienceUserCount, ...(variants ? { variantStats } : {}) })
+      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure, audienceUserCount: audience.users, audienceDeviceCount: audience.devices, ...(variants ? { variantStats } : {}) })
       .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)))
       .returning({ id: pushLogs.id });
     if (finalized.length === 0) return reload(db, logId); // stale 재클레임에 의해 대체됨 → 부작용 스킵

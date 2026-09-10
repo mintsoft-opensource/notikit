@@ -181,6 +181,9 @@ export const pushLogs = pgTable("push_logs", {
   kakaoCount: integer("kakao_count").notNull().default(0),
   // 클릭률 분모 — 발송 시점 스냅샷. 구독은 계속 변하므로 나중에 세면 과거 발송의 비율이 흔들린다.
   audienceUserCount: integer("audience_user_count").notNull().default(0),
+  // clickCount(디바이스 단위 분자)의 짝. 익명 디바이스는 유저 분모에 0으로 잡히므로
+  // clickCount/audienceUserCount 를 쓰면 100% 를 넘는 비율이 나온다.
+  audienceDeviceCount: integer("audience_device_count").notNull().default(0),
   // 클릭률 분자 — push_clicks 집계 캐시(유니크 클릭 기준)
   clickCount: integer("click_count").notNull().default(0),
   clickUserCount: integer("click_user_count").notNull().default(0),
@@ -199,7 +202,9 @@ export const pushClicks = pgTable("push_clicks", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
-  deviceId: uuid("device_id").references(() => devices.id, { onDelete: "set null" }),
+  // NOT NULL + cascade. nullable 이면 (log_id, device_id) 유니크가 NULL 을 서로 다른 값으로
+  // 취급해 방어가 뚫린다 — 디바이스 삭제 기능이 생기는 순간 중복 클릭이 들어온다.
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
   userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
   platform: text("platform"),
   // 클릭으로 이동한 목적지 — 발송의 deepLink 와 다를 수 있어 실제 착지점을 따로 남긴다

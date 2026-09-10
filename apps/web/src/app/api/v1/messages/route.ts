@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const project = await resolveProjectPrivileged(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id))) return fail("Rate limit exceeded", 429);
+  if (!rateLimit(clientKey(project.id, "send"))) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {

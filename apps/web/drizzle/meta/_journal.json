@@ -43,6 +43,13 @@
       "when": 1789002493958,
       "tag": "0005_open_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789003328609,
+      "tag": "0006_cooing_gideon",
+      "breakpoints": true
     }
   ]
 }

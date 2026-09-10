@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id))) return fail("Rate limit exceeded", 429);
+  if (!rateLimit(clientKey(project.id, "inbox"))) return fail("Rate limit exceeded", 429);
 
   const params = new URL(req.url).searchParams;
   const externalId = params.get("external_id");

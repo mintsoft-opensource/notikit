@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { devices, pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
@@ -26,7 +27,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id))) return fail("Rate limit exceeded", 429);
+  if (!rateLimit(clientKey(project.id, "devices"))) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {
@@ -49,6 +50,25 @@ export async function POST(req: Request) {
 
   // 로그아웃/계정전환: external_id: null 이면 바인딩 해제. 없으면 이후 클릭이 이전 계정에 계속 귀속된다.
   const unbind = b.external_id === null;
+
+  // 해제도 바인딩과 같은 증명을 요구한다. 검사가 없으면 공개 api-key 와 남의 토큰만으로
+  // 그 기기의 바인딩을 끊어 유저 타겟 발송에서 제외시킬 수 있다.
+  if (unbind && project.requireIdentityVerification) {
+    const bound = (
+      await db
+        .select({ externalId: pushUsers.externalId })
+        .from(devices)
+        .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+        .where(and(eq(devices.projectId, project.id), eq(devices.token, b.token)))
+        .limit(1)
+    )[0];
+    // 이미 바인딩이 없으면 해제는 무의미하므로 그대로 통과(멱등)
+    if (bound) {
+      if (!b.identity_hash || !verifyIdentity(bound.externalId, b.identity_hash, project.apiSecretEnc)) {
+        return fail("identity_hash invalid or missing for unbind", 403);
+      }
+    }
+  }
 
   let userId: string | null = null;
   if (b.external_id) {

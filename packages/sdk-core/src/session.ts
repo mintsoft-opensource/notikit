@@ -24,11 +24,25 @@ interface QueuedClick {
   destination?: string;
   /** 최초 시도 시각(ms) — 오래된 클릭은 버려서 큐가 무한히 자라지 않게 한다 */
   at: number;
+  /**
+   * 클릭 당시 로그인해 있던 유저. 서버는 flush 시점의 바인딩으로 유저를 해석하므로,
+   * 그 사이 계정이 바뀌었으면 이 클릭은 다음 사람에게 귀속된다 — 그래서 폐기한다.
+   * 비로그인 상태의 클릭은 undefined.
+   */
+  externalId?: string;
+}
+
+/** 오프라인 로그아웃으로 실패한 언바인딩 — 재시도할 때까지 서버 바인딩이 남는다 */
+interface PendingUnbind {
+  token: string;
+  identityHash?: string;
+  at: number;
 }
 
 const USER_KEY = "notikit.user";
 const QUEUE_KEY = "notikit.clickQueue";
 const QUEUE_MAX = 50;
+const UNBIND_KEY = "notikit.pendingUnbind";
 const QUEUE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function safeParse<T>(raw: string | null): T | null {
@@ -41,6 +55,22 @@ function safeParse<T>(raw: string | null): T | null {
 }
 
 /**
+ * JSON 문법만 통과한 값이 배열이라는 보장은 없다. 저장소에 `{}` 가 들어 있으면
+ * 파싱은 성공하고 이후 `.filter` 에서 터져 큐가 영구히 멈춘다.
+ */
+function parseQueue(raw: string | null): QueuedClick[] {
+  const v = safeParse<unknown>(raw);
+  if (!Array.isArray(v)) return [];
+  return v.filter(
+    (c): c is QueuedClick =>
+      !!c && typeof c === "object" &&
+      typeof (c as QueuedClick).logId === "string" &&
+      typeof (c as QueuedClick).token === "string" &&
+      typeof (c as QueuedClick).at === "number"
+  );
+}
+
+/**
  * 로그인 유저를 영속 저장하고, 푸시 클릭을 보고하는 세션 계층.
  *
  * 저장한 유저를 **클릭에 실어 보내지 않는다**. 서버가 신뢰하는 것은 디바이스 바인딩이고,
@@ -48,11 +78,23 @@ function safeParse<T>(raw: string | null): T | null {
  * 클릭 경로로 다시 열린다. 저장한 유저는 **바인딩을 최신으로 유지**하는 데만 쓴다.
  */
 export class NotikitSession {
+  /** 저장소 read-modify-write 직렬화 — 동시 클릭 두 건이 서로를 덮어쓰지 않게 */
+  private chain: Promise<unknown> = Promise.resolve();
+
   constructor(
     private readonly client: NotikitClient,
     private readonly storage: NotikitStorage,
     private readonly platform: Platform
   ) {}
+
+  private serialize<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.chain.then(fn, fn);
+    this.chain = next.then(
+      () => undefined,
+      () => undefined
+    );
+    return next;
+  }
 
   async getUser(): Promise<StoredUser | null> {
     return safeParse<StoredUser>(await this.storage.getItem(USER_KEY));
@@ -63,6 +105,8 @@ export class NotikitSession {
    * 이후 이 기기의 클릭은 서버가 이 유저로 귀속한다.
    */
   async login(user: StoredUser, token: string): Promise<void> {
+    // 새 바인딩이 덮어쓰므로 밀린 언바인딩은 의미가 없다
+    await this.storage.removeItem(UNBIND_KEY);
     await this.storage.setItem(USER_KEY, JSON.stringify(user));
     await this.client.registerDevice({
       token,
@@ -77,8 +121,26 @@ export class NotikitSession {
    * 해제를 빠뜨리면 공용 기기에서 다음 사람의 클릭이 이전 계정에 붙는다.
    */
   async logout(token: string): Promise<void> {
+    const user = await this.getUser();
     await this.storage.removeItem(USER_KEY);
-    await this.client.unbindDevice(token, this.platform);
+    // 이전 세션의 밀린 클릭은 버린다 — 지금 보내면 다음 로그인 유저에게 붙는다
+    await this.serialize(async () => {
+      const rest = parseQueue(await this.storage.getItem(QUEUE_KEY)).filter((c) => c.token !== token);
+      if (rest.length > 0) await this.storage.setItem(QUEUE_KEY, JSON.stringify(rest));
+      else await this.storage.removeItem(QUEUE_KEY);
+    });
+
+    try {
+      await this.client.unbindDevice(token, this.platform, user?.identityHash);
+    } catch (e) {
+      // 로그아웃은 오프라인에서 가장 자주 일어난다. 여기서 포기하면 서버 바인딩이
+      // 이전 유저로 남아 다음 사람의 클릭이 그 유저에게 붙는다 — 재시도용으로 남긴다.
+      await this.storage.setItem(
+        UNBIND_KEY,
+        JSON.stringify({ token, identityHash: user?.identityHash, at: Date.now() } satisfies PendingUnbind)
+      );
+      throw e;
+    }
   }
 
   /**
@@ -90,40 +152,72 @@ export class NotikitSession {
       await this.client.reportClick({ logId, token, destination });
       return true;
     } catch {
-      await this.enqueue({ logId, token, destination, at: Date.now() });
+      const user = await this.getUser();
+      await this.enqueue({ logId, token, destination, at: Date.now(), externalId: user?.externalId });
       return false;
     }
   }
 
   /** 밀린 클릭 재전송 — SDK 초기화 직후·앱 포그라운드 진입 시 호출 */
   async flush(): Promise<number> {
-    const queue = safeParse<QueuedClick[]>(await this.storage.getItem(QUEUE_KEY)) ?? [];
+    await this.retryPendingUnbind();
+
+    const queue = await this.serialize(async () => parseQueue(await this.storage.getItem(QUEUE_KEY)));
     if (queue.length === 0) return 0;
 
-    const fresh = queue.filter((c) => Date.now() - c.at < QUEUE_TTL_MS);
-    const failed: QueuedClick[] = [];
+    const current = (await this.getUser())?.externalId;
+    const done = new Set<string>();
     let sent = 0;
 
-    for (const c of fresh) {
+    for (const c of queue) {
+      const key = `${c.logId}|${c.token}`;
+      // 만료됐거나, 클릭 당시 유저와 지금 유저가 다르면 보내지 않고 버린다
+      if (Date.now() - c.at >= QUEUE_TTL_MS || c.externalId !== current) {
+        done.add(key);
+        continue;
+      }
       try {
         await this.client.reportClick({ logId: c.logId, token: c.token, destination: c.destination });
+        done.add(key);
         sent++;
-      } catch {
-        failed.push(c);
+      } catch (e) {
+        // 4xx 는 재시도해도 결과가 같다(토큰 교체로 404 등). 7일간 두드리지 않고 버린다.
+        const status = (e as { status?: number })?.status;
+        if (typeof status === "number" && status >= 400 && status < 500 && status !== 429) done.add(key);
       }
     }
 
-    if (failed.length > 0) await this.storage.setItem(QUEUE_KEY, JSON.stringify(failed));
-    else await this.storage.removeItem(QUEUE_KEY);
+    // 전송 중 새로 쌓인 항목을 지우지 않도록, 스냅샷을 통째로 덮어쓰지 않고
+    // **처리한 것만** 현재 큐에서 제거한다
+    await this.serialize(async () => {
+      const current = parseQueue(await this.storage.getItem(QUEUE_KEY));
+      const rest = current.filter((c) => !done.has(`${c.logId}|${c.token}`));
+      if (rest.length > 0) await this.storage.setItem(QUEUE_KEY, JSON.stringify(rest));
+      else await this.storage.removeItem(QUEUE_KEY);
+    });
     return sent;
   }
 
-  private async enqueue(click: QueuedClick): Promise<void> {
-    const queue = safeParse<QueuedClick[]>(await this.storage.getItem(QUEUE_KEY)) ?? [];
-    // 같은 발송의 중복 클릭은 서버에서도 유니크로 걸리므로 큐 단계에서 미리 접는다
-    if (queue.some((c) => c.logId === click.logId && c.token === click.token)) return;
-    queue.push(click);
-    await this.storage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-QUEUE_MAX)));
+  /** 실패해 남아 있던 언바인딩 재시도 — 성공할 때까지 서버 바인딩이 이전 유저로 남는다 */
+  private async retryPendingUnbind(): Promise<void> {
+    const pending = safeParse<PendingUnbind>(await this.storage.getItem(UNBIND_KEY));
+    if (!pending?.token) return;
+    try {
+      await this.client.unbindDevice(pending.token, this.platform, pending.identityHash);
+      await this.storage.removeItem(UNBIND_KEY);
+    } catch {
+      /* 다음 flush 에서 재시도 */
+    }
+  }
+
+  private enqueue(click: QueuedClick): Promise<void> {
+    return this.serialize(async () => {
+      const queue = parseQueue(await this.storage.getItem(QUEUE_KEY));
+      // 같은 발송의 중복 클릭은 서버에서도 유니크로 걸리므로 큐 단계에서 미리 접는다
+      if (queue.some((c) => c.logId === click.logId && c.token === click.token)) return;
+      queue.push(click);
+      await this.storage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-QUEUE_MAX)));
+    });
   }
 }
 

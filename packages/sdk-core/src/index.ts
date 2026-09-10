@@ -86,11 +86,13 @@ export class NotikitClient {
    * 디바이스 바인딩 해제 (로그아웃/계정전환).
    * 해제하지 않으면 이후 클릭이 이전 계정에 계속 귀속된다.
    */
-  unbindDevice(token: string, platform: RegisterDeviceInput["platform"]) {
+  unbindDevice(token: string, platform: RegisterDeviceInput["platform"], identityHash?: string) {
     return this.request<{ device: unknown }>("/api/v1/devices", {
       token,
       platform,
       external_id: null,
+      // 서버가 현재 바인딩된 유저의 해시를 검증한다 — 남의 토큰으로 해제하는 것을 막는다
+      identity_hash: identityHash,
     });
   }
 

@@ -51,10 +51,14 @@ export function releaseInflight(key: string): void {
 }
 
 /**
- * rate limit 키 = **인증된 projectId**(스푸핑 불가).
+ * rate limit 키 = **인증된 projectId** + 라우트 스코프(스푸핑 불가).
  * client IP(x-forwarded-for)는 위조 가능하므로 신뢰 앵커로 쓰지 않는다.
  * 프로덕션에서 per-IP 세분화가 필요하면 신뢰 프록시 뒤에서만 IP 를 추가하고 Redis 리미터로 교체.
+ *
+ * scope 를 반드시 나눈다. 하나의 버킷을 v1 라우트 전체가 공유하면
+ * (a) 공개 api-key 만 가진 쪽이 한 라우트를 두드려 그 테넌트의 **발송 API 까지** 막을 수 있고,
+ * (b) 대형 발송 직후 몰리는 클릭이 한도에 걸려 클릭률이 조직적으로 과소집계된다.
  */
-export function clientKey(projectId: string): string {
-  return `proj:${projectId}`;
+export function clientKey(projectId: string, scope = "default"): string {
+  return `proj:${projectId}:${scope}`;
 }
