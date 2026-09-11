@@ -35,7 +35,8 @@
     "statsEngagement": "참여",
     "statsInstalls": "설치 변동",
     "queue": "발송 큐",
-    "guide": "문서"
+    "guide": "문서",
+    "updates": "업데이트"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -636,5 +637,42 @@
     "title": "사용 가이드",
     "subtitle": "연동부터 운영까지 — 개념, 인증, 발송, 클릭 추적, 지표 정의.",
     "toc": "목차"
+  },
+  "update": {
+    "title": "업데이트",
+    "subtitle": "이 인스턴스의 버전을 확인하고 새 버전을 설치합니다.",
+    "current": "현재 버전",
+    "latest": "사용 가능한 버전",
+    "upToDate": "최신 버전입니다",
+    "available": "새 버전이 있습니다",
+    "unconfigured": "업데이트 서버가 설정되지 않았습니다",
+    "unlicensed": "구독이 유효하지 않아 업데이트를 받을 수 없습니다",
+    "unreachable": "업데이트 서버에 연결할 수 없습니다",
+    "install": "업데이트 설치",
+    "installing": "설치 중…",
+    "hasMigrations": "이 릴리스는 데이터베이스 스키마를 변경합니다. 설치 전에 자동으로 백업하지만, 되돌리려면 백업에서 복원해야 합니다.",
+    "blocked": "{version} 을(를) 먼저 설치해야 합니다. 마이그레이션은 건너뛸 수 없습니다.",
+    "confirm": "지금 설치하시겠습니까? 설치 중 몇 분간 서비스가 중단됩니다.",
+    "restarting": "서비스를 재시작하는 중입니다. 잠시 후 자동으로 돌아옵니다…",
+    "notes": "릴리스 노트",
+    "history": "업데이트 이력",
+    "log": "진행 로그",
+    "step": "단계",
+    "backupAt": "백업 위치",
+    "noHistory": "아직 업데이트한 적이 없습니다",
+    "operatorOnly": "인스턴스 운영자만 업데이트할 수 있습니다",
+    "steps": {
+      "pull": "이미지 받는 중",
+      "backup": "데이터베이스 백업 중",
+      "migrate": "스키마 적용 중",
+      "restart": "서비스 교체 중",
+      "verify": "동작 확인 중"
+    },
+    "status": {
+      "pending": "대기 중",
+      "running": "진행 중",
+      "succeeded": "완료",
+      "failed": "실패"
+    }
   }
 }

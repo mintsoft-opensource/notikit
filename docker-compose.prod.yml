@@ -1,0 +1,94 @@
+# Notikit — 고객사 인스턴스용.
+#
+# 개발용 docker-compose.yml 과 다른 점은 하나다: **소스에서 빌드하지 않는다.**
+# 고객사 박스에는 소스가 없고, 있어도 거기서 빌드하면 업데이트에 수 분과 메모리가
+# 들며 빌드가 깨지면 설치본이 망가진 채로 남는다. 레지스트리에서 받은 이미지를 쓴다.
+#
+# 돌고 있는 버전은 `.notikit-image.env` 한 줄에 적혀 있고, 업데이터가 그 줄을 바꾼다.
+# compose 파일 본문은 건드리지 않는다 — 고객이 손댄 설정과 충돌하기 때문이다.
+#
+#   최초 설치:  echo "NOTIKIT_IMAGE=registry.example.com/notikit@sha256:..." > .notikit-image.env
+#               docker compose -f docker-compose.prod.yml up -d
+
+services:
+  # 스키마 적용. web 은 이게 성공해야 뜬다 — 구버전 코드가 새 스키마를 만나거나
+  # 그 반대가 되는 창을 없앤다.
+  migrate:
+    image: ${NOTIKIT_IMAGE}
+    command: ["node", "apps/web/migrate.mjs"]
+    env_file: [.env]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  web:
+    image: ${NOTIKIT_IMAGE}
+    env_file: [.env]
+    environment:
+      # 콘솔에서 업데이트를 누를 수 있게 한다. 끄면 업데이트 경로 자체가 404 가 된다.
+      NOTIKIT_SELF_UPDATE: "true"
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+    ports:
+      - "${NOTIKIT_PORT:-3000}:3000"
+    restart: unless-stopped
+
+  worker:
+    image: ${NOTIKIT_IMAGE}
+    command: ["node", "apps/web/worker.mjs"]
+    env_file: [.env]
+    environment:
+      WORKER_BASE_URL: http://web:3000
+    depends_on:
+      web: { condition: service_started }
+    restart: unless-stopped
+
+  # 업데이터 — Docker 소켓을 쥐는 유일한 컨테이너.
+  # 포트를 열지 않는다. 콘솔과는 DB 의 update_jobs 테이블로만 이야기한다.
+  updater:
+    image: ${NOTIKIT_UPDATER_IMAGE:-${NOTIKIT_IMAGE}}
+    env_file: [.env]
+    environment:
+      COMPOSE_FILE: /project/docker-compose.prod.yml
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-notikit}
+      IMAGE_ENV_FILE: /project/.notikit-image.env
+      BACKUP_DIR: /backups
+    volumes:
+      # 소켓 — 컨테이너를 교체할 권한. 이 한 줄이 이 컨테이너를 특권으로 만든다.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # compose 파일과 이미지 참조 파일이 있는 디렉터리. 쓰기가 필요하다(참조 갱신).
+      - ./:/project
+      # 마이그레이션 전 덤프. 되돌릴 길이 여기밖에 없으므로 호스트에 남긴다.
+      - ./backups:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    env_file: [.env]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-notikit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+      POSTGRES_DB: ${POSTGRES_DB:-notikit}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-notikit}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # 개발용과 달리 포트를 밖으로 내지 않는다 — DB 를 인터넷에 열지 않는다
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

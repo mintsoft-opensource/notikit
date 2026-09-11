@@ -446,4 +446,33 @@ test.describe("smoke", () => {
       await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
   });
+
+  test("업데이트: 버전 화면이 뜨고 기능이 꺼져 있으면 설치 경로가 닫힌다", async ({ page }) => {
+    await ensureLogin(page);
+    await page.goto("/system/update");
+    await expect(page.getByRole("heading", { name: "업데이트", level: 1 })).toBeVisible();
+
+    // 빌드에 박힌 버전이 화면에 나온다
+    const status = await page.request.get("/api/admin/update");
+    expect(status.ok()).toBeTruthy();
+    const body = (await status.json()).data;
+    expect(body.current).toMatch(/^\d+\.\d+\.\d+/);
+    // 업데이트 서버를 설정하지 않은 설치 — "최신"이 아니라 "모름"이어야 한다
+    expect(body.status).toBe("unconfigured");
+    expect(body.canUpdate).toBe(false);
+
+    // NOTIKIT_SELF_UPDATE 가 꺼져 있으면 설치 경로는 존재하지 않는 것처럼 굴어야 한다
+    const start = await page.request.post("/api/admin/update", {
+      headers: { origin: ORIGIN },
+      data: { target_version: "99.0.0" },
+    });
+    expect(start.status()).toBe(404);
+  });
+
+  test("업데이트: 로그인하지 않으면 상태도 볼 수 없다", async ({ page }) => {
+    await page.context().clearCookies();
+    const res = await page.request.get("/api/admin/update");
+    expect(res.status()).toBe(401);
+  });
+
 });

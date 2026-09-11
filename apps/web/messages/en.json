@@ -35,7 +35,8 @@
     "statsEngagement": "Engagement",
     "statsInstalls": "Installs",
     "queue": "Send queue",
-    "guide": "Guide"
+    "guide": "Guide",
+    "updates": "Updates"
   },
   "header": {
     "openMenu": "Open menu",
@@ -636,5 +637,42 @@
     "title": "Guide",
     "subtitle": "From integration to operations — concepts, auth, sending, click tracking, metric definitions.",
     "toc": "Contents"
+  },
+  "update": {
+    "title": "Updates",
+    "subtitle": "Check this instance's version and install new releases.",
+    "current": "Current version",
+    "latest": "Available version",
+    "upToDate": "You are up to date",
+    "available": "A new version is available",
+    "unconfigured": "No update server is configured",
+    "unlicensed": "Your subscription is not valid for updates",
+    "unreachable": "Cannot reach the update server",
+    "install": "Install update",
+    "installing": "Installing…",
+    "hasMigrations": "This release changes the database schema. It is backed up automatically, but reverting requires restoring that backup.",
+    "blocked": "Install {version} first. Migrations cannot be skipped.",
+    "confirm": "Install now? The service will be unavailable for a few minutes.",
+    "restarting": "Restarting the service. This page will come back on its own…",
+    "notes": "Release notes",
+    "history": "Update history",
+    "log": "Progress log",
+    "step": "Step",
+    "backupAt": "Backup location",
+    "noHistory": "No updates yet",
+    "operatorOnly": "Only the instance operator can install updates",
+    "steps": {
+      "pull": "Pulling image",
+      "backup": "Backing up the database",
+      "migrate": "Applying schema",
+      "restart": "Swapping services",
+      "verify": "Verifying"
+    },
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed"
+    }
   }
 }

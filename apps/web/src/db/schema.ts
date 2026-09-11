@@ -458,3 +458,44 @@ export type PushUser = typeof pushUsers.$inferSelect;
 export type PushLog = typeof pushLogs.$inferSelect;
 export type PushClick = typeof pushClicks.$inferSelect;
 export type DeviceActivity = typeof deviceActivity.$inferSelect;
+
+/**
+ * 자동 업데이트 작업.
+ *
+ * 콘솔과 업데이터 사이의 **유일한 통신 수단**이다. 콘솔이 여기에 행을 넣으면
+ * 업데이터가 집어 간다. 이렇게 두는 이유는 web 컨테이너에 Docker 소켓을 주지 않기
+ * 위해서다 — 소켓은 사실상 호스트 root 권한이라, 공개 API 를 서빙하는 프로세스가
+ * 쥐고 있어선 안 된다. 권한은 업데이터 한 곳에만 갇힌다.
+ *
+ * 진행 상황도 여기 쌓인다. 업데이트는 web 을 재시작시키므로, 그동안 콘솔은 응답하지
+ * 못한다. 상태가 DB 에 있어야 돌아온 뒤 무슨 일이 있었는지 이어서 볼 수 있다.
+ */
+export const updateJobs = pgTable("update_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  fromVersion: text("from_version").notNull(),
+  targetVersion: text("target_version").notNull(),
+  /** 승인 시점의 레지스트리 경로와 다이제스트. 업데이터는 이것만 보고 받는다 —
+   *  다시 조회하면 그 사이 답이 바뀌어 승인한 것과 다른 이미지가 설치될 수 있다. */
+  image: text("image").notNull(),
+  digest: text("digest").notNull(),
+  /** 스키마를 바꾸는 릴리스인가. 백업 없이는 진행하지 않는다 */
+  hasMigrations: boolean("has_migrations").notNull().default(false),
+  /** pending | running | succeeded | failed */
+  status: text("status").notNull().default("pending"),
+  /** pull | backup | migrate | restart | verify — 실패했을 때 어디서 멎었는지 */
+  step: text("step"),
+  /** 업데이터가 덧붙이는 진행 로그. 실패 원인을 사람이 읽을 수 있어야 한다 */
+  log: text("log").notNull().default(""),
+  /** 마이그레이션 전 덤프 위치. 되돌릴 길이 여기밖에 없다 */
+  backupPath: text("backup_path"),
+  error: text("error"),
+  /** 누가 눌렀는지. superadmin 토큰이면 null */
+  requestedBy: uuid("requested_by").references(() => adminUsers.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+}, (t) => ({
+  createdIdx: index("update_jobs_created_idx").on(t.createdAt),
+}));
+
+export type UpdateJob = typeof updateJobs.$inferSelect;

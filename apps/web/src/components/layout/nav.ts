@@ -1,4 +1,5 @@
 import {
+  RefreshCw,
   FileText,
   Hourglass,
   LayoutDashboard,
@@ -39,7 +40,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { labelKey: "overview", href: "/dashboard", icon: LayoutDashboard, exact: true },
       { labelKey: "projects", href: "/projects", icon: FolderKanban },
-      { labelKey: "system", href: "/system", icon: Activity },
+      { labelKey: "system", href: "/system", icon: Activity, exact: true },
+      { labelKey: "updates", href: "/system/update", icon: RefreshCw },
     ],
   },
   {
