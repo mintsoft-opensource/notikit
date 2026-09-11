@@ -111,9 +111,23 @@ async function tick() {
     await post(`/api/admin/projects/${p.id}/journeys/process`);
     await post(`/api/admin/projects/${p.id}/webhooks/retry`);
 
+    // isSweepWindow 는 호출하면 창을 소비한다(분당 1회만 true). 야간 작업이 둘이므로
+    // **한 번만 물어보고 공유한다** — 두 번 부르면 뒤엣것이 조용히 건너뛰어진다.
+    const sweeping = isSweepWindow(p.id, now);
+
+    // 로그 리텐션 purge — 로그가 코어 테이블과 같은 DB 에 있어서, 이게 멈추면
+    // 디스크가 차고 푸시 전체가 선다. 한 번에 다 못 지우면 done:false 로 오고
+    // 다음 창에서 이어 간다(한 tick 을 독점하지 않게 서버가 끊는다).
+    if (sweeping) {
+      const res = await post(`/api/admin/projects/${p.id}/logs/purge`);
+      if (res?.data?.purged > 0) {
+        console.log(`[worker] purged ${res.data.purged} logs for ${p.id} (done=${res.data.done})`);
+      }
+    }
+
     // 서버가 CAS 로 클레임하므로 하루 1회만 실제로 수행된다.
     // 토큰이 많으면 partial 로 끊겨 오므로 완주할 때까지 이어서 호출한다.
-    if (TOKEN_CHECK_ENABLED && isSweepWindow(p.id, now)) {
+    if (TOKEN_CHECK_ENABLED && sweeping) {
       for (let round = 0; round < TOKEN_CHECK_MAX_ROUNDS; round++) {
         const res = await post(
           `/api/admin/projects/${p.id}/devices/check?min_interval_hours=${TOKEN_CHECK_MIN_INTERVAL_HOURS}`

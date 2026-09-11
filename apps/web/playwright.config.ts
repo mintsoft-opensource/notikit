@@ -25,6 +25,8 @@ export default defineConfig({
       NODE_ENV: "production",
       COOKIE_INSECURE: "true", // http 테스트 서버 — Secure 쿠키 비활성
       APP_ORIGIN: `http://localhost:${PORT}`,
+      // purge 테스트용. 워커가 안 도는 환경이라 엔드포인트를 직접 부를 때만 삭제된다.
+      LOG_RETENTION_DAYS: "1",
     },
   },
 });

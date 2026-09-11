@@ -114,7 +114,16 @@ function resolve(catalog, license, requestedChannel) {
   const override = catalog.customers[license.customerId] ?? {};
   if (override.blocked) return null;
 
-  const channel = override.channel ?? requestedChannel ?? license.channel ?? "stable";
+  /**
+   * 채널은 **우리가** 정한다. 순서가 중요하다.
+   *
+   * 요청 채널을 라이선스보다 앞에 두면 고객사가 `.env` 한 줄로 채널을 바꾼다 —
+   * stable 계약 고객이 beta 를 끌어가는 길이 열린다. 버전을 못 고르게 만든 이유와
+   * 같은 이유로 채널도 못 고르게 한다.
+   *
+   * 요청 채널은 라이선스에 채널이 없을 때의 폴백으로만 쓴다(구버전 라이선스 호환).
+   */
+  const channel = override.channel ?? license.channel ?? requestedChannel ?? "stable";
   const eligible = catalog.releases.filter((r) => (r.channel ?? "stable") === channel && !r.yanked);
   if (eligible.length === 0) return null;
 

@@ -475,4 +475,77 @@ test.describe("smoke", () => {
     expect(res.status()).toBe(401);
   });
 
+  /**
+   * 로그 purge — 로그가 코어 테이블과 같은 DB 에 있어서, 이게 멈추면 디스크가 차고
+   * 푸시 전체가 선다. 삭제 경로라 "지워지는가"보다 **안 지워져야 할 것이 남는가**가 중요하다.
+   */
+  test("로그 purge: 오래된 종료 로그만 지우고 진행 중인 발송은 남긴다", async ({ page }) => {
+    await ensureLogin(page);
+    const projectId = await firstProjectId(page);
+    const sql = postgres(DB_URL, { max: 1 });
+
+    try {
+      const mk = async (status: string, daysAgo: number) => {
+        const [row] = await sql`
+          insert into push_logs (project_id, type, title, body, status, created_at)
+          values (${projectId}, 'single', 'purge-test', 'x', ${status},
+                  now() - (${daysAgo} || ' days')::interval)
+          returning id`;
+        return row.id as string;
+      };
+
+      const oldDone = await mk("completed", 30);
+      const oldFailed = await mk("failed", 30);
+      const oldLogged = await mk("logged", 30);
+      // 오래됐지만 워커가 아직 손댈 수 있는 것들 — 지우면 예약 발송이 조용히 사라진다
+      const oldQueued = await mk("queued", 30);
+      const oldScheduled = await mk("scheduled", 30);
+      const oldProcessing = await mk("processing", 30);
+      // 리텐션 안쪽 — 최근 것은 종료됐어도 남아야 한다
+      const recentDone = await mk("completed", 0);
+
+      const res = await page.request.post(
+        `/api/admin/projects/${projectId}/logs/purge`,
+        { headers: { origin: ORIGIN } }
+      );
+      expect(res.ok()).toBeTruthy();
+      const body = (await res.json()).data;
+      expect(body.retentionDays).toBe(1);
+      expect(body.purged).toBeGreaterThanOrEqual(3);
+
+      const alive = async (id: string) =>
+        (await sql`select 1 from push_logs where id = ${id}`).length > 0;
+
+      expect(await alive(oldDone)).toBe(false);
+      expect(await alive(oldFailed)).toBe(false);
+      expect(await alive(oldLogged)).toBe(false);
+
+      expect(await alive(oldQueued)).toBe(true);
+      expect(await alive(oldScheduled)).toBe(true);
+      expect(await alive(oldProcessing)).toBe(true);
+      expect(await alive(recentDone)).toBe(true);
+
+      // 정리 — 다음 실행에 남기지 않는다
+      await sql`delete from push_logs where title = 'purge-test'`;
+    } finally {
+      await sql.end();
+    }
+  });
+
+  test("로그 purge: 미인증 거부 + Origin 없는 호출 거부", async ({ page }) => {
+    await ensureLogin(page);
+    const projectId = await firstProjectId(page);
+
+    // 삭제 엔드포인트라 CSRF 방어가 걸려 있어야 한다
+    const noOrigin = await page.request.post(`/api/admin/projects/${projectId}/logs/purge`);
+    expect(noOrigin.status()).toBe(403);
+
+    await page.context().clearCookies();
+    const anon = await page.request.post(
+      `/api/admin/projects/${projectId}/logs/purge`,
+      { headers: { origin: ORIGIN } }
+    );
+    expect(anon.status()).toBe(401);
+  });
+
 });

@@ -28,7 +28,11 @@ const BACKUP_DIR = process.env.BACKUP_DIR ?? "/backups";
 const POLL_MS = Number(process.env.UPDATER_POLL_MS ?? 5000);
 /** 새 web 이 이 안에 건강해지지 않으면 실패로 본다 */
 const HEALTH_TIMEOUT_MS = Number(process.env.UPDATER_HEALTH_TIMEOUT_MS ?? 180_000);
-const HEALTH_URL = process.env.UPDATER_HEALTH_URL ?? "http://web:3000/api/health";
+/**
+ * 교체 후 확인은 **readiness** 로 본다. `/api/health` 는 liveness 라 DB 가 안 붙어도
+ * 200 이고, 그것만 보면 설정이 깨진 인스턴스가 "성공한 업데이트"로 기록된다.
+ */
+const HEALTH_URL = process.env.UPDATER_HEALTH_URL ?? "http://web:3000/api/ready";
 /**
  * 지금 돌고 있는 이미지를 가리키는 한 줄짜리 파일. compose 가 `${NOTIKIT_IMAGE}` 로
  * 읽는다. 교체도 되돌리기도 이 줄 하나를 바꾸고 `up` 하는 것이 전부다 —
