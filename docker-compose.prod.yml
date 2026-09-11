@@ -27,6 +27,11 @@ services:
     environment:
       # 콘솔에서 업데이트를 누를 수 있게 한다. 끄면 업데이트 경로 자체가 404 가 된다.
       NOTIKIT_SELF_UPDATE: "true"
+      BUNDLE_DIR: /bundles
+    volumes:
+      # 반입된 폐쇄망 번들 목록을 콘솔이 보여 주기 위해서만 필요하다 — 읽기 전용.
+      # 설치는 업데이터가 한다.
+      - ./bundles:/bundles:ro
     depends_on:
       postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -55,6 +60,7 @@ services:
       COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-notikit}
       IMAGE_ENV_FILE: /project/.notikit-image.env
       BACKUP_DIR: /backups
+      BUNDLE_DIR: /bundles
     volumes:
       # 소켓 — 컨테이너를 교체할 권한. 이 한 줄이 이 컨테이너를 특권으로 만든다.
       - /var/run/docker.sock:/var/run/docker.sock
@@ -62,6 +68,8 @@ services:
       - ./:/project
       # 마이그레이션 전 덤프. 되돌릴 길이 여기밖에 없으므로 호스트에 남긴다.
       - ./backups:/backups
+      # 폐쇄망 반입 번들. 운영자가 여기에 파일을 두면 콘솔 목록에 나타난다.
+      - ./bundles:/bundles:ro
     depends_on:
       postgres: { condition: service_healthy }
     restart: unless-stopped

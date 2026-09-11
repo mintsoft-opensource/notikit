@@ -8,8 +8,23 @@ importers:
 
   .: {}
 
+  apps/update-server:
+    dependencies:
+      '@notikit/license':
+        specifier: workspace:*
+        version: link:../../packages/license
+
+  apps/updater:
+    dependencies:
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
+
   apps/web:
     dependencies:
+      '@notikit/license':
+        specifier: workspace:*
+        version: link:../../packages/license
       '@radix-ui/react-popover':
         specifier: ^1.1.23
         version: 1.1.23(@types/react-dom@19.2.7)(@types/react@19.2.18)(react-dom@19.2.4)(react@19.2.4)
@@ -132,6 +147,8 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+
+  packages/license: {}
 
   packages/sdk-core:
     devDependencies:

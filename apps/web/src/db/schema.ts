@@ -480,6 +480,11 @@ export const updateJobs = pgTable("update_jobs", {
   digest: text("digest").notNull(),
   /** 스키마를 바꾸는 릴리스인가. 백업 없이는 진행하지 않는다 */
   hasMigrations: boolean("has_migrations").notNull().default(false),
+  /**
+   * 폐쇄망 반입 번들 파일명. 있으면 레지스트리로 나가지 않고 이 번들에서 꺼낸다.
+   * 파일명만 담는다 — 경로를 담으면 콘솔이 업데이터에게 임의 경로를 읽히게 된다.
+   */
+  bundlePath: text("bundle_path"),
   /** pending | running | succeeded | failed */
   status: text("status").notNull().default("pending"),
   /** pull | backup | migrate | restart | verify — 실패했을 때 어디서 멎었는지 */

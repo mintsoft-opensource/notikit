@@ -673,6 +673,27 @@
       "running": "진행 중",
       "succeeded": "완료",
       "failed": "실패"
-    }
+    },
+    "license": "라이선스",
+    "licenseValid": "유효",
+    "licenseExpired": "만료됨 — 업데이트를 받을 수 없습니다. 푸시 발송은 계속됩니다.",
+    "licenseInvalid": "라이선스를 확인할 수 없습니다",
+    "licenseMissing": "라이선스가 설정되지 않았습니다",
+    "licenseExpiringSoon": "{days}일 후 만료됩니다. 갱신이 필요합니다.",
+    "customer": "고객사",
+    "expiresAt": "만료일",
+    "channel": "채널",
+    "limits": "한도",
+    "limitProjects": "프로젝트",
+    "limitDevices": "디바이스",
+    "limitSends": "월 발송",
+    "airgap": "폐쇄망 설치",
+    "airgapHint": "반입한 번들에서 설치합니다. 레지스트리에 연결하지 않습니다.",
+    "airgapNone": "반입된 번들이 없습니다",
+    "airgapUnverifiable": "체크섬 파일(.sha256)이 없어 설치할 수 없습니다",
+    "installFromBundle": "이 번들로 설치",
+    "supportBundle": "지원 번들",
+    "supportBundleHint": "문제가 생겼을 때 이 파일을 보내 주세요. 버전·설정 유무·마이그레이션 상태·업데이트 기록이 담기며, 비밀번호나 키는 담기지 않습니다.",
+    "downloadSupportBundle": "지원 번들 내려받기"
   }
 }

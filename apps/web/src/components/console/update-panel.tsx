@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, CheckCircle2, Download, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, LifeBuoy, Package, RefreshCw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataRow } from "@/components/console/panels";
@@ -21,8 +21,30 @@ type Job = {
   finishedAt: string | null;
 };
 
+type LicenseInfo = {
+  status: "valid" | "expired" | "invalid" | "missing";
+  reason?: string;
+  customerName?: string;
+  expiresAt?: string;
+  daysRemaining?: number;
+  channel?: string;
+  limits?: { projects?: number; devices?: number; sendsPerMonth?: number };
+  expiringSoon?: boolean;
+};
+
+type Bundle = {
+  file: string;
+  version: string;
+  digest: string;
+  sizeBytes: number;
+  createdAt: string | null;
+  verifiable: boolean;
+};
+
 type Status = {
   current: string;
+  license: LicenseInfo;
+  bundles: Bundle[];
   latest: { version: string; notes: string; hasMigrations: boolean; publishedAt: string | null } | null;
   status: "ok" | "unconfigured" | "unlicensed" | "unreachable";
   outdated: boolean;
@@ -84,15 +106,11 @@ export function UpdatePanel() {
   const active = data?.active ?? null;
   const busy = !!active || unreachable;
 
-  async function install() {
-    if (!data?.latest) return;
+  async function install(payload: { target_version: string; bundle?: string }) {
     if (!confirm(t("confirm"))) return;
     setStarting(true);
     try {
-      await adminApi("/api/admin/update", {
-        method: "POST",
-        body: JSON.stringify({ target_version: data.latest.version }),
-      });
+      await adminApi("/api/admin/update", { method: "POST", body: JSON.stringify(payload) });
       busyRef.current = true;
       await load();
     } finally {
@@ -136,7 +154,10 @@ export function UpdatePanel() {
                 <Notice tone="warn">{t("blocked", { version: data.blockedBy })}</Notice>
               )}
               {data.canUpdate ? (
-                <Button onClick={install} disabled={starting || !!data.blockedBy}>
+                <Button
+                  onClick={() => install({ target_version: data.latest!.version })}
+                  disabled={starting || !!data.blockedBy}
+                >
                   <Download className="mr-1.5 h-4 w-4" />
                   {starting ? t("installing") : t("install")}
                 </Button>
@@ -159,8 +180,114 @@ export function UpdatePanel() {
         </Card>
       )}
 
+      {data?.license && <LicenseCard info={data.license} t={t} />}
+
+      {/* 반입된 번들이 있을 때만 보인다 — 폐쇄망이 아닌 설치에는 없는 개념이다 */}
+      {(data?.bundles?.length ?? 0) > 0 && (
+        <BundleCard
+          bundles={data!.bundles}
+          current={data!.current}
+          canUpdate={data!.canUpdate}
+          disabled={starting || busy}
+          onInstall={(b) => install({ target_version: b.version, bundle: b.file })}
+          t={t}
+        />
+      )}
+
       <History jobs={data?.history ?? []} t={t} />
+
+      <Card>
+        <CardHeader><CardTitle>{t("supportBundle")}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t("supportBundleHint")}</p>
+          <Button asChild variant="secondary">
+            <a href="/api/admin/support-bundle" download>
+              <LifeBuoy className="mr-1.5 h-4 w-4" />
+              {t("downloadSupportBundle")}
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function LicenseCard({ info, t }: { info: LicenseInfo; t: ReturnType<typeof useTranslations> }) {
+  return (
+    <Card>
+      <CardHeader><CardTitle>{t("license")}</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        {info.status === "valid" && !info.expiringSoon && (
+          <Notice tone="ok" icon={<CheckCircle2 className="h-4 w-4" />}>{t("licenseValid")}</Notice>
+        )}
+        {/* 만료가 곧 정지가 아니라는 점을 문구로 분명히 한다 */}
+        {info.status === "expired" && <Notice tone="warn">{t("licenseExpired")}</Notice>}
+        {info.status === "invalid" && <Notice tone="warn">{t("licenseInvalid")}{info.reason ? ` — ${info.reason}` : ""}</Notice>}
+        {info.status === "missing" && <Notice tone="muted">{t("licenseMissing")}</Notice>}
+        {info.expiringSoon && (
+          <Notice tone="warn" icon={<AlertTriangle className="h-4 w-4" />}>
+            {t("licenseExpiringSoon", { days: info.daysRemaining ?? 0 })}
+          </Notice>
+        )}
+
+        {info.customerName && <DataRow label={t("customer")} value={info.customerName} />}
+        {info.expiresAt && <DataRow label={t("expiresAt")} value={new Date(info.expiresAt).toLocaleDateString()} />}
+        {info.channel && <DataRow label={t("channel")} value={info.channel} />}
+        {info.limits?.projects != null && <DataRow label={t("limitProjects")} value={info.limits.projects.toLocaleString()} />}
+        {info.limits?.devices != null && <DataRow label={t("limitDevices")} value={info.limits.devices.toLocaleString()} />}
+        {info.limits?.sendsPerMonth != null && <DataRow label={t("limitSends")} value={info.limits.sendsPerMonth.toLocaleString()} />}
+      </CardContent>
+    </Card>
+  );
+}
+
+function BundleCard({
+  bundles, current, canUpdate, disabled, onInstall, t,
+}: {
+  bundles: Bundle[];
+  current: string;
+  canUpdate: boolean;
+  disabled: boolean;
+  onInstall: (b: Bundle) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <Card>
+      <CardHeader><CardTitle>{t("airgap")}</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">{t("airgapHint")}</p>
+        <ul className="space-y-3">
+          {bundles.map((b) => (
+            <li key={b.file} className="space-y-1.5 border-b border-border pb-3 last:border-b-0 last:pb-0">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                {b.version}
+                <span className="font-normal text-muted-foreground">
+                  {(b.sizeBytes / 1_073_741_824).toFixed(2)} GB
+                </span>
+              </div>
+              <p className="font-mono text-2xs text-muted-foreground">{b.file}</p>
+              {/* 검증할 수 없는 번들은 무엇을 설치하는지 모르는 것과 같다 */}
+              {!b.verifiable ? (
+                <Notice tone="warn">{t("airgapUnverifiable")}</Notice>
+              ) : (
+                canUpdate && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={disabled || b.version === current}
+                    onClick={() => onInstall(b)}
+                  >
+                    {t("installFromBundle")}
+                  </Button>
+                )
+              )}
+            </li>
+          ))}
+        </ul>
+        {bundles.length === 0 && <p className="text-sm text-muted-foreground">{t("airgapNone")}</p>}
+      </CardContent>
+    </Card>
   );
 }
 

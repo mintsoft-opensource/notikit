@@ -673,6 +673,27 @@
       "running": "Running",
       "succeeded": "Succeeded",
       "failed": "Failed"
-    }
+    },
+    "license": "License",
+    "licenseValid": "Valid",
+    "licenseExpired": "Expired — updates are unavailable. Push delivery continues.",
+    "licenseInvalid": "The license could not be verified",
+    "licenseMissing": "No license is configured",
+    "licenseExpiringSoon": "Expires in {days} days. Renewal needed.",
+    "customer": "Customer",
+    "expiresAt": "Expires",
+    "channel": "Channel",
+    "limits": "Limits",
+    "limitProjects": "Projects",
+    "limitDevices": "Devices",
+    "limitSends": "Sends / month",
+    "airgap": "Air-gapped install",
+    "airgapHint": "Installs from a bundle you imported. Never contacts the registry.",
+    "airgapNone": "No bundles have been imported",
+    "airgapUnverifiable": "Missing its .sha256 file, so it cannot be installed",
+    "installFromBundle": "Install from this bundle",
+    "supportBundle": "Support bundle",
+    "supportBundleHint": "Send us this file when something breaks. It contains versions, which settings are present, migration state and update history — never passwords or keys.",
+    "downloadSupportBundle": "Download support bundle"
   }
 }

@@ -1,0 +1,116 @@
+# 릴리스 — 태그를 밀면 이미지가 만들어지고 서명되고 배포처에 등록된다.
+#
+# 사람이 손으로 하는 단계를 남기지 않는 것이 목적이다. 특히 `hasMigrations` 는
+# 저널 비교로 정한다 — 손으로 적으면 언젠가 틀리고, 틀리는 날은 고객 스키마가
+# 백업 없이 바뀌는 날이다.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  REGISTRY: ${{ vars.REGISTRY_SERVER }}
+  IMAGE: ${{ vars.REGISTRY_SERVER }}/notikit
+  UPDATER_IMAGE: ${{ vars.REGISTRY_SERVER }}/notikit-updater
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # cosign keyless 서명
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 이전 태그의 저널을 읽어야 마이그레이션 유무를 판정할 수 있다
+          fetch-depth: 0
+
+      - name: 버전 확인
+        id: v
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # package.json 과 태그가 어긋나면 콘솔이 잘못된 버전을 보고한다
+          PKG=$(node -p "require('./apps/web/package.json').version")
+          if [ "$VERSION" != "$PKG" ]; then
+            echo "::error::태그 v$VERSION 와 package.json $PKG 가 다릅니다"
+            exit 1
+          fi
+          PREV=$(git tag --list 'v*' --sort=-v:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "previous=${PREV#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.REGISTRY_SERVER }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # 고객 하드웨어가 무엇일지 모른다. arm64 만 쓰는 곳이 드물지 않다.
+      - name: web 이미지 빌드·푸시
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.v.outputs.version }}
+          provenance: true
+          sbom: true
+
+      - name: updater 이미지 빌드·푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/updater/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.UPDATER_IMAGE }}:${{ steps.v.outputs.version }}
+
+      - uses: sigstore/cosign-installer@v3
+      - name: 이미지 서명
+        run: cosign sign --yes "${IMAGE}@${{ steps.build.outputs.digest }}"
+
+      # 태그가 아니라 다이제스트를 배포처에 올린다. 태그는 나중에 다른 이미지를
+      # 가리키도록 바뀔 수 있어, 승인한 것과 설치되는 것이 달라질 수 있다.
+      - name: 매니페스트 생성
+        run: |
+          node tools/release/manifest.mjs \
+            --version "${{ steps.v.outputs.version }}" \
+            --previous "${{ steps.v.outputs.previous }}" \
+            --image "$IMAGE" \
+            --digest "${{ steps.build.outputs.digest }}" \
+            --channel "${{ contains(github.ref_name, '-') && 'beta' || 'stable' }}" \
+            --notes "$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")" \
+            > "manifest.json"
+          cat manifest.json
+
+      - name: 배포처에 등록
+        run: |
+          curl --fail --silent --show-error \
+            -X POST "${{ secrets.UPDATE_SERVER_URL }}/v1/releases" \
+            -H "authorization: Bearer ${{ secrets.UPDATE_SERVER_TOKEN }}" \
+            -H "content-type: application/json" \
+            --data @manifest.json
+
+      # 폐쇄망 고객은 레지스트리에 닿을 수 없다. 반입용 번들을 함께 만들어 둔다.
+      - name: 폐쇄망 번들
+        run: |
+          node tools/release/bundle.mjs \
+            --version "${{ steps.v.outputs.version }}" \
+            --image "${IMAGE}@${{ steps.build.outputs.digest }}" \
+            --updater-image "${UPDATER_IMAGE}:${{ steps.v.outputs.version }}" \
+            --out "notikit-${{ steps.v.outputs.version }}-airgap.tar"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: airgap-${{ steps.v.outputs.version }}
+          path: |
+            notikit-*-airgap.tar
+            notikit-*-airgap.tar.sha256
+            manifest.json
+          retention-days: 90

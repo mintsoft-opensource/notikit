@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS "update_jobs" (
   "image" text NOT NULL,
   "digest" text NOT NULL,
   "has_migrations" boolean DEFAULT false NOT NULL,
+  "bundle_path" text,
   "status" text DEFAULT 'pending' NOT NULL,
   "step" text,
   "log" text DEFAULT '' NOT NULL,

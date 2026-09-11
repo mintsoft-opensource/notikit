@@ -23,5 +23,10 @@ COPY --from=build /app/apps/web/public ./apps/web/public
 COPY --from=build /app/apps/web/worker.mjs ./apps/web/worker.mjs
 COPY --from=build /app/apps/web/migrate.mjs ./apps/web/migrate.mjs
 COPY --from=build /app/apps/web/drizzle ./apps/web/drizzle
+
+# 소스맵은 클로즈드 배포에 쓸모가 없다. 내용이 비어 있어 원본 복원은 불가능하지만,
+# 굳이 고객 박스에 둘 이유도 없고 이미지만 커진다.
+RUN find . -name "*.js.map" -delete
+
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

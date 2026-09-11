@@ -10,6 +10,8 @@
  * 바뀔 수 있어서, 어제 검증한 것과 오늘 받는 것이 같다고 보장하지 못한다.
  */
 
+import { canReceiveUpdates } from "@/lib/license";
+
 /** 빌드 시각에 package.json 에서 박힌다(next.config.ts) */
 export const CURRENT_VERSION = process.env.NOTIKIT_VERSION ?? "0.0.0-dev";
 
@@ -106,6 +108,10 @@ function toRelease(json: unknown): Release | null {
 async function fetchLatest(): Promise<UpdateCheck> {
   const base: UpdateCheck = { current: CURRENT_VERSION, latest: null, status: "ok", outdated: false, blockedBy: null };
   if (!SERVER || !LICENSE) return { ...base, status: "unconfigured" };
+
+  // 라이선스를 **먼저 오프라인으로** 본다. 만료·위조가 분명한데 배포처까지 다녀오는
+  // 것은 낭비고, 폐쇄망에서는 그 왕복이 아예 실패해 "연결 불가"로 잘못 보인다.
+  if (!canReceiveUpdates()) return { ...base, status: "unlicensed" };
 
   let res: Response;
   try {

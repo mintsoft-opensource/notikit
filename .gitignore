@@ -43,3 +43,11 @@ sdks/android/build/
 
 # 도구 런타임 상태 — 커밋 대상 아님
 .bkit/
+
+# 라이선스 발급 키 — 저장소에 절대 들어가면 안 된다
+license-private.pem
+license-public.pem
+# 폐쇄망 반입 번들(수 GB)과 백업
+/bundles/
+/backups/
+.notikit-image.env

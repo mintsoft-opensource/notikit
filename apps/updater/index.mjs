@@ -15,7 +15,10 @@
  */
 import postgres from "postgres";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 const DB_URL = process.env.DATABASE_URL;
@@ -32,6 +35,12 @@ const HEALTH_URL = process.env.UPDATER_HEALTH_URL ?? "http://web:3000/api/health
  * compose 파일 본문을 고치면 고객이 손댄 설정과 충돌한다.
  */
 const IMAGE_ENV_FILE = process.env.IMAGE_ENV_FILE ?? "/project/.notikit-image.env";
+/**
+ * 폐쇄망 반입 번들을 놓는 곳. 레지스트리에 닿을 수 없는 고객은 여기에 파일을 두고
+ * 콘솔에서 고른다. 콘솔로 업로드받지 않는 이유는 번들이 수 GB 라, HTTP 업로드가
+ * 실패하는 지점이 너무 많기 때문이다 — 파일은 이미 그 박스에 반입되어 있다.
+ */
+const BUNDLE_DIR = process.env.BUNDLE_DIR ?? "/bundles";
 const REGISTRY = process.env.REGISTRY_SERVER ?? "";
 const REGISTRY_USER = process.env.REGISTRY_USERNAME ?? "";
 const REGISTRY_PASSWORD = process.env.REGISTRY_PASSWORD ?? "";
@@ -148,6 +157,52 @@ async function backup(jobId, version) {
   return file;
 }
 
+/**
+ * 반입 번들에서 이미지를 꺼낸다.
+ *
+ * 체크섬을 먼저 본다. 번들은 USB 와 사람 손을 거쳐 오므로, 받은 것이 보낸 것과
+ * 같은지 확인하지 않으면 무엇을 설치하는지 모르는 채로 설치하게 된다.
+ */
+async function loadBundle(jobId, name, expectedRef) {
+  // 콘솔이 고른 이름이지만 경로 조작으로 디렉터리 밖을 읽지 못하게 한다
+  const safe = path.basename(name);
+  const file = path.join(BUNDLE_DIR, safe);
+  await log(jobId, `loading air-gap bundle ${safe}`);
+
+  const sums = await readFile(`${file}.sha256`, "utf8").catch(() => null);
+  if (!sums) throw new Error(`${safe}.sha256 이 없어 번들을 검증할 수 없습니다`);
+  const expected = sums.trim().split(/\s+/)[0];
+  const actual = await sha256File(file);
+  if (expected !== actual) {
+    throw new Error(`번들 체크섬이 일치하지 않습니다 (기대 ${expected.slice(0, 16)}…, 실제 ${actual.slice(0, 16)}…)`);
+  }
+  await log(jobId, `checksum ok (${actual.slice(0, 16)}…)`);
+
+  const work = await mkdtemp(path.join(tmpdir(), "notikit-bundle-"));
+  try {
+    await run(jobId, "tar", ["-xf", file, "-C", work]);
+
+    const meta = JSON.parse(await readFile(path.join(work, "bundle.json"), "utf8"));
+    // 번들이 가리키는 이미지와 콘솔에서 승인한 이미지가 달라선 안 된다
+    if (meta.image !== expectedRef) {
+      throw new Error(`번들의 이미지(${meta.image})가 승인된 이미지(${expectedRef})와 다릅니다`);
+    }
+    await run(jobId, "docker", ["load", "-i", path.join(work, "images.tar")]);
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
+function sha256File(file) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash("sha256");
+    createReadStream(file)
+      .on("data", (c) => hash.update(c))
+      .on("error", reject)
+      .on("end", () => resolve(hash.digest("hex")));
+  });
+}
+
 async function runJob(job) {
   const id = job.id;
   await sql`update update_jobs set status = 'running', started_at = now() where id = ${id}`;
@@ -161,11 +216,16 @@ async function runJob(job) {
   const previous = await readCurrentImage();
 
   await setStep(id, "pull");
-  await registryLogin(id);
-  await log(id, `pulling ${ref}`);
-  await run(id, "docker", ["pull", ref]);
+  if (job.bundle_path) {
+    // 폐쇄망 — 반입된 번들에서 꺼낸다. 레지스트리로 나가지 않는다.
+    await loadBundle(id, job.bundle_path, ref);
+  } else {
+    await registryLogin(id);
+    await log(id, `pulling ${ref}`);
+    await run(id, "docker", ["pull", ref]);
+  }
   // 받아 온 것이 승인한 그 이미지인지 확인한다. pull 은 다이제스트를 확인하지만,
-  // 로컬에 같은 태그가 있으면 조용히 그것을 쓸 수 있다.
+  // 로컬에 같은 태그가 있으면 조용히 그것을 쓸 수 있다. 번들 경로에서는 더욱 중요하다.
   await run(id, "docker", ["image", "inspect", ref, "--format", "{{.Id}}"]);
 
   if (job.has_migrations) {
