@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Push berpusatkan pengguna",
-    "openSourceSelfHost": "Sumber terbuka · Hos sendiri"
+    "tagline": "Push berpusatkan pengguna"
   },
   "nav": {
     "manage": "Urus",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Sumber terbuka · boleh dihoskan sendiri · infrastruktur pemberitahuan tolak berpusatkan pengguna"
+    "description": "Infrastruktur pemberitahuan tolak berpusatkan pengguna"
   },
   "overview": {
     "projectFallback": "Projek",

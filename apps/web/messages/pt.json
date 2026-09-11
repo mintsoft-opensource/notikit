@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Push centrado no utilizador",
-    "openSourceSelfHost": "Código aberto · Auto-hospedado"
+    "tagline": "Push centrado no utilizador"
   },
   "nav": {
     "manage": "Gerir",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Código aberto · auto-hospedável · infraestrutura de notificações push centrada no utilizador"
+    "description": "Infraestrutura de notificações push centrada no utilizador"
   },
   "overview": {
     "projectFallback": "Projeto",

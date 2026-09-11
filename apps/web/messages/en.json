@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "User-centric push",
-    "openSourceSelfHost": "Open source · Self-host"
+    "tagline": "User-centric push"
   },
   "nav": {
     "manage": "Manage",
@@ -107,7 +106,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Open source · self-hostable · user-centric push notification infrastructure"
+    "description": "User-centric push notification infrastructure"
   },
   "overview": {
     "projectFallback": "Project",
@@ -694,6 +693,8 @@
     "installFromBundle": "Install from this bundle",
     "supportBundle": "Support bundle",
     "supportBundleHint": "Send us this file when something breaks. It contains versions, which settings are present, migration state and update history — never passwords or keys.",
-    "downloadSupportBundle": "Download support bundle"
+    "downloadSupportBundle": "Download support bundle",
+    "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
+    "retry": "Retry"
   }
 }

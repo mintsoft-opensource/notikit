@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "ユーザー中心プッシュ",
-    "openSourceSelfHost": "オープンソース · セルフホスト"
+    "tagline": "ユーザー中心プッシュ"
   },
   "nav": {
     "manage": "管理",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "オープンソース · セルフホスト可能 · ユーザー中心プッシュ通知インフラ"
+    "description": "ユーザー中心プッシュ通知インフラ"
   },
   "overview": {
     "projectFallback": "プロジェクト",

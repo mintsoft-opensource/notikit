@@ -69,6 +69,12 @@ export function UpdatePanel() {
    */
   const [unreachable, setUnreachable] = React.useState(false);
   /**
+   * 진행 중이 아닐 때의 조회 실패. 이걸 삼키면 화면이 로딩 표시에서 영원히 멈춘 채
+   * 60 초마다 말없이 재시도한다 — 온프렘에서는 원인을 짚을 단서가 아예 없다.
+   */
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [retrying, setRetrying] = React.useState(false);
+  /**
    * 폴링 주기를 정할 때 읽는다. state 로 읽으면 주기를 바꾸려 effect 를 다시 돌려야
    * 하고, 그 사이 한 박자가 비어 진행 중인 업데이트가 멈춘 것처럼 보인다.
    */
@@ -79,10 +85,12 @@ export function UpdatePanel() {
       const res = await adminApi<Status>("/api/admin/update");
       setData(res);
       setUnreachable(false);
+      setLoadError(null);
       busyRef.current = !!res.active;
-    } catch {
-      // 진행 중이 아니었다면 진짜 오류다. 진행 중이었다면 재시작이다.
+    } catch (err) {
+      // 진행 중이었다면 재시작이다. 아니라면 진짜 오류이므로 반드시 보여 준다.
       if (busyRef.current) setUnreachable(true);
+      else setLoadError(err instanceof Error ? err.message : String(err));
     }
   }, []);
 
@@ -106,6 +114,17 @@ export function UpdatePanel() {
   const active = data?.active ?? null;
   const busy = !!active || unreachable;
 
+  /** 버튼이 눌린 티가 나야 한다 — 느린 백엔드에서 무반응은 고장으로 읽힌다 */
+  async function retry() {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      await load();
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   async function install(payload: { target_version: string; bundle?: string }) {
     if (!confirm(t("confirm"))) return;
     setStarting(true);
@@ -113,13 +132,46 @@ export function UpdatePanel() {
       await adminApi("/api/admin/update", { method: "POST", body: JSON.stringify(payload) });
       busyRef.current = true;
       await load();
+    } catch (err) {
+      // 서버는 "이미 진행 중", "운영자만", "구독 만료" 같은 이유를 정확히 돌려준다.
+      // 삼키면 버튼만 다시 활성화되고 사용자는 왜 안 되는지 끝내 모른다.
+      setLoadError(err instanceof Error ? err.message : String(err));
     } finally {
       setStarting(false);
     }
   }
 
+  /**
+   * 조회 실패 표시. **첫 로드와 이후 폴링 양쪽에서 쓴다.**
+   *
+   * 한 번 성공한 뒤의 실패를 안 보여 주면 화면이 낡은 값을 사실인 양 계속 띄운다.
+   * 업데이트 화면은 대개 "뭔가 이상할 때" 열려 있으므로, 실제로 문제가 생기는 건
+   * 거의 항상 이 쪽이다.
+   */
+  const errorNotice = loadError && (
+    <div className="space-y-2">
+      <Notice tone="warn" icon={<XCircle className="h-4 w-4 text-destructive" />}>
+        {t("loadFailed")}
+      </Notice>
+      {/* 원문 그대로 — 이 문자열이 지원 요청에 붙는 유일한 단서다 */}
+      <pre className="overflow-x-auto whitespace-pre-wrap break-all bg-surface-muted p-3 text-2xs text-muted-foreground">
+        {loadError}
+      </pre>
+      <Button variant="outline" disabled={retrying} onClick={retry}>
+        <RefreshCw className={`mr-1.5 h-4 w-4 ${retrying ? "animate-spin" : ""}`} />
+        {t("retry")}
+      </Button>
+    </div>
+  );
+
   if (!data && !unreachable) {
-    return <Card><CardContent className="py-6 text-sm text-muted-foreground">…</CardContent></Card>;
+    return (
+      <Card>
+        <CardContent className={loadError ? "space-y-3 pt-4" : "py-6 text-sm text-muted-foreground"}>
+          {errorNotice || "…"}
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -128,6 +180,9 @@ export function UpdatePanel() {
         <CardContent className="space-y-3 pt-4">
           <DataRow label={t("current")} value={data?.current ?? "—"} />
           {data?.latest && <DataRow label={t("latest")} value={data.latest.version} />}
+
+          {/* 낡은 값 위에 얹는다 — 아래 숫자들이 지금 것이 아님을 알려야 한다 */}
+          {errorNotice}
 
           {unreachable && (
             <Notice tone="info" icon={<RefreshCw className="h-4 w-4 animate-spin" />}>

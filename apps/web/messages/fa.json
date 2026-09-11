@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "پوش کاربرمحور",
-    "openSourceSelfHost": "متن‌باز · میزبانی شخصی"
+    "tagline": "پوش کاربرمحور"
   },
   "nav": {
     "manage": "مدیریت",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "متن‌باز · قابل میزبانی شخصی · زیرساخت اعلان پوش کاربرمحور"
+    "description": "زیرساخت اعلان پوش کاربرمحور"
   },
   "overview": {
     "projectFallback": "پروژه",

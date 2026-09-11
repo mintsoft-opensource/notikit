@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "以使用者為中心的推播",
-    "openSourceSelfHost": "開源 · 自架"
+    "tagline": "以使用者為中心的推播"
   },
   "nav": {
     "manage": "管理",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "開源 · 可自架 · 以使用者為中心的推播通知基礎設施"
+    "description": "以使用者為中心的推播通知基礎設施"
   },
   "overview": {
     "projectFallback": "專案",

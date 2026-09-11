@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Kullanıcı odaklı push",
-    "openSourceSelfHost": "Açık kaynak · Kendi sunucunda"
+    "tagline": "Kullanıcı odaklı push"
   },
   "nav": {
     "manage": "Yönetim",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Açık kaynak · kendi sunucunuzda barındırılabilir · kullanıcı odaklı push bildirim altyapısı"
+    "description": "Kullanıcı odaklı push bildirim altyapısı"
   },
   "overview": {
     "projectFallback": "Proje",

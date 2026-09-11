@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Push berpusat pada pengguna",
-    "openSourceSelfHost": "Sumber terbuka · Swainang"
+    "tagline": "Push berpusat pada pengguna"
   },
   "nav": {
     "manage": "Kelola",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Sumber terbuka · dapat dihosting sendiri · infrastruktur notifikasi push berpusat pada pengguna"
+    "description": "Infrastruktur notifikasi push berpusat pada pengguna"
   },
   "overview": {
     "projectFallback": "Proyek",

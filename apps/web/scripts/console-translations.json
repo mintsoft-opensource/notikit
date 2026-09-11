@@ -1,6 +1,6 @@
 {
   "ja": {
-    "meta.description": "オープンソース · セルフホスト可能 · ユーザー中心プッシュ通知インフラ",
+    "meta.description": "ユーザー中心プッシュ通知インフラ",
     "common.retry": "再試行",
     "common.loading": "読み込み中…",
     "common.refresh": "更新",
@@ -445,7 +445,7 @@
     "engagementStats.daysShort": "{n}日"
   },
   "zh": {
-    "meta.description": "开源 · 可自托管 · 以用户为中心的推送通知基础设施",
+    "meta.description": "以用户为中心的推送通知基础设施",
     "common.retry": "重试",
     "common.loading": "加载中…",
     "common.refresh": "刷新",
@@ -890,7 +890,7 @@
     "engagementStats.daysShort": "{n} 天"
   },
   "zh-TW": {
-    "meta.description": "開源 · 可自架 · 以使用者為中心的推播通知基礎設施",
+    "meta.description": "以使用者為中心的推播通知基礎設施",
     "common.retry": "重試",
     "common.loading": "載入中…",
     "common.refresh": "重新整理",
@@ -1335,7 +1335,7 @@
     "engagementStats.daysShort": "{n} 天"
   },
   "es": {
-    "meta.description": "Código abierto · autoalojable · infraestructura de notificaciones push centrada en el usuario",
+    "meta.description": "Infraestructura de notificaciones push centrada en el usuario",
     "common.retry": "Reintentar",
     "common.loading": "Cargando…",
     "common.refresh": "Actualizar",
@@ -1780,7 +1780,7 @@
     "engagementStats.daysShort": "{n} d"
   },
   "pt": {
-    "meta.description": "Código aberto · auto-hospedável · infraestrutura de notificações push centrada no utilizador",
+    "meta.description": "Infraestrutura de notificações push centrada no utilizador",
     "common.retry": "Tentar novamente",
     "common.loading": "A carregar…",
     "common.refresh": "Atualizar",
@@ -2225,7 +2225,7 @@
     "engagementStats.daysShort": "{n} d"
   },
   "pt-BR": {
-    "meta.description": "Código aberto · auto-hospedável · infraestrutura de notificações push centrada no usuário",
+    "meta.description": "Infraestrutura de notificações push centrada no usuário",
     "common.retry": "Tentar novamente",
     "common.loading": "Carregando…",
     "common.refresh": "Atualizar",
@@ -2670,7 +2670,7 @@
     "engagementStats.daysShort": "{n} d"
   },
   "fr": {
-    "meta.description": "Open source · auto-hébergeable · infrastructure de notifications push centrée sur l'utilisateur",
+    "meta.description": "Infrastructure de notifications push centrée sur l'utilisateur",
     "common.retry": "Réessayer",
     "common.loading": "Chargement…",
     "common.refresh": "Actualiser",
@@ -3115,7 +3115,7 @@
     "engagementStats.daysShort": "{n} j"
   },
   "de": {
-    "meta.description": "Open Source · selbst hostbar · nutzerzentrierte Push-Benachrichtigungs-Infrastruktur",
+    "meta.description": "Nutzerzentrierte Push-Benachrichtigungs-Infrastruktur",
     "common.retry": "Erneut versuchen",
     "common.loading": "Wird geladen…",
     "common.refresh": "Aktualisieren",
@@ -3560,7 +3560,7 @@
     "engagementStats.daysShort": "{n} Tg."
   },
   "it": {
-    "meta.description": "Open source · self-hostable · infrastruttura di notifiche push centrata sull'utente",
+    "meta.description": "Infrastruttura di notifiche push centrata sull'utente",
     "common.retry": "Riprova",
     "common.loading": "Caricamento…",
     "common.refresh": "Aggiorna",
@@ -4005,7 +4005,7 @@
     "engagementStats.daysShort": "{n} g"
   },
   "nl": {
-    "meta.description": "Open source · zelf te hosten · gebruikersgerichte pushnotificatie-infrastructuur",
+    "meta.description": "Gebruikersgerichte pushnotificatie-infrastructuur",
     "common.retry": "Opnieuw proberen",
     "common.loading": "Laden…",
     "common.refresh": "Vernieuwen",
@@ -4450,7 +4450,7 @@
     "engagementStats.daysShort": "{n} d"
   },
   "sv": {
-    "meta.description": "Öppen källkod · självhostbar · användarcentrerad push-notisinfrastruktur",
+    "meta.description": "Användarcentrerad push-notisinfrastruktur",
     "common.retry": "Försök igen",
     "common.loading": "Läser in…",
     "common.refresh": "Uppdatera",
@@ -4895,7 +4895,7 @@
     "engagementStats.daysShort": "{n} d"
   },
   "pl": {
-    "meta.description": "Open source · możliwość samodzielnego hostowania · infrastruktura powiadomień push zorientowana na użytkownika",
+    "meta.description": "Infrastruktura powiadomień push zorientowana na użytkownika",
     "common.retry": "Spróbuj ponownie",
     "common.loading": "Ładowanie…",
     "common.refresh": "Odśwież",
@@ -5340,7 +5340,7 @@
     "engagementStats.daysShort": "{n} dni"
   },
   "ru": {
-    "meta.description": "Открытый код · самостоятельный хостинг · пользователь-ориентированная инфраструктура push-уведомлений",
+    "meta.description": "пользователь-ориентированная инфраструктура push-уведомлений",
     "common.retry": "Повторить",
     "common.loading": "Загрузка…",
     "common.refresh": "Обновить",
@@ -5785,7 +5785,7 @@
     "engagementStats.daysShort": "{n} дн"
   },
   "uk": {
-    "meta.description": "Відкритий код · самостійний хостинг · орієнтована на користувача інфраструктура push-сповіщень",
+    "meta.description": "орієнтована на користувача інфраструктура push-сповіщень",
     "common.retry": "Повторити",
     "common.loading": "Завантаження…",
     "common.refresh": "Оновити",
@@ -6230,7 +6230,7 @@
     "engagementStats.daysShort": "{n} дн"
   },
   "tr": {
-    "meta.description": "Açık kaynak · kendi sunucunuzda barındırılabilir · kullanıcı odaklı push bildirim altyapısı",
+    "meta.description": "Kullanıcı odaklı push bildirim altyapısı",
     "common.retry": "Tekrar dene",
     "common.loading": "Yükleniyor…",
     "common.refresh": "Yenile",
@@ -6675,7 +6675,7 @@
     "engagementStats.daysShort": "{n} gün"
   },
   "ar": {
-    "meta.description": "مفتوح المصدر · قابل للاستضافة الذاتية · بنية إشعارات دفع تتمحور حول المستخدم",
+    "meta.description": "بنية إشعارات دفع تتمحور حول المستخدم",
     "common.retry": "إعادة المحاولة",
     "common.loading": "جارٍ التحميل…",
     "common.refresh": "تحديث",
@@ -7120,7 +7120,7 @@
     "engagementStats.daysShort": "{n} ي"
   },
   "he": {
-    "meta.description": "קוד פתוח · ניתן לאירוח עצמי · תשתית התראות פוש ממוקדת משתמש",
+    "meta.description": "תשתית התראות פוש ממוקדת משתמש",
     "common.retry": "נסה שוב",
     "common.loading": "טוען…",
     "common.refresh": "רענון",
@@ -7565,7 +7565,7 @@
     "engagementStats.daysShort": "{n} ימ'"
   },
   "fa": {
-    "meta.description": "متن‌باز · قابل میزبانی شخصی · زیرساخت اعلان پوش کاربرمحور",
+    "meta.description": "زیرساخت اعلان پوش کاربرمحور",
     "common.retry": "تلاش دوباره",
     "common.loading": "در حال بارگذاری…",
     "common.refresh": "تازه‌سازی",
@@ -8010,7 +8010,7 @@
     "engagementStats.daysShort": "{n} روز"
   },
   "hi": {
-    "meta.description": "ओपन सोर्स · सेल्फ-होस्ट योग्य · उपयोगकर्ता-केंद्रित पुश सूचना इन्फ्रास्ट्रक्चर",
+    "meta.description": "उपयोगकर्ता-केंद्रित पुश सूचना इन्फ्रास्ट्रक्चर",
     "common.retry": "पुनः प्रयास करें",
     "common.loading": "लोड हो रहा है…",
     "common.refresh": "रिफ़्रेश",
@@ -8455,7 +8455,7 @@
     "engagementStats.daysShort": "{n} दि"
   },
   "th": {
-    "meta.description": "โอเพนซอร์ส · โฮสต์เองได้ · โครงสร้างพื้นฐานการแจ้งเตือนพุชที่เน้นผู้ใช้",
+    "meta.description": "โครงสร้างพื้นฐานการแจ้งเตือนพุชที่เน้นผู้ใช้",
     "common.retry": "ลองอีกครั้ง",
     "common.loading": "กำลังโหลด…",
     "common.refresh": "รีเฟรช",
@@ -8900,7 +8900,7 @@
     "engagementStats.daysShort": "{n} วัน"
   },
   "vi": {
-    "meta.description": "Mã nguồn mở · tự lưu trữ được · hạ tầng thông báo đẩy lấy người dùng làm trung tâm",
+    "meta.description": "Hạ tầng thông báo đẩy lấy người dùng làm trung tâm",
     "common.retry": "Thử lại",
     "common.loading": "Đang tải…",
     "common.refresh": "Làm mới",
@@ -9345,7 +9345,7 @@
     "engagementStats.daysShort": "{n} ngày"
   },
   "id": {
-    "meta.description": "Sumber terbuka · dapat dihosting sendiri · infrastruktur notifikasi push berpusat pada pengguna",
+    "meta.description": "Infrastruktur notifikasi push berpusat pada pengguna",
     "common.retry": "Coba lagi",
     "common.loading": "Memuat…",
     "common.refresh": "Segarkan",
@@ -9790,7 +9790,7 @@
     "engagementStats.daysShort": "{n} hr"
   },
   "ms": {
-    "meta.description": "Sumber terbuka · boleh dihoskan sendiri · infrastruktur pemberitahuan tolak berpusatkan pengguna",
+    "meta.description": "Infrastruktur pemberitahuan tolak berpusatkan pengguna",
     "common.retry": "Cuba lagi",
     "common.loading": "Memuatkan…",
     "common.refresh": "Muat semula",

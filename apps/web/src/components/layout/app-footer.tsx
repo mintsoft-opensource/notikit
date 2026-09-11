@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { CURRENT_VERSION } from "@/lib/updates";
 
 /**
  * 셸 바닥에 **항상 붙어 있는** 푸터. 스크롤은 위쪽 main 에서만 일어난다.
@@ -18,7 +19,9 @@ export function AppFooter() {
           <span className="mx-1.5">·</span>
           {t("tagline")}
         </p>
-        <p>{t("openSourceSelfHost")}</p>
+        {/* 온프렘 장애 대응에서 가장 먼저 묻는 값. 모든 화면에 떠 있어야 스크린샷 한 장으로 끝난다. */}
+        {/* dir 을 고정하지 않으면 ar/fa/he 에서 'v' 가 숫자 반대편으로 튄다 */}
+        <p translate="no" dir="ltr">v{CURRENT_VERSION}</p>
       </div>
     </footer>
   );

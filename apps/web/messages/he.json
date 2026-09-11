@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "פוש ממוקד משתמש",
-    "openSourceSelfHost": "קוד פתוח · אחסון עצמי"
+    "tagline": "פוש ממוקד משתמש"
   },
   "nav": {
     "manage": "ניהול",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "קוד פתוח · ניתן לאירוח עצמי · תשתית התראות פוש ממוקדת משתמש"
+    "description": "תשתית התראות פוש ממוקדת משתמש"
   },
   "overview": {
     "projectFallback": "פרויקט",

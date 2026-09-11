@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Push lấy người dùng làm trung tâm",
-    "openSourceSelfHost": "Mã nguồn mở · Tự lưu trữ"
+    "tagline": "Push lấy người dùng làm trung tâm"
   },
   "nav": {
     "manage": "Quản lý",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Mã nguồn mở · tự lưu trữ được · hạ tầng thông báo đẩy lấy người dùng làm trung tâm"
+    "description": "Hạ tầng thông báo đẩy lấy người dùng làm trung tâm"
   },
   "overview": {
     "projectFallback": "Dự án",

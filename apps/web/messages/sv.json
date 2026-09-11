@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Användarcentrerad push",
-    "openSourceSelfHost": "Öppen källkod · Egen värd"
+    "tagline": "Användarcentrerad push"
   },
   "nav": {
     "manage": "Hantera",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Öppen källkod · självhostbar · användarcentrerad push-notisinfrastruktur"
+    "description": "Användarcentrerad push-notisinfrastruktur"
   },
   "overview": {
     "projectFallback": "Projekt",

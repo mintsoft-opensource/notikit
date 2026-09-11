@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "إشعارات تتمحور حول المستخدم",
-    "openSourceSelfHost": "مفتوح المصدر · استضافة ذاتية"
+    "tagline": "إشعارات تتمحور حول المستخدم"
   },
   "nav": {
     "manage": "الإدارة",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "مفتوح المصدر · قابل للاستضافة الذاتية · بنية إشعارات دفع تتمحور حول المستخدم"
+    "description": "بنية إشعارات دفع تتمحور حول المستخدم"
   },
   "overview": {
     "projectFallback": "المشروع",

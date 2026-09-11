@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Gebruikersgerichte push",
-    "openSourceSelfHost": "Open source · Zelf-gehost"
+    "tagline": "Gebruikersgerichte push"
   },
   "nav": {
     "manage": "Beheer",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Open source · zelf te hosten · gebruikersgerichte pushnotificatie-infrastructuur"
+    "description": "Gebruikersgerichte pushnotificatie-infrastructuur"
   },
   "overview": {
     "projectFallback": "Project",

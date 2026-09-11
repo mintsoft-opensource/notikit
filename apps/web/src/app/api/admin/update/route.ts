@@ -20,22 +20,48 @@ export async function GET(req: Request) {
   const ctx = await getAuthContext(req);
   if (!ctx) return fail("Unauthorized", 401);
 
-  const db = getDb();
-  const [check, recent, operator, bundles] = await Promise.all([
-    checkForUpdate(),
-    db.select().from(updateJobs).orderBy(desc(updateJobs.createdAt)).limit(5),
-    isInstanceOperator(ctx),
-    listBundles(),
-  ]);
+  let check, recent, operator, bundles;
+  try {
+    // getDb() 도 안에 둔다 — DATABASE_URL 미설정/오타로 여기서 던지는데,
+    // 그건 정확히 이 오류 경로가 존재하는 이유인 온프렘 설정 사고다.
+    const db = getDb();
+    [check, recent, operator, bundles] = await Promise.all([
+      checkForUpdate(),
+      db.select().from(updateJobs).orderBy(desc(updateJobs.createdAt)).limit(5),
+      isInstanceOperator(ctx),
+      listBundles(),
+    ]);
+  } catch (err) {
+    // 원문은 서버에만 남긴다 — 이 엔드포인트는 운영자 전용이 아니라 admin 이면 누구나 읽는다.
+    console.error("[update] status query failed:", err);
+    return fail("서버 오류 — 로그에서 [update] 항목을 확인하세요", 500);
+  }
+
+  // 진행 상태는 누구나 봐도 되지만 백업 경로·업데이터 로그·레지스트리 주소는 아니다.
+  // 여기서 걸러내지 않으면 **다른 고객사의 viewer** 가 우리 호스트 경로를 읽는다.
+  const safeJob = (j: (typeof recent)[number]) => ({
+    id: j.id,
+    fromVersion: j.fromVersion,
+    targetVersion: j.targetVersion,
+    status: j.status,
+    step: j.step,
+    createdAt: j.createdAt,
+    finishedAt: j.finishedAt,
+  });
 
   return ok({
     ...check,
-    license: licenseSummary(),
-    // 폐쇄망 설치에서는 이 목록이 업데이트의 유일한 출처다
-    bundles,
     canUpdate: selfUpdateEnabled() && operator,
-    active: recent.find((j) => (ACTIVE as readonly string[]).includes(j.status)) ?? null,
-    history: recent,
+    active: (() => {
+      const a = recent.find((j) => (ACTIVE as readonly string[]).includes(j.status));
+      if (!a) return null;
+      return operator ? a : safeJob(a);
+    })(),
+    history: operator ? recent : recent.map(safeJob),
+    // 라이선스 내역(고객사명·한도)과 반입 번들 목록(레지스트리 경로)은 운영자만.
+    // 폐쇄망 설치에서 이 목록이 업데이트의 유일한 출처라 운영자에게는 반드시 준다.
+    license: operator ? licenseSummary() : null,
+    bundles: operator ? bundles : [],
   });
 }
 

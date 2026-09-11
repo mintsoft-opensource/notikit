@@ -1,8 +1,7 @@
 {
   "app": {
     "name": "Notikit",
-    "tagline": "Push, орієнтований на користувача",
-    "openSourceSelfHost": "Відкритий код · Власний хостинг"
+    "tagline": "Push, орієнтований на користувача"
   },
   "nav": {
     "manage": "Керування",
@@ -104,7 +103,7 @@
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
-    "description": "Відкритий код · самостійний хостинг · орієнтована на користувача інфраструктура push-сповіщень"
+    "description": "орієнтована на користувача інфраструктура push-сповіщень"
   },
   "overview": {
     "projectFallback": "Проєкт",

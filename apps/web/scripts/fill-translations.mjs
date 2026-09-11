@@ -20,7 +20,7 @@ function setDeep(obj, dotted, value) {
 /** flat dot-key 번역 맵. 명시된 키만 en 위에 덮어씀. */
 const T = {
   ja: {
-    "app.tagline": "ユーザー中心プッシュ", "app.openSourceSelfHost": "オープンソース · セルフホスト",
+    "app.tagline": "ユーザー中心プッシュ",
     "nav.manage": "管理", "nav.engagement": "エンゲージメント", "nav.developer": "開発者", "nav.settings": "設定",
     "nav.overview": "概要", "nav.projects": "プロジェクト", "nav.send": "送信", "nav.logs": "ログ",
     "nav.segments": "セグメント", "nav.journeys": "ジャーニー", "nav.webhooks": "Webhook",
@@ -37,7 +37,7 @@ const T = {
     "common.language": "言語",
   },
   zh: {
-    "app.tagline": "以用户为中心的推送", "app.openSourceSelfHost": "开源 · 自托管",
+    "app.tagline": "以用户为中心的推送",
     "nav.manage": "管理", "nav.engagement": "互动", "nav.developer": "开发者", "nav.settings": "设置",
     "nav.overview": "概览", "nav.projects": "项目", "nav.send": "发送", "nav.logs": "日志",
     "nav.segments": "分群", "nav.journeys": "旅程", "nav.webhooks": "Webhook",
@@ -54,7 +54,7 @@ const T = {
     "common.language": "语言",
   },
   "zh-TW": {
-    "app.tagline": "以使用者為中心的推播", "app.openSourceSelfHost": "開源 · 自架",
+    "app.tagline": "以使用者為中心的推播",
     "nav.manage": "管理", "nav.engagement": "互動", "nav.developer": "開發者", "nav.settings": "設定",
     "nav.overview": "總覽", "nav.projects": "專案", "nav.send": "發送", "nav.logs": "日誌",
     "nav.segments": "分眾", "nav.journeys": "旅程", "nav.webhooks": "Webhook",
@@ -71,7 +71,7 @@ const T = {
     "common.language": "語言",
   },
   es: {
-    "app.tagline": "Push centrado en el usuario", "app.openSourceSelfHost": "Código abierto · Autoalojado",
+    "app.tagline": "Push centrado en el usuario",
     "nav.manage": "Gestión", "nav.engagement": "Interacción", "nav.developer": "Desarrollador", "nav.settings": "Ajustes",
     "nav.overview": "Resumen", "nav.projects": "Proyectos", "nav.send": "Enviar", "nav.logs": "Registros",
     "nav.segments": "Segmentos", "nav.journeys": "Recorridos", "nav.webhooks": "Webhooks",
@@ -88,7 +88,7 @@ const T = {
     "common.language": "Idioma",
   },
   fr: {
-    "app.tagline": "Push centré sur l’utilisateur", "app.openSourceSelfHost": "Open source · Auto-hébergé",
+    "app.tagline": "Push centré sur l’utilisateur",
     "nav.manage": "Gestion", "nav.engagement": "Engagement", "nav.developer": "Développeur", "nav.settings": "Paramètres",
     "nav.overview": "Aperçu", "nav.projects": "Projets", "nav.send": "Envoyer", "nav.logs": "Journaux",
     "nav.segments": "Segments", "nav.journeys": "Parcours", "nav.webhooks": "Webhooks",
@@ -105,7 +105,7 @@ const T = {
     "common.language": "Langue",
   },
   de: {
-    "app.tagline": "Nutzerzentriertes Push", "app.openSourceSelfHost": "Open Source · Selbst gehostet",
+    "app.tagline": "Nutzerzentriertes Push",
     "nav.manage": "Verwalten", "nav.engagement": "Engagement", "nav.developer": "Entwickler", "nav.settings": "Einstellungen",
     "nav.overview": "Übersicht", "nav.projects": "Projekte", "nav.send": "Senden", "nav.logs": "Protokolle",
     "nav.segments": "Segmente", "nav.journeys": "Journeys", "nav.webhooks": "Webhooks",
@@ -122,7 +122,7 @@ const T = {
     "common.language": "Sprache",
   },
   pt: {
-    "app.tagline": "Push centrado no utilizador", "app.openSourceSelfHost": "Código aberto · Auto-hospedado",
+    "app.tagline": "Push centrado no utilizador",
     "nav.manage": "Gerir", "nav.engagement": "Envolvimento", "nav.developer": "Programador", "nav.settings": "Definições",
     "nav.overview": "Visão geral", "nav.projects": "Projetos", "nav.send": "Enviar", "nav.logs": "Registos",
     "nav.segments": "Segmentos", "nav.journeys": "Jornadas", "nav.webhooks": "Webhooks",
@@ -139,7 +139,7 @@ const T = {
     "common.language": "Idioma",
   },
   "pt-BR": {
-    "app.tagline": "Push centrado no usuário", "app.openSourceSelfHost": "Código aberto · Auto-hospedado",
+    "app.tagline": "Push centrado no usuário",
     "nav.manage": "Gerenciar", "nav.engagement": "Engajamento", "nav.developer": "Desenvolvedor", "nav.settings": "Configurações",
     "nav.overview": "Visão geral", "nav.projects": "Projetos", "nav.send": "Enviar", "nav.logs": "Logs",
     "nav.segments": "Segmentos", "nav.journeys": "Jornadas", "nav.webhooks": "Webhooks",
@@ -156,7 +156,7 @@ const T = {
     "common.language": "Idioma",
   },
   it: {
-    "app.tagline": "Push incentrato sull’utente", "app.openSourceSelfHost": "Open source · Self-host",
+    "app.tagline": "Push incentrato sull’utente",
     "nav.manage": "Gestione", "nav.engagement": "Coinvolgimento", "nav.developer": "Sviluppatore", "nav.settings": "Impostazioni",
     "nav.overview": "Panoramica", "nav.projects": "Progetti", "nav.send": "Invia", "nav.logs": "Log",
     "nav.segments": "Segmenti", "nav.journeys": "Percorsi", "nav.webhooks": "Webhook",
@@ -173,7 +173,7 @@ const T = {
     "common.language": "Lingua",
   },
   ru: {
-    "app.tagline": "Push, ориентированный на пользователя", "app.openSourceSelfHost": "Открытый код · Самостоятельный хостинг",
+    "app.tagline": "Push, ориентированный на пользователя",
     "nav.manage": "Управление", "nav.engagement": "Вовлечение", "nav.developer": "Разработчик", "nav.settings": "Настройки",
     "nav.overview": "Обзор", "nav.projects": "Проекты", "nav.send": "Отправка", "nav.logs": "Логи",
     "nav.segments": "Сегменты", "nav.journeys": "Сценарии", "nav.webhooks": "Вебхуки",
@@ -190,7 +190,7 @@ const T = {
     "common.language": "Язык",
   },
   ar: {
-    "app.tagline": "إشعارات تتمحور حول المستخدم", "app.openSourceSelfHost": "مفتوح المصدر · استضافة ذاتية",
+    "app.tagline": "إشعارات تتمحور حول المستخدم",
     "nav.manage": "الإدارة", "nav.engagement": "التفاعل", "nav.developer": "المطور", "nav.settings": "الإعدادات",
     "nav.overview": "نظرة عامة", "nav.projects": "المشاريع", "nav.send": "إرسال", "nav.logs": "السجلات",
     "nav.segments": "الشرائح", "nav.journeys": "الرحلات", "nav.webhooks": "Webhooks",
@@ -207,7 +207,7 @@ const T = {
     "common.language": "اللغة",
   },
   hi: {
-    "app.tagline": "उपयोगकर्ता-केंद्रित पुश", "app.openSourceSelfHost": "ओपन सोर्स · सेल्फ-होस्ट",
+    "app.tagline": "उपयोगकर्ता-केंद्रित पुश",
     "nav.manage": "प्रबंधन", "nav.engagement": "एंगेजमेंट", "nav.developer": "डेवलपर", "nav.settings": "सेटिंग्स",
     "nav.overview": "अवलोकन", "nav.projects": "प्रोजेक्ट", "nav.send": "भेजें", "nav.logs": "लॉग",
     "nav.segments": "सेगमेंट", "nav.journeys": "जर्नी", "nav.webhooks": "वेबहुक",
@@ -224,7 +224,7 @@ const T = {
     "common.language": "भाषा",
   },
   id: {
-    "app.tagline": "Push berpusat pada pengguna", "app.openSourceSelfHost": "Sumber terbuka · Swainang",
+    "app.tagline": "Push berpusat pada pengguna",
     "nav.manage": "Kelola", "nav.engagement": "Keterlibatan", "nav.developer": "Pengembang", "nav.settings": "Pengaturan",
     "nav.overview": "Ikhtisar", "nav.projects": "Proyek", "nav.send": "Kirim", "nav.logs": "Log",
     "nav.segments": "Segmen", "nav.journeys": "Perjalanan", "nav.webhooks": "Webhook",
@@ -241,7 +241,7 @@ const T = {
     "common.language": "Bahasa",
   },
   th: {
-    "app.tagline": "พุชที่เน้นผู้ใช้เป็นศูนย์กลาง", "app.openSourceSelfHost": "โอเพนซอร์ส · โฮสต์เอง",
+    "app.tagline": "พุชที่เน้นผู้ใช้เป็นศูนย์กลาง",
     "nav.manage": "จัดการ", "nav.engagement": "การมีส่วนร่วม", "nav.developer": "นักพัฒนา", "nav.settings": "ตั้งค่า",
     "nav.overview": "ภาพรวม", "nav.projects": "โปรเจกต์", "nav.send": "ส่ง", "nav.logs": "บันทึก",
     "nav.segments": "เซกเมนต์", "nav.journeys": "เจอร์นีย์", "nav.webhooks": "เว็บฮุก",
@@ -258,7 +258,7 @@ const T = {
     "common.language": "ภาษา",
   },
   vi: {
-    "app.tagline": "Push lấy người dùng làm trung tâm", "app.openSourceSelfHost": "Mã nguồn mở · Tự lưu trữ",
+    "app.tagline": "Push lấy người dùng làm trung tâm",
     "nav.manage": "Quản lý", "nav.engagement": "Tương tác", "nav.developer": "Nhà phát triển", "nav.settings": "Cài đặt",
     "nav.overview": "Tổng quan", "nav.projects": "Dự án", "nav.send": "Gửi", "nav.logs": "Nhật ký",
     "nav.segments": "Phân khúc", "nav.journeys": "Hành trình", "nav.webhooks": "Webhook",
@@ -275,7 +275,7 @@ const T = {
     "common.language": "Ngôn ngữ",
   },
   tr: {
-    "app.tagline": "Kullanıcı odaklı push", "app.openSourceSelfHost": "Açık kaynak · Kendi sunucunda",
+    "app.tagline": "Kullanıcı odaklı push",
     "nav.manage": "Yönetim", "nav.engagement": "Etkileşim", "nav.developer": "Geliştirici", "nav.settings": "Ayarlar",
     "nav.overview": "Genel bakış", "nav.projects": "Projeler", "nav.send": "Gönder", "nav.logs": "Günlükler",
     "nav.segments": "Segmentler", "nav.journeys": "Yolculuklar", "nav.webhooks": "Webhook’lar",
@@ -292,7 +292,7 @@ const T = {
     "common.language": "Dil",
   },
   pl: {
-    "app.tagline": "Push skoncentrowany na użytkowniku", "app.openSourceSelfHost": "Open source · Samohosting",
+    "app.tagline": "Push skoncentrowany na użytkowniku",
     "nav.manage": "Zarządzanie", "nav.engagement": "Zaangażowanie", "nav.developer": "Deweloper", "nav.settings": "Ustawienia",
     "nav.overview": "Przegląd", "nav.projects": "Projekty", "nav.send": "Wyślij", "nav.logs": "Dzienniki",
     "nav.segments": "Segmenty", "nav.journeys": "Ścieżki", "nav.webhooks": "Webhooki",
@@ -309,7 +309,7 @@ const T = {
     "common.language": "Język",
   },
   nl: {
-    "app.tagline": "Gebruikersgerichte push", "app.openSourceSelfHost": "Open source · Zelf-gehost",
+    "app.tagline": "Gebruikersgerichte push",
     "nav.manage": "Beheer", "nav.engagement": "Betrokkenheid", "nav.developer": "Ontwikkelaar", "nav.settings": "Instellingen",
     "nav.overview": "Overzicht", "nav.projects": "Projecten", "nav.send": "Verzenden", "nav.logs": "Logboeken",
     "nav.segments": "Segmenten", "nav.journeys": "Journeys", "nav.webhooks": "Webhooks",
@@ -326,7 +326,7 @@ const T = {
     "common.language": "Taal",
   },
   sv: {
-    "app.tagline": "Användarcentrerad push", "app.openSourceSelfHost": "Öppen källkod · Egen värd",
+    "app.tagline": "Användarcentrerad push",
     "nav.manage": "Hantera", "nav.engagement": "Engagemang", "nav.developer": "Utvecklare", "nav.settings": "Inställningar",
     "nav.overview": "Översikt", "nav.projects": "Projekt", "nav.send": "Skicka", "nav.logs": "Loggar",
     "nav.segments": "Segment", "nav.journeys": "Resor", "nav.webhooks": "Webhooks",
@@ -343,7 +343,7 @@ const T = {
     "common.language": "Språk",
   },
   uk: {
-    "app.tagline": "Push, орієнтований на користувача", "app.openSourceSelfHost": "Відкритий код · Власний хостинг",
+    "app.tagline": "Push, орієнтований на користувача",
     "nav.manage": "Керування", "nav.engagement": "Залучення", "nav.developer": "Розробник", "nav.settings": "Налаштування",
     "nav.overview": "Огляд", "nav.projects": "Проєкти", "nav.send": "Надіслати", "nav.logs": "Журнали",
     "nav.segments": "Сегменти", "nav.journeys": "Сценарії", "nav.webhooks": "Вебхуки",
@@ -360,7 +360,7 @@ const T = {
     "common.language": "Мова",
   },
   fa: {
-    "app.tagline": "پوش کاربرمحور", "app.openSourceSelfHost": "متن‌باز · میزبانی شخصی",
+    "app.tagline": "پوش کاربرمحور",
     "nav.manage": "مدیریت", "nav.engagement": "تعامل", "nav.developer": "توسعه‌دهنده", "nav.settings": "تنظیمات",
     "nav.overview": "نمای کلی", "nav.projects": "پروژه‌ها", "nav.send": "ارسال", "nav.logs": "گزارش‌ها",
     "nav.segments": "بخش‌ها", "nav.journeys": "سفرها", "nav.webhooks": "وب‌هوک‌ها",
@@ -377,7 +377,7 @@ const T = {
     "common.language": "زبان",
   },
   he: {
-    "app.tagline": "פוש ממוקד משתמש", "app.openSourceSelfHost": "קוד פתוח · אחסון עצמי",
+    "app.tagline": "פוש ממוקד משתמש",
     "nav.manage": "ניהול", "nav.engagement": "מעורבות", "nav.developer": "מפתח", "nav.settings": "הגדרות",
     "nav.overview": "סקירה", "nav.projects": "פרויקטים", "nav.send": "שליחה", "nav.logs": "יומנים",
     "nav.segments": "פלחים", "nav.journeys": "מסעות", "nav.webhooks": "Webhooks",
@@ -394,7 +394,7 @@ const T = {
     "common.language": "שפה",
   },
   ms: {
-    "app.tagline": "Push berpusatkan pengguna", "app.openSourceSelfHost": "Sumber terbuka · Hos sendiri",
+    "app.tagline": "Push berpusatkan pengguna",
     "nav.manage": "Urus", "nav.engagement": "Penglibatan", "nav.developer": "Pembangun", "nav.settings": "Tetapan",
     "nav.overview": "Gambaran keseluruhan", "nav.projects": "Projek", "nav.send": "Hantar", "nav.logs": "Log",
     "nav.segments": "Segmen", "nav.journeys": "Perjalanan", "nav.webhooks": "Webhook",
