@@ -258,6 +258,51 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(lj.data.webhooks[0].secret).toBeUndefined();
   });
 
+  test("토큰 교체: 기기 id·구독이 보존되고 행이 늘지 않는다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `rot-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const ext = "rot-user";
+    const hash = idHash(ext, apiSecret);
+    const oldTok = `rot-old-${Date.now()}`;
+    const newTok = `rot-new-${Date.now()}`;
+
+    const reg = await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token: oldTok, platform: "android", external_id: ext, identity_hash: hash },
+    });
+    const deviceId = (await reg.json()).data.device.id as string;
+    await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", token: oldTok } });
+
+    // 증명 없이는 교체 불가 — 옛 토큰만 아는 쪽이 알림을 자기 토큰으로 가져가지 못한다
+    const forged = await request.post("/api/v1/devices/rotate", { headers: { "api-key": apiKey }, data: { old_token: oldTok, new_token: newTok } });
+    expect(forged.status()).toBe(403);
+
+    const rot = await request.post("/api/v1/devices/rotate", {
+      headers: { "api-key": apiKey },
+      data: { old_token: oldTok, new_token: newTok, identity_hash: hash },
+    });
+    expect(rot.status()).toBe(202);
+    const rj = await rot.json();
+    expect(rj.data.rotated).toBe(true);
+    // 같은 행을 갱신했으므로 기기 id 가 유지된다 — 구독·클릭 이력이 그대로 살아 있다
+    expect(rj.data.device_id).toBe(deviceId);
+
+    // 행이 늘지 않았는지: 활성 기기는 여전히 1대
+    const list = await request.get(`/api/admin/projects/${pid}/audience/devices`, { headers: { "x-admin-token": ADMIN } });
+    const devices = (await list.json()).data.devices as Array<{ id: string; isActive: boolean }>;
+    expect(devices.filter((d) => d.isActive).length).toBe(1);
+    expect(devices[0].id).toBe(deviceId);
+
+    // 토픽 발송이 교체된 기기에 그대로 잡힌다
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "t", body: "b", type: "topic", target: "news" } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    expect((await logs.json()).data.logs[0].totalCount).toBe(1);
+  });
+
   test("수신거부: opt-out 유저는 발송 대상에서 제외", async ({ request }) => {
     const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `sup-${Date.now()}` } });
     const cj = await created.json();
@@ -268,8 +313,12 @@ test.describe("App SDK API 전체 플로우", () => {
     const hash = idHash(ext, apiSecret);
 
     await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `sup-tok-${Date.now()}`, platform: "web", external_id: ext, identity_hash: hash } });
+    // 증명 없는 external_id 수신거부는 거부된다 — 공개 api-key 만으로 남의 수신을 끊지 못한다
+    const forged = await request.post("/api/v1/suppressions", { headers: { "api-key": apiKey }, data: { external_id: ext } });
+    expect(forged.status()).toBe(403);
+
     // opt-out
-    const opt = await request.post("/api/v1/suppressions", { headers: { "api-key": apiKey }, data: { external_id: ext } });
+    const opt = await request.post("/api/v1/suppressions", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: hash } });
     expect(opt.status()).toBe(201);
     // send + process
     await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "t", body: "b", type: "single", target: ext } });

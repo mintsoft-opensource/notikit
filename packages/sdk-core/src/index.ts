@@ -6,10 +6,10 @@ import {
   type ReportClickInput,
   type ApiEnvelope,
   NotikitError,
-} from "./types";
+} from "./types.js";
 
-export * from "./types";
-export * from "./session";
+export * from "./types.js";
+export * from "./session.js";
 
 /**
  * Notikit 코어 클라이언트 — 모든 플랫폼 SDK 의 공용 HTTP 계층.
@@ -114,6 +114,21 @@ export class NotikitClient {
    */
   ping(token: string) {
     return this.request<{ recorded: boolean }>("/api/v1/devices/ping", { token });
+  }
+
+  /**
+   * 푸시 토큰 교체.
+   *
+   * 새 토큰으로 registerDevice 를 부르면 **행이 하나 더 생긴다** — 옛 행이 유저
+   * 바인딩을 유지한 채 활성으로 남아 같은 사람에게 중복 발송된다. 서버가 기존 행의
+   * 토큰을 제자리 갱신하게 해 기기 id·토픽 구독·클릭 이력을 보존한다.
+   */
+  rotateToken(oldToken: string, newToken: string, identityHash?: string) {
+    return this.request<{ rotated: boolean; device_id?: string }>("/api/v1/devices/rotate", {
+      old_token: oldToken,
+      new_token: newToken,
+      identity_hash: identityHash,
+    });
   }
 
   /** 토픽 구독 */

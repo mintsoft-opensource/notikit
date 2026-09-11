@@ -138,7 +138,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       : "—";
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader
         title={project?.name ?? t("projectFallback")}
         description={t("subtitle")}
@@ -155,7 +155,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       />
 
       {project && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface px-5 py-4 shadow-sm shadow-foreground/[0.02]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface px-3.5 py-2.5 shadow-sm shadow-foreground/[0.02]">
           <div className="flex min-w-0 items-center gap-3">
             <div className="min-w-0">
               <p className="text-2xs font-semibold text-muted-foreground">api-key</p>
@@ -279,7 +279,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -339,7 +339,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -351,7 +351,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             {stats && stats.clicks.top.length > 0 ? (
               <ul className="divide-y divide-border">
                 {stats.clicks.top.map((l) => (
-                  <li key={l.id} className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
+                  <li key={l.id} className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{l.title}</p>
                       <p className="text-xs text-muted-foreground">{l.type} · {df.format(new Date(l.createdAt))}</p>
@@ -382,7 +382,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             {events && events.length > 0 ? (
               <ul className="divide-y divide-border">
                 {events.slice(0, 8).map((e) => (
-                  <li key={e.id} className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3">
+                  <li key={e.id} className="grid min-h-10 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3">
                     <Badge variant={e.event === "uninstalled" ? "danger" : "success"}>
                       {e.event === "uninstalled" ? t("eventUninstalled") : t("eventReinstalled")}
                     </Badge>
@@ -405,7 +405,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 
       <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("breakdownTitle")}</p>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="h-full min-w-0">
           <CardHeader>
             <div>
@@ -452,7 +452,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             <div>
               <ul className="divide-y divide-border">
                 {stats.recent.map((l) => (
-                  <li key={l.id} className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
+                  <li key={l.id} className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{l.title}</p>
                       <p className="text-xs text-muted-foreground">

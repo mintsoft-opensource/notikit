@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     .update(devices)
     .set({ lastActiveAt: new Date() })
     .where(and(eq(devices.projectId, project.id), eq(devices.id, device.id)));
-  await recordAccess(db, project.id, device);
+  await recordAccess(db, project.id, device, req);
 
   return ok({ recorded: true }, undefined, 202);
 }

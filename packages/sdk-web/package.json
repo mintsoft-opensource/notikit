@@ -1,7 +1,7 @@
 {
   "name": "@notikit/web-sdk",
   "version": "0.1.0",
-  "description": "Notikit Web SDK — browser Web Push (service worker + VAPID)",
+  "description": "Notikit Web SDK — browser push via FCM (Firebase Cloud Messaging)",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -15,18 +15,33 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/notikit/notikit.git",
+    "directory": "packages/sdk-web"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@notikit/core": "workspace:*"
   },
   "devDependencies": {
+    "firebase": "^12.19.0",
     "typescript": "^5",
     "vitest": "^4.1.5"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "peerDependencies": {
+    "firebase": ">=10"
+  },
+  "peerDependenciesMeta": {
+    "firebase": {
+      "optional": true
+    }
   }
 }

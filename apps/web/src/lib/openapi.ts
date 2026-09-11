@@ -80,6 +80,35 @@ export const openapi = {
         responses: { "200": { description: "식별됨" } },
       },
     },
+    "/api/v1/devices/rotate": {
+      post: {
+        tags: ["App SDK"],
+        summary: "푸시 토큰 교체",
+        description:
+          "기존 기기 행의 토큰을 제자리 갱신한다. 새 토큰으로 재등록하면 행이 하나 더 생겨 같은 사람에게 중복 발송된다. 유저가 묶인 기기는 identity_hash 필요.",
+        security: [{ apiKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["old_token", "new_token"],
+                properties: {
+                  old_token: { type: "string" },
+                  new_token: { type: "string" },
+                  identity_hash: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "202": { description: "처리됨 (rotated=false 는 대상 없음/이미 등록됨)" },
+          "403": { description: "identity_hash 누락·불일치" },
+        },
+      },
+    },
     "/api/v1/topics/subscribe": {
       post: {
         tags: ["App SDK"],
@@ -155,7 +184,7 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                description: "external_id 또는 token 중 하나 필수 (identity 검증 없음)",
+                description: "external_id 또는 token 중 하나 필수. external_id 로 등록할 때는 identity_hash 필수(타 유저 수신 차단 방지).",
                 properties: {
                   external_id: { type: "string", maxLength: 255 },
                   token: { type: "string", maxLength: 4096 },

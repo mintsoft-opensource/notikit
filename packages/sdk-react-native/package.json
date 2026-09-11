@@ -8,7 +8,16 @@
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "files": ["dist"],
-  "scripts": { "build": "tsc -p tsconfig.json", "test": "vitest run" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/notikit/notikit.git",
+    "directory": "packages/sdk-react-native"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
+  },
   "dependencies": { "@notikit/core": "workspace:*" },
   "peerDependencies": { "react-native": ">=0.72" },
   "peerDependenciesMeta": { "react-native": { "optional": true } },

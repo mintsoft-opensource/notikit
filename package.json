@@ -10,6 +10,7 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
+    "publish:sdk": "pnpm -r --filter './packages/*' publish --access public",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
   },

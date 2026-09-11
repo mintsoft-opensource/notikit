@@ -88,7 +88,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
@@ -130,7 +130,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
             <CardContent className="space-y-2">
               {hooks.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
               {hooks.map((h) => (
-                <div key={h.id} className="rounded-lg border border-border px-4 py-3">
+                <div key={h.id} className="rounded-lg border border-border px-3.5 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium">{h.url}</span>
                     <Badge variant={h.isActive ? "success" : "neutral"}>{h.isActive ? "active" : "inactive"}</Badge>

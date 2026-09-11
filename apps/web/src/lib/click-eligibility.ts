@@ -26,8 +26,16 @@ export interface ClickDevice {
  * (log_id, device) 유니크가 받는다.
  */
 export async function isPlausibleRecipient(db: Db, log: PushLog, device: ClickDevice): Promise<boolean> {
-  // 발송 이후에 등록된 기기는 대상이 될 수 없다
-  if (device.createdAt.getTime() > new Date(log.createdAt).getTime()) return false;
+  // 발송 이후에 등록된 기기는 대상이 될 수 없다.
+  //
+  // 기준은 큐잉 시각이 아니라 **실제로 나간 시각**이다. 예약 발송은 수신자를 처리
+  // 시점에 고르므로, 큐잉 뒤에 등록된 기기도 정당한 수신자가 된다. 큐잉 시각으로
+  // 자르면 그 기기들의 클릭이 전부 403 이 되어 예약 발송의 클릭률이 과소 집계된다.
+  const sentAt = Math.max(
+    new Date(log.createdAt).getTime(),
+    log.scheduledAt ? new Date(log.scheduledAt).getTime() : 0
+  );
+  if (device.createdAt.getTime() > sentAt) return false;
 
   const { id: deviceId, userId } = device;
   if (log.type === "broadcast") return true;

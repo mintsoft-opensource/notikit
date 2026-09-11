@@ -8,7 +8,9 @@ import {
   integer,
   index,
   uniqueIndex,
+  primaryKey,
   doublePrecision,
+  inet,
   bigint,
   date,
 } from "drizzle-orm/pg-core";
@@ -219,6 +221,14 @@ export const deviceActivity = pgTable("device_activity", {
   day: date("day").notNull(),
   // 그 날 몇 번 열었는지 — DAU 와 별개로 사용 강도를 본다
   opens: integer("opens").notNull().default(1),
+  /** 접속 IP 로 판정한 국가. 프록시 신뢰 설정이 없으면 null 이다. */
+  country: text("country"),
+  /**
+   * 마스킹한 접속 IP (IPv4 /24, IPv6 /48).
+   *
+   * 원본은 개인정보라 남기지 않는다. 국가 판정은 마스킹 전 값으로 하고 결과만 둔다.
+   */
+  ipMasked: text("ip_masked"),
   lastAt: timestamp("last_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   uniqDay: uniqueIndex("device_activity_uniq_idx").on(t.deviceId, t.day),
@@ -379,6 +389,68 @@ export const systemMetrics = pgTable("system_metrics", {
   atIdx: index("system_metrics_at_idx").on(t.at),
   instanceIdx: index("system_metrics_instance_idx").on(t.instanceId, t.at),
 }));
+
+/**
+ * ISO 3166-1 국가 — 표기용 참조 데이터.
+ *
+ * devices.country 는 클라이언트가 보고하거나 IP 로 판정한 코드가 들어간다. 표기할 때
+ * 코드(KR)만으로는 읽기 어려우므로 이름을 붙이려고 둔다.
+ */
+export const countries = pgTable("countries", {
+  /** ISO 3166-1 alpha-2 (대문자) */
+  code: text("code").primaryKey(),
+  nameKo: text("name_ko").notNull(),
+  nameEn: text("name_en").notNull(),
+  /** 대륙 단위 묶어보기용 (Asia, Europe …) */
+  region: text("region"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * IP → 국가 구간. 출처: DB-IP Lite (CC BY 4.0).
+ *
+ * 조회는 "시작 IP 가 대상보다 작거나 같은 것 중 가장 큰 것"을 잡고 끝 IP 로 확인한다.
+ * start_ip 내림차순 인덱스 하나로 끝나 GiST 나 ip4r 확장이 필요 없다.
+ *
+ * family 를 함께 두는 이유: Postgres 는 inet 비교에서 IPv4 를 IPv6 보다 앞에 놓는다.
+ * 필터가 없으면 IPv6 조회가 "더 작은" IPv4 구간을 잘못 집는다.
+ */
+export const ipCountryRanges = pgTable("ip_country_ranges", {
+  startIp: inet("start_ip").notNull(),
+  endIp: inet("end_ip").notNull(),
+  /** 4 또는 6 */
+  family: integer("family").notNull(),
+  countryCode: text("country_code").notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.family, t.startIp] }),
+  lookupIdx: index("ip_country_lookup_idx").on(t.family, t.startIp),
+}));
+
+/**
+ * 위치 데이터 적재 이력 — import-geo.mjs 한 번 실행에 한 행.
+ *
+ * 이 데이터는 외부 원본을 통째로 갈아끼우므로, 언제 무엇이 몇 건 들어왔는지 남지
+ * 않으면 "국가가 왜 안 나오는가"를 추적할 방법이 없다. 실패도 남긴다 — 실패가
+ * 조용하면 낡은 데이터로 계속 판정하게 된다.
+ */
+export const geoImports = pgTable("geo_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  /** ok | failed */
+  status: text("status").notNull(),
+  countries: integer("countries").notNull().default(0),
+  ipv4: integer("ipv4").notNull().default(0),
+  ipv6: integer("ipv6").notNull().default(0),
+  /** 실패 사유. 성공이면 null */
+  error: text("error"),
+}, (t) => ({
+  startedIdx: index("geo_imports_started_idx").on(t.startedAt),
+}));
+
+export type GeoImport = typeof geoImports.$inferSelect;
+export type Country = typeof countries.$inferSelect;
+export type IpCountryRange = typeof ipCountryRanges.$inferSelect;
 
 export type Project = typeof projects.$inferSelect;
 export type Device = typeof devices.$inferSelect;

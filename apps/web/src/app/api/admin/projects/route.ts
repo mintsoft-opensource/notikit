@@ -1,6 +1,7 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects, organizations } from "@/db/schema";
+import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { generateApiKey, generateApiSecret, encryptSecret } from "@/lib/keys";
@@ -28,16 +29,40 @@ function publicProject(p: ProjectRow) {
   };
 }
 
-/** [Web Admin] 프로젝트 목록 — 세션은 자기 org, superadmin(token)은 전체 */
+const LIMIT = 200;
+
+/**
+ * [Web Admin] 프로젝트 목록 — 세션은 자기 org, superadmin(token)은 전체.
+ *
+ * 커서로 이어 읽는다. 워커가 이 목록으로 처리 대상을 정하므로 한 페이지에서 끊으면
+ * 그 뒤의 프로젝트는 큐 처리·저니·웹훅 재시도·토큰 스윕이 **영구히** 돌지 않는다.
+ */
 export async function GET(req: Request) {
   const auth = await requireAuth(req);
   if (!auth.ok) return fail(auth.error, auth.status);
+
+  const cursor = parseCursor(new URL(req.url));
+  const conds = [];
+  if (!auth.ctx.superadmin) conds.push(eq(projects.orgId, auth.ctx.orgId!));
+  if (cursor) conds.push(beforeCursor(projects.createdAt, projects.id, cursor));
+
   const db = getDb();
-  const base = db.select().from(projects).$dynamic();
-  const rows = auth.ctx.superadmin
-    ? await base.orderBy(desc(projects.createdAt)).limit(200)
-    : await base.where(eq(projects.orgId, auth.ctx.orgId!)).orderBy(desc(projects.createdAt)).limit(200);
-  return ok({ projects: rows.map(publicProject) });
+  const rows = await db
+    .select({ row: projects, cursorTs: cursorExpr(projects.createdAt) })
+    .from(projects)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(desc(projects.createdAt), desc(projects.id))
+    .limit(LIMIT + 1);
+
+  const hasMore = rows.length > LIMIT;
+  const page = hasMore ? rows.slice(0, LIMIT) : rows;
+  return ok({
+    projects: page.map((r) => publicProject(r.row)),
+    next: nextCursor(
+      page.map((r) => ({ cursorTs: r.cursorTs, id: r.row.id })),
+      hasMore
+    ),
+  });
 }
 
 const createSchema = z.object({

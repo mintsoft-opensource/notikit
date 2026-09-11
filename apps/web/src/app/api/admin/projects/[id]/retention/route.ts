@@ -5,10 +5,16 @@ import { requireProject } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
 
-/** 코호트로 볼 기간(일). 오늘부터 거슬러 이 만큼의 설치일을 코호트로 묶는다. */
-const COHORT_DAYS = 30;
 /** 리텐션을 재는 시점(일차). D0 는 항상 100% 라 의미가 없어 뺀다. */
 const OFFSETS = [1, 3, 7, 14, 30];
+/**
+ * 코호트로 볼 기간(일). 오늘부터 거슬러 이 만큼의 설치일을 코호트로 묶는다.
+ *
+ * 가장 오래된 코호트는 `오늘 - (COHORT_DAYS - 1)` 이므로, 최대 오프셋을 관측하려면
+ * 그 코호트의 경과일이 최대 오프셋 이상이어야 한다. OFFSETS 에서 파생시키지 않으면
+ * 둘이 어긋나 해당 시점이 영구히 null 로만 나온다(30 이었을 때 D30 이 그랬다).
+ */
+const COHORT_DAYS = Math.max(...OFFSETS) + 1;
 
 /**
  * [Web Admin] 설치 코호트 리텐션.

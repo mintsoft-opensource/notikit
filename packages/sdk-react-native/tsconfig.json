@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2020"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2020"
+    ],
     "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
@@ -11,6 +13,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "**/*.test.ts"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts"
+  ]
 }

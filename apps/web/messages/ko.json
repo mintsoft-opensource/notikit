@@ -33,7 +33,9 @@
     "stats": "통계",
     "statsActivity": "접속",
     "statsEngagement": "참여",
-    "statsInstalls": "설치 변동"
+    "statsInstalls": "설치 변동",
+    "queue": "발송 큐",
+    "guide": "문서"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -175,7 +177,26 @@
     "queued": "큐잉됨",
     "processed": "큐 처리 완료 (로그 확인)",
     "queuedProcessFailed": "큐잉은 완료됨 — 즉시 처리 실패: {error}",
-    "checkLogs": "로그를 확인하세요"
+    "checkLogs": "로그를 확인하세요",
+    "scheduleLabel": "예약 발송 (선택)",
+    "scheduleHint": "비우면 즉시 발송합니다. 프로젝트 방해금지 시간대에 걸리면 서버가 자동으로 그 이후로 미룹니다.",
+    "errSchedulePast": "예약 시각은 현재보다 뒤여야 합니다",
+    "processNowDisabled": "예약 발송은 예약 시각에 처리됩니다",
+    "helpTitle": "발송 안내",
+    "helpTypes": "single 은 external_id 한 명, topic 은 그 토픽 구독자 전체, segment 는 속성 규칙에 맞는 유저, broadcast 는 활성 기기 전체로 나갑니다.",
+    "helpDeepLink": "딥링크는 알림을 눌렀을 때 이동할 화면입니다. 앱 스킴(myapp://path) 또는 https URL 을 넣으세요. 클릭 추적의 착지 경로로도 기록됩니다.",
+    "helpSuppression": "수신 거부한 유저와 비활성(앱 삭제 판정) 기기는 대상에서 자동으로 제외됩니다.",
+    "helpLogOnly": "Firebase 미설정 프로젝트는 실제 발송 없이 로그만 남습니다(log-only).",
+    "resultTitle": "발송 결과",
+    "resultQueued": "큐에 등록됨",
+    "resultScheduled": "예약됨",
+    "resultProcessed": "큐 처리 완료",
+    "resultProcessFailed": "큐잉은 완료 — 즉시 처리 실패",
+    "resultFailed": "발송 실패",
+    "resultMessageId": "메시지 ID",
+    "resultScheduledAt": "예약 시각",
+    "resultViewLogs": "로그 보기",
+    "resultStatus": "상태"
   },
   "settings": {
     "title": "설정",
@@ -230,7 +251,18 @@
     "colUser": "유저",
     "colPlatform": "플랫폼",
     "colDestination": "이동한 곳",
-    "colReadAt": "읽은 시각"
+    "colReadAt": "읽은 시각",
+    "colTitle": "제목",
+    "colTargetName": "대상",
+    "colSentAt": "발송 시각",
+    "colDelivered": "성공/대상",
+    "colReadRate": "읽음률",
+    "colStatus": "상태",
+    "rangeFrom": "시작일",
+    "rangeTo": "종료일",
+    "rangeApply": "검색",
+    "rangeClear": "초기화",
+    "rangeInvalid": "시작일이 종료일보다 뒤입니다"
   },
   "projects": {
     "title": "프로젝트",
@@ -377,7 +409,21 @@
     "rangeLive": "실시간, 최근 5분",
     "rangeStored1h": "저장된 데이터, 최근 1시간",
     "rangeStored24h": "저장된 데이터, 최근 24시간",
-    "rangeStored7d": "저장된 데이터, 최근 7일"
+    "rangeStored7d": "저장된 데이터, 최근 7일",
+    "geoTitle": "위치 데이터",
+    "geoSubtitle": "IP→국가 판정에 쓰는 참조 데이터의 적재 이력",
+    "geoCountries": "국가",
+    "geoIpv4": "IPv4 구간",
+    "geoIpv6": "IPv6 구간",
+    "geoColAt": "실행",
+    "geoColStatus": "상태",
+    "geoColCounts": "적재 건수",
+    "geoColTook": "소요",
+    "geoEmpty": "적재 이력이 없습니다",
+    "geoNever": "위치 데이터가 아직 적재되지 않았습니다",
+    "geoRunHint": "apps/web 에서 `npm run db:geo` 로 적재합니다",
+    "geoProxyWarn": "TRUSTED_PROXY_HOPS 가 0 이라 접속 IP 를 신뢰하지 않습니다 — 데이터가 있어도 국가가 기록되지 않습니다.",
+    "geoAttribution": "IP→국가 데이터: DB-IP (CC BY 4.0)"
   },
   "account": {
     "title": "계정",
@@ -405,7 +451,10 @@
     "empty": "멤버가 없습니다",
     "readOnlyNote": "멤버 관리는 owner·admin 만 가능합니다.",
     "accountTitle": "계정",
-    "accountDesc": "현재 로그인한 관리자 계정입니다."
+    "accountDesc": "현재 로그인한 관리자 계정입니다.",
+    "colMember": "멤버",
+    "colJoined": "가입일",
+    "colRole": "역할"
   },
   "profile": {
     "title": "프로필",
@@ -477,7 +526,21 @@
     "noSuppressions": "등록된 대상이 없습니다",
     "statUnverified": "미검증",
     "unverifiedHint": "FCM 이 받아준 적 없음",
-    "badgeUnverified": "미검증"
+    "badgeUnverified": "미검증",
+    "colUser": "유저",
+    "colToken": "토큰",
+    "colPlatform": "플랫폼",
+    "colVersion": "앱 · OS",
+    "colLastActive": "최근 활동",
+    "colAttributes": "속성",
+    "colDevices": "기기",
+    "colClicks": "클릭",
+    "colTopic": "토픽",
+    "colSubUsers": "구독 유저",
+    "colSubDevices": "구독 기기",
+    "colTarget": "대상",
+    "colReason": "사유",
+    "colRegistered": "등록일"
   },
   "activity": {
     "title": "접속 통계",
@@ -540,6 +603,37 @@
     "title": "설치 변동",
     "eventLog": "이벤트 로그",
     "filterEvent": "이벤트",
-    "allEvents": "전체 이벤트"
+    "allEvents": "전체 이벤트",
+    "colEvent": "이벤트",
+    "colUser": "유저",
+    "colPlatform": "플랫폼",
+    "colSource": "감지 경로",
+    "colAt": "시각"
+  },
+  "queue": {
+    "title": "발송 큐",
+    "subtitle": "아직 나가지 않은 발송 — 대기·처리 중·예약.",
+    "statQueued": "대기",
+    "statProcessing": "처리 중",
+    "statScheduled": "예약",
+    "statOldest": "최장 대기",
+    "colTitle": "제목",
+    "colType": "타입",
+    "colTarget": "대상",
+    "colAudience": "대상 수",
+    "colWhen": "예정/대기",
+    "colStatus": "상태",
+    "empty": "큐가 비어 있습니다",
+    "truncated": "최근 100건만 표시합니다",
+    "waitingFor": "{d} 대기",
+    "scheduledFor": "{d} 예정",
+    "processQueue": "큐 처리",
+    "loadFailed": "큐를 불러오지 못했습니다",
+    "staleHint": "워커가 멈췄거나 Firebase 설정이 없으면 대기가 계속 쌓입니다."
+  },
+  "guide": {
+    "title": "사용 가이드",
+    "subtitle": "연동부터 운영까지 — 개념, 인증, 발송, 클릭 추적, 지표 정의.",
+    "toc": "목차"
   }
 }

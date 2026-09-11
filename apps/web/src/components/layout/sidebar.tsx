@@ -18,7 +18,7 @@ function NavLink({ item, label, pathname }: { item: NavItem; label: string; path
       rel={item.external ? "noopener noreferrer" : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-md font-semibold transition-colors",
         active ? "bg-accent-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       )}
     >
@@ -34,18 +34,18 @@ export function SidebarNav({ pathname }: { pathname: string }) {
   const projectId = projectIdFromPath(pathname);
   const groups = projectId ? projectNavGroups(projectId) : NAV_GROUPS;
   return (
-    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+    <nav className="flex-1 space-y-4 overflow-y-auto px-2 py-3">
       {projectId && (
         <Link
           href="/projects"
-          className="flex items-center gap-1.5 px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1.5 px-2.5 text-md font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" /> {t("projectList")}
         </Link>
       )}
       {groups.map((group) => (
         <div key={group.labelKey}>
-          <p className="mb-2 px-3 text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{t(group.labelKey)}</p>
+          <p className="mb-1.5 px-2.5 text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">{t(group.labelKey)}</p>
           <ul className="space-y-0.5">
             {group.items.map((item) => (
               <li key={item.href}>
@@ -62,10 +62,10 @@ export function SidebarNav({ pathname }: { pathname: string }) {
 export function SidebarBrand() {
   const t = useTranslations("app");
   return (
-    <div className="flex h-16 items-center border-b border-border px-6">
+    <div className="flex h-14 items-center border-b border-border px-4">
       <Link href="/dashboard" className="flex items-center gap-2.5">
         <LogoMark className="h-8 w-8" />
-        <span translate="no" className="text-md font-extrabold tracking-tight text-foreground">{t("name")}</span>
+        <span translate="no" className="text-lg font-extrabold tracking-tight text-foreground">{t("name")}</span>
       </Link>
     </div>
   );

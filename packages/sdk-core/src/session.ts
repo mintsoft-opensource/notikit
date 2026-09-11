@@ -1,5 +1,5 @@
-import { NotikitClient } from "./index";
-import { logIdFromPayload, type Platform } from "./types";
+import { NotikitClient } from "./index.js";
+import { logIdFromPayload, type Platform } from "./types.js";
 
 /**
  * 플랫폼별 영속 저장소. 푸시 클릭은 앱이 죽은 상태에서 콜드 스타트로 들어오므로
@@ -105,14 +105,37 @@ export class NotikitSession {
    * 이후 이 기기의 클릭은 서버가 이 유저로 귀속한다.
    */
   async login(user: StoredUser, token: string): Promise<void> {
-    // 새 바인딩이 덮어쓰므로 밀린 언바인딩은 의미가 없다
-    await this.storage.removeItem(UNBIND_KEY);
     await this.storage.setItem(USER_KEY, JSON.stringify(user));
     await this.client.registerDevice({
       token,
       platform: this.platform,
       externalId: user.externalId,
       identityHash: user.identityHash,
+    });
+    // 밀린 언바인딩은 **새 바인딩이 실제로 서버에 반영된 뒤에만** 버린다.
+    // 먼저 지우면, 오프라인 로그아웃 후 오프라인 로그인이 실패했을 때 이전 유저의
+    // 해제 요청이 사라져 서버는 기기를 계속 이전 유저로 본다(클릭이 그쪽에 귀속).
+    await this.storage.removeItem(UNBIND_KEY);
+  }
+
+  /**
+   * 푸시 토큰 교체.
+   *
+   * 서버에서 기존 기기 행을 갱신하고, **밀린 클릭의 토큰도 함께 바꾼다**. 큐는
+   * 클릭 당시 토큰을 들고 있어서, 교체 후 그대로 보내면 서버가 기기를 못 찾아
+   * 404 를 주고 4xx 정책에 걸려 전부 버려진다.
+   */
+  async rotateToken(oldToken: string, newToken: string): Promise<void> {
+    const user = await this.getUser();
+    await this.client.rotateToken(oldToken, newToken, user?.identityHash);
+
+    // 큐의 read-modify-write 는 반드시 serialize 안에서 해야 한다. 밖에서 하면
+    // 읽은 뒤 쓰기 전에 들어온 클릭이 이 스냅샷에 덮여 사라진다.
+    await this.serialize(async () => {
+      const queue = parseQueue(await this.storage.getItem(QUEUE_KEY));
+      if (queue.length === 0) return;
+      const moved = queue.map((c) => (c.token === oldToken ? { ...c, token: newToken } : c));
+      await this.storage.setItem(QUEUE_KEY, JSON.stringify(moved));
     });
   }
 

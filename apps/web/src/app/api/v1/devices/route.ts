@@ -129,7 +129,7 @@ export async function POST(req: Request) {
   const device = rows[0];
   // 등록도 접속이다 — 첫 실행 직후의 활동이 통계에서 빠지지 않게.
   // 다만 언바인딩(로그아웃)은 앱을 연 것이 아니므로 opens 를 올리지 않는다.
-  if (device && !unbind) await recordAccess(db, project.id, device);
+  if (device && !unbind) await recordAccess(db, project.id, device, req);
   if (before && !before.isActive && device) {
     await recordReinstall(db, project.id, { id: device.id, userId: device.userId, platform: device.platform });
   }

@@ -43,7 +43,7 @@ export function LiveChart({
   return (
     <div>
       {series.length > 1 && (
-        <div className="mb-2 flex flex-wrap gap-4">
+        <div className="mb-2 flex flex-wrap gap-3">
           {series.map((s) => (
             <span key={s.key} className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: s.color }} />

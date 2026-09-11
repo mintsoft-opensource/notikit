@@ -57,7 +57,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -73,7 +73,7 @@ export default function SettingsPage() {
             <CardDescription>{isOwner ? t("orgDesc") : t("orgReadOnly")}</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="grid items-end gap-4 sm:grid-cols-[minmax(0,24rem)_auto]">
+        <CardContent className="grid items-end gap-3 sm:grid-cols-[minmax(0,24rem)_auto]">
           <Field label={t("orgName")}>
             <Input
               value={name}

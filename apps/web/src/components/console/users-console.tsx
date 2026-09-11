@@ -92,7 +92,7 @@ export function UsersConsole({ projectId }: { projectId: string }) {
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("usersTitle")} description={t("usersSubtitle")} />
 
       <div className="relative">
@@ -106,17 +106,24 @@ export function UsersConsole({ projectId }: { projectId: string }) {
         />
       </div>
 
-      <Card>
+      <Card className="rounded-none">
         <CardContent className="p-0">
-          {!users && <div className="space-y-3 p-5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!users && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {users && users.length === 0 && <EmptyState icon={Users} title={q ? t("noMatches") : t("noUsers")} />}
           {users && users.length > 0 && (
             <>
+              <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem] xl:grid">
+                <span>{t("colUser")}</span>
+                <span>{t("colAttributes")}</span>
+                <span>{t("colDevices")}</span>
+                <span>{t("colClicks")}</span>
+                <span className="text-right">{t("colLastActive")}</span>
+              </div>
               <ul className="divide-y divide-border">
                 {users.map((u) => {
                   const attrs = Object.entries(u.attributes ?? {}).slice(0, 3);
                   return (
-                    <li key={u.id} className="grid gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem] xl:items-center">
+                    <li key={u.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem] xl:items-center">
                       <div className="min-w-0">
                         <p className="truncate font-mono text-sm font-semibold">{u.externalId}</p>
                         <p className="text-xs text-muted-foreground">

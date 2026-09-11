@@ -85,7 +85,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("suppressionsTitle")} description={t("suppressionsSubtitle")} />
 
       <Card>
@@ -112,14 +112,21 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-none">
         <CardContent className="p-0">
-          {!rows && <div className="space-y-3 p-5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!rows && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {rows && rows.length === 0 && <EmptyState icon={BellOff} title={t("noSuppressions")} />}
           {rows && rows.length > 0 && (
+            <>
+            <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto] sm:grid">
+              <span>{t("colTarget")}</span>
+              <span>{t("colReason")}</span>
+              <span>{t("colRegistered")}</span>
+              <span />
+            </div>
             <ul className="divide-y divide-border">
               {rows.map((s) => (
-                <li key={s.id} className="grid gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto] sm:items-center">
+                <li key={s.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto] sm:items-center">
                   <p className="truncate font-mono text-sm font-semibold">
                     {s.externalId ?? s.tokenPreview ?? "—"}
                   </p>
@@ -129,7 +136,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
                   </time>
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     className="justify-self-end"
                     aria-label={`${t("suppressionRemove")} ${s.externalId ?? ""}`}
                     onClick={() => remove(s)}
@@ -139,6 +146,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
                 </li>
               ))}
             </ul>
+            </>
           )}
         </CardContent>
       </Card>

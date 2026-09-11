@@ -43,14 +43,14 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <Card>
         <CardHeader>
           <CardTitle>{t("newProject")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
+        <CardContent className="grid gap-3 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
           <div className="flex-1 space-y-1">
             <Label htmlFor="new-project-name">{t("nameLabel")}</Label>
             <Input id="new-project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
@@ -71,7 +71,7 @@ export default function ProjectsPage() {
 
       {secret && (
         <Card className="border-primary/40">
-          <CardContent className="space-y-2 p-5">
+          <CardContent className="space-y-2 p-3.5">
             <p className="text-sm font-bold text-primary">{t("secretNotice")}</p>
             <div className="space-y-1 font-mono text-xs">
               <button
@@ -92,18 +92,18 @@ export default function ProjectsPage() {
         </Card>
       )}
 
-      <div className="overflow-hidden rounded-card border border-border bg-surface shadow-card">
-        {loading && <div className="space-y-3 p-5"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>}
+      <div className="overflow-hidden border border-border bg-surface shadow-card">
+        {loading && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
         {!loading && projects.length === 0 && <EmptyState icon={FolderKanban} title={t("empty")} description={t("subtitle")} action={<Button size="sm" variant="outline" onClick={() => document.getElementById("new-project-name")?.focus()}><Plus aria-hidden="true" className="h-4 w-4" />{t("newProject")}</Button>} />}
-        {projects.length > 0 && <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem] gap-4 border-b border-border bg-surface-muted/50 px-5 py-3 text-xs font-semibold text-muted-foreground lg:grid"><span>{t("nameLabel")}</span><span>{ts("apiKeyLabel")}</span><span>{t("envLabel")}</span><span /></div>}
+        {projects.length > 0 && <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem] gap-3 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground lg:grid"><span>{t("nameLabel")}</span><span>{ts("apiKeyLabel")}</span><span>{t("envLabel")}</span><span /></div>}
         {projects.map((p) => (
           <Link
             key={p.id}
             href={`/projects/${p.id}`}
-            className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border px-5 py-4 transition-colors last:border-b-0 hover:bg-surface-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem]"
+            className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border px-3.5 py-2.5 transition-colors last:border-b-0 hover:bg-surface-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem]"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-tile bg-accent-soft text-primary"><FolderKanban aria-hidden="true" className="h-4 w-4" /></span>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-tile bg-accent-soft text-primary"><FolderKanban aria-hidden="true" className="h-4 w-4" /></span>
               <span className="truncate text-sm font-semibold">{p.name}</span>
             </div>
             <p className="col-start-1 row-start-2 truncate font-mono text-xs text-muted-foreground lg:col-start-auto lg:row-start-auto">{p.apiKey}</p>

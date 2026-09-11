@@ -72,7 +72,7 @@ export default function DashboardPage() {
     .map((p, i) => ({ label: p.platform, value: p.count, color: SLICE_COLORS[i % SLICE_COLORS.length] }));
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -110,7 +110,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-3 xl:grid-cols-3">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -256,7 +256,7 @@ export default function DashboardPage() {
             <Link
               key={p.id}
               href={`/projects/${p.id}`}
-              className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-tile border border-border px-4 py-3 transition-colors hover:border-primary/40 hover:bg-surface-muted"
+              className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-tile border border-border px-3.5 py-2 transition-colors hover:border-primary/40 hover:bg-surface-muted"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{p.name}</p>

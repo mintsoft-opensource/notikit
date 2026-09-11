@@ -274,6 +274,23 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       total += tokens.length;
       if (tokens.length === 0) continue;
 
+      // 웹은 data-only 로 보내야 한다(사유는 fcm.ts 의 dataOnly 참조).
+      // 페이지 단위 인덱스 조회 한 번 — 제너레이터 4개 분기에 platform 을 끼워넣는
+      // 것보다 변경 범위가 좁다.
+      const webRows = await db
+        .select({ token: devices.token })
+        .from(devices)
+        .where(and(eq(devices.projectId, log.projectId), eq(devices.platform, "web"), inArray(devices.token, tokens)));
+      const webSet = new Set(webRows.map((r) => r.token));
+      const splitByPlatform = (list: string[]): Array<{ batch: string[]; dataOnly: boolean }> => {
+        const web = list.filter((t) => webSet.has(t));
+        const native = list.filter((t) => !webSet.has(t));
+        const out: Array<{ batch: string[]; dataOnly: boolean }> = [];
+        for (const b of chunk(native, BATCH)) out.push({ batch: b, dataOnly: false });
+        for (const b of chunk(web, BATCH)) out.push({ batch: b, dataOnly: true });
+        return out;
+      };
+
       if (variants) {
         // A/B: 토큰을 변형에 배정 후 각 변형 콘텐츠로 발송
         const groups: string[][] = variants.map(() => []);
@@ -282,8 +299,8 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
           variantStats[String(vi)].sent += groups[vi].length;
           if (logOnly || groups[vi].length === 0) continue;
           const v = variants[vi];
-          const results = await mapLimit(chunk(groups[vi], BATCH), CONCURRENCY, (b) =>
-            sendToTokens(project!.id, sa!, b, { title: v.title, body: v.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined })
+          const results = await mapLimit(splitByPlatform(groups[vi]), CONCURRENCY, (g) =>
+            sendToTokens(project!.id, sa!, g.batch, { title: v.title, body: v.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined }, false, g.dataOnly)
           );
           for (const r of results) {
             success += r.success;
@@ -294,8 +311,8 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
           }
         }
       } else if (!logOnly) {
-        const results = await mapLimit(chunk(tokens, BATCH), CONCURRENCY, (b) =>
-          sendToTokens(project!.id, sa!, b, { title: log.title, body: log.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined })
+        const results = await mapLimit(splitByPlatform(tokens), CONCURRENCY, (g) =>
+          sendToTokens(project!.id, sa!, g.batch, { title: log.title, body: log.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined }, false, g.dataOnly)
         );
         for (const r of results) {
           success += r.success;

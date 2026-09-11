@@ -15,9 +15,15 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/notikit/notikit.git",
+    "directory": "packages/sdk-react"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@notikit/core": "workspace:*",

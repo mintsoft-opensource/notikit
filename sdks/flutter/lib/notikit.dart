@@ -21,13 +21,22 @@ class Notikit {
   /// 공개 api-key 만 사용 (발송용 api-secret 은 클라이언트에 넣지 않음).
   final String apiKey;
   final http.Client _client;
+  /// 우리가 만든 클라이언트만 닫는다 — 주입받은 것은 소유자가 따로 있다
+  final bool _ownsClient;
 
   Notikit({
     required String baseUrl,
     required this.apiKey,
     http.Client? client,
   })  : baseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl,
-        _client = client ?? http.Client();
+        _client = client ?? http.Client(),
+        _ownsClient = client == null;
+
+  /// 연결 풀을 해제한다. 직접 만든 클라이언트가 아니면 아무것도 하지 않는다.
+  /// 없으면 SDK 를 버려도 내부 클라이언트의 연결이 남는다.
+  void close() {
+    if (_ownsClient) _client.close();
+  }
 
   /// 미지정(null) 필드를 제거하고 전송 — 서버가 기존 값을 유지하게 한다.
   Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) {
@@ -49,10 +58,14 @@ class Notikit {
     } catch (_) {
       throw NotikitException('Invalid response', res.statusCode);
     }
+    // `as String?` 로 단정하면 안 된다 — 게이트웨이나 프록시가 error 를 객체로 주면
+    // NotikitException 대신 raw TypeError 가 튀어 방어적 파싱이 무의미해진다.
     if (res.statusCode >= 400 || json['success'] != true) {
-      throw NotikitException((json['error'] as String?) ?? 'Request failed', res.statusCode);
+      final err = json['error'];
+      throw NotikitException(err is String ? err : 'Request failed', res.statusCode);
     }
-    return (json['data'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final data = json['data'];
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 
   /// 디바이스/토큰 등록 (external_id 바인딩 시 identityHash 필요)
@@ -97,6 +110,23 @@ class Notikit {
   /// 토픽 구독
   Future<Map<String, dynamic>> subscribe(String topic, String token) {
     return _post('/api/v1/topics/subscribe', {'topic': topic, 'token': token});
+  }
+
+  /// 푸시 토큰 교체 (FirebaseMessaging.onTokenRefresh).
+  ///
+  /// 새 토큰으로 registerDevice 를 부르면 **행이 하나 더 생긴다** — 옛 행이 유저
+  /// 바인딩을 유지한 채 활성으로 남아 같은 사람에게 중복 발송된다. 서버가 기존 행의
+  /// 토큰을 제자리 갱신하게 해 기기 id·토픽 구독·클릭 이력을 보존한다.
+  Future<Map<String, dynamic>> rotateToken({
+    required String oldToken,
+    required String newToken,
+    String? identityHash,
+  }) {
+    return _post('/api/v1/devices/rotate', {
+      'old_token': oldToken,
+      'new_token': newToken,
+      'identity_hash': identityHash,
+    });
   }
 
   /// 디바이스 바인딩 해제 (로그아웃/계정전환).
@@ -178,18 +208,32 @@ class Notikit {
   }) {
     // 앱이 알림 탭으로 콜드 스타트된 경우 — 스트림에는 오지 않으므로 따로 처리한다
     if (initialMessage != null) {
-      final tok = token();
-      if (tok != null) {
-        unawaited(handleNotificationOpen(data: initialMessage, token: tok));
-      }
+      _reportTap(initialMessage, token);
     }
 
-    return onOpened.listen((data) {
-      final tok = token();
-      if (tok == null) return;
-      // 보고 실패가 앱 흐름을 막지 않는다
-      unawaited(handleNotificationOpen(data: data, token: tok).catchError((_) => false));
-    });
+    return onOpened.listen(
+      (data) => _reportTap(data, token),
+      // onError 가 없으면 스트림 자체의 에러가 uncaught 로 샌다.
+      // 탭 보고 실패가 앱을 죽이면 안 된다.
+      onError: (_) {},
+    );
+  }
+
+  /// 이미 보고한 발송 — initState/hot reload 로 attachTapStream 이 두 번 불리면
+  /// 구독이 둘 다 살아 탭당 2회, initialMessage 도 다시 보고된다. 서버가 (발송, 기기)
+  /// 유니크로 막아 통계는 안 틀리지만 불필요한 요청이 그대로 나간다.
+  final Set<String> _reportedLogIds = {};
+
+  void _reportTap(Map<String, dynamic> data, String? Function() token) {
+    final logId = logIdFromPayload(data);
+    if (logId == null || !_reportedLogIds.add(logId)) return;
+    final tok = token();
+    if (tok == null) {
+      _reportedLogIds.remove(logId); // 토큰이 생기면 다시 시도할 수 있게 되돌린다
+      return;
+    }
+    // 보고 실패가 앱 흐름을 막지 않는다
+    unawaited(handleNotificationOpen(data: data, token: tok).catchError((_) => false));
   }
 
   /// 푸시 페이로드에서 notikit 이 예약해 쓰는 data 키

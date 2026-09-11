@@ -20,6 +20,8 @@ function numEnv(name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {})
 }
 
 const INTERVAL = numEnv("WORKER_INTERVAL_MS", 10_000, { min: 1000 });
+/** 프로젝트 목록 페이지 상한(페이지당 200) — 커서가 안 끝나도 tick 이 갇히지 않게 */
+const MAX_PROJECT_PAGES = 50;
 
 // 죽은 토큰 야간 스윕. FCM dry-run 이라 배달되지 않으므로 유저를 깨우지 않는다 —
 // 새벽에 도는 이유는 방해 회피가 아니라 부하와 FCM 할당량 때문이다.
@@ -78,11 +80,20 @@ function lastSweepSeq(now) {
 }
 
 async function tick() {
+  // 한 페이지만 읽으면 그 뒤의 프로젝트는 영영 처리되지 않는다 — 커서를 끝까지 따라간다.
+  // 페이지 수에 상한을 둬, 커서가 진전되지 않는 이상 상황에서 tick 이 멈추지 않게 한다.
   let projects = [];
   try {
-    const res = await fetch(`${BASE}/api/admin/projects`, { headers: { "x-admin-token": ADMIN } });
-    const json = await res.json();
-    projects = json?.data?.projects ?? [];
+    let cursor = null;
+    for (let page = 0; page < MAX_PROJECT_PAGES; page++) {
+      const q = cursor ? `?before=${encodeURIComponent(cursor.ts)}&before_id=${cursor.id}` : "";
+      const res = await fetch(`${BASE}/api/admin/projects${q}`, { headers: { "x-admin-token": ADMIN } });
+      const json = await res.json();
+      const batch = json?.data?.projects ?? [];
+      projects.push(...batch);
+      cursor = json?.data?.next ?? null;
+      if (!cursor) break;
+    }
   } catch {
     return;
   }

@@ -78,6 +78,27 @@
       "when": 1789026774199,
       "tag": "0010_secret_mach_iv",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789090024228,
+      "tag": "0011_geo",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789090538731,
+      "tag": "0012_activity_geo",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789090875492,
+      "tag": "0013_geo_imports",
+      "breakpoints": true
     }
   ]
 }

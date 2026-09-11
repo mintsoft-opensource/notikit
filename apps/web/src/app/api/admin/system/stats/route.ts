@@ -97,7 +97,9 @@ export async function GET(req: Request) {
     activeWithin(30),
     db
       .select({
-        day: sql<string>`${deviceActivity.day}::text`,
+        // ::text 는 DateStyle 설정에 좌우된다(German 이면 10.09.2026). 버킷 키가
+        // ISO 라 전부 미스가 나므로 형식을 명시한다.
+        day: sql<string>`to_char(${deviceActivity.day}, 'YYYY-MM-DD')`,
         devices: sql<number>`count(distinct ${deviceActivity.deviceId})::int`,
         users: sql<number>`count(distinct ${deviceActivity.userId})::int`,
       })

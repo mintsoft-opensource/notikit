@@ -83,7 +83,7 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
@@ -152,7 +152,7 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
             <CardContent className="space-y-2">
               {journeys.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
               {journeys.map((j) => (
-                <div key={j.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                <div key={j.id} className="flex items-center justify-between rounded-lg border border-border px-3.5 py-2">
                   <span className="text-sm font-semibold">{j.name}</span>
                   <div className="flex flex-wrap gap-1">
                     {j.steps.map((s, i) => (

@@ -13,16 +13,26 @@ function mockFetch(response: unknown, ok = true, status = 200) {
 
 const okFetch = () => mockFetch({ success: true, data: { device: { id: "d1" } }, error: null });
 
+const FCM_TOKEN = "fcm-token-1";
+
+// getToken 주입으로 firebase 모듈 없이 검증한다. 실제 firebase 경로의 시그니처는
+// devDependency 의 타입이 컴파일 시점에 잡는다.
 const base = {
   baseUrl: "https://push.test",
   apiKey: "nk_test",
   vapidPublicKey: "q_-A",
+  // 워커가 이 값으로 Firebase 를 초기화해야 백그라운드 메시지를 받는다 — 필수다
+  firebase: {
+    apiKey: "AIza-test",
+    projectId: "p-test",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abc",
+  },
+  getToken: async () => FCM_TOKEN,
 };
 
 function installBrowserEnv({ permission = "granted" }: { permission?: string } = {}) {
-  const subscription = { endpoint: "https://push.test/ep-1", keys: { p256dh: "p", auth: "a" } };
-  const subscribe = vi.fn(async () => subscription);
-  const registration = { pushManager: { subscribe } };
+  const registration = {};
   const swRegister = vi.fn(async () => registration);
   const requestPermission = vi.fn(async () => permission);
 
@@ -32,8 +42,16 @@ function installBrowserEnv({ permission = "granted" }: { permission?: string } =
   });
   vi.stubGlobal("PushManager", class {});
   vi.stubGlobal("Notification", { requestPermission });
+  // saveToken 은 best-effort 다. 여기서는 열기 실패로 응답시켜, 등록이 그대로
+  // 진행되는지(그리고 멈추지 않는지) 확인한다.
+  const idbOpen = vi.fn(() => {
+    const req: Record<string, unknown> = { error: new Error("no idb") };
+    setTimeout(() => (req.onerror as (() => void) | null)?.(), 0);
+    return req;
+  });
+  vi.stubGlobal("indexedDB", { open: idbOpen });
 
-  return { subscription, subscribe, swRegister, requestPermission };
+  return { swRegister, requestPermission, idbOpen };
 }
 
 afterEach(() => {
@@ -70,7 +88,15 @@ describe("NotikitWeb.register", () => {
 
     await notikit.register();
 
-    expect(env.swRegister).toHaveBeenCalledWith("/notikit-sw.js");
+    // 워커는 설정을 자기 URL 쿼리에서만 읽는다 — 쿼리가 없으면 클릭 보고가 전부 누락된다
+    const [defaultUrl] = env.swRegister.mock.calls[0];
+    expect(defaultUrl.startsWith("/notikit-sw.js?")).toBe(true);
+    const defaultQ = new URLSearchParams(defaultUrl.slice(defaultUrl.indexOf("?") + 1));
+    expect(defaultQ.get("base")).toBe(base.baseUrl);
+    expect(defaultQ.get("key")).toBe(base.apiKey);
+    // 이게 빠지면 워커가 Firebase 를 초기화하지 못해 알림을 아예 못 받는다
+    expect(defaultQ.get("fb_appId")).toBe(base.firebase.appId);
+    expect(defaultQ.get("fb_senderId")).toBe(base.firebase.messagingSenderId);
   });
 
   it("registers the configured service worker path", async () => {
@@ -79,45 +105,22 @@ describe("NotikitWeb.register", () => {
 
     await notikit.register();
 
-    expect(env.swRegister).toHaveBeenCalledWith("/sw/custom.js");
+    const [customUrl] = env.swRegister.mock.calls[0];
+    expect(customUrl.startsWith("/sw/custom.js?")).toBe(true);
+    expect(new URLSearchParams(customUrl.slice(customUrl.indexOf("?") + 1)).get("key")).toBe(base.apiKey);
   });
 
   it("throws and skips device registration when permission is denied", async () => {
-    const env = installBrowserEnv({ permission: "denied" });
+    installBrowserEnv({ permission: "denied" });
     const fetch = okFetch();
     const notikit = new NotikitWeb({ ...base, fetch });
 
     await expect(notikit.register()).rejects.toThrow("Notification permission denied");
-    expect(env.subscribe).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("subscribes with userVisibleOnly and the decoded VAPID key", async () => {
-    const env = installBrowserEnv();
-    const notikit = new NotikitWeb({ ...base, fetch: okFetch() });
-
-    await notikit.register();
-
-    const options = env.subscribe.mock.calls[0][0] as {
-      userVisibleOnly: boolean;
-      applicationServerKey: Uint8Array;
-    };
-    expect(options.userVisibleOnly).toBe(true);
-    expect(Array.from(options.applicationServerKey)).toEqual([0xab, 0xff, 0x80]);
-  });
-
-  it("decodes base64url VAPID keys that require padding", async () => {
-    const env = installBrowserEnv();
-    const notikit = new NotikitWeb({ ...base, vapidPublicKey: "AQ", fetch: okFetch() });
-
-    await notikit.register();
-
-    const options = env.subscribe.mock.calls[0][0] as { applicationServerKey: Uint8Array };
-    expect(Array.from(options.applicationServerKey)).toEqual([0x01]);
-  });
-
-  it("posts the subscription as a web device and returns it as the token", async () => {
-    const env = installBrowserEnv();
+  it("posts the FCM registration token as a web device", async () => {
+    installBrowserEnv();
     const fetch = okFetch();
     const notikit = new NotikitWeb({ ...base, externalId: "u1", identityHash: "h1", fetch });
 
@@ -133,7 +136,9 @@ describe("NotikitWeb.register", () => {
       locale: "ko-KR",
     });
     expect(body.timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    expect(JSON.parse(token)).toEqual(env.subscription);
+    // 서버는 이 값을 그대로 FCM 에 넘긴다 — 구독 JSON 이면 발송이 전부 실패한다
+    expect(body.token).toBe(FCM_TOKEN);
+    expect(token).toBe(FCM_TOKEN);
   });
 
   it("never sends the api-secret header from the browser", async () => {

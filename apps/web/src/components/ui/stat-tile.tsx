@@ -35,13 +35,13 @@ export function StatTile({
 }) {
   return (
     <Card className="min-w-0">
-      <CardContent className="p-5">
+      <CardContent className="p-3">
         <div className="flex items-center justify-between gap-2">
           <p className="truncate text-xs font-semibold text-muted-foreground" title={label}>
             {label}
           </p>
           {Icon && (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
               <Icon aria-hidden="true" className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
             </div>
           )}

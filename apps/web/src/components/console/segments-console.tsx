@@ -77,7 +77,7 @@ export function SegmentsConsole({ projectId }: { projectId?: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <PageHeader title={t("title")} description={t("subtitle")} />
       {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
@@ -122,7 +122,7 @@ export function SegmentsConsole({ projectId }: { projectId?: string }) {
             <CardContent className="space-y-2">
               {segments.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
               {segments.map((s) => (
-                <div key={s.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                <div key={s.id} className="flex items-center justify-between rounded-lg border border-border px-3.5 py-2">
                   <span className="text-sm font-semibold">{s.name}</span>
                   <div className="flex flex-wrap gap-1">
                     {s.rules.map((r, i) => (

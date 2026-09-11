@@ -124,7 +124,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader
         title={t("devicesTitle")}
         description={t("devicesSubtitle")}
@@ -167,15 +167,22 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
         </Select>
       </div>
 
-      <Card>
+      <Card className="rounded-none">
         <CardContent className="p-0">
-          {!devices && <div className="space-y-3 p-5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!devices && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {devices && devices.length === 0 && <EmptyState icon={Smartphone} title={t("noDevices")} />}
           {devices && devices.length > 0 && (
             <>
+              <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_8rem_10rem] xl:grid">
+                <span>{t("colUser")}</span>
+                <span>{t("colToken")}</span>
+                <span>{t("colPlatform")}</span>
+                <span>{t("colVersion")}</span>
+                <span className="text-right">{t("colLastActive")}</span>
+              </div>
               <ul className="divide-y divide-border">
                 {devices.map((d) => (
-                  <li key={d.id} className="grid gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_8rem_10rem] xl:items-center">
+                  <li key={d.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_8rem_10rem] xl:items-center">
                     <p className="truncate text-sm font-semibold">{d.externalId ?? <span className="font-normal text-muted-foreground">{t("anonymousDevice")}</span>}</p>
                     <p className="truncate font-mono text-xs text-muted-foreground">{d.tokenPreview}</p>
                     <Badge variant="neutral">{d.platform}</Badge>

@@ -296,8 +296,13 @@ test.describe("smoke", () => {
     await page.goto("/profile");
     const main = page.getByRole("main");
     await expect(main.getByRole("heading", { name: "프로필", exact: true })).toBeVisible();
+    // 탭으로 분리됨 — 기본은 내 계정, 비밀번호는 탭을 눌러야 나온다
     await expect(main.getByRole("heading", { name: "내 계정", exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: /비밀번호/ })).toHaveCount(0);
+
+    await main.getByRole("tab", { name: /비밀번호/ }).click();
     await expect(main.getByRole("heading", { name: /비밀번호/ })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "내 계정", exact: true })).toHaveCount(0);
     // 현재 비밀번호가 틀리면 403, CSRF 없으면 403
     const headers = { origin: ORIGIN };
     const wrong = await page.request.post("/api/admin/me/password", {

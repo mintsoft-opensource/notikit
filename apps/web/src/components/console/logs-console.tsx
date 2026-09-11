@@ -3,13 +3,15 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { RefreshCw, Play, ScrollText, ChevronDown, ChevronRight, MousePointerClick } from "lucide-react";
+import { RefreshCw, Play, ScrollText, ChevronDown, ChevronRight, MousePointerClick, Search } from "lucide-react";
 import { LiveChart } from "@/components/system/live-chart";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
 import { useProjects, adminApi } from "@/lib/admin-client";
@@ -103,10 +105,10 @@ function ReaderDetail({ projectId, logId }: { projectId: string; logId: string }
     [locale, data?.bucket]
   );
 
-  if (failed) return <p className="border-t border-border px-5 py-4 text-sm text-muted-foreground">{t("loadFailed")}</p>;
+  if (failed) return <p className="border-t border-border px-3.5 py-2.5 text-sm text-muted-foreground">{t("loadFailed")}</p>;
   if (!data) {
     return (
-      <div className="space-y-2 border-t border-border px-5 py-4">
+      <div className="space-y-2 border-t border-border px-3.5 py-2.5">
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-8 w-full" />
       </div>
@@ -114,7 +116,7 @@ function ReaderDetail({ projectId, logId }: { projectId: string; logId: string }
   }
 
   return (
-    <div className="space-y-4 border-t border-border bg-surface-muted/20 px-5 py-4">
+    <div className="space-y-3 border-t border-border bg-surface-muted/20 px-3.5 py-2.5">
       <section>
         <h4 className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("readTrend")}</h4>
         {data.series.some((p) => p.count > 0) ? (
@@ -143,7 +145,7 @@ function ReaderDetail({ projectId, logId }: { projectId: string; logId: string }
         {data.readers.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">{t("noReaders")}</p>
         ) : (
-          <div className="overflow-x-auto rounded-tile border border-border bg-surface">
+          <div className="overflow-x-auto border border-border bg-surface">
             <table className="w-full min-w-[36rem] text-left">
               <thead className="border-b border-border">
                 <tr className="text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
@@ -194,6 +196,11 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
   const [open, setOpen] = React.useState<string | null>(null);
   const reqRef = React.useRef(0);
   const selRef = React.useRef(sel);
+  // 입력 중인 값과 실제 조회에 쓰는 값을 나눈다 — 타이핑마다 조회하면 부분 입력된
+  // 날짜("2026-0")로 계속 요청이 나간다.
+  const [fromInput, setFromInput] = React.useState("");
+  const [toInput, setToInput] = React.useState("");
+  const [range, setRange] = React.useState<{ from: string; to: string }>({ from: "", to: "" });
 
   const load = React.useCallback(
     async (id: string) => {
@@ -203,7 +210,11 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
       setLogs([]);
       setOpen(null);
       try {
-        const q = filter ? `?type=${filter}` : "";
+        const qs = new URLSearchParams();
+        if (filter) qs.set("type", filter);
+        if (range.from) qs.set("from", range.from);
+        if (range.to) qs.set("to", range.to);
+        const q = qs.size > 0 ? `?${qs}` : "";
         const d = await adminApi<{ logs: Log[] }>(`/api/admin/projects/${id}/logs${q}`);
         if (my !== reqRef.current || id !== selRef.current) return;
         setLogs(d.logs);
@@ -213,7 +224,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
         if (my === reqRef.current) setLoading(false);
       }
     },
-    [t, filter]
+    [t, filter, range]
   );
 
   React.useEffect(() => {
@@ -244,7 +255,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
   const expandable = filter !== "single";
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader
         title={title}
         description={subtitle}
@@ -262,18 +273,64 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
 
       {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
-      <Card>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <Label htmlFor="log-from">{t("rangeFrom")}</Label>
+          <DatePicker id="log-from" value={fromInput} max={toInput || undefined} onChange={setFromInput} placeholder={t("rangeFrom")} clearLabel={t("rangeClear")} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="log-to">{t("rangeTo")}</Label>
+          <DatePicker id="log-to" value={toInput} min={fromInput || undefined} onChange={setToInput} placeholder={t("rangeTo")} clearLabel={t("rangeClear")} />
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!sel}
+          onClick={() => {
+            // 뒤집힌 범위는 조용히 0건이 나와 "데이터가 없다"로 오독된다
+            if (fromInput && toInput && fromInput > toInput) return toast.error(t("rangeInvalid"));
+            setRange({ from: fromInput, to: toInput });
+          }}
+        >
+          <Search aria-hidden="true" className="h-3.5 w-3.5" /> {t("rangeApply")}
+        </Button>
+        {(range.from || range.to) && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setFromInput("");
+              setToInput("");
+              setRange({ from: "", to: "" });
+            }}
+          >
+            {t("rangeClear")}
+          </Button>
+        )}
+      </div>
+
+      <Card className="rounded-none">
         <CardContent className="p-0">
           {!sel && <EmptyState icon={ScrollText} title={tc("selectProjectFirst")} />}
-          {sel && loading && <div className="space-y-3 p-5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {sel && loading && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {sel && !loading && logs.length === 0 && <EmptyState icon={ScrollText} title={t("empty")} />}
           {logs.length > 0 && (
+            <>
+            <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem] xl:grid">
+              <span className="w-6" />
+              <span>{t("colTitle")}</span>
+              <span>{t("colTargetName")}</span>
+              <span className="text-right">{t("colSentAt")}</span>
+              <span className="text-right">{t("colDelivered")}</span>
+              <span className="text-right">{t("colReadRate")}</span>
+              <span className="text-right">{t("colStatus")}</span>
+            </div>
             <ul className="divide-y divide-border">
               {logs.map((l) => {
                 const isOpen = open === l.id;
                 return (
                   <li key={l.id}>
-                    <div className="grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem]">
+                    <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem]">
                       {expandable ? (
                         <button
                           type="button"
@@ -311,6 +368,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                 );
               })}
             </ul>
+            </>
           )}
         </CardContent>
       </Card>

@@ -31,7 +31,14 @@ export type Locale = (typeof LOCALES)[number]["code"];
 
 export const LOCALE_CODES = LOCALES.map((l) => l.code) as Locale[];
 export const DEFAULT_LOCALE: Locale = "ko";
-export const FALLBACK_LOCALE: Locale = "en";
+/**
+ * 번역이 없는 키를 메울 언어.
+ *
+ * 한국어로 먼저 개발하고 번역을 나중에 얹는 방식이라 ko 로 둔다. en 이면 ko 에만
+ * 추가한 새 키가 다른 로케일에서 통째로 비어(next-intl 이 키 문자열을 그대로 노출)
+ * 화면이 깨진다. 각 로케일 파일에 번역이 채워지면 그 값이 이 폴백을 덮어쓴다.
+ */
+export const FALLBACK_LOCALE: Locale = "ko";
 export const LOCALE_COOKIE = "NEXT_LOCALE";
 
 /** RTL 언어 (dir 속성용) */

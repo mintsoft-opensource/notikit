@@ -69,7 +69,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("topicsTitle")} description={t("topicsSubtitle")} />
 
       <Card>
@@ -91,14 +91,21 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-none">
         <CardContent className="p-0">
-          {!topics && <div className="space-y-3 p-5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!topics && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {topics && topics.length === 0 && <EmptyState icon={Radio} title={t("noTopics")} />}
           {topics && topics.length > 0 && (
+            <>
+            <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:grid">
+              <span>{t("colTopic")}</span>
+              <span>{t("colSubUsers")}</span>
+              <span>{t("colSubDevices")}</span>
+              <span />
+            </div>
             <ul className="divide-y divide-border">
               {topics.map((tp) => (
-                <li key={tp.id} className="grid gap-x-4 gap-y-1 px-5 py-4 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:items-center">
+                <li key={tp.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:items-center">
                   <p className="truncate font-mono text-sm font-semibold">{tp.name}</p>
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {t("subscriberUsers", { count: nf.format(tp.userCount) })}
@@ -114,7 +121,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
                       aria-label={`${t("deleteTopic")} ${tp.name}`}
                       onClick={() => remove(tp)}
                     >
@@ -124,6 +131,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                 </li>
               ))}
             </ul>
+            </>
           )}
         </CardContent>
       </Card>

@@ -33,7 +33,9 @@
     "stats": "Analytics",
     "statsActivity": "Activity",
     "statsEngagement": "Engagement",
-    "statsInstalls": "Installs"
+    "statsInstalls": "Installs",
+    "queue": "Send queue",
+    "guide": "Guide"
   },
   "header": {
     "openMenu": "Open menu",
@@ -175,7 +177,26 @@
     "queued": "Queued",
     "processed": "Queue processed (check logs)",
     "queuedProcessFailed": "Queued — immediate processing failed: {error}",
-    "checkLogs": "check the logs"
+    "checkLogs": "check the logs",
+    "scheduleLabel": "Schedule (optional)",
+    "scheduleHint": "Leave empty to send now. If it falls inside the project's quiet hours, the server defers it automatically.",
+    "errSchedulePast": "Scheduled time must be in the future",
+    "processNowDisabled": "Scheduled sends are processed at the scheduled time",
+    "helpTitle": "About sending",
+    "helpTypes": "single targets one external_id, topic targets every subscriber of that topic, segment targets users matching the attribute rules, and broadcast targets all active devices.",
+    "helpDeepLink": "The deep link is the screen opened when the notification is tapped. Use an app scheme (myapp://path) or an https URL. It is also recorded as the click landing path.",
+    "helpSuppression": "Opted-out users and inactive (uninstall-detected) devices are excluded automatically.",
+    "helpLogOnly": "Projects without Firebase credentials only record logs — nothing is delivered (log-only).",
+    "resultTitle": "Send result",
+    "resultQueued": "Queued",
+    "resultScheduled": "Scheduled",
+    "resultProcessed": "Queue processed",
+    "resultProcessFailed": "Queued — immediate processing failed",
+    "resultFailed": "Send failed",
+    "resultMessageId": "Message ID",
+    "resultScheduledAt": "Scheduled for",
+    "resultViewLogs": "View logs",
+    "resultStatus": "Status"
   },
   "settings": {
     "title": "Settings",
@@ -230,7 +251,18 @@
     "colUser": "User",
     "colPlatform": "Platform",
     "colDestination": "Landed on",
-    "colReadAt": "Read at"
+    "colReadAt": "Read at",
+    "colTitle": "Title",
+    "colTargetName": "Target",
+    "colSentAt": "Sent at",
+    "colDelivered": "Delivered/Audience",
+    "colReadRate": "Read rate",
+    "colStatus": "Status",
+    "rangeFrom": "From",
+    "rangeTo": "To",
+    "rangeApply": "Search",
+    "rangeClear": "Reset",
+    "rangeInvalid": "Start date is after end date"
   },
   "projects": {
     "title": "Projects",
@@ -377,7 +409,21 @@
     "rangeLive": "Live, last 5 minutes",
     "rangeStored1h": "Stored, last hour",
     "rangeStored24h": "Stored, last 24 hours",
-    "rangeStored7d": "Stored, last 7 days"
+    "rangeStored7d": "Stored, last 7 days",
+    "geoTitle": "위치 데이터",
+    "geoSubtitle": "IP→국가 판정에 쓰는 참조 데이터의 적재 이력",
+    "geoCountries": "국가",
+    "geoIpv4": "IPv4 구간",
+    "geoIpv6": "IPv6 구간",
+    "geoColAt": "실행",
+    "geoColStatus": "상태",
+    "geoColCounts": "적재 건수",
+    "geoColTook": "소요",
+    "geoEmpty": "적재 이력이 없습니다",
+    "geoNever": "위치 데이터가 아직 적재되지 않았습니다",
+    "geoRunHint": "apps/web 에서 `npm run db:geo` 로 적재합니다",
+    "geoProxyWarn": "TRUSTED_PROXY_HOPS 가 0 이라 접속 IP 를 신뢰하지 않습니다 — 데이터가 있어도 국가가 기록되지 않습니다.",
+    "geoAttribution": "IP→국가 데이터: DB-IP (CC BY 4.0)"
   },
   "account": {
     "title": "Accounts",
@@ -405,7 +451,10 @@
     "empty": "No members",
     "readOnlyNote": "Only owners and admins can manage members.",
     "accountTitle": "Account",
-    "accountDesc": "The currently signed-in admin account."
+    "accountDesc": "The currently signed-in admin account.",
+    "colMember": "Member",
+    "colJoined": "Joined",
+    "colRole": "Role"
   },
   "profile": {
     "title": "Profile",
@@ -477,7 +526,21 @@
     "noSuppressions": "Nothing suppressed",
     "statUnverified": "Unverified",
     "unverifiedHint": "Never accepted by FCM",
-    "badgeUnverified": "unverified"
+    "badgeUnverified": "unverified",
+    "colUser": "User",
+    "colToken": "Token",
+    "colPlatform": "Platform",
+    "colVersion": "App · OS",
+    "colLastActive": "Last active",
+    "colAttributes": "Attributes",
+    "colDevices": "Devices",
+    "colClicks": "Clicks",
+    "colTopic": "Topic",
+    "colSubUsers": "Subscribed users",
+    "colSubDevices": "Subscribed devices",
+    "colTarget": "Target",
+    "colReason": "Reason",
+    "colRegistered": "Registered"
   },
   "activity": {
     "title": "Activity",
@@ -540,6 +603,37 @@
     "title": "Installs",
     "eventLog": "Event log",
     "filterEvent": "Event",
-    "allEvents": "All events"
+    "allEvents": "All events",
+    "colEvent": "Event",
+    "colUser": "User",
+    "colPlatform": "Platform",
+    "colSource": "Source",
+    "colAt": "Time"
+  },
+  "queue": {
+    "title": "Send queue",
+    "subtitle": "Sends that have not gone out yet — queued, processing, scheduled.",
+    "statQueued": "Queued",
+    "statProcessing": "Processing",
+    "statScheduled": "Scheduled",
+    "statOldest": "Longest wait",
+    "colTitle": "Title",
+    "colType": "Type",
+    "colTarget": "Target",
+    "colAudience": "Audience",
+    "colWhen": "Due / waiting",
+    "colStatus": "Status",
+    "empty": "The queue is empty",
+    "truncated": "Showing the most recent 100 only",
+    "waitingFor": "waiting {d}",
+    "scheduledFor": "due in {d}",
+    "processQueue": "Process queue",
+    "loadFailed": "Failed to load the queue",
+    "staleHint": "If the worker is down or Firebase is not configured, items keep piling up."
+  },
+  "guide": {
+    "title": "Guide",
+    "subtitle": "From integration to operations — concepts, auth, sending, click tracking, metric definitions.",
+    "toc": "Contents"
   }
 }

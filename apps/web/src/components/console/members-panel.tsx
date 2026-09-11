@@ -96,9 +96,9 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
           <CardDescription>{canManage ? t("membersDesc") : t("readOnlyNote")}</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {canManage && (
-          <form onSubmit={create} className="grid gap-4 rounded-tile border border-border bg-surface-muted/30 p-4 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_auto]">
+          <form onSubmit={create} className="grid gap-3 rounded-tile border border-border bg-surface-muted/30 p-3.5 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_auto]">
             <Field label={t("emailLabel")}>
               <Input
                 type="email"
@@ -141,12 +141,18 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
         ) : members.length === 0 ? (
           <EmptyState icon={Users} title={t("empty")} />
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-tile border border-border">
+          <div className="overflow-hidden border border-border">
+          <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground lg:grid-cols-[minmax(0,1fr)_12rem_12rem] lg:grid">
+            <span>{t("colMember")}</span>
+            <span className="text-right">{t("colJoined")}</span>
+            <span>{t("colRole")}</span>
+          </div>
+          <ul className="divide-y divide-border">
             {members.map((m) => {
               // owner 계정은 owner 만 변경 가능 — 서버 규칙을 UI 에도 반영
               const editable = canManage && !m.isSelf && (m.role !== "owner" || currentRole === "owner");
               return (
-                <li key={m.id} className="grid min-h-20 grid-cols-1 items-center gap-x-4 gap-y-1 px-4 py-3 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+                <li key={m.id} className="grid min-h-14 grid-cols-1 items-center gap-x-4 gap-y-1 px-3.5 py-2 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 truncate text-sm font-medium">
                       <span className="truncate">{m.email}</span>
@@ -181,6 +187,7 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
               );
             })}
           </ul>
+          </div>
         )}
       </CardContent>
     </Card>

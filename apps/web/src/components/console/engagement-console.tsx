@@ -130,7 +130,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="flex items-center justify-between gap-3">
@@ -192,7 +192,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -225,7 +225,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
           </CardContent>
         </Card>
 
-        <div className="grid min-w-0 gap-4">
+        <div className="grid min-w-0 gap-3">
           <Card className="min-w-0">
             <CardHeader>
               <div>
@@ -263,7 +263,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      <Card>
+      <Card className="rounded-none">
         <CardHeader>
           <div>
             <CardTitle>{t("byMessage")}</CardTitle>
@@ -287,7 +287,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
                 <tbody className="divide-y divide-border">
                   {logs.map((l) => (
                     <tr key={l.id} className="transition-colors hover:bg-surface-muted/30">
-                      <td className="max-w-0 truncate px-5 py-3 text-sm font-medium">{l.title}</td>
+                      <td className="max-w-0 truncate px-3.5 py-2 text-sm font-medium">{l.title}</td>
                       <td className="px-3 py-3 text-xs text-muted-foreground">
                         {l.target ? <span className="font-mono">{l.target}</span> : l.type}
                       </td>
@@ -296,7 +296,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
                       <td className="px-3 py-3 text-right text-xs font-bold tabular-nums">
                         {l.audienceUserCount > 0 ? `${((l.clickUserCount / l.audienceUserCount) * 100).toFixed(1)}%` : "—"}
                       </td>
-                      <td className="whitespace-nowrap px-5 py-3 text-right text-xs tabular-nums text-muted-foreground">
+                      <td className="whitespace-nowrap px-3.5 py-2 text-right text-xs tabular-nums text-muted-foreground">
                         <time dateTime={l.createdAt}>{df.format(new Date(l.createdAt))}</time>
                       </td>
                     </tr>

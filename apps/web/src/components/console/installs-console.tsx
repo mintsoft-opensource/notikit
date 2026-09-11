@@ -122,7 +122,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
   const rangeLabelOf = (r: RangeKey) => (r === "24h" ? ts("range24h") : r === "7d" ? ts("range7d") : ts("range30d"));
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={to("uninstallHint")} />
 
       <div className="flex items-center justify-between gap-3">
@@ -185,15 +185,22 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
         </Select>
       </div>
 
-      <Card>
+      <Card className="rounded-none">
         <CardContent className="p-0">
-          {!events && <div className="space-y-3 p-5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!events && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {events && events.length === 0 && <EmptyState icon={PackageMinus} title={to("noUninstalls")} />}
           {events && events.length > 0 && (
             <>
+              <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground sm:grid-cols-[5rem_minmax(0,1fr)_7rem_minmax(0,1fr)_10rem] sm:grid">
+                <span>{t("colEvent")}</span>
+                <span>{t("colUser")}</span>
+                <span>{t("colPlatform")}</span>
+                <span>{t("colSource")}</span>
+                <span className="text-right">{t("colAt")}</span>
+              </div>
               <ul className="divide-y divide-border">
                 {events.map((e) => (
-                  <li key={e.id} className="grid gap-x-4 gap-y-1 px-5 py-3.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[5rem_minmax(0,1fr)_7rem_minmax(0,1fr)_10rem] sm:items-center">
+                  <li key={e.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[5rem_minmax(0,1fr)_7rem_minmax(0,1fr)_10rem] sm:items-center">
                     <Badge variant={e.event === "uninstalled" ? "danger" : "success"}>
                       {e.event === "uninstalled" ? to("eventUninstalled") : to("eventReinstalled")}
                     </Badge>

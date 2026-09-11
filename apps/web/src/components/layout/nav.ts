@@ -1,4 +1,6 @@
 import {
+  FileText,
+  Hourglass,
   LayoutDashboard,
   FolderKanban,
   Send,
@@ -42,7 +44,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "developer",
-    items: [{ labelKey: "apiDocs", href: "/docs", icon: BookOpen, external: true }],
+    items: [
+      { labelKey: "apiDocs", href: "/docs", icon: BookOpen, external: true },
+      { labelKey: "guide", href: "/guide", icon: FileText },
+    ],
   },
   {
     labelKey: "settings",
@@ -73,6 +78,7 @@ export function projectNavGroups(id: string): NavGroup[] {
       items: [
         { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
         { labelKey: "send", href: `/projects/${id}/send`, icon: Send },
+        { labelKey: "queue", href: `/projects/${id}/queue`, icon: Hourglass },
       ],
     },
     {

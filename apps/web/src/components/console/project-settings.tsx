@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
+import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
 /** 프로젝트 설정 — 발송 정책(identity/방해금지) + Firebase/카카오 자격증명. 프로젝트 상세 전용. */
@@ -96,10 +97,26 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
     }
   }
 
+  const [tab, setTab] = React.useState<"policy" | "firebase" | "kakao">("policy");
+
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
+      <Tabs
+        idPrefix="project-settings"
+        label={t("title")}
+        value={tab}
+        onChange={setTab}
+        items={[
+          { value: "policy", label: t("policyTitle") },
+          { value: "firebase", label: "Firebase", icon: <Upload aria-hidden="true" className="h-4 w-4" /> },
+          { value: "kakao", label: t("kakaoTitle"), icon: <Upload aria-hidden="true" className="h-4 w-4" /> },
+        ]}
+      />
+
+      {tab === "policy" && (
+      <TabPanel idPrefix="project-settings" value="policy">
       <Card>
         <CardHeader>
           <div>
@@ -107,7 +124,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             <CardDescription>{t("policyDesc")}</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,24rem)_repeat(2,minmax(0,14rem))_auto]">
+        <CardContent className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,24rem)_repeat(2,minmax(0,14rem))_auto]">
           <label className="flex items-center gap-2 pb-2 text-sm sm:col-span-2 xl:col-span-1 xl:pb-2.5">
             <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="h-4 w-4 rounded-sm border-border accent-[var(--primary)]" />
             {t("requireIdentity")}
@@ -135,8 +152,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
           </Button>
         </CardContent>
       </Card>
+      </TabPanel>
+      )}
 
-      <div className="grid items-start gap-6 xl:grid-cols-2">
+      {tab === "firebase" && (
+      <TabPanel idPrefix="project-settings" value="firebase">
         <Card>
           <CardHeader>
             <div>
@@ -153,7 +173,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             </Button>
           </CardContent>
         </Card>
+      </TabPanel>
+      )}
 
+      {tab === "kakao" && (
+      <TabPanel idPrefix="project-settings" value="kakao">
         <Card>
           <CardHeader>
             <div>
@@ -191,7 +215,8 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </TabPanel>
+      )}
     </div>
   );
 }

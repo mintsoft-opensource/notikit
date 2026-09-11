@@ -16,9 +16,15 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/notikit/notikit.git",
+    "directory": "packages/sdk-core"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
   },
   "devDependencies": {
     "typescript": "^5",

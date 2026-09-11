@@ -74,15 +74,32 @@ export async function sendToTokens(
   sa: ServiceAccount,
   tokens: string[],
   msg: FcmMessage,
-  dryRun = false
+  dryRun = false,
+  /**
+   * 알림 표시를 클라이언트에 맡긴다(notification 페이로드 생략).
+   *
+   * 웹에 필요하다. `notification` 이 실려 있으면 Firebase 워커가 **알림을 자동으로
+   * 띄운 뒤** onBackgroundMessage 도 부른다 — 우리 워커가 하나 더 띄워 알림이 두 번
+   * 뜨고, 자동 표시된 쪽은 Firebase 가 클릭 전파를 막아 클릭 추적도 안 된다.
+   * data-only 면 자동 표시가 꺼져 우리 워커가 표시·클릭추적을 온전히 담당한다.
+   */
+  dataOnly = false
 ): Promise<FcmResult> {
   if (tokens.length === 0) return { success: 0, failure: 0, invalidTokens: [], validTokens: [] };
+
+  const data = buildData(msg);
+  if (dataOnly) {
+    // 워커가 알림을 그리려면 제목·본문도 data 로 실어야 한다
+    data.title = msg.title;
+    data.body = msg.body;
+    if (msg.imageUrl) data.icon = msg.imageUrl;
+  }
 
   const messaging = getMessaging(appForProject(projectId, sa));
   const res = await messaging.sendEachForMulticast({
     tokens,
-    notification: { title: msg.title, body: msg.body, imageUrl: msg.imageUrl },
-    data: buildData(msg),
+    ...(dataOnly ? {} : { notification: { title: msg.title, body: msg.body, imageUrl: msg.imageUrl } }),
+    data,
   }, dryRun);
 
   const invalidTokens: string[] = [];

@@ -75,7 +75,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
   const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(1)}%` : "—");
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="flex items-center justify-between gap-3">
@@ -152,7 +152,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-none">
         <CardHeader>
           <div>
             <CardTitle className="flex items-center gap-1.5">
@@ -211,7 +211,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2">
         <Card className="min-w-0">
           <CardHeader>
             <div>

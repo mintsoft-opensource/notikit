@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, EmptyState, DataRow, SectionTitle, BarList, Segmented, formatDuration } from "@/components/console/panels";
 import { LiveChart, formatBytes } from "@/components/system/live-chart";
+import { GeoPanel } from "@/components/console/geo-panel";
 import { adminApi } from "@/lib/admin-client";
 
 type SystemStats = {
@@ -15,6 +16,11 @@ type SystemStats = {
   statuses: Record<string, number>;
   topProjects: Array<{ id: string; name: string; count: number }>;
   webhooks24h: { delivered: number; failed: number; pending: number };
+  activity: {
+    dau: { devices: number; users: number };
+    mau: { devices: number; users: number };
+    daily: Array<{ day: string; devices: number; users: number }>;
+  };
 };
 
 type HostStats = {
@@ -150,7 +156,7 @@ function HostSection() {
   const chartEmpty = live ? t("collecting") : history == null ? t("collecting") : t("historyEmpty");
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <SectionTitle
         right={
           <div className="flex shrink-0 items-center gap-3">
@@ -213,8 +219,8 @@ function HostSection() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card className="min-w-0">
           <PanelHead title={t("chartCpu")} sub={windowLabel} />
           <CardContent>
             {ready ? (
@@ -233,7 +239,7 @@ function HostSection() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <PanelHead title={t("chartMemory")} sub={windowLabel} />
           <CardContent>
             {ready ? (
@@ -254,8 +260,8 @@ function HostSection() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card>
+      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+        <Card className="min-w-0">
           <PanelHead title={t("chartNetwork")} sub={windowLabel} />
           <CardContent>
             {ready && src.some((p) => p.rx != null) ? (
@@ -275,7 +281,7 @@ function HostSection() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <PanelHead title={t("queueTitle")} />
           <CardContent>
             <dl className="space-y-3">
@@ -297,6 +303,7 @@ function HostSection() {
 
 export default function SystemPage() {
   const t = useTranslations("system");
+  const ta = useTranslations("activity");
   const tc = useTranslations("common");
   const locale = useLocale();
   const [stats, setStats] = React.useState<SystemStats | null>(null);
@@ -318,18 +325,23 @@ export default function SystemPage() {
 
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
   const statsBusy = !stats && !error;
+  // DAU/MAU — 재방문 비율. MAU 가 0 이면 나눗셈이 무의미하므로 값을 비운다.
+  const stickiness =
+    stats && stats.activity.mau.devices > 0
+      ? `${((stats.activity.dau.devices / stats.activity.mau.devices) * 100).toFixed(1)}%`
+      : "—";
   const successRate =
     stats && stats.totals.recipients24h > 0
       ? `${((stats.totals.success24h / stats.totals.recipients24h) * 100).toFixed(1)}%`
       : "—";
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <HostSection />
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <SectionTitle>{t("delivery")}</SectionTitle>
 
         {error && (
@@ -357,6 +369,40 @@ export default function SystemPage() {
           <StatTile loading={statsBusy} icon={Users} label={t("statUsers")} value={num(stats?.totals.users)} />
         </div>
 
+        <SectionTitle>{ta("title")}</SectionTitle>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatTile loading={statsBusy} icon={Activity} label={ta("dau")} value={num(stats?.activity.dau.devices)}
+            hint={stats ? ta("usersHint", { count: nf.format(stats.activity.dau.users) }) : null} />
+          <StatTile loading={statsBusy} icon={Users} label={ta("mau")} value={num(stats?.activity.mau.devices)}
+            hint={stats ? ta("usersHint", { count: nf.format(stats.activity.mau.users) }) : null} />
+          <StatTile loading={statsBusy} icon={Percent} label={ta("stickiness")} value={stickiness} />
+          <StatTile loading={statsBusy} icon={Smartphone} label={t("statActiveDevices")} value={num(stats?.totals.activeDevices)} />
+        </div>
+
+        <Card className="min-w-0">
+          <PanelHead title={ta("chartTitle")} sub={ta("chartHint")} />
+          <CardContent>
+            {stats && stats.activity.daily.length > 0 ? (
+              <LiveChart
+                label={ta("chartTitle")}
+                times={stats.activity.daily.map((d) => new Date(d.day).getTime())}
+                height={190}
+                formatY={(v) => nf.format(v)}
+                formatTime={(ms) => new Date(ms).toISOString().slice(5, 10)}
+                series={[
+                  { key: "devices", label: ta("activeDevices"), color: "var(--chart-1)", values: stats.activity.daily.map((d) => d.devices) },
+                  { key: "users", label: ta("activeUsers"), color: "var(--chart-2)", values: stats.activity.daily.map((d) => d.users) },
+                ]}
+              />
+            ) : (
+              <EmptyState icon={Activity} title={ta("empty")} />
+            )}
+          </CardContent>
+        </Card>
+
+        <SectionTitle>{t("geoTitle")}</SectionTitle>
+        <GeoPanel />
+
         <Card>
           <PanelHead title={t("chartHourly")} sub={t("range24h")} />
           <CardContent>
@@ -381,8 +427,8 @@ export default function SystemPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <Card className="min-w-0">
             <PanelHead title={t("chartStatuses")} sub={t("range24h")} />
             <CardContent>
               {stats && Object.keys(stats.statuses).length > 0 ? (
@@ -397,7 +443,7 @@ export default function SystemPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <PanelHead title={t("topProjects")} sub={t("range24h")} />
             <CardContent>
               {stats && stats.topProjects.length > 0 ? (
@@ -408,7 +454,7 @@ export default function SystemPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <PanelHead title={t("webhooks")} sub={t("range24h")} />
             <CardContent>
               <dl className="space-y-3">

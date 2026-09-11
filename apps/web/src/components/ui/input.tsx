@@ -15,7 +15,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       type={type}
       aria-label={fallbackAriaLabel(props)}
       className={cn(
-        "flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-9 w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -30,7 +30,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
       ref={ref}
       aria-label={fallbackAriaLabel(props)}
       className={cn(
-        "flex min-h-20 w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex min-h-16 w-full resize-y rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -69,7 +69,7 @@ export function Select({ className, children, ...props }: React.SelectHTMLAttrib
     <div className="relative">
       <select
         className={cn(
-          "flex h-10 w-full appearance-none rounded-md border border-border bg-surface px-3 pr-9 text-sm text-foreground shadow-sm transition-colors focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full appearance-none rounded-md border border-border bg-surface px-2.5 pr-8 text-sm text-foreground shadow-sm transition-colors focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         {...props}
