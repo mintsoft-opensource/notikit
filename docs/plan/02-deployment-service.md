@@ -91,20 +91,15 @@ payload: `customerId`, `customerName`, `expiresAt`(필수), `channel`, `limits{p
 
 **클라이언트가 버전을 고르지 않는다.** 고르게 두면 건너뛰면 안 되는 마이그레이션을 건너뛰거나, 만료된 구독으로 걸어 들어간다.
 
-### ⚠️ 그런데 **채널**은 고객사가 고를 수 있다
+**채널도 고객사가 고르지 못한다.** 서버가 고르는 순서는
 
-버전은 막았는데 채널은 안 막혔다.
+```
+override.channel  →  license.channel  →  requestedChannel  →  "stable"
+```
 
-- 고객사 박스의 `.env`가 `NOTIKIT_UPDATE_CHANNEL`을 정하고, 인스턴스가 그 값을 쿼리로 보낸다
-- 서버는 `override.channel ?? requestedChannel ?? license.channel ?? "stable"` 순으로 고른다
-- `customers.json`에 그 고객 override가 **없으면 요청 채널이 라이선스 채널을 이긴다**
-
-즉 stable 계약 고객이 `.env` 한 줄로 **beta 릴리스를 끌어올 수 있다.** 위에서 버전 선택을
-막은 논거가 채널 축에서 그대로 뚫린다.
-
-고칠 곳은 문서가 아니라 서버다 — `license.channel`을 `requestedChannel`보다 **앞에** 두면
-된다. 그때까지는 베타 고객마다 `customers.json`에 명시적 override를 넣어 두는 것이
-유일한 방어다.
+인스턴스가 보내는 `NOTIKIT_UPDATE_CHANNEL`은 **라이선스에 채널이 없을 때의 폴백**으로만
+쓰인다. 이 순서가 뒤집히면(요청이 라이선스보다 앞) stable 계약 고객이 `.env` 한 줄로
+beta 릴리스를 끌어갈 수 있다 — 버전 선택을 막은 논거가 채널 축에서 그대로 뚫린다.
 
 **콘솔은 Docker 소켓을 만지지 않는다.** 소켓은 호스트 root와 같다. 웹에 노출된 컨테이너가 그걸 쥐면 웹 취약점 하나가 곧 호스트 장악이다. 콘솔과 업데이터는 **DB의 `update_jobs` 행으로만** 대화하고, 소켓은 포트를 열지 않는 사이드카만 쥔다.
 
@@ -199,7 +194,6 @@ payload: `customerId`, `customerName`, `expiresAt`(필수), `channel`, `limits{p
 
 이 문서가 추가로 책임지는 항목:
 
-- **채널 오버라이드 차단** (§4) — `license.channel`을 요청 채널보다 앞에 두기
 - **갱신 절차** — 만료 임박 탐지(폐쇄망은 우리가 알 수 없다), 통지 주체, 새 라이선스 주입 방법, 갱신 실패 시 처리. **현재 전무하다**
 - **해지·이탈 절차** — 데이터 반출(GDPR export는 미구현), 인스턴스 폐기, 암호화 키 처리, 계약 종료 후에도 도는 설치본에 대한 보안 패치 의무 범위. 온프렘 조달에서는 계약 필수 조항이다
 - **SLA 정의** — §6에서 유지보수로 팔고 있으나 대응/복구 시간·심각도 등급·커버리지 시간이 정의돼 있지 않다. 온프렘은 고객 인프라인데 **무엇을 보증하는지**부터 정해야 한다

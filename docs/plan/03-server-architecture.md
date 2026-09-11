@@ -11,7 +11,9 @@
 1. **단일 이미지 · 12-factor** — 앱 stateless, 상태는 외부(Postgres). env로 1박스→클러스터
 2. **한 compose 안에서 역할 분리** — web/worker/updater는 같은 이미지, `command`만 다름
 3. **프로바이더 추상화** — FCM/카카오 어댑터
-4. **설정은 전부 env** — ⚠️ 부팅 시 검증은 `worker`·`updater`·`update-server`에만 있다. **web 은 지연 검증**이라 `NOTIKIT_ENCRYPTION_KEY` 없이도 기동하고 `/api/health` 를 통과한다. §14
+4. **설정은 전부 env** — 부팅 시 필수값 검증(없으면 시작 거부). web 은 `instrumentation.ts`
+   가 `register()` 에서 확인하고, 부족하면 프로세스를 끊는다 — 설정이 깨진 인스턴스가
+   기동해 "성공한 업데이트"로 기록되는 것을 막는다
 5. **권한 최소화** — Docker 소켓은 포트 없는 사이드카 하나만 쥔다
 
 ## 2. 컴포넌트 (실제)
@@ -99,21 +101,23 @@ RETURNING *
 
 지금 이렇게 둔 이유: 컴포넌트 하나를 줄이는 값이 현재 볼륨에서 더 크다.
 
-### 🔴 `push_logs` 리텐션 purge가 **없다**
+### `push_logs` 리텐션 purge
 
-전제 조건이어야 할 것이 구현돼 있지 않다.
+로그가 코어 테이블과 같은 DB에 있으므로, 무한히 자라면 디스크가 차고 **로그 때문에
+푸시 전체가 죽는다.** 고객사 박스에는 우리가 들어갈 수 없어 사고 후 대응이 불가능하다.
 
-- `.env`에 `LOG_RETENTION_DAYS=30`이 있지만 **코드가 이 값을 읽지 않는다.**
-  `.env.example`도 "로그 자동 purge 도입 시"라고 적고 주석 처리해 뒀다.
-- 실제로 도는 purge는 `src/lib/metrics-store.ts`의 **시스템 메트릭**용이고
-  (`SYSTEM_METRICS_RETENTION_DAYS`, 기본 7일), `push_logs`와 무관하다.
+`LOG_RETENTION_DAYS`(일)를 설정하면 워커가 야간 스윕 창에서 프로젝트별로 배치 삭제한다.
 
-즉 **`push_logs`는 무한히 자란다.** 단일 박스에서 이건 "언젠가"가 아니라 발송량 곱하기
-시간의 문제다. 디스크가 차면 Postgres가 멈추고, 같은 DB에 코어 테이블이 있으므로
-**로그 때문에 푸시 전체가 죽는다.**
+- **종료 상태만 지운다** — `completed`/`failed`/`logged`. `queued`·`scheduled`·`processing`은
+  워커가 아직 손댈 수 있어서 지우면 예약 발송이 조용히 사라진다
+- 5,000행 배치, 호출당 최대 20배치. 큰 테이블에서 단일 DELETE는 락과 WAL을 오래 잡는다.
+  남으면 `done:false`로 돌려주고 다음 창에서 이어 간다
+- `push_clicks`는 FK cascade로 함께 지워진다
+- 인덱스는 기존 `push_logs_project_idx (project_id, created_at)`를 그대로 쓴다
 
-이 항목이 §14의 어떤 부채보다 먼저다. 무한히 자라는 테이블을 고객사 박스에 넣고
-파는 것은 **시한장치를 납품하는 것**과 같다. 첫 고객 인수인계 전에 반드시 해결한다.
+⚠️ **미설정이면 아무것도 지우지 않는다.** 보존 기간은 고객이 정할 일이라 기본값을
+강제하지 않지만, 그 상태로 두면 원래 문제로 돌아간다. 인수인계 체크리스트 항목이다.
+`GET`으로 현재 설정과 삭제 대상 건수를 확인할 수 있다.
 
 **DB 선택:** vanilla PostgreSQL 기준. ORM은 **Drizzle**, 마이그레이션은 `drizzle/*.sql` + 저널. 마이그레이션은 compose의 `migrate` 서비스가 web 시작 **전에** 적용한다(구버전 코드가 새 스키마를 만나는 창을 없앤다).
 
@@ -193,7 +197,7 @@ ko를 맨 아래 두는 이유: 한국어로 먼저 개발하므로 ko에만 있
 자격증명 AES-GCM · 토큰 비교는 상수 시간 · 디바이스 목록에 토큰 원문 미노출 · 지원 번들은 **값 없이 설정 유무만** · 업데이터만 Docker 소켓 보유 · 폐쇄망 번들 체크섬 강제.
 
 ## 13. 테스트
-e2e 63 (Playwright) · 단위 51 (Vitest, `pnpm -r test` 전체 — apps/web 19 + sdk-core 11 + sdk-web 14 + sdk-react-native 7).
+e2e 65 (Playwright) · 단위 57 (Vitest, `pnpm -r test` 전체 — apps/web 25 + sdk-core 11 + sdk-web 14 + sdk-react-native 7).
 `packages/sdk-react`는 test 스크립트만 있고 테스트 파일이 없다.
 
 ⚠️ `playwright.config.ts`가 포트 **3100** 고정이다. 다른 프로젝트가 그 포트를 쓰고 있으면 `reuseExistingServer`가 헛다리를 짚어 `EADDRINUSE`로 전부 실패한다. `E2E_PORT`로 우회 가능하나 기본값을 덜 흔한 값으로 바꾸는 편이 낫다.
@@ -202,17 +206,15 @@ e2e 63 (Playwright) · 단위 51 (Vitest, `pnpm -r test` 전체 — apps/web 19 
 
 | 항목 | 영향 | 우선순위 |
 |---|---|---|
-| **`push_logs` 리텐션 purge 없음** | 로그가 무한 증가 → 디스크 포화 → 같은 DB의 코어까지 정지. `LOG_RETENTION_DAYS`는 선언만 되고 안 읽힌다 | **최우선** |
 | **graceful shutdown (SIGTERM)** | 업데이트 중 발송 유실 가능. 무인 업데이트의 전제 조건 | **높음** |
 | **rate limit이 인메모리** | 다중 인스턴스로 늘리면 **한도가 인스턴스 수만큼 곱해진다.** 스케일아웃 전 Redis 기반으로 교체 필수 | **높음** |
 | 로그 저장소 미분리 | 볼륨 증가 시 hot path 잠식 (purge가 생긴 뒤에도 남는 문제) | 중 |
-| **web 부팅 시 필수 env 미검증 + `/ready` 없음** | `NOTIKIT_ENCRYPTION_KEY` 가 없어도 기동하고 `/api/health` 를 통과한다. 업데이터의 `waitHealthy()` 가 그 엔드포인트만 보므로 **설정이 깨진 인스턴스가 "성공한 업데이트"로 통과**한다 | **높음** |
 | Redis 미사용 | compose에 떠 있으나 코드가 안 씀. 켜 두는 값이 없으면 빼는 편이 정직 | 낮음 |
 | realtime(Centrifugo) | 상시연결 채널 없음 | 낮음 |
 | 자동 TLS(Caddy) | 현재 역프록시는 고객 몫 | 낮음 |
 | 웹훅 DLQ / idempotency | 재시도는 있으나 DLQ 없음 | 중 |
 
-**purge 부재가 첫 고객 차단선이고, rate limit이 스케일아웃 차단선이다.**
+**rate limit 이 스케일아웃의 실질 차단선이다.**
 
 인스턴스를 2대로 늘리면 rate limit이 조용히 2배로 느슨해진다. 발송 한도만이 아니라
 **로그인 시도 허용치도 같이 2배**가 된다(`login:${email}`이 같은 인메모리 리미터를 쓴다).
