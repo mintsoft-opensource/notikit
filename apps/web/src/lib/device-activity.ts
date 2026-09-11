@@ -29,6 +29,7 @@ export async function recordAccess(
   // 국가를 채우느니 비워둔다.
   const ip = req ? clientIp(req) : null;
   const country = ip ? await countryForIp(db, ip) : null;
+  // 마스킹에 실패하면 저장하지 않는다(원본을 남기지 않는다)
   const ipMasked = ip ? maskIp(ip) : null;
 
   await db

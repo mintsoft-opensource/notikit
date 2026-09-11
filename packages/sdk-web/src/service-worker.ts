@@ -47,7 +47,10 @@ if (NOTIKIT.firebase.appId) {
     // 알림을 자동으로 띄운 뒤 이 콜백도 불러 알림이 두 번 뜬다.
     var data = payload.data || {};
     var n = payload.notification || {};
-    self.registration.showNotification(data.title || n.title || "알림", {
+    // **반드시 반환한다.** Firebase 는 이 콜백의 반환값을 기다리는데, 반환하지 않으면
+    // 표시가 끝나기 전에 push 이벤트 수명이 끝나 워커가 멈출 수 있다 — 탭이 모두
+    // 닫힌 상태에서 알림이 통째로 사라진다.
+    return self.registration.showNotification(data.title || n.title || "알림", {
       body: data.body || n.body || "",
       icon: data.icon || n.icon,
       data: {

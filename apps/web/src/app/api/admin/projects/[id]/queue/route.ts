@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushLogs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -49,8 +49,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       })
       .from(pushLogs)
       .where(and(eq(pushLogs.projectId, id), inArray(pushLogs.status, [...PENDING])))
-      // 예약은 나갈 순서대로, 나머지는 오래 기다린 순서대로 — 둘 다 "다음에 처리될 것"이 위로
-      .orderBy(asc(pushLogs.scheduledAt), asc(pushLogs.createdAt))
+      // 막힌 건(대기·처리중)을 **먼저** 보여준다.
+      //
+      // scheduled_at 오름차순만 쓰면 Postgres 기본이 NULLS LAST 라, 예약이 없는
+      // 대기 건이 1년 뒤 예약보다도 뒤로 밀린다. 예약이 LIMIT 을 채우면 정작
+      // 이 화면이 존재하는 이유인 "워커가 멈춰 쌓인 건"이 한 건도 안 보인다.
+      .orderBy(
+        sql`(${pushLogs.scheduledAt} is not null)`,
+        sql`coalesce(${pushLogs.scheduledAt}, ${pushLogs.createdAt})`
+      )
       .limit(LIMIT + 1),
   ]);
 

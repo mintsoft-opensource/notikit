@@ -16,10 +16,11 @@ const LIMIT = 20;
  * 이력만 보면 적재 후 누가 지운 경우를 놓친다.
  */
 export async function GET(req: Request) {
-  const auth = await requireAuth(req);
+  // 위치 데이터는 전역 참조 데이터라 테넌트 정보를 담지 않는다. superadmin 을
+  // 요구하면 쿠키 세션은 그 값이 항상 false 라 브라우저에서 영영 못 본다
+  // (superadmin 은 x-admin-token 으로만 켜진다). system/history 와 같은 기준을 쓴다.
+  const auth = await requireAuth(req, { write: true });
   if (!auth.ok) return fail(auth.error, auth.status);
-  // 위치 데이터는 프로젝트 공통이라 org 범위가 없다 — superadmin 만 본다.
-  if (!auth.ctx.superadmin) return fail("Forbidden", 403);
 
   const db = getDb();
   const [runs, current] = await Promise.all([

@@ -74,14 +74,17 @@ export function clientIp(req: Request): ClientIp | null {
  * 원본 IP 는 개인정보다. 국가 판정은 마스킹 **전** 값으로 하고, 남기는 것은 이 값만
  * 둔다. /24 는 같은 사람인지 대략 구분할 수 있으면서 개인 식별력은 크게 낮춘다.
  */
-export function maskIp({ ip, family }: ClientIp): string {
+export function maskIp({ ip, family }: ClientIp): string | null {
   if (family === 4) {
     const o = ip.split(".");
     return `${o[0]}.${o[1]}.${o[2]}.0`;
   }
   // IPv6 를 그룹 단위로 다루려면 :: 축약을 먼저 펴야 한다.
   const parts = expandIpv6(ip);
-  return parts ? `${parts.slice(0, 3).join(":")}::` : ip;
+  // **원본으로 폴백하지 않는다.** 마스킹에 실패하면 저장하지 않는 것이 맞다 —
+  // 되돌려주면 마스킹되지 않은 주소가 그대로 적재돼 "마스킹된 값만 남긴다"는
+  // 이 함수의 약속이 조용히 깨진다.
+  return parts ? `${parts.slice(0, 3).join(":")}::` : null;
 }
 
 /** `::` 축약을 8그룹으로 편다. 형식이 어긋나면 null. */
@@ -90,6 +93,9 @@ function expandIpv6(ip: string): string[] | null {
   if (halves.length > 2) return null;
   const head = halves[0] ? halves[0].split(":") : [];
   const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  // 빈 그룹은 `::` 축약 지점에서만 나올 수 있다. 여기에 남아 있다면 ":::" 같은
+  // 오타라 거부한다 — 통과시키면 빈 문자열이 그룹인 척 결과에 섞인다.
+  if ([...head, ...tail].some((g) => g === "" || g.length > 4)) return null;
   if (halves.length === 1) return head.length === 8 ? head : null;
   const fill = 8 - head.length - tail.length;
   if (fill < 0) return null;

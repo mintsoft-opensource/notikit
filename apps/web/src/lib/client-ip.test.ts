@@ -43,4 +43,10 @@ describe("maskIp", () => {
   it("축약된 IPv6 도 편 뒤 자른다", () => {
     expect(maskIp({ ip: "2001:db8::1", family: 6 })).toBe("2001:db8:0::");
   });
+  it("마스킹할 수 없으면 **원본이 아니라 null** 을 준다", () => {
+    // 원본을 돌려주면 마스킹되지 않은 주소가 그대로 저장된다
+    for (const bad of ["1:2:3:4:5:6:7:8:9", "1::2::3", "1:::2", "12345::1"]) {
+      expect(maskIp({ ip: bad, family: 6 })).toBeNull();
+    }
+  });
 });
