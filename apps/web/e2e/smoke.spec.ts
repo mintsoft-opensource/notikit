@@ -338,11 +338,29 @@ test.describe("smoke", () => {
     expect((await page.request.patch("/api/admin/org", { data: { name: "x" } })).status()).toBe(403);
   });
 
-  test("docs page loads (Scalar)", async ({ request }) => {
+  test("API 문서: Redoc 이 스펙을 콘솔 테마로 렌더한다", async ({ request }) => {
     const res = await request.get("/docs");
     expect(res.status()).toBe(200);
     const html = await res.text();
-    expect(html).toContain("api-reference");
+    expect(html).toContain("Redoc.init");
+    expect(html).toContain("/api/openapi.json");
+    // 콘솔과 같은 테마 신호를 읽어야 색이 어긋나지 않는다
+    expect(html).toContain('localStorage.getItem("theme")');
+    // 스펙 자체가 서빙되지 않으면 Redoc 은 빈 화면이 된다
+    expect((await request.get("/api/openapi.json")).status()).toBe(200);
+  });
+
+  test("문서: md 파일이 자동으로 목록·본문이 된다", async ({ request }) => {
+    // 인증 없이 열리는 iframe 본문 — 파일이 곧 문서다
+    const res = await request.get("/guide-frame/auth");
+    expect(res.status()).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("<h1>인증</h1>");
+    expect(html).toContain("<table>"); // 마크다운 표가 변환됐다
+
+    // 목록에 없는 슬러그·경로 조작은 저장소 밖 파일을 읽지 못한다
+    expect((await request.get("/guide-frame/nope")).status()).toBe(404);
+    expect((await request.get("/guide-frame/..%2F..%2Fpackage")).status()).toBe(404);
   });
 
   test("오디언스: 유저·디바이스·토픽·수신거부 화면이 뜨고 나란히 링크된다", async ({ page, request }) => {
