@@ -1,4 +1,4 @@
-import { NotikitClient, type NotikitConfig } from "@notikit/core";
+import { NotikitClient, NOTIKIT_LOG_ID_KEY, type NotikitConfig } from "@notikit/core";
 import { saveToken } from "./token-store.js";
 
 /** 워커용 토큰 저장을 기다려 주는 최대 시간 */
@@ -33,6 +33,11 @@ export interface NotikitWebConfig extends Omit<NotikitConfig, "apiSecret"> {
    * (기본값은 템플릿의 DEFAULT_FIREBASE_SDK_VERSION).
    */
   firebaseSdkVersion?: string;
+  /**
+   * 포그라운드(탭이 보이는 상태) 메시지 처리. 넘기지 않으면 SDK 가 알림을 띄우고
+   * 클릭을 보고한다. 화면 안 토스트로 처리하려면 여기서 직접 다룬다.
+   */
+  onForegroundMessage?: (data: Record<string, string>) => void;
   /** 서비스워커 경로 (기본 /notikit-sw.js) */
   serviceWorkerPath?: string;
   /** 유저 식별자 (로그인 시) */
@@ -51,6 +56,9 @@ export interface NotikitWebConfig extends Omit<NotikitConfig, "apiSecret"> {
 export class NotikitWeb {
   private readonly client: NotikitClient;
   private readonly config: NotikitWebConfig;
+  /** 포그라운드 클릭 보고에 쓸 현재 토큰 */
+  private lastToken: string | null = null;
+  private unsubscribeForeground?: () => void;
 
   constructor(config: NotikitWebConfig) {
     this.config = config;
@@ -76,7 +84,9 @@ export class NotikitWeb {
 
     // 워커는 설정을 자기 URL 쿼리에서만 읽는다(워커에는 이 인스턴스가 없다).
     // 쿼리를 붙이지 않으면 base/key 가 비어 클릭 보고가 조용히 전부 누락된다.
-    const reg = await navigator.serviceWorker.register(this.serviceWorkerUrl());
+    const swUrl = this.serviceWorkerUrl();
+    await this.evictStaleWorker(swUrl);
+    const reg = await navigator.serviceWorker.register(swUrl);
     await navigator.serviceWorker.ready;
 
     const permission = await Notification.requestPermission();
@@ -90,6 +100,9 @@ export class NotikitWeb {
     // 워커가 클릭 보고에 쓸 수 있게 남긴다 — 워커에서는 getToken 을 부를 수 없다.
     await this.persistToken(token);
 
+    this.lastToken = token;
+    await this.listenForeground();
+
     await this.client.registerDevice({
       token,
       platform: "web",
@@ -102,12 +115,66 @@ export class NotikitWeb {
   }
 
   /**
-   * 토큰 교체. FCM 은 토큰을 갱신하므로 `onTokenRefresh` 상당 시점에 호출한다.
+   * 포그라운드 메시지 수신을 시작한다. `register()` 가 자동으로 호출한다.
+   *
+   * 탭이 보이는 상태에서 온 푸시는 **서비스워커로 가지 않는다** — Firebase 가 창으로
+   * 넘기고 `onMessage` 로 뿌린다. 핸들러가 없으면 그 푸시는 알림도 뜨지 않고 클릭도
+   * 남지 않은 채 사라진다. 웹은 네이티브와 달리 포그라운드가 흔한 상태라 영향이 크다.
+   *
+   * 기본 동작은 워커와 같은 모양의 알림을 띄우고, 누르면 딥링크로 이동시키며 클릭을
+   * 보고하는 것이다. 화면 안에서 직접 처리하려면 `onForegroundMessage` 를 넘긴다.
+   */
+  private async listenForeground(): Promise<void> {
+    if (this.unsubscribeForeground) return;
+    try {
+      const [{ getApps, getApp }, { getMessaging, onMessage }] = await Promise.all([
+        import("firebase/app"),
+        import("firebase/messaging"),
+      ]);
+      const app = getApps().length ? getApp() : null;
+      if (!app) return;
+
+      this.unsubscribeForeground = onMessage(getMessaging(app), (payload) => {
+        const data = (payload.data ?? {}) as Record<string, string>;
+        const custom = this.config.onForegroundMessage;
+        if (custom) return custom(data);
+
+        const logId = data[NOTIKIT_LOG_ID_KEY];
+        const destination = data.deep_link || "/";
+        // 서버는 웹에 data-only 로 보내므로 제목·본문도 data 에 있다
+        const n = new Notification(data.title || "알림", { body: data.body || "", icon: data.icon });
+        n.onclick = () => {
+          n.close();
+          if (logId) void this.reportForegroundClick(logId, destination);
+          window.open(destination, "_blank");
+        };
+      });
+    } catch {
+      // 포그라운드 수신 실패가 등록을 막지 않는다 — 백그라운드는 워커가 계속 담당한다
+    }
+  }
+
+  private async reportForegroundClick(logId: string, destination: string): Promise<void> {
+    const token = this.lastToken;
+    if (!token) return;
+    await this.client.reportClick({ logId, token, destination }).catch(() => {});
+  }
+
+  /** 포그라운드 수신을 멈춘다. 컴포넌트 정리 시 호출한다. */
+  unlisten(): void {
+    this.unsubscribeForeground?.();
+    this.unsubscribeForeground = undefined;
+  }
+
+  /**
+   * 토큰 교체. FCM 모듈 API 에는 토큰 갱신 이벤트가 없으므로(v10~v12 확인),
+   * 앱이 주기적으로 `getToken()` 을 다시 불러 값이 달라졌을 때 호출한다.
    * 새 토큰으로 register 를 다시 부르면 행이 하나 더 생겨 중복 발송된다.
    */
   async rotateToken(oldToken: string, newToken: string): Promise<void> {
     await this.client.rotateToken(oldToken, newToken, this.config.identityHash);
     await this.persistToken(newToken);
+    this.lastToken = newToken;
   }
 
   /**
@@ -145,6 +212,40 @@ export class NotikitWeb {
     return this.client;
   }
 
+  /**
+   * 설정이 바뀌었는데 옛 워커가 남아 있으면 벗겨낸다.
+   *
+   * 워커 스크립트 본문은 SDK 버전당 **바이트가 동일**하다. 브라우저는 새로 받은
+   * 스크립트가 기존과 바이트까지 같으면 설치하지 않고 버리므로, 이미 돌고 있는
+   * 워커는 **최초 설치 때의 쿼리**(= 그때의 api-key·Firebase 설정)를 계속 쓴다.
+   * 키를 교체하거나 Firebase 프로젝트를 바꿔도 반영되지 않고, 클릭 보고가 옛 키로
+   * 나가 거부돼도 앱에는 아무 오류가 보이지 않는다.
+   *
+   * 경로가 우리 것과 다르면 **건드리지 않는다** — 앱이 쓰는 다른 워커를 지우면 안 된다.
+   */
+  private async evictStaleWorker(intended: string): Promise<void> {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const current = reg?.active?.scriptURL;
+      if (!reg || !current) return;
+
+      const base = location.href;
+      const now = new URL(current, base);
+      const next = new URL(intended, base);
+      if (now.pathname !== next.pathname) return; // 우리 워커가 아니다
+
+      // 설정 쿼리가 같으면 그대로 둔다
+      const same = [...next.searchParams.keys()].every(
+        (k) => now.searchParams.get(k) === next.searchParams.get(k)
+      );
+      if (same) return;
+
+      await reg.unregister();
+    } catch {
+      // 감지 실패가 등록을 막으면 안 된다 — 옛 설정으로라도 도는 편이 낫다
+    }
+  }
+
   private serviceWorkerUrl(): string {
     const path = this.config.serviceWorkerPath ?? "/notikit-sw.js";
     const q = new URLSearchParams({ base: this.config.baseUrl, key: this.config.apiKey });
@@ -159,14 +260,35 @@ export class NotikitWeb {
     return `${path}${path.includes("?") ? "&" : "?"}${q}`;
   }
 
+  /**
+   * 우리 설정과 **같은 프로젝트**의 Firebase 앱을 찾고, 없으면 만든다.
+   *
+   * `getApps().length ? getApp() : …` 는 두 가지로 틀린다.
+   * 1) 앱이 이름 붙은 것뿐이면(`initializeApp(cfg, "host")`) length 는 1 인데
+   *    `getApp()` 은 기본 앱이 없어 `app/no-app` 으로 던진다. 재현 확인.
+   * 2) 다른 프로젝트의 기본 앱이 있으면 그걸 그대로 써서 엉뚱한 발신자로 붙는다.
+   */
+  private firebaseApp<A extends { options: { projectId?: string; appId?: string } }>(
+    apps: readonly A[],
+    initializeApp: (o: NotikitFirebaseOptions, name?: string) => A
+  ): A {
+    const want = this.config.firebase;
+    const match = apps.find(
+      (a) => a.options.projectId === want.projectId && a.options.appId === want.appId
+    );
+    if (match) return match;
+    // 이름을 붙여 만든다 — 기본 앱을 차지하면 호스트 앱의 Firebase 를 밀어낼 수 있다
+    return initializeApp(want, "notikit");
+  }
+
   private async tokenFromFirebase(reg: ServiceWorkerRegistration): Promise<string | null> {
     // 동적 import — firebase 는 peer dependency 라, 쓰지 않는 경로에서 모듈 해석이
     // 실패하지 않아야 한다(SSR·테스트에서 이 파일을 import 만 해도 깨지면 안 된다).
-    const [{ initializeApp, getApps, getApp }, { getMessaging, getToken }] = await Promise.all([
+    const [{ initializeApp, getApps }, { getMessaging, getToken }] = await Promise.all([
       import("firebase/app"),
       import("firebase/messaging"),
     ]);
-    const app = getApps().length ? getApp() : initializeApp(this.config.firebase);
+    const app = this.firebaseApp(getApps(), initializeApp);
     return getToken(getMessaging(app), {
       vapidKey: this.config.vapidPublicKey,
       serviceWorkerRegistration: reg,

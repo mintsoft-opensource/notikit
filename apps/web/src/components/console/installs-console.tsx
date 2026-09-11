@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
@@ -191,30 +192,38 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
           {events && events.length === 0 && <EmptyState icon={PackageMinus} title={to("noUninstalls")} />}
           {events && events.length > 0 && (
             <>
-              <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground sm:grid-cols-[5rem_minmax(0,1fr)_7rem_minmax(0,1fr)_10rem] sm:grid">
-                <span>{t("colEvent")}</span>
-                <span>{t("colUser")}</span>
-                <span>{t("colPlatform")}</span>
-                <span>{t("colSource")}</span>
-                <span className="text-right">{t("colAt")}</span>
-              </div>
-              <ul className="divide-y divide-border">
+              <DataTable label={t("eventLog")} rowCount={events.length + 1}>
+              <TableHeader
+                grid="sm:grid-cols-[5rem_minmax(0,1fr)_7rem_minmax(0,1fr)_10rem]"
+                show="sm"
+                columns={[
+                  { label: t("colEvent") },
+                  { label: t("colUser") },
+                  { label: t("colPlatform") },
+                  { label: t("colSource") },
+                  { label: t("colAt"), align: "end" },
+                ]}
+              />
+              <TableBody>
                 {events.map((e) => (
-                  <li key={e.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[5rem_minmax(0,1fr)_7rem_minmax(0,1fr)_10rem] sm:items-center">
-                    <Badge variant={e.event === "uninstalled" ? "danger" : "success"}>
-                      {e.event === "uninstalled" ? to("eventUninstalled") : to("eventReinstalled")}
-                    </Badge>
-                    <span className="truncate font-mono text-sm font-semibold">
+                  <TableRow key={e.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[5rem_minmax(0,1fr)_7rem_minmax(0,1fr)_10rem] sm:items-center">
+                    <TableCell label={t("colEvent")}>
+                      <Badge variant={e.event === "uninstalled" ? "danger" : "success"}>
+                        {e.event === "uninstalled" ? to("eventUninstalled") : to("eventReinstalled")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell label={t("colUser")} className="truncate font-mono text-sm font-semibold">
                       {e.externalId ?? <span className="font-sans font-normal text-muted-foreground">{to("anonymousDevice")}</span>}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{e.platform ?? "—"}</span>
-                    <span className="truncate text-xs text-muted-foreground">{to(`source_${e.source}` as "source_send")}</span>
-                    <time dateTime={e.at} className="text-xs tabular-nums text-muted-foreground sm:text-right">
+                    </TableCell>
+                    <TableCell label={t("colPlatform")} className="text-xs text-muted-foreground">{e.platform ?? "—"}</TableCell>
+                    <TableCell label={t("colSource")} className="truncate text-xs text-muted-foreground">{to(`source_${e.source}` as "source_send")}</TableCell>
+                    <TableCell label={t("colAt")} className="text-xs tabular-nums text-muted-foreground sm:text-right">
                       {df.format(new Date(e.at))}
-                    </time>
-                  </li>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </ul>
+              </TableBody>
+              </DataTable>
               {next && (
                 <div className="flex justify-center border-t border-border p-3">
                   <Button variant="outline" size="sm" onClick={loadMore} disabled={more}>

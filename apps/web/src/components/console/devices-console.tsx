@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
@@ -173,23 +174,27 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
           {devices && devices.length === 0 && <EmptyState icon={Smartphone} title={t("noDevices")} />}
           {devices && devices.length > 0 && (
             <>
-              <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_8rem_10rem] xl:grid">
-                <span>{t("colUser")}</span>
-                <span>{t("colToken")}</span>
-                <span>{t("colPlatform")}</span>
-                <span>{t("colVersion")}</span>
-                <span className="text-right">{t("colLastActive")}</span>
-              </div>
-              <ul className="divide-y divide-border">
+              <DataTable label={t("devicesTitle")} rowCount={devices.length + 1}>
+              <TableHeader
+                grid="xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_8rem_10rem]"
+                columns={[
+                  { label: t("colUser") },
+                  { label: t("colToken") },
+                  { label: t("colPlatform") },
+                  { label: t("colVersion") },
+                  { label: t("colLastActive"), align: "end" },
+                ]}
+              />
+              <TableBody>
                 {devices.map((d) => (
-                  <li key={d.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_8rem_10rem] xl:items-center">
-                    <p className="truncate text-sm font-semibold">{d.externalId ?? <span className="font-normal text-muted-foreground">{t("anonymousDevice")}</span>}</p>
-                    <p className="truncate font-mono text-xs text-muted-foreground">{d.tokenPreview}</p>
-                    <Badge variant="neutral">{d.platform}</Badge>
-                    <span className="text-xs text-muted-foreground">
+                  <TableRow key={d.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_8rem_10rem] xl:items-center">
+                    <TableCell label={t("colUser")} className="truncate text-sm font-semibold">{d.externalId ?? <span className="font-normal text-muted-foreground">{t("anonymousDevice")}</span>}</TableCell>
+                    <TableCell label={t("colToken")} className="truncate font-mono text-xs text-muted-foreground">{d.tokenPreview}</TableCell>
+                    <TableCell label={t("colPlatform")}><Badge variant="neutral">{d.platform}</Badge></TableCell>
+                    <TableCell label={t("colVersion")} className="text-xs text-muted-foreground">
                       {[d.appVersion, d.osVersion].filter(Boolean).join(" · ") || "—"}
-                    </span>
-                    <div className="flex items-center justify-between gap-2 xl:justify-end">
+                    </TableCell>
+                    <TableCell label={t("colLastActive")} className="flex items-center justify-between gap-2 xl:justify-end">
                       <time dateTime={d.lastActiveAt ?? undefined} className="text-xs tabular-nums text-muted-foreground">
                         {d.lastActiveAt ? df.format(new Date(d.lastActiveAt)) : "—"}
                       </time>
@@ -197,15 +202,16 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
                       <Badge variant={d.isActive ? "success" : "danger"}>
                         {d.isActive ? t("statActive") : t("statInactive")}
                       </Badge>
-                    </div>
-                  </li>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </ul>
+              </TableBody>
               {next && (
                 <div className="flex justify-center border-t border-border p-3">
                   <Button variant="outline" size="sm" onClick={loadMore}>{tc("loadMore")}</Button>
                 </div>
               )}
+              </DataTable>
             </>
           )}
         </CardContent>

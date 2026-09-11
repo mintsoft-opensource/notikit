@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { Label } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
@@ -214,6 +215,8 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
         if (filter) qs.set("type", filter);
         if (range.from) qs.set("from", range.from);
         if (range.to) qs.set("to", range.to);
+        // 날짜는 "사용자가 보는 하루"여야 한다 — 서버 로컬로 해석하면 경계가 어긋난다
+        if (range.from || range.to) qs.set("tz_offset", String(new Date().getTimezoneOffset()));
         const q = qs.size > 0 ? `?${qs}` : "";
         const d = await adminApi<{ logs: Log[] }>(`/api/admin/projects/${id}/logs${q}`);
         if (my !== reqRef.current || id !== selRef.current) return;
@@ -316,21 +319,28 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
           {sel && !loading && logs.length === 0 && <EmptyState icon={ScrollText} title={t("empty")} />}
           {logs.length > 0 && (
             <>
-            <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem] xl:grid">
-              <span className="w-6" />
-              <span>{t("colTitle")}</span>
-              <span>{t("colTargetName")}</span>
-              <span className="text-right">{t("colSentAt")}</span>
-              <span className="text-right">{t("colDelivered")}</span>
-              <span className="text-right">{t("colReadRate")}</span>
-              <span className="text-right">{t("colStatus")}</span>
-            </div>
-            <ul className="divide-y divide-border">
+            <DataTable label={title} rowCount={logs.length + 1}>
+            <TableHeader
+              grid="xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem]"
+              columns={[
+                { label: "", blank: true },
+                { label: t("colTitle") },
+                { label: t("colTargetName") },
+                { label: t("colSentAt"), align: "end" },
+                { label: t("colDelivered"), align: "end" },
+                { label: t("colReadRate"), align: "end" },
+                { label: t("colStatus"), align: "end" },
+              ]}
+            />
+            <TableBody>
               {logs.map((l) => {
                 const isOpen = open === l.id;
                 return (
-                  <li key={l.id}>
-                    <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem]">
+                  // 펼침 상세를 담으려면 한 겹이 더 필요하다. presentation 을 주지 않으면
+                  // 이 요소가 rowgroup 과 row 사이에 끼어 표 구조가 끊긴다.
+                  <div key={l.id} role="presentation">
+                    <TableRow className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem]">
+                      <TableCell label={t("readers")}>
                       {expandable ? (
                         <button
                           type="button"
@@ -344,30 +354,32 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                       ) : (
                         <span className="hidden xl:block" />
                       )}
-                      <p className="truncate text-sm font-semibold" title={l.title}>{l.title}</p>
-                      <span className="truncate text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">{l.title}</TableCell>
+                      <TableCell label={t("colTargetName")} className="truncate text-xs text-muted-foreground">
                         {l.target ? <span className="font-mono">{l.target}</span> : l.type}
-                      </span>
-                      <time dateTime={l.createdAt} className="text-xs tabular-nums text-muted-foreground xl:text-right">
+                      </TableCell>
+                      <TableCell label={t("colSentAt")} className="text-xs tabular-nums text-muted-foreground xl:text-right">
                         {df.format(new Date(l.createdAt))}
-                      </time>
-                      <span className="text-right text-xs font-semibold tabular-nums text-muted-foreground">
+                      </TableCell>
+                      <TableCell label={t("colDelivered")} className="text-right text-xs font-semibold tabular-nums text-muted-foreground">
                         {nf.format(l.successCount)}/{nf.format(l.totalCount)}
-                      </span>
-                      <span
+                      </TableCell>
+                      <TableCell
+                        label={t("colReadRate")}
                         className="flex items-center justify-end gap-1 text-xs font-semibold tabular-nums"
-                        title={t("readRateHint", { read: nf.format(l.clickUserCount), audience: nf.format(l.audienceUserCount) })}
                       >
                         <MousePointerClick aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
                         {rate(l.clickUserCount, l.audienceUserCount)}
-                      </span>
-                      <div className="justify-self-end"><Badge variant={statusVariant(l.status)}>{l.status}</Badge></div>
-                    </div>
+                      </TableCell>
+                      <TableCell label={t("colStatus")} className="justify-self-end"><Badge variant={statusVariant(l.status)}>{l.status}</Badge></TableCell>
+                    </TableRow>
                     {expandable && isOpen && <ReaderDetail projectId={sel} logId={l.id} />}
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </TableBody>
+            </DataTable>
             </>
           )}
         </CardContent>

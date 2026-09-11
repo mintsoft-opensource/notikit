@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { devices, pushUsers, subscriptions } from "@/db/schema";
+import { devices, pushUsers, subscriptions, suppressions } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { verifyIdentity } from "@/lib/keys";
@@ -9,6 +9,11 @@ import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
+
+/** Postgres unique_violation */
+function isUniqueViolation(e: unknown): boolean {
+  return typeof e === "object" && e !== null && (e as { code?: string }).code === "23505";
+}
 
 const schema = z.object({
   old_token: z.string().min(1).max(4096),
@@ -60,16 +65,17 @@ export async function POST(req: Request) {
 
     // 모르는 토큰이어도 202 로 답한다 — 404 로 갈라주면 공개 api-key 만 가진 쪽이
     // 임의 토큰의 등록 여부를 확인하는 오라클이 된다(ping 과 같은 이유).
+    //
+    // 증명 실패도 **같은 응답**을 준다. 403 으로 갈라주면 "이 토큰은 존재하고
+    // 유저에 묶여 있다"가 드러나, 없애려던 오라클이 그 부분집합에 대해 되살아난다.
     if (!current) return ok({ rotated: false }, undefined, 202);
 
-    // 교체는 이 기기로 갈 발송을 통째로 새 토큰으로 돌린다. 유저가 묶여 있으면
-    // 바인딩과 같은 수준의 증명을 요구한다 — 없으면 옛 토큰을 아는 쪽이 남의 알림을
-    // 자기 토큰으로 가져갈 수 있다(언바인딩과 동일한 방어).
-    if (current.externalId && project.requireIdentityVerification) {
-      if (!b.identity_hash || !verifyIdentity(current.externalId, b.identity_hash, project.apiSecretEnc)) {
-        return fail("identity_hash invalid or missing for token rotation", 403);
-      }
-    }
+    const needsProof = !!current.externalId && project.requireIdentityVerification;
+    const proven =
+      !needsProof ||
+      (!!b.identity_hash && verifyIdentity(current.externalId!, b.identity_hash, project.apiSecretEnc));
+    // 모르는 토큰과 **똑같은 응답**이라 구분되지 않는다
+    if (!proven) return ok({ rotated: false }, undefined, 202);
 
     // 새 토큰이 이미 다른 행으로 등록돼 있으면 제자리 갱신이 유니크 제약에 걸린다.
     // 그 행이 이 기기의 현재 등록이므로, 옛 행의 유저 바인딩과 토픽 구독을 그쪽으로
@@ -85,9 +91,21 @@ export async function POST(req: Request) {
     )[0];
 
     if (conflict && conflict.id !== current.id) {
+      // 목적지가 **다른 유저**에게 묶여 있으면 합칠 수 없다. 합치면 옛 기기만 꺼지고
+      // 바인딩은 옮겨지지 않아, 이 사람은 어느 행으로도 발송을 못 받는다.
+      // 아무것도 바꾸지 않고 물러난다 — 응답은 위와 같은 모양이라 구분되지 않는다.
+      if (current.userId && conflict.userId && current.userId !== conflict.userId) {
+        return ok({ rotated: false }, undefined, 202);
+      }
       if (current.userId && !conflict.userId) {
         await tx.update(devices).set({ userId: current.userId }).where(eq(devices.id, conflict.id));
       }
+      // 수신거부는 토큰 문자열로 걸려 있다(push-processor 의 loadSuppression).
+      // 옮기지 않으면 차단해 둔 사람에게 새 토큰으로 다시 발송된다.
+      await tx
+        .update(suppressions)
+        .set({ token: b.new_token })
+        .where(and(eq(suppressions.projectId, project.id), eq(suppressions.token, b.old_token)));
       // 구독 이관 — 새 행에 이미 있는 토픽은 유니크 충돌이므로 건너뛴다
       const subs = await tx
         .select({ topicId: subscriptions.topicId })
@@ -105,16 +123,30 @@ export async function POST(req: Request) {
       return ok({ rotated: true, device_id: conflict.id }, undefined, 202);
     }
 
+    // 옛 토큰에 걸린 수신거부를 새 토큰으로 옮긴다 — 안 옮기면 차단이 풀린다
     await tx
-      .update(devices)
-      .set({
-        token: b.new_token,
-        isActive: true,
-        lastActiveAt: new Date(),
-        // 새 토큰은 아직 FCM 이 받아준 적이 없다 — 검증 표시를 물려주면 안 된다
-        verifiedAt: null,
-      })
-      .where(eq(devices.id, current.id));
+      .update(suppressions)
+      .set({ token: b.new_token })
+      .where(and(eq(suppressions.projectId, project.id), eq(suppressions.token, b.old_token)));
+
+    try {
+      await tx
+        .update(devices)
+        .set({
+          token: b.new_token,
+          isActive: true,
+          lastActiveAt: new Date(),
+          // 새 토큰은 아직 FCM 이 받아준 적이 없다 — 검증 표시를 물려주면 안 된다
+          verifiedAt: null,
+        })
+        .where(eq(devices.id, current.id));
+    } catch (e) {
+      // 없는 키는 잠글 수 없다. 위 conflict 조회와 이 갱신 사이에 다른 요청이
+      // new_token 을 등록하면 유니크 제약에 걸린다. 500 으로 터뜨리는 대신
+      // "교체 못 함"으로 답한다 — 클라이언트는 다음 기회에 다시 부르면 된다.
+      if (isUniqueViolation(e)) return ok({ rotated: false }, undefined, 202);
+      throw e;
+    }
 
     return ok({ rotated: true, device_id: current.id }, undefined, 202);
   });

@@ -31,15 +31,25 @@ const base = {
   getToken: async () => FCM_TOKEN,
 };
 
-function installBrowserEnv({ permission = "granted" }: { permission?: string } = {}) {
+function installBrowserEnv({
+  permission = "granted",
+  existingScriptURL = null,
+}: { permission?: string; existingScriptURL?: string | null } = {}) {
+  const unregister = vi.fn(async () => true);
+  const existingReg = existingScriptURL
+    ? ({ active: { scriptURL: existingScriptURL }, unregister } as unknown as ServiceWorkerRegistration)
+    : undefined;
+  const getRegistration = vi.fn(async () => existingReg);
+
   const registration = {};
   const swRegister = vi.fn(async () => registration);
   const requestPermission = vi.fn(async () => permission);
 
   vi.stubGlobal("navigator", {
     language: "ko-KR",
-    serviceWorker: { register: swRegister, ready: Promise.resolve(registration) },
+    serviceWorker: { register: swRegister, ready: Promise.resolve(registration), getRegistration },
   });
+  vi.stubGlobal("location", { href: "https://site.test/app" });
   vi.stubGlobal("PushManager", class {});
   vi.stubGlobal("Notification", { requestPermission });
   // saveToken 은 best-effort 다. 여기서는 열기 실패로 응답시켜, 등록이 그대로
@@ -51,7 +61,7 @@ function installBrowserEnv({ permission = "granted" }: { permission?: string } =
   });
   vi.stubGlobal("indexedDB", { open: idbOpen });
 
-  return { swRegister, requestPermission, idbOpen };
+  return { swRegister, requestPermission, idbOpen, unregister, getRegistration };
 }
 
 afterEach(() => {
@@ -108,6 +118,32 @@ describe("NotikitWeb.register", () => {
     const [customUrl] = env.swRegister.mock.calls[0];
     expect(customUrl.startsWith("/sw/custom.js?")).toBe(true);
     expect(new URLSearchParams(customUrl.slice(customUrl.indexOf("?") + 1)).get("key")).toBe(base.apiKey);
+  });
+
+  it("설정이 바뀌면 옛 워커를 벗겨내고 다시 등록한다", async () => {
+    // 워커 본문은 버전당 바이트가 같아 브라우저가 새로 설치하지 않는다.
+    // 벗겨내지 않으면 최초 설치 때의 api-key 를 계속 쓴다.
+    const env = installBrowserEnv({ existingScriptURL: "https://site.test/notikit-sw.js?base=https%3A%2F%2Fpush.test&key=nk_OLD" });
+    await new NotikitWeb({ ...base, fetch: okFetch() }).register();
+    expect(env.unregister).toHaveBeenCalled();
+  });
+
+  it("설정이 같으면 그대로 둔다", async () => {
+    const url = new URLSearchParams({
+      base: base.baseUrl, key: base.apiKey,
+      fb_apiKey: base.firebase.apiKey, fb_projectId: base.firebase.projectId,
+      fb_senderId: base.firebase.messagingSenderId, fb_appId: base.firebase.appId,
+    });
+    const env = installBrowserEnv({ existingScriptURL: `https://site.test/notikit-sw.js?${url}` });
+    await new NotikitWeb({ ...base, fetch: okFetch() }).register();
+    expect(env.unregister).not.toHaveBeenCalled();
+  });
+
+  it("다른 경로의 워커는 건드리지 않는다", async () => {
+    // 앱이 쓰는 워커를 지우면 안 된다
+    const env = installBrowserEnv({ existingScriptURL: "https://site.test/app-sw.js?key=whatever" });
+    await new NotikitWeb({ ...base, fetch: okFetch() }).register();
+    expect(env.unregister).not.toHaveBeenCalled();
   });
 
   it("throws and skips device registration when permission is denied", async () => {

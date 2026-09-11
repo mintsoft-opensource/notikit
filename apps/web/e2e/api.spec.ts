@@ -276,9 +276,16 @@ test.describe("App SDK API 전체 플로우", () => {
     const deviceId = (await reg.json()).data.device.id as string;
     await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", token: oldTok } });
 
-    // 증명 없이는 교체 불가 — 옛 토큰만 아는 쪽이 알림을 자기 토큰으로 가져가지 못한다
+    // 증명 없이는 교체되지 않는다. 다만 403 으로 갈라주면 "그 토큰은 존재하고
+    // 유저에 묶여 있다"가 드러나므로, 모르는 토큰과 **같은 응답**을 준다.
     const forged = await request.post("/api/v1/devices/rotate", { headers: { "api-key": apiKey }, data: { old_token: oldTok, new_token: newTok } });
-    expect(forged.status()).toBe(403);
+    expect(forged.status()).toBe(202);
+    expect((await forged.json()).data.rotated).toBe(false);
+
+    // 없는 토큰도 구분되지 않아야 한다
+    const unknown = await request.post("/api/v1/devices/rotate", { headers: { "api-key": apiKey }, data: { old_token: "no-such-token", new_token: newTok } });
+    expect(unknown.status()).toBe(forged.status());
+    expect((await unknown.json()).data.rotated).toBe(false);
 
     const rot = await request.post("/api/v1/devices/rotate", {
       headers: { "api-key": apiKey },
@@ -301,6 +308,29 @@ test.describe("App SDK API 전체 플로우", () => {
     await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
     const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
     expect((await logs.json()).data.logs[0].totalCount).toBe(1);
+  });
+
+  test("토큰 교체: 수신거부가 새 토큰으로 따라간다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `rotsup-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const oldTok = `sup-old-${Date.now()}`;
+    const newTok = `sup-new-${Date.now()}`;
+
+    // 익명 기기 — 증명 없이 교체 가능한 경로
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: oldTok, platform: "android" } });
+    await request.post("/api/v1/suppressions", { headers: { "api-key": apiKey }, data: { token: oldTok, reason: "opt_out" } });
+
+    const rot = await request.post("/api/v1/devices/rotate", { headers: { "api-key": apiKey }, data: { old_token: oldTok, new_token: newTok } });
+    expect((await rot.json()).data.rotated).toBe(true);
+
+    // 수신거부가 따라가지 않으면 차단해 둔 기기에 다시 발송된다
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "t", body: "b", type: "broadcast" } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    expect((await logs.json()).data.logs[0].totalCount).toBe(0);
   });
 
   test("수신거부: opt-out 유저는 발송 대상에서 제외", async ({ request }) => {

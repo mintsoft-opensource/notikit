@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatTile } from "@/components/ui/stat-tile";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
 import { formatDuration } from "@/components/console/panels";
@@ -150,33 +151,36 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
               )}
               {data && data.items.length === 0 && <EmptyState icon={Layers} title={t("empty")} />}
               {data && data.items.length > 0 && (
-                <>
-                  <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem] xl:grid">
-                    <span>{t("colTitle")}</span>
-                    <span>{t("colType")}</span>
-                    <span>{t("colTarget")}</span>
-                    <span className="text-right">{t("colAudience")}</span>
-                    <span className="text-right">{t("colWhen")}</span>
-                    <span className="text-right">{t("colStatus")}</span>
-                  </div>
-                  <ul className="divide-y divide-border">
+                <DataTable label={t("title")} rowCount={data.items.length + 1}>
+                  <TableHeader
+                    grid="xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem]"
+                    columns={[
+                      { label: t("colTitle") },
+                      { label: t("colType") },
+                      { label: t("colTarget") },
+                      { label: t("colAudience"), align: "end" },
+                      { label: t("colWhen"), align: "end" },
+                      { label: t("colStatus"), align: "end" },
+                    ]}
+                  />
+                  <TableBody>
                     {data.items.map((it) => {
                       // 예약은 "언제 나갈지", 나머지는 "얼마나 기다렸는지"가 궁금한 값이다
                       const due = it.scheduledAt
                         ? (new Date(it.scheduledAt).getTime() - Date.now()) / 1000
                         : (Date.now() - new Date(it.createdAt).getTime()) / 1000;
                       return (
-                        <li
+                        <TableRow
                           key={it.id}
                           className="grid min-h-14 gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem] xl:items-center"
                         >
-                          <p className="truncate text-sm font-semibold" title={it.title}>{it.title}</p>
-                          <span className="text-xs text-muted-foreground">{it.type}</span>
-                          <span className="truncate font-mono text-xs text-muted-foreground">{it.target ?? "—"}</span>
-                          <span className="text-xs tabular-nums text-muted-foreground xl:text-right">
+                          <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">{it.title}</TableCell>
+                          <TableCell label={t("colType")} className="text-xs text-muted-foreground">{it.type}</TableCell>
+                          <TableCell label={t("colTarget")} className="truncate font-mono text-xs text-muted-foreground">{it.target ?? "—"}</TableCell>
+                          <TableCell label={t("colAudience")} className="text-xs tabular-nums text-muted-foreground xl:text-right">
                             {nf.format(it.totalCount)}
-                          </span>
-                          <span className="text-xs tabular-nums text-muted-foreground xl:text-right">
+                          </TableCell>
+                          <TableCell label={t("colWhen")} className="text-xs tabular-nums text-muted-foreground xl:text-right">
                             {it.scheduledAt ? (
                               <span title={df.format(new Date(it.scheduledAt))}>
                                 {due > 0 ? t("scheduledFor", { d: formatDuration(due) }) : df.format(new Date(it.scheduledAt))}
@@ -184,18 +188,18 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
                             ) : (
                               t("waitingFor", { d: formatDuration(Math.max(0, due)) })
                             )}
-                          </span>
-                          <div className="xl:justify-self-end">
+                          </TableCell>
+                          <TableCell label={t("colStatus")} className="xl:justify-self-end">
                             <Badge variant={statusVariant(it.status)}>{it.status}</Badge>
-                          </div>
-                        </li>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </ul>
+                  </TableBody>
                   {data.truncated && (
                     <p className="border-t border-border px-3.5 py-2 text-xs text-muted-foreground">{t("truncated")}</p>
                   )}
-                </>
+                </DataTable>
               )}
             </CardContent>
           </Card>

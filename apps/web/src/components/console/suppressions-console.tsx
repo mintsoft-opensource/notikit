@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
@@ -118,22 +119,30 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
           {rows && rows.length === 0 && <EmptyState icon={BellOff} title={t("noSuppressions")} />}
           {rows && rows.length > 0 && (
             <>
-            <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto] sm:grid">
-              <span>{t("colTarget")}</span>
-              <span>{t("colReason")}</span>
-              <span>{t("colRegistered")}</span>
-              <span />
-            </div>
-            <ul className="divide-y divide-border">
+            <DataTable label={t("suppressionsTitle")} rowCount={rows.length + 1}>
+            <TableHeader
+              grid="sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto]"
+              show="sm"
+              columns={[
+                { label: t("colTarget") },
+                { label: t("colReason") },
+                { label: t("colRegistered") },
+                { label: "", blank: true },
+              ]}
+            />
+            <TableBody>
               {rows.map((s) => (
-                <li key={s.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto] sm:items-center">
-                  <p className="truncate font-mono text-sm font-semibold">
+                <TableRow key={s.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_10rem_auto] sm:items-center">
+                  <TableCell label={t("colTarget")} className="truncate font-mono text-sm font-semibold">
                     {s.externalId ?? s.tokenPreview ?? "—"}
-                  </p>
-                  <Badge variant={reasonVariant(s.reason)}>{t(`reason_${s.reason}` as "reason_manual")}</Badge>
-                  <time dateTime={s.createdAt} className="text-xs tabular-nums text-muted-foreground">
+                  </TableCell>
+                  <TableCell label={t("colReason")}>
+                    <Badge variant={reasonVariant(s.reason)}>{t(`reason_${s.reason}` as "reason_manual")}</Badge>
+                  </TableCell>
+                  <TableCell label={t("colRegistered")} className="text-xs tabular-nums text-muted-foreground">
                     {df.format(new Date(s.createdAt))}
-                  </time>
+                  </TableCell>
+                  <TableCell label={t("suppressionRemove")}>
                   <Button
                     variant="outline"
                     size="icon"
@@ -143,9 +152,11 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
                   >
                     <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
                   </Button>
-                </li>
+                  </TableCell>
+                </TableRow>
               ))}
-            </ul>
+            </TableBody>
+            </DataTable>
             </>
           )}
         </CardContent>

@@ -16,14 +16,20 @@ type Db = ReturnType<typeof getDb>;
  */
 export async function countryForIp(db: Db, client: ClientIp): Promise<string | null> {
   try {
+    // **선행 구간 하나만** 집은 뒤 포함 여부를 확인한다.
+    //
+    // end_ip 조건을 바깥 WHERE 에 두면 LIMIT 전에 평가돼, 어느 구간에도 속하지 않는
+    // 주소(사설 대역 등)에서 인덱스를 앞쪽으로 계속 훑는다. 측정값 52ms — 정상
+    // 경로(0.03ms)의 1700배이고, 이 조회는 등록·핑 요청마다 돈다.
     const rows = await db.execute<{ country_code: string }>(sql`
-      select country_code
-      from ip_country_ranges
-      where family = ${client.family}
-        and start_ip <= ${client.ip}::inet
-        and end_ip >= ${client.ip}::inet
-      order by start_ip desc
-      limit 1
+      select country_code from (
+        select country_code, end_ip
+        from ip_country_ranges
+        where family = ${client.family} and start_ip <= ${client.ip}::inet
+        order by start_ip desc
+        limit 1
+      ) c
+      where c.end_ip >= ${client.ip}::inet
     `);
     return rows[0]?.country_code ?? null;
   } catch {

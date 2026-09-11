@@ -423,7 +423,8 @@
     "geoNever": "위치 데이터가 아직 적재되지 않았습니다",
     "geoRunHint": "apps/web 에서 `npm run db:geo` 로 적재합니다",
     "geoProxyWarn": "TRUSTED_PROXY_HOPS 가 0 이라 접속 IP 를 신뢰하지 않습니다 — 데이터가 있어도 국가가 기록되지 않습니다.",
-    "geoAttribution": "IP→국가 데이터: DB-IP (CC BY 4.0)"
+    "geoAttribution": "IP→국가 데이터: DB-IP (CC BY 4.0)",
+    "geoLoadFailed": "위치 데이터 이력을 불러오지 못했습니다"
   },
   "account": {
     "title": "계정",

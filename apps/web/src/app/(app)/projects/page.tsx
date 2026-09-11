@@ -100,6 +100,9 @@ export default function ProjectsPage() {
           <Link
             key={p.id}
             href={`/projects/${p.id}`}
+            // 행 전체가 링크다. 표 role 을 씌우면 링크 의미가 깨지므로, 대신 링크에
+            // 이름을 준다 — 스크린리더는 이름 없이 "링크"로만 읽고 지나간다.
+            aria-label={`${p.name} · ${p.environment} · ${p.hasFirebase ? "Firebase" : "log-only"}`}
             className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border px-3.5 py-2.5 transition-colors last:border-b-0 hover:bg-surface-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem]"
           >
             <div className="flex min-w-0 items-center gap-3">

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Globe, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -29,7 +30,7 @@ type GeoRes = {
 
 const statusVariant = (s: string) => (s === "ok" ? "success" : s === "failed" ? "danger" : "warning");
 
-/** 위치 데이터 적재 이력 — superadmin 전용. /system 에 붙는다. */
+/** 위치 데이터 적재 이력. /system 에 붙는다(owner·admin 조회 가능). */
 export function GeoPanel() {
   const t = useTranslations("system");
   const locale = useLocale();
@@ -85,41 +86,49 @@ export function GeoPanel() {
               <Skeleton className="h-12 w-full" />
             </div>
           )}
+          {/* 실패를 조용히 넘기면 "이력이 없는 것"과 구분되지 않는다 */}
+          {error && <EmptyState icon={TriangleAlert} title={t("geoLoadFailed")} />}
           {never && <EmptyState icon={Globe} title={t("geoNever")} description={t("geoRunHint")} />}
           {data && !never && data.runs.length === 0 && <EmptyState icon={Globe} title={t("geoEmpty")} description={t("geoRunHint")} />}
           {data && data.runs.length > 0 && (
             <>
-              <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground lg:grid-cols-[13rem_6rem_minmax(0,1fr)_6rem] lg:grid">
-                <span>{t("geoColAt")}</span>
-                <span>{t("geoColStatus")}</span>
-                <span>{t("geoColCounts")}</span>
-                <span className="text-right">{t("geoColTook")}</span>
-              </div>
-              <ul className="divide-y divide-border">
+              <DataTable label={t("geoTitle")} rowCount={data.runs.length + 1}>
+              <TableHeader
+                grid="lg:grid-cols-[13rem_6rem_minmax(0,1fr)_6rem]"
+                show="lg"
+                columns={[
+                  { label: t("geoColAt") },
+                  { label: t("geoColStatus") },
+                  { label: t("geoColCounts") },
+                  { label: t("geoColTook"), align: "end" },
+                ]}
+              />
+              <TableBody>
                 {data.runs.map((r) => {
                   const took = r.finishedAt
                     ? Math.max(0, (new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime()) / 1000)
                     : null;
                   return (
-                    <li
+                    <TableRow
                       key={r.id}
                       className="grid min-h-12 gap-x-4 gap-y-1 px-3.5 py-2.5 lg:grid-cols-[13rem_6rem_minmax(0,1fr)_6rem] lg:items-center"
                     >
-                      <time dateTime={r.startedAt} className="text-xs tabular-nums text-muted-foreground">
+                      <TableCell label={t("geoColAt")} className="text-xs tabular-nums text-muted-foreground">
                         {df.format(new Date(r.startedAt))}
-                      </time>
-                      <div><Badge variant={statusVariant(r.status)}>{r.status}</Badge></div>
-                      <span className="truncate text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell label={t("geoColStatus")}><Badge variant={statusVariant(r.status)}>{r.status}</Badge></TableCell>
+                      <TableCell label={t("geoColCounts")} className="truncate text-xs text-muted-foreground">
                         {t("geoCountries")} {nf.format(r.countries)} · IPv4 {nf.format(r.ipv4)} · IPv6 {nf.format(r.ipv6)}
                         {r.error ? ` · ${r.error}` : ""}
-                      </span>
-                      <span className="text-xs tabular-nums text-muted-foreground lg:text-right">
+                      </TableCell>
+                      <TableCell label={t("geoColTook")} className="text-xs tabular-nums text-muted-foreground lg:text-right">
                         {took === null ? "—" : `${took.toFixed(1)}s`}
-                      </span>
-                    </li>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </ul>
+              </TableBody>
+              </DataTable>
               <p className="border-t border-border px-3.5 py-2 text-2xs text-muted-foreground">
                 {t("geoAttribution")}
               </p>

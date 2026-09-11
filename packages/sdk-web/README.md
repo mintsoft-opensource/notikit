@@ -72,8 +72,18 @@ FCM 은 토큰을 갱신합니다. 새 토큰으로 `register()` 를 다시 부�
 같은 사람에게 중복 발송됩니다. 교체는 전용 메서드를 쓰세요 — 서버가 기존 행을 제자리
 갱신해 토픽 구독·클릭 이력이 보존됩니다.
 
+**웹에는 토큰 갱신 이벤트가 없습니다.** 네이티브의 `onNewToken`/`didReceiveRegistrationToken`
+에 해당하는 것이 모듈 API(v10~v12)에 없으므로, 앱이 직접 비교해야 합니다. 앱을 열 때
+한 번 확인하는 정도면 충분합니다 — FCM 토큰은 수명이 깁니다.
+
 ```ts
-await notikit.rotateToken(oldToken, newToken);
+const saved = localStorage.getItem("fcm_token");
+const current = await getToken(getMessaging(app), { vapidKey, serviceWorkerRegistration: reg });
+
+if (saved && current && saved !== current) {
+  await notikit.rotateToken(saved, current);
+}
+localStorage.setItem("fcm_token", current);
 ```
 
 ## 클릭 추적

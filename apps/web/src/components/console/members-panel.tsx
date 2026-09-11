@@ -10,6 +10,7 @@ import { Input, Select, Field } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { adminApi } from "@/lib/admin-client";
 import { ROLES, type Role } from "@/lib/user-roles";
 
@@ -142,25 +143,30 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
           <EmptyState icon={Users} title={t("empty")} />
         ) : (
           <div className="overflow-hidden border border-border">
-          <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground lg:grid-cols-[minmax(0,1fr)_12rem_12rem] lg:grid">
-            <span>{t("colMember")}</span>
-            <span className="text-right">{t("colJoined")}</span>
-            <span>{t("colRole")}</span>
-          </div>
-          <ul className="divide-y divide-border">
+          <DataTable label={t("membersTitle")} rowCount={members.length + 1}>
+          <TableHeader
+            grid="lg:grid-cols-[minmax(0,1fr)_12rem_12rem]"
+            show="lg"
+            columns={[
+              { label: t("colMember") },
+              { label: t("colJoined"), align: "end" },
+              { label: t("colRole") },
+            ]}
+          />
+          <TableBody>
             {members.map((m) => {
               // owner 계정은 owner 만 변경 가능 — 서버 규칙을 UI 에도 반영
               const editable = canManage && !m.isSelf && (m.role !== "owner" || currentRole === "owner");
               return (
-                <li key={m.id} className="grid min-h-14 grid-cols-1 items-center gap-x-4 gap-y-1 px-3.5 py-2 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
-                  <div className="min-w-0">
+                <TableRow key={m.id} className="grid min-h-14 grid-cols-1 items-center gap-x-4 gap-y-1 px-3.5 py-2 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+                  <TableCell label={t("colMember")} className="min-w-0">
                     <p className="flex items-center gap-2 truncate text-sm font-medium">
                       <span className="truncate">{m.email}</span>
                       {m.isSelf && <Badge variant="neutral">{t("you")}</Badge>}
                     </p>
-                  </div>
-                  <time dateTime={m.createdAt} className="col-start-1 row-start-2 text-xs tabular-nums text-muted-foreground lg:col-start-auto lg:row-start-auto lg:text-right">{df.format(new Date(m.createdAt))}</time>
-                  <div className="col-start-1 row-start-3 flex items-center gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-end lg:col-start-3 lg:row-span-1">
+                  </TableCell>
+                  <TableCell label={t("colJoined")} className="col-start-1 row-start-2 text-xs tabular-nums text-muted-foreground lg:col-start-auto lg:row-start-auto lg:text-right">{df.format(new Date(m.createdAt))}</TableCell>
+                  <TableCell label={t("colRole")} className="col-start-1 row-start-3 flex items-center gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-end lg:col-start-3 lg:row-span-1">
                     {editable ? (
                       <Select
                         aria-label={t("roleLabel")}
@@ -182,11 +188,12 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
                         <Trash2 aria-hidden="true" className="h-4 w-4" />
                       </Button>
                     )}
-                  </div>
-                </li>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </ul>
+          </TableBody>
+          </DataTable>
           </div>
         )}
       </CardContent>

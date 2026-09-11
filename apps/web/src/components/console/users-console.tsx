@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
@@ -112,47 +113,51 @@ export function UsersConsole({ projectId }: { projectId: string }) {
           {users && users.length === 0 && <EmptyState icon={Users} title={q ? t("noMatches") : t("noUsers")} />}
           {users && users.length > 0 && (
             <>
-              <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem] xl:grid">
-                <span>{t("colUser")}</span>
-                <span>{t("colAttributes")}</span>
-                <span>{t("colDevices")}</span>
-                <span>{t("colClicks")}</span>
-                <span className="text-right">{t("colLastActive")}</span>
-              </div>
-              <ul className="divide-y divide-border">
+              <DataTable label={t("usersTitle")} rowCount={users.length + 1}>
+              <TableHeader
+                grid="xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem]"
+                columns={[
+                  { label: t("colUser") },
+                  { label: t("colAttributes") },
+                  { label: t("colDevices") },
+                  { label: t("colClicks") },
+                  { label: t("colLastActive"), align: "end" },
+                ]}
+              />
+              <TableBody>
                 {users.map((u) => {
                   const attrs = Object.entries(u.attributes ?? {}).slice(0, 3);
                   return (
-                    <li key={u.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem] xl:items-center">
-                      <div className="min-w-0">
+                    <TableRow key={u.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem] xl:items-center">
+                      <TableCell label={t("colUser")} className="min-w-0">
                         <p className="truncate font-mono text-sm font-semibold">{u.externalId}</p>
                         <p className="text-xs text-muted-foreground">
                           {[u.locale, u.timezone].filter(Boolean).join(" · ") || "—"}
                         </p>
-                      </div>
-                      <div className="flex min-w-0 flex-wrap gap-1">
+                      </TableCell>
+                      <TableCell label={t("colAttributes")} className="flex min-w-0 flex-wrap gap-1">
                         {attrs.length > 0
                           ? attrs.map(([k, v]) => (
                               <Badge key={k} variant="neutral">{k}={String(v)}</Badge>
                             ))
                           : <span className="text-xs text-muted-foreground">{t("noAttributes")}</span>}
-                      </div>
-                      <span className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                      </TableCell>
+                      <TableCell label={t("colDevices")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
                         <Smartphone aria-hidden="true" className="h-3.5 w-3.5" /> {nf.format(u.deviceCount)}
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                      </TableCell>
+                      <TableCell label={t("colClicks")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
                         <MousePointerClick aria-hidden="true" className="h-3.5 w-3.5" /> {nf.format(u.clickCount)}
-                      </span>
-                      <time
-                        dateTime={u.lastActiveAt ?? undefined}
+                      </TableCell>
+                      <TableCell
+                        label={t("colLastActive")}
                         className="text-xs tabular-nums text-muted-foreground xl:text-right"
                       >
                         {u.lastActiveAt ? df.format(new Date(u.lastActiveAt)) : "—"}
-                      </time>
-                    </li>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </ul>
+              </TableBody>
               {next && (
                 <div className="flex justify-center border-t border-border p-3">
                   <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
@@ -160,6 +165,7 @@ export function UsersConsole({ projectId }: { projectId: string }) {
                   </Button>
                 </div>
               )}
+              </DataTable>
             </>
           )}
         </CardContent>

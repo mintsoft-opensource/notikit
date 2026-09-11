@@ -7,6 +7,7 @@ import { Radio, Plus, Trash2, Send } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { Input, Field } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -97,23 +98,28 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
           {topics && topics.length === 0 && <EmptyState icon={Radio} title={t("noTopics")} />}
           {topics && topics.length > 0 && (
             <>
-            <div className="hidden gap-x-4 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:grid">
-              <span>{t("colTopic")}</span>
-              <span>{t("colSubUsers")}</span>
-              <span>{t("colSubDevices")}</span>
-              <span />
-            </div>
-            <ul className="divide-y divide-border">
+            <DataTable label={t("topicsTitle")} rowCount={topics.length + 1}>
+            <TableHeader
+              grid="sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto]"
+              show="sm"
+              columns={[
+                { label: t("colTopic") },
+                { label: t("colSubUsers") },
+                { label: t("colSubDevices") },
+                { label: "", blank: true },
+              ]}
+            />
+            <TableBody>
               {topics.map((tp) => (
-                <li key={tp.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:items-center">
-                  <p className="truncate font-mono text-sm font-semibold">{tp.name}</p>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                <TableRow key={tp.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:items-center">
+                  <TableCell label={t("colTopic")} className="truncate font-mono text-sm font-semibold">{tp.name}</TableCell>
+                  <TableCell label={t("colSubUsers")} className="text-xs tabular-nums text-muted-foreground">
                     {t("subscriberUsers", { count: nf.format(tp.userCount) })}
-                  </span>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                  </TableCell>
+                  <TableCell label={t("colSubDevices")} className="text-xs tabular-nums text-muted-foreground">
                     {t("subscriberDevices", { count: nf.format(tp.deviceCount) })}
-                  </span>
-                  <div className="flex items-center gap-2 justify-self-end">
+                  </TableCell>
+                  <TableCell label={t("sendToTopic")} className="flex items-center gap-2 justify-self-end">
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/projects/${projectId}/send?type=topic&target=${encodeURIComponent(tp.name)}`}>
                         <Send aria-hidden="true" className="h-3.5 w-3.5" /> {t("sendToTopic")}
@@ -127,10 +133,11 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                     >
                       <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
                     </Button>
-                  </div>
-                </li>
+                  </TableCell>
+                </TableRow>
               ))}
-            </ul>
+            </TableBody>
+            </DataTable>
             </>
           )}
         </CardContent>
