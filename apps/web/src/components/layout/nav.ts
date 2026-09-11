@@ -45,7 +45,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "developer",
     items: [
-      { labelKey: "apiDocs", href: "/docs", icon: BookOpen, external: true },
+      { labelKey: "apiDocs", href: "/api-docs", icon: BookOpen },
       { labelKey: "guide", href: "/guide", icon: FileText },
     ],
   },

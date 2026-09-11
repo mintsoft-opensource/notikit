@@ -30,7 +30,7 @@ html.dark {
 
 body {
   margin: 0;
-  padding: 2px 2px 56px;
+  padding: 0 2px 4px;
   background: var(--surface);
   color: var(--fg);
   font-family: var(--font-sans, ui-sans-serif), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -51,7 +51,7 @@ h1, h2, h3, h4 {
   line-height: 1.35;
   scroll-margin-top: 12px;
 }
-h1 { font-size: 22px; margin: 2px 0 6px; }
+h1 { font-size: 22px; margin: 0 0 6px; }
 h1 + p { font-size: 14px; color: var(--muted); margin-top: 0; }
 h2 { font-size: 17px; margin: 34px 0 12px; padding-top: 18px; border-top: 1px solid var(--border); }
 h3 { font-size: 14px; margin: 24px 0 8px; }
@@ -92,7 +92,7 @@ code {
 pre {
   margin: 12px 0;
   padding: 12px 14px;
-  background: var(--surface-sunken);
+  background: var(--surface-muted);
   border: 1px solid var(--border);
   /* 넓은 코드가 문서를 가로로 밀지 않도록 자기 안에서 스크롤 */
   overflow-x: auto;

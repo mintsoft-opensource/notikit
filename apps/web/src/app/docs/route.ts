@@ -37,9 +37,20 @@ const html = `<!doctype html>
     font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; cursor: pointer;
   }
   #theme:hover { color: var(--fg); }
+  /* [hidden] 의 UA display:none 보다 위 규칙(ID)이 세다 — 명시적으로 되돌린다 */
+  #theme[hidden] { display: none; }
 
   /* Redoc 이 그리지 못한 사이 배경이 흰색으로 번쩍이지 않게 */
   #redoc { background: var(--bg); min-height: 100vh; }
+
+  /*
+   * "Authorizations:" / "Request Body schema:" 라벨은 Redoc 이 rgba(38,50,56,.5) 로
+   * 하드코딩한다 — 테마 옵션이 닿지 않는다. 다크 배경에서는 글자가 배경에 묻혀
+   * 완전히 사라지므로 여기서 덮는다.
+   */
+  #redoc h5 { color: var(--muted) !important; }
+  /* 임베드 시엔 콘솔 카드가 이미 여백을 주므로 Redoc 자체 여백을 줄인다 */
+  html.embed #redoc [data-section-id], html.embed .api-content > div:first-child { padding-top: 0; }
 </style>
 </head>
 <body>
@@ -73,6 +84,9 @@ const html = `<!doctype html>
         code: { fontSize: "12px", fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
       },
       spacing: { unit: 4, sectionHorizontal: 24, sectionVertical: 16 },
+      // 콘솔 사이드바만큼 폭이 줄어 기본 분기점(85rem)에서는 예제 패널이 접힌다.
+      // 요청/응답 예제는 API 문서의 핵심이라 접히면 문서의 값이 절반으로 준다.
+      breakpoints: { small: "38rem", medium: "64rem", large: "80rem" },
       // 기본 둥근 모서리를 없애 콘솔의 각진 표와 맞춘다
       shape: { borderRadius: "0" },
     };
@@ -108,12 +122,46 @@ const html = `<!doctype html>
         });
   }
 
+  // 콘솔 안(iframe)에 박힌 경우: 헤더에 이미 토글이 있으므로 자체 토글을 숨기고
+  // 부모가 documentElement 의 class 를 직접 바꿔 준다.
+  var params = new URLSearchParams(location.search);
+  var embedded = params.has("embed");
+  if (embedded) document.getElementById("theme").hidden = true;
+
+  // 첫 그리기만 부모가 넘긴 쿼리를 쓴다. 그 시점엔 부모가 class 를 붙이기 전일 수 있고,
+  // 그러면 Redoc 이 라이트로 init 되어 배경만 희고 글자는 다크용이 되어 읽을 수 없다.
+  // 이후 토글은 부모가 바꾸는 class 가 정답이다.
+  var first = embedded && params.has("theme");
+  function wantsDark() {
+    if (!embedded) return isDark();
+    if (first) {
+      first = false;
+      return params.get("theme") === "dark";
+    }
+    return document.documentElement.classList.contains("dark");
+  }
+
+  // 마지막으로 그린 테마. 부모가 뒤늦게 붙이는 class 를 "변경" 으로 오인해
+  // 다시 그리면 Redoc 이 같은 자리에 두 번 마운트되어 removeChild 로 죽는다.
+  var painted = null;
+
   function render() {
-    var dark = isDark();
+    var dark = wantsDark();
+    if (dark === painted) return;
+    painted = dark;
+
     document.documentElement.classList.toggle("dark", dark);
     document.getElementById("theme").textContent = dark ? "라이트 모드" : "다크 모드";
+
+    // 다시 그릴 땐 컨테이너를 통째로 갈아 끼운다. Redoc 이 이전 트리를 정리하지 않아
+    // 같은 노드에 두 번 init 하면 서로의 DOM 을 지우려다 예외를 던진다.
+    var old = document.getElementById("redoc");
+    var fresh = document.createElement("div");
+    fresh.id = "redoc";
+    old.replaceWith(fresh);
+
     Redoc.init("/api/openapi.json", { theme: themeFor(dark), hideDownloadButton: false, expandResponses: "200,201" },
-               document.getElementById("redoc"));
+               fresh);
   }
 
   document.getElementById("theme").addEventListener("click", function () {
@@ -127,6 +175,16 @@ const html = `<!doctype html>
     try { if (localStorage.getItem("theme")) return; } catch (e) {}
     render();
   });
+
+  // 임베드 상태에서 부모가 .dark 를 토글하면 Redoc 을 새 테마로 다시 그린다.
+  // Redoc 은 init 시점에만 테마를 받으므로 다시 그리는 것 말고는 방법이 없다.
+  // render() 보다 **먼저** 걸어야 그 사이에 들어온 변경을 놓치지 않는다.
+  if (embedded) {
+    new MutationObserver(function () {
+      // painted 와 비교하므로 부모가 늦게 붙인 class 는 재렌더를 부르지 않는다
+      render();
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  }
 
   render();
 </script>

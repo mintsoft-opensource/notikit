@@ -134,9 +134,7 @@ export function Header() {
         </nav>
 
         <Link
-          href="/docs"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/api-docs"
           className="hidden rounded-md px-3 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:inline-flex"
         >
           {th("apiDocs")}

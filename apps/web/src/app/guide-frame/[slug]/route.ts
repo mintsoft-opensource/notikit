@@ -31,20 +31,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
 <body>
 ${enhance(doc.html)}
 <script>
-  // 부모가 테마를 바꾸면 따라간다. 같은 오리진만 받는다.
-  addEventListener("message", function (e) {
-    if (e.origin !== location.origin) return;
-    if (e.data && e.data.type === "notikit:theme") {
-      document.documentElement.classList.toggle("dark", e.data.dark === true);
-    }
-  });
-
-  // 문서 높이를 알려 부모가 iframe 을 늘리게 한다 — 안쪽 스크롤바가 두 겹으로 생기지 않게.
-  function reportHeight() {
-    parent.postMessage({ type: "notikit:height", height: document.body.scrollHeight }, location.origin);
-  }
-  addEventListener("load", reportHeight);
-  new ResizeObserver(reportHeight).observe(document.body);
+  // 높이와 테마는 부모가 직접 재고 직접 건드린다(같은 오리진). 자식이 알리는 방식은
+  // 하이드레이션 전에 알림이 도착하면 사라져 문서가 잘린 채로 멈춘다.
 
   // 앵커 클릭은 iframe 안에서 스크롤한다. 부모 URL 을 바꾸면 문서가 다시 로드된다.
   addEventListener("click", function (e) {

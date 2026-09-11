@@ -15,7 +15,7 @@ export function DocNav({ docs, label }: { docs: DocMeta[]; label: string }) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label={label} className="min-w-0 lg:sticky lg:top-4">
+    <nav aria-label={label} className="min-w-0 lg:sticky lg:top-4 lg:pt-3">
       <p className="mb-1.5 hidden px-2.5 text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground lg:block">
         {label}
       </p>
