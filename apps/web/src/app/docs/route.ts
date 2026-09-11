@@ -9,7 +9,11 @@
  */
 export const dynamic = "force-static";
 
-const REDOC = "https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js";
+/**
+ * 버전을 고정한다. `latest` 를 쓰면 Redoc 이 새 버전을 낼 때 예고 없이 화면이 바뀌고,
+ * 셀프호스팅한 쪽은 재현할 수 없는 차이를 떠안는다.
+ */
+const REDOC = "https://cdn.redoc.ly/redoc/v2.5.0/bundles/redoc.standalone.js";
 
 const html = `<!doctype html>
 <html lang="ko">
@@ -18,8 +22,9 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Notikit API 문서</title>
 <style>
-  :root { --bg: #ffffff; --fg: #1a1a1a; --border: #e5e7eb; --muted: #6b7280; }
-  html.dark { --bg: #17181a; --fg: #e8e9ea; --border: #2c2e31; --muted: #9aa0a6; }
+  /* globals.css 의 팔레트를 그대로 옮긴다 — 비슷한 색을 새로 고르면 콘솔과 어긋난다 */
+  :root { --bg: #ffffff; --fg: #1c1f1c; --border: #e5e6e1; --muted: #6f746a; }
+  html.dark { --bg: #292c26; --fg: #f3f4f0; --border: #52564d; --muted: #a2a69c; }
   body { margin: 0; background: var(--bg); color: var(--fg); }
 
   /* 토글 — 콘솔 헤더의 버튼과 같은 모양 */
@@ -52,28 +57,55 @@ const html = `<!doctype html>
   }
 
   function themeFor(dark) {
-    // 콘솔의 --chart-1 과 같은 초록 계열을 주색으로 쓴다
-    var accent = dark ? "#21a06f" : "#159570";
+    // mint500 / mint300 — 콘솔의 --primary 와 같은 값
+    var accent = dark ? "#8fc3ae" : "#2e7d5b";
+    // HTTP 메서드 색은 검증된 차트 팔레트(--chart-1..5)를 쓴다
+    var method = dark
+      ? { get: "#3f9ae0", post: accent, put: "#d0791d", delete: "#e04f7f", patch: "#8a6ff0" }
+      : { get: "#1f7bbf", post: accent, put: "#d9730d", delete: "#c2255c", patch: "#7a5af0" };
+
+    var common = {
+      typography: {
+        fontSize: "13px",
+        lineHeight: "1.7",
+        fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        headings: { fontFamily: "inherit", fontWeight: "700" },
+        code: { fontSize: "12px", fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
+      },
+      spacing: { unit: 4, sectionHorizontal: 24, sectionVertical: 16 },
+      // 기본 둥근 모서리를 없애 콘솔의 각진 표와 맞춘다
+      shape: { borderRadius: "0" },
+    };
+
     return dark
-      ? {
-          colors: { primary: { main: accent }, text: { primary: "#e8e9ea", secondary: "#9aa0a6" },
-                    http: { get: "#3f9ae0", post: accent, put: "#d0791d", delete: "#e04f7f" },
-                    border: { dark: "#2c2e31", light: "#2c2e31" } },
-          typography: { fontSize: "13px", fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-                        code: { fontSize: "12px", color: "#e8e9ea", backgroundColor: "#202225" },
-                        headings: { fontWeight: "700" } },
-          sidebar: { backgroundColor: "#17181a", textColor: "#e8e9ea", activeTextColor: accent },
-          rightPanel: { backgroundColor: "#202225", textColor: "#e8e9ea" },
-          schema: { nestedBackground: "#202225" },
-        }
-      : {
-          colors: { primary: { main: accent },
-                    http: { get: "#1f7bbf", post: accent, put: "#d9730d", delete: "#c2255c" } },
-          typography: { fontSize: "13px", fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-                        code: { fontSize: "12px", backgroundColor: "#f6f7f9" },
-                        headings: { fontWeight: "700" } },
-          sidebar: { backgroundColor: "#ffffff", activeTextColor: accent },
-        };
+      ? Object.assign({}, common, {
+          colors: {
+            primary: { main: accent },
+            text: { primary: "#f3f4f0", secondary: "#a2a69c" },
+            http: method,
+            border: { dark: "#52564d", light: "#52564d" },
+          },
+          typography: Object.assign({}, common.typography, {
+            code: Object.assign({}, common.typography.code, { color: "#f3f4f0", backgroundColor: "#141613" }),
+          }),
+          sidebar: { backgroundColor: "#292c26", textColor: "#f3f4f0", activeTextColor: accent },
+          rightPanel: { backgroundColor: "#141613", textColor: "#f3f4f0" },
+          schema: { nestedBackground: "#3c3f38", typeNameColor: "#a2a69c" },
+        })
+      : Object.assign({}, common, {
+          colors: {
+            primary: { main: accent },
+            text: { primary: "#1c1f1c", secondary: "#6f746a" },
+            http: method,
+            border: { dark: "#e5e6e1", light: "#e5e6e1" },
+          },
+          typography: Object.assign({}, common.typography, {
+            code: Object.assign({}, common.typography.code, { backgroundColor: "#f3f4f0" }),
+          }),
+          sidebar: { backgroundColor: "#fafaf8", textColor: "#1c1f1c", activeTextColor: accent },
+          rightPanel: { backgroundColor: "#292c26", textColor: "#f3f4f0" },
+          schema: { nestedBackground: "#f3f4f0", typeNameColor: "#6f746a" },
+        });
   }
 
   function render() {

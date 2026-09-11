@@ -1,4 +1,5 @@
 import { readDoc } from "@/lib/docs";
+import { DOC_STYLE } from "./doc-style";
 
 export const dynamic = "force-dynamic";
 
@@ -25,58 +26,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${escapeHtml(doc.title)}</title>
-<style>
-  /* 콘솔의 토큰과 같은 값. iframe 은 부모 CSS 를 물려받지 않아 여기 다시 둔다. */
-  :root {
-    --bg: #ffffff; --fg: #1a1a1a; --muted: #6b7280; --border: #e5e7eb;
-    --code-bg: #f6f7f9; --accent: #159570; --quote-bg: #f0f9f6;
-  }
-  html.dark {
-    --bg: #17181a; --fg: #e8e9ea; --muted: #9aa0a6; --border: #2c2e31;
-    --code-bg: #202225; --accent: #21a06f; --quote-bg: #182420;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 0 4px 48px;
-    background: var(--bg); color: var(--fg);
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-    font-size: 13px; line-height: 1.75;
-    -webkit-font-smoothing: antialiased;
-  }
-  h1, h2, h3 { line-height: 1.3; font-weight: 700; letter-spacing: -0.01em; }
-  h1 { font-size: 22px; margin: 4px 0 16px; }
-  h2 { font-size: 16px; margin: 28px 0 10px; padding-top: 14px; border-top: 1px solid var(--border); }
-  h3 { font-size: 14px; margin: 20px 0 8px; }
-  p, li { color: var(--muted); }
-  strong { color: var(--fg); font-weight: 600; }
-  a { color: var(--accent); }
-  ul, ol { padding-left: 20px; }
-  li { margin: 4px 0; }
-  code {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 12px; background: var(--code-bg); color: var(--fg);
-    padding: 1px 5px; border: 1px solid var(--border);
-  }
-  /* 넓은 코드가 문서를 가로로 밀지 않도록 자기 안에서 스크롤 */
-  pre {
-    background: var(--code-bg); border: 1px solid var(--border);
-    padding: 12px; overflow-x: auto; margin: 12px 0;
-  }
-  pre code { background: none; border: 0; padding: 0; font-size: 12px; line-height: 1.6; }
-  table { border-collapse: collapse; width: 100%; margin: 12px 0; display: block; overflow-x: auto; }
-  th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
-  th { background: var(--code-bg); font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
-  td { color: var(--muted); }
-  td strong, td code { color: var(--fg); }
-  blockquote {
-    margin: 14px 0; padding: 10px 14px;
-    border: 0; border-left: 2px solid var(--accent); background: var(--quote-bg);
-  }
-  blockquote p { margin: 0; color: var(--fg); opacity: 0.85; }
-</style>
+<style>${DOC_STYLE}</style>
 </head>
 <body>
-${doc.html}
+${enhance(doc.html)}
 <script>
   // 부모가 테마를 바꾸면 따라간다. 같은 오리진만 받는다.
   addEventListener("message", function (e) {
@@ -85,12 +38,28 @@ ${doc.html}
       document.documentElement.classList.toggle("dark", e.data.dark === true);
     }
   });
+
   // 문서 높이를 알려 부모가 iframe 을 늘리게 한다 — 안쪽 스크롤바가 두 겹으로 생기지 않게.
   function reportHeight() {
     parent.postMessage({ type: "notikit:height", height: document.body.scrollHeight }, location.origin);
   }
   addEventListener("load", reportHeight);
   new ResizeObserver(reportHeight).observe(document.body);
+
+  // 앵커 클릭은 iframe 안에서 스크롤한다. 부모 URL 을 바꾸면 문서가 다시 로드된다.
+  addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a) return;
+    e.preventDefault();
+    var el = document.getElementById(decodeURIComponent(a.getAttribute("href").slice(1)));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // 문서 안 외부 링크는 새 탭으로 — iframe 안에서 열리면 콘솔이 사라진 것처럼 보인다.
+  document.querySelectorAll('a[href^="http"]').forEach(function (a) {
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+  });
 </script>
 </body>
 </html>`;
@@ -102,6 +71,38 @@ ${doc.html}
       "content-security-policy": "frame-ancestors 'self'",
     },
   });
+}
+
+/**
+ * marked 가 낸 HTML 을 화면에 맞게 손본다.
+ *  - h2/h3 에 id 와 앵커를 단다. 없으면 문서의 특정 절을 가리킬 방법이 없다.
+ *  - 표를 스크롤 래퍼로 감싼다. 넓은 표가 문서를 통째로 가로로 밀지 않게.
+ */
+function enhance(html: string): string {
+  const used = new Set<string>();
+
+  return html
+    .replace(/<h([23])>(.*?)<\/h\1>/g, (_m, level: string, inner: string) => {
+      const text = inner.replace(/<[^>]+>/g, "");
+      let id = slugify(text);
+      // 같은 제목이 두 번 나오면 id 가 겹쳐 앵커가 첫 번째로만 간다
+      let n = 2;
+      while (used.has(id)) id = `${slugify(text)}-${n++}`;
+      used.add(id);
+      return `<h${level} id="${id}">${inner}<a class="anchor" href="#${id}" aria-label="이 절 링크">#</a></h${level}>`;
+    })
+    .replace(/<table>([\s\S]*?)<\/table>/g, '<div class="table-wrap"><table>$1</table></div>');
+}
+
+/** 한글 제목도 앵커로 쓸 수 있게 — 공백만 접고 URL 금지 문자를 턴다. */
+function slugify(text: string): string {
+  return (
+    text
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, "")
+      .replace(/\s+/g, "-") || "section"
+  );
 }
 
 function escapeHtml(s: string): string {
