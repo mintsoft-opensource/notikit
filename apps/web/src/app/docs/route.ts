@@ -49,6 +49,16 @@ const html = `<!doctype html>
    * 완전히 사라지므로 여기서 덮는다.
    */
   #redoc h5 { color: var(--muted) !important; }
+
+  /*
+   * 우측 예제 패널의 선택된 탭("Payload" 등). Redoc 이 배경과 글자를 **같은 값**으로
+   * 칠해서(둘 다 #f3f4f0) 다크에서 레이블이 통째로 사라진다 — 흰 박스만 남는다.
+   * 배경은 그대로 두고 글자만 어둡게 되돌린다.
+   */
+  #redoc .react-tabs__tab--selected { color: #1c1f1c !important; }
+  /* 선택 안 된 탭은 배경이 투명하므로 본문 색을 따라가야 읽힌다 */
+  #redoc .react-tabs__tab:not(.react-tabs__tab--selected) { color: var(--fg) !important; }
+
   /* 임베드 시엔 콘솔 카드가 이미 여백을 주므로 Redoc 자체 여백을 줄인다 */
   html.embed #redoc [data-section-id], html.embed .api-content > div:first-child { padding-top: 0; }
 </style>

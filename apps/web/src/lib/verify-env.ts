@@ -14,8 +14,13 @@ const REQUIRED: ReadonlyArray<readonly [string, string]> = [
 /** 관리자 세션 서명 — 둘 중 하나만 있으면 된다 */
 const SESSION_KEYS = ["SESSION_SECRET", "NOTIKIT_ENCRYPTION_KEY"] as const;
 
-/** 부족한 설정 목록. 비어 있으면 정상. 테스트에서 종료 없이 검사만 할 때도 쓴다. */
-export function missingEnv(env: NodeJS.ProcessEnv = process.env): string[] {
+/**
+ * 부족한 설정 목록. 비어 있으면 정상. 테스트에서 종료 없이 검사만 할 때도 쓴다.
+ *
+ * `NodeJS.ProcessEnv` 가 아니라 느슨한 레코드를 받는다 — 그 타입은 `NODE_ENV` 를
+ * 필수로 요구해서, 검사 대상만 담은 테스트 픽스처가 타입에 안 맞는다.
+ */
+export function missingEnv(env: Record<string, string | undefined> = process.env): string[] {
   const missing = REQUIRED.filter(([k]) => !env[k]).map(([k, why]) => `${k}: ${why}`);
   if (!SESSION_KEYS.some((k) => env[k])) {
     missing.push(`${SESSION_KEYS.join(" 또는 ")}: 관리자 세션 서명`);
