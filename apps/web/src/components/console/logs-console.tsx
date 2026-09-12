@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { RefreshCw, Play, ScrollText, ChevronDown, ChevronRight, MousePointerClick, Search } from "lucide-react";
@@ -355,7 +356,14 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                         <span className="hidden xl:block" />
                       )}
                       </TableCell>
-                      <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">{l.title}</TableCell>
+                      <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">
+                        <Link
+                          href={`/projects/${sel}/logs/${l.id}`}
+                          className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {l.title}
+                        </Link>
+                      </TableCell>
                       <TableCell label={t("colTargetName")} className="truncate text-xs text-muted-foreground">
                         {l.target ? <span className="font-mono">{l.target}</span> : l.type}
                       </TableCell>

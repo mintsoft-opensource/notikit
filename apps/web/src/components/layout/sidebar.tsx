@@ -22,7 +22,6 @@ function NavLink({ item, label, pathname }: { item: NavItem; label: string; path
         active ? "bg-accent-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       )}
     >
-      {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />}
       <Icon className={cn("h-[17px] w-[17px]", active ? "text-primary" : "text-muted-foreground")} strokeWidth={2} />
       <span>{label}</span>
     </Link>
