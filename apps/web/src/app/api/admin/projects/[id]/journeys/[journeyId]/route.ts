@@ -13,6 +13,11 @@ export const dynamic = "force-dynamic";
  *
  * 모든 조회에 `projectId` 를 함께 건다. id 만으로 찾으면 다른 프로젝트의 저니를
  * id 추측만으로 읽거나 고칠 수 있다.
+ *
+ * **이름은 바꿀 수 없다.** SDK 의 enroll 은 저니를 이름으로 찾는다
+ * (`/api/v1/journeys/enroll` → `eq(journeys.name, ...)`). 콘솔에서 개명하면 이미
+ * 배포된 앱의 `enroll({journey:"welcome"})` 이 조용히 404 가 된다 — 토픽 이름을
+ * 막은 것과 같은 이유다. 이름을 바꾸려면 새로 만들고 앱을 함께 배포해야 한다.
  */
 const stepSchema = z.object({
   type: z.enum(["send", "wait"]),
@@ -22,8 +27,7 @@ const stepSchema = z.object({
 });
 
 const updateSchema = z.object({
-  name: z.string().min(1).max(120).optional(),
-  steps: z.array(stepSchema).min(1).max(30).optional(),
+  steps: z.array(stepSchema).min(1).max(30),
 });
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string; journeyId: string }> }) {
@@ -42,13 +46,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; jou
   if (!row) return fail("Not found", 404);
 
   // 진행 중인 실행 수 — 스텝을 고치면 이 사람들에게 영향이 간다. 화면에서 경고하려면 필요하다.
-  const runs = await db
-    .execute(
-      raw`select count(*) filter (where status = 'active')::int as active,
-                 count(*)::int as total
-            from journey_runs where journey_id = ${journeyId}`
-    )
-    .catch(() => [{ active: 0, total: 0 }]);
+  /**
+   * 실패를 0 으로 삼키지 않는다 — 이 값의 유일한 쓰임이 삭제 경고라서, 0 으로 보이면
+   * "진행 중 실행 없음"으로 읽히고 경고 없이 실행 이력이 cascade 삭제된다.
+   */
+  const runs = await db.execute(
+    raw`select count(*) filter (where status = 'active')::int as active,
+               count(*)::int as total
+          from journey_runs where journey_id = ${journeyId}`
+  );
   const c = (runs as unknown as { active: number; total: number }[])[0] ?? { active: 0, total: 0 };
 
   // total 도 함께 준다 — 삭제는 완료된 실행 이력까지 cascade 로 지운다
@@ -69,27 +75,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; j
   }
   const parsed = updateSchema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
-  // 빈 PATCH 는 수정이 아니라 호출 실수다. 조용히 200 을 주면 저장된 줄 안다.
-  if (parsed.data.name === undefined && parsed.data.steps === undefined) {
-    return fail("변경할 내용이 없습니다", 422);
-  }
-
   const db = getDb();
-  try {
-    const rows = await db
-      .update(journeys)
-      .set(parsed.data)
-      .where(and(eq(journeys.id, journeyId), eq(journeys.projectId, id)))
-      .returning();
-    if (rows.length === 0) return fail("Not found", 404);
-    return ok({ journey: rows[0] });
-  } catch (e) {
-    // (project_id, name) 이 유니크다 — 중복을 500 으로 흘리면 원인을 알 수 없다
-    if (e instanceof Error && /unique|duplicate/i.test(e.message)) {
-      return fail("같은 이름의 저니가 이미 있습니다", 409);
-    }
-    throw e;
-  }
+  const rows = await db
+    .update(journeys)
+    .set({ steps: parsed.data.steps })
+    .where(and(eq(journeys.id, journeyId), eq(journeys.projectId, id)))
+    .returning();
+  if (rows.length === 0) return fail("Not found", 404);
+  return ok({ journey: rows[0] });
 }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string; journeyId: string }> }) {

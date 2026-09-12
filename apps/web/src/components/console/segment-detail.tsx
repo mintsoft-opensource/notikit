@@ -136,9 +136,12 @@ export function SegmentDetail({ projectId, segmentId }: { projectId: string; seg
       </Card>
 
       <Card>
-        <CardContent className="space-y-1 pt-3.5">
+        <CardContent className="pt-3.5">
+          {/* DataRow 는 dt/dd 를 낸다 — dl 로 감싸지 않으면 정의목록 의미가 사라진다 */}
+          <dl className="space-y-1">
           <DataRow label="ID" value={loaded.id} />
           <DataRow label={tc("createdAt")} value={new Date(loaded.createdAt).toLocaleString()} />
+          </dl>
         </CardContent>
       </Card>
     </div>

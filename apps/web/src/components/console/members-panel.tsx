@@ -159,7 +159,7 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                  placeholder={"\u2022".repeat(8)}
                 />
               </Field>
               <Field label={t("roleLabel")}>

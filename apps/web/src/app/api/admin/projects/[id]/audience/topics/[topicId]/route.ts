@@ -35,16 +35,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; top
   if (!row) return fail("Not found", 404);
 
   const db = getDb();
-  // 구독 규모 — 지우기 전에 영향 범위를 알아야 한다
-  const counts = await db
-    .execute(
-      raw`select count(*)::int as devices,
-                 count(distinct d.user_id)::int as users
-            from subscriptions s
-            join devices d on d.id = s.device_id
-           where s.topic_id = ${topicId}`
-    )
-    .catch(() => [{ devices: 0, users: 0 }]);
+  /**
+   * 구독 규모 — 지우기 전에 영향 범위를 알아야 한다.
+   *
+   * 목록 라우트와 **같은 조건**으로 센다(`d.is_active = true`). 다르면 목록과 상세가
+   * 서로 다른 수를 말하고, 두 화면의 삭제 확인 문구도 어긋난다.
+   *
+   * 실패를 0 으로 삼키지 않는다 — 이 값의 유일한 쓰임이 "몇 명이 끊기는지" 경고인데,
+   * 0 으로 보이면 경고가 사라진 채 cascade 삭제가 진행된다.
+   */
+  const counts = await db.execute(
+    raw`select count(*)::int as devices,
+               count(distinct d.user_id)::int as users
+          from subscriptions s
+          join devices d on d.id = s.device_id
+         where s.topic_id = ${topicId} and d.is_active = true`
+  );
   const c = (counts as unknown as { devices: number; users: number }[])[0] ?? { devices: 0, users: 0 };
 
   return ok({ topic: row, deviceCount: c.devices, userCount: c.users });

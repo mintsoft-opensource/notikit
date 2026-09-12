@@ -52,18 +52,21 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
     return () => { stale = true; };
   }, [projectId, journeyId, tc]);
 
+  // 이름은 잠겨 있으므로 스텝 변경만 본다
   const dirty =
-    !!loaded && (name !== loaded.name || JSON.stringify(cleanSteps(steps)) !== JSON.stringify(cleanSteps(loaded.steps)));
+    !!loaded && JSON.stringify(cleanSteps(steps)) !== JSON.stringify(cleanSteps(loaded.steps));
 
   async function save() {
-    if (!name.trim() || saving) return;
+    if (saving) return;
     setSaving(true);
     try {
       const d = await adminApi<{ journey: Journey }>(`/api/admin/projects/${projectId}/journeys/${journeyId}`, {
         method: "PATCH",
-        body: JSON.stringify({ name: name.trim(), steps: cleanSteps(steps) }),
+        body: JSON.stringify({ steps: cleanSteps(steps) }),
       });
       setLoaded(d.journey);
+      // 서버가 돌려준 값으로 되맞춘다 — 안 하면 dirty 가 영구히 true 로 남는다
+      setName(d.journey.name);
       setSteps(d.journey.steps.length ? d.journey.steps : EMPTY_STEPS);
       toast.success(tc("saved"));
     } catch (e) {
@@ -137,20 +140,23 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
       <Card>
         <CardHeader><CardTitle>{tc("edit")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <JourneyFields idPrefix="journey" name={name} steps={steps} onName={setName} onSteps={setSteps} />
+          <JourneyFields idPrefix="journey" name={name} steps={steps} onName={setName} onSteps={setSteps} nameLocked />
           <div className="flex justify-end">
             {/* 바뀐 게 없으면 비활성 — 누르면 저장된 것처럼 보이지만 아무 일도 안 일어난다 */}
-            <Button onClick={save} disabled={saving || !dirty || !name.trim()}>{tc("save")}</Button>
+            <Button onClick={save} disabled={saving || !dirty}>{tc("save")}</Button>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="space-y-1 pt-3.5">
+        <CardContent className="pt-3.5">
+          {/* DataRow 는 dt/dd 를 낸다 — dl 로 감싸지 않으면 정의목록 의미가 사라진다 */}
+          <dl className="space-y-1">
           <DataRow label="ID" value={loaded.id} />
           <DataRow label={t("activeRuns")} value={String(activeRuns)} />
           <DataRow label={t("totalRuns")} value={String(totalRuns)} />
           <DataRow label={tc("createdAt")} value={new Date(loaded.createdAt).toLocaleString()} />
+          </dl>
         </CardContent>
       </Card>
     </div>

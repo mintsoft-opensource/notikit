@@ -376,7 +376,8 @@
     "activeRunsWarning": "{count} runs are in progress. Editing steps changes what users already mid-journey receive next.",
     "confirmRemoveActive": "{count} in-progress runs will be deleted with it. Continue?",
     "totalRuns": "Total runs",
-    "confirmRemoveRuns": "{total} run records will be deleted with it, including {active} in progress. This cannot be undone. Continue?"
+    "confirmRemoveRuns": "{total} run records will be deleted with it, including {active} in progress. This cannot be undone. Continue?",
+    "nameLockedHint": "The name cannot be changed - the SDK enroll call looks journeys up by name."
   },
   "system": {
     "title": "System",

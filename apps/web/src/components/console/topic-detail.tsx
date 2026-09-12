@@ -101,11 +101,14 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
       />
 
       <Card>
-        <CardContent className="space-y-1 pt-3.5">
+        <CardContent className="pt-3.5">
+          {/* DataRow 는 dt/dd 를 낸다 — dl 로 감싸지 않으면 정의목록 의미가 사라진다 */}
+          <dl className="space-y-1">
           <DataRow label={t("colSubUsers")} value={nf.format(data.userCount)} />
           <DataRow label={t("colSubDevices")} value={nf.format(data.deviceCount)} />
           <DataRow label="ID" value={data.topic.id} />
           <DataRow label={tc("createdAt")} value={new Date(data.topic.createdAt).toLocaleString()} />
+          </dl>
         </CardContent>
       </Card>
     </div>

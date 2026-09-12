@@ -19,12 +19,15 @@ export function JourneyFields({
   onName,
   onSteps,
   idPrefix,
+  nameLocked = false,
 }: {
   name: string;
   steps: Step[];
   onName: (v: string) => void;
   onSteps: (v: Step[]) => void;
   idPrefix: string;
+  /** 수정 화면에서는 이름을 잠근다 — SDK enroll 이 이름으로 저니를 찾는다 */
+  nameLocked?: boolean;
 }) {
   const t = useTranslations("journeys");
 
@@ -34,12 +37,14 @@ export function JourneyFields({
 
   return (
     <div className="space-y-3">
-      <Field label={t("nameLabel")}>
+      <Field label={t("nameLabel")} hint={nameLocked ? t("nameLockedHint") : undefined}>
         <Input
           id={`${idPrefix}-name`}
           value={name}
           onChange={(e) => onName(e.target.value)}
           placeholder={t("namePlaceholder")}
+          readOnly={nameLocked}
+          disabled={nameLocked}
         />
       </Field>
       <div className="space-y-2">
