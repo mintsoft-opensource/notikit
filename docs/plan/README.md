@@ -13,7 +13,7 @@
 - **[02-deployment-service.md](02-deployment-service.md)** — 인스턴스 판매·요금·라이선스 집행
 - **[03-server-architecture.md](03-server-architecture.md)** — 서버/API/DB/SDK/배포 설계
 - **[04-si-playbook.md](04-si-playbook.md)** — 구축(SI) 진행
-- 운영 절차는 [../DISTRIBUTION.md](../DISTRIBUTION.md) — 이쪽은 "우리가 읽는" 실행 문서다
+- 운영 절차는 [../DISTRIBUTION.md](../DISTRIBUTION.md)(릴리스·업데이트)와 [../BACKUP-RESTORE.md](../BACKUP-RESTORE.md)(백업·복구) — 장애 중에 읽는 실행 문서다
 
 ---
 
@@ -135,10 +135,10 @@ Apache-2.0은 **취소 불가능한(irrevocable) 영구 라이선스**다. 이 �
 | ~~2~~ | ~~web 부팅 시 env 검증 + `/ready`~~ | 03 §14 | **완료** — 업데이터가 readiness 로 성공 판정 |
 | 1 | **라이선스 표기 정리** | §8 | Apache-2.0은 소급 회수 불가. 이미지가 나가기 전이어야 한다 |
 | 2 | **graceful shutdown** | 03 §14 | 무인 업데이트를 계약에 넣기 위한 전제 |
-| 3 | **백업/복구 런북** | 01 §O | 마이그레이션 전 덤프는 되는데 **복구 절차 문서가 없다** |
-| 4 | **보안·ISMS 대응 자료** | 04 §5 | 첫 고객이 금융·공공일 확률이 높다. 그 고객을 따는 데 필요하다 |
+| ~~3~~ | ~~백업/복구 런북~~ | 01 §O | **완료** — [docs/BACKUP-RESTORE.md](../BACKUP-RESTORE.md). 단 예약 백업은 운영자가 걸어야 한다 |
+| 3 | **보안·ISMS 대응 자료** | 04 §5 | 첫 고객이 금융·공공일 확률이 높다. 그 고객을 따는 데 필요하다 |
 
-1~2는 코드, 3~4는 문서다. **4를 첫 계약 뒤로 미루면 첫 계약을 못 딴다.**
+1~2는 코드, 3은 문서다. **3을 첫 계약 뒤로 미루면 첫 계약을 못 딴다.**
 
 ### 아직 답이 없는 두 가지 (§6 모델 재검토 필요)
 
