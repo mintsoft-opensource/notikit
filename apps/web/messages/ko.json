@@ -102,7 +102,22 @@
     "selectProjectPlaceholder": "프로젝트 선택…",
     "selectProjectFirst": "프로젝트를 선택하세요.",
     "loadFailed": "로드 실패",
-    "loadMore": "더 보기"
+    "loadMore": "더 보기",
+    "save": "저장",
+    "saved": "저장됨",
+    "saveFailed": "저장 실패",
+    "cancel": "취소",
+    "close": "닫기",
+    "edit": "수정",
+    "detail": "상세",
+    "back": "목록으로",
+    "notFound": "찾을 수 없습니다",
+    "remove": "삭제",
+    "removed": "삭제됨",
+    "removeFailed": "삭제 실패",
+    "confirmRemove": "삭제하면 되돌릴 수 없습니다. 계속할까요?",
+    "unsavedConfirm": "저장하지 않은 변경이 있습니다. 닫을까요?",
+    "createdAt": "생성일"
   },
   "meta": {
     "title": "Notikit — 유저 중심 푸시 툴킷",

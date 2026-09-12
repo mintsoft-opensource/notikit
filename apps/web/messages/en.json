@@ -102,7 +102,22 @@
     "selectProjectPlaceholder": "Select a project…",
     "selectProjectFirst": "Select a project.",
     "loadFailed": "Load failed",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Could not save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "edit": "Edit",
+    "detail": "Details",
+    "back": "Back to list",
+    "notFound": "Not found",
+    "remove": "Delete",
+    "removed": "Deleted",
+    "removeFailed": "Could not delete",
+    "confirmRemove": "Deleting cannot be undone. Continue?",
+    "unsavedConfirm": "You have unsaved changes. Close anyway?",
+    "createdAt": "Created"
   },
   "meta": {
     "title": "Notikit — User-centric push toolkit",
