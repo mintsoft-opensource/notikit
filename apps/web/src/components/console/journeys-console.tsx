@@ -1,18 +1,19 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Plus, X, Play, Send, Clock } from "lucide-react";
+import { Plus, Play, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Field } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
+import { JourneyFields, EMPTY_STEPS, cleanSteps, type Step } from "@/components/console/journey-form";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
-type Step = { type: "send" | "wait"; title?: string; body?: string; hours?: number };
 type Journey = { id: string; name: string; steps: Step[] };
 
 export function JourneysConsole({ projectId }: { projectId?: string }) {
@@ -23,7 +24,9 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
   const sel = projectId ?? picked;
   const [journeys, setJourneys] = React.useState<Journey[]>([]);
   const [name, setName] = React.useState("");
-  const [steps, setSteps] = React.useState<Step[]>([{ type: "send", title: "", body: "" }]);
+  const [steps, setSteps] = React.useState<Step[]>(EMPTY_STEPS);
+  const [open, setOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
   const reqRef = React.useRef(0);
   const selRef = React.useRef(sel);
 
@@ -48,27 +51,35 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
     if (sel) load(sel);
   }, [sel, load]);
 
-  function updateStep(i: number, patch: Partial<Step>) {
-    setSteps(steps.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  function close() {
+    const dirty = name.trim() !== "" || JSON.stringify(steps) !== JSON.stringify(EMPTY_STEPS);
+    if (dirty && !confirm(tc("unsavedConfirm"))) return;
+    setOpen(false);
+    setName("");
+    setSteps(EMPTY_STEPS);
   }
 
   async function create() {
-    if (!sel || !name.trim()) return;
+    if (!sel || !name.trim() || saving) return;
     const target = sel;
-    const cleaned = steps.map((s) =>
-      s.type === "send" ? { type: "send", title: s.title, body: s.body } : { type: "wait", hours: Number(s.hours) || 0 }
-    );
+    setSaving(true);
     try {
-      await adminApi(`/api/admin/projects/${target}/journeys`, { method: "POST", body: JSON.stringify({ name: name.trim(), steps: cleaned }) });
+      await adminApi(`/api/admin/projects/${target}/journeys`, {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim(), steps: cleanSteps(steps) }),
+      });
       toast.success(t("created"));
       // 완료 시점에 다른 프로젝트로 전환됐으면 B 의 드래프트를 지우지 않음
       if (selRef.current === target) {
         setName("");
-        setSteps([{ type: "send", title: "", body: "" }]);
+        setSteps(EMPTY_STEPS);
+        setOpen(false);
         load(target);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("createFailed"));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -88,80 +99,61 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
         title={t("title")}
         description={t("subtitle")}
         actions={
-          <Button variant="outline" size="sm" onClick={process} disabled={!sel}>
-            <Play aria-hidden="true" className="h-4 w-4" /> {t("processBtn")}
-          </Button>
+          <>
+            <Button variant="outline" onClick={process} disabled={!sel}>
+              <Play aria-hidden="true" className="h-4 w-4" /> {t("processBtn")}
+            </Button>
+            {sel && (
+              <Button onClick={() => setOpen(true)}>
+                <Plus aria-hidden="true" className="h-4 w-4" /> {t("newJourney")}
+              </Button>
+            )}
+          </>
         }
       />
       {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
       {sel && (
         <>
-          <Card>
-            <CardHeader><CardTitle>{t("newJourney")}</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <Field label={t("nameLabel")}>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
-              </Field>
-              <div className="space-y-2">
-                <Label>{t("stepsLabel")}</Label>
-                {steps.map((s, i) => (
-                  <div key={i} className="space-y-2 rounded-lg border border-border p-3">
-                    <div className="flex items-center gap-2">
-                      <Select aria-label={t("stepType")} value={s.type} onChange={(e) => updateStep(i, { type: e.target.value as Step["type"] })} className="w-32">
-                        <option value="send">send</option>
-                        <option value="wait">wait</option>
-                      </Select>
-                      <span className="text-xs text-muted-foreground">{t("stepN", { n: i + 1 })}</span>
-                      <Button variant="ghost" size="icon" className="ml-auto" aria-label={t("removeStep")} onClick={() => setSteps(steps.filter((_, j) => j !== i))} disabled={steps.length === 1}>
-                        <X aria-hidden="true" className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {s.type === "send" ? (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <Input value={s.title ?? ""} onChange={(e) => updateStep(i, { title: e.target.value })} placeholder={t("titlePlaceholder")} />
-                        <Input value={s.body ?? ""} onChange={(e) => updateStep(i, { body: e.target.value })} placeholder={t("bodyPlaceholder")} />
-                      </div>
-                    ) : (
-                      <Input
-                        type="number"
-                        min={0}
-                        max={8760}
-                        value={s.hours ?? ""}
-                        onChange={(e) => updateStep(i, { hours: Number(e.target.value) })}
-                        placeholder={t("waitHoursPlaceholder")}
-                      />
-                    )}
-                  </div>
-                ))}
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setSteps([...steps, { type: "send", title: "", body: "" }])}>
-                    <Send aria-hidden="true" className="h-4 w-4" /> {t("addSend")}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setSteps([...steps, { type: "wait", hours: 24 }])}>
-                    <Clock aria-hidden="true" className="h-4 w-4" /> {t("addWait")}
-                  </Button>
-                </div>
-              </div>
-              <Button onClick={create} disabled={!name.trim()}>{t("create")}</Button>
-            </CardContent>
-          </Card>
+          <Dialog
+            open={open}
+            onClose={close}
+            title={t("newJourney")}
+            description={t("subtitle")}
+            size="lg"
+            footer={
+              <>
+                <Button variant="ghost" onClick={close}>{tc("cancel")}</Button>
+                <Button onClick={create} disabled={saving || !name.trim()}>{t("create")}</Button>
+              </>
+            }
+          >
+            <JourneyFields idPrefix="new-journey" name={name} steps={steps} onName={setName} onSteps={setSteps} />
+          </Dialog>
 
           <Card>
             <CardHeader><CardTitle>{t("listTitle", { count: journeys.length })}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {journeys.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
               {journeys.map((j) => (
-                <div key={j.id} className="flex items-center justify-between rounded-lg border border-border px-3.5 py-2">
-                  <span className="text-sm font-semibold">{j.name}</span>
-                  <div className="flex flex-wrap gap-1">
-                    {j.steps.map((s, i) => (
-                      <Badge key={i} variant={s.type === "send" ? "primary" : "neutral"}>
-                        {s.type === "send" ? "send" : `wait ${s.hours ?? 0}h`}
-                      </Badge>
-                    ))}
+                <Link
+                  key={j.id}
+                  href={`/projects/${sel}/journeys/${j.id}`}
+                  aria-label={`${j.name} — ${tc("detail")}`}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3.5 py-2 transition-colors hover:bg-surface-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
+                  <span className="truncate text-sm font-semibold">{j.name}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="hidden flex-wrap justify-end gap-1 sm:flex">
+                      {j.steps.map((s, i) => (
+                        <Badge key={i} variant={s.type === "send" ? "primary" : "neutral"}>
+                          {s.type === "send" ? "send" : `wait ${s.hours ?? 0}h`}
+                        </Badge>
+                      ))}
+                    </div>
+                    <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                   </div>
-                </div>
+                </Link>
               ))}
             </CardContent>
           </Card>

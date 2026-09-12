@@ -371,7 +371,12 @@
     "created": "Journey created",
     "createFailed": "Create failed",
     "listTitle": "Journeys ({count})",
-    "empty": "None"
+    "empty": "None",
+    "activeRuns": "Active runs",
+    "activeRunsWarning": "{count} runs are in progress. Editing steps changes what users already mid-journey receive next.",
+    "confirmRemoveActive": "{count} in-progress runs will be deleted with it. Continue?",
+    "totalRuns": "Total runs",
+    "confirmRemoveRuns": "{total} run records will be deleted with it, including {active} in progress. This cannot be undone. Continue?"
   },
   "system": {
     "title": "System",
@@ -556,7 +561,9 @@
     "colSubDevices": "Subscribed devices",
     "colTarget": "Target",
     "colReason": "Reason",
-    "colRegistered": "Registered"
+    "colRegistered": "Registered",
+    "confirmDeleteTopicWithSubs": "Deleting \"{name}\" also removes the subscription of {count} devices. Continue?",
+    "confirmRemoveSuppression": "Removing this suppression resumes sending to \"{target}\". Continue?"
   },
   "activity": {
     "title": "Activity",

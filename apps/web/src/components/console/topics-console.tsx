@@ -5,13 +5,14 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Radio, Plus, Trash2, Send } from "lucide-react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { Input, Field } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
+import { Dialog } from "@/components/ui/dialog";
 import { adminApi } from "@/lib/admin-client";
 
 type Topic = { id: string; name: string; createdAt: string; deviceCount: number; userCount: number };
@@ -36,11 +37,25 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
     }
   }, [projectId, tc]);
 
+  const [open, setOpen] = React.useState(false);
+  // 비동기 완료 시점의 최신 입력을 읽기 위한 거울
+  const nameRef = React.useRef(name);
+  nameRef.current = name;
+
   React.useEffect(() => { void load(); }, [load]);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
+  function closeDialog() {
+    if (name.trim() && !confirm(tc("unsavedConfirm"))) return;
+    setOpen(false);
+    setName("");
+  }
+
+  async function create(e?: React.FormEvent) {
+    e?.preventDefault();
     if (busy || !name.trim()) return;
+    // 제출한 값을 기억한다 — 응답이 늦는 사이 사용자가 새 드래프트를 치기 시작했다면
+    // 완료 시 그걸 지워서는 안 된다
+    const submitted = name;
     setBusy(true);
     try {
       await adminApi(`/api/admin/projects/${projectId}/audience/topics`, {
@@ -48,7 +63,10 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
         body: JSON.stringify({ name: name.trim() }),
       });
       toast.success(t("topicCreated"));
-      setName("");
+      if (nameRef.current === submitted) {
+        setName("");
+        setOpen(false);
+      }
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tc("loadFailed"));
@@ -58,8 +76,13 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
   }
 
   async function remove(topic: Topic) {
+    // 삭제하면 subscriptions 가 cascade 로 함께 사라진다 — 구독자가 몇이나 끊기는지 보여 준 뒤 묻는다
+    const msg = topic.deviceCount > 0
+      ? t("confirmDeleteTopicWithSubs", { name: topic.name, count: nf.format(topic.deviceCount) })
+      : tc("confirmRemove");
+    if (!confirm(msg)) return;
     try {
-      await adminApi(`/api/admin/projects/${projectId}/audience/topics?name=${encodeURIComponent(topic.name)}`, { method: "DELETE" });
+      await adminApi(`/api/admin/projects/${projectId}/audience/topics/${topic.id}`, { method: "DELETE" });
       toast.success(t("topicDeleted"));
       await load();
     } catch (e) {
@@ -71,26 +94,37 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
 
   return (
     <div className="w-full space-y-4">
-      <PageHeader title={t("topicsTitle")} description={t("topicsSubtitle")} />
+      <PageHeader
+        title={t("topicsTitle")}
+        description={t("topicsSubtitle")}
+        actions={
+          <Button onClick={() => setOpen(true)}>
+            <Plus aria-hidden="true" className="h-4 w-4" /> {t("newTopic")}
+          </Button>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>{t("newTopic")}</CardTitle>
-            <CardDescription>{t("newTopicHint")}</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={create} className="grid items-end gap-3 sm:grid-cols-[minmax(0,24rem)_auto]">
-            <Field label={t("topicName")}>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="news" maxLength={120} spellCheck={false} />
-            </Field>
-            <Button type="submit" size="sm" className="justify-self-start" disabled={busy || !name.trim()}>
-              <Plus aria-hidden="true" className="h-4 w-4" /> {busy ? tc("loading") : t("createTopic")}
+      <Dialog
+        open={open}
+        onClose={closeDialog}
+        title={t("newTopic")}
+        description={t("newTopicHint")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeDialog}>{tc("cancel")}</Button>
+            <Button onClick={() => create()} disabled={busy || !name.trim()}>
+              {busy ? tc("loading") : t("createTopic")}
             </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </>
+        }
+      >
+        <form onSubmit={create}>
+          <Field label={t("topicName")}>
+            <Input id="new-topic-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="news" maxLength={120} spellCheck={false} />
+          </Field>
+          <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+        </form>
+      </Dialog>
 
       <Card className="rounded-none">
         <CardContent className="p-0">
@@ -112,7 +146,11 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
             <TableBody>
               {topics.map((tp) => (
                 <TableRow key={tp.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:items-center">
-                  <TableCell label={t("colTopic")} className="truncate font-mono text-sm font-semibold">{tp.name}</TableCell>
+                  <TableCell label={t("colTopic")} className="truncate font-mono text-sm font-semibold">
+                    <Link href={`/projects/${projectId}/topics/${tp.id}`} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      {tp.name}
+                    </Link>
+                  </TableCell>
                   <TableCell label={t("colSubUsers")} className="text-xs tabular-nums text-muted-foreground">
                     {t("subscriberUsers", { count: nf.format(tp.userCount) })}
                   </TableCell>

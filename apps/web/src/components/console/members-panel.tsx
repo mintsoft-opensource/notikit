@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
+import { Dialog } from "@/components/ui/dialog";
 import { adminApi } from "@/lib/admin-client";
 import { ROLES, type Role } from "@/lib/user-roles";
 
@@ -33,6 +34,10 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
   const [password, setPassword] = React.useState("");
   const [role, setRole] = React.useState<Role>("viewer");
   const [busy, setBusy] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+  // 비동기 완료 시점의 최신 입력을 읽기 위한 거울
+  const emailRef = React.useRef(email);
+  emailRef.current = email;
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }), [locale]);
 
   const load = React.useCallback(async () => {
@@ -49,16 +54,31 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
     void load();
   }, [load]);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
+  function closeDialog() {
+    // role 만 바꾼 것도 입력이다 — 안 물어보고 닫으면 고른 값이 조용히 사라진다
+    const dirty = email.trim() !== "" || password !== "" || role !== "viewer";
+    if (dirty && !confirm(tc("unsavedConfirm"))) return;
+    setOpen(false);
+    setEmail("");
+    setPassword("");
+    setRole("viewer");
+  }
+
+  async function create(e?: React.FormEvent) {
+    e?.preventDefault();
     if (busy) return;
+    // 응답이 늦는 사이 새 드래프트를 치기 시작했다면 완료 시 그걸 지워서는 안 된다
+    const submitted = email;
     setBusy(true);
     try {
       await adminApi("/api/admin/users", { method: "POST", body: JSON.stringify({ email, password, role }) });
       toast.success(t("created"));
-      setEmail("");
-      setPassword("");
-      setRole("viewer");
+      if (emailRef.current === submitted) {
+        setEmail("");
+        setPassword("");
+        setRole("viewer");
+        setOpen(false);
+      }
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("createFailed"));
@@ -96,45 +116,62 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
           <CardTitle>{t("membersTitle")}</CardTitle>
           <CardDescription>{canManage ? t("membersDesc") : t("readOnlyNote")}</CardDescription>
         </div>
+        {canManage && (
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <UserPlus aria-hidden="true" className="h-4 w-4" /> {t("addMember")}
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         {canManage && (
-          <form onSubmit={create} className="grid gap-3 rounded-tile border border-border bg-surface-muted/30 p-3.5 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_auto]">
-            <Field label={t("emailLabel")}>
-              <Input
-                type="email"
-                required
-                spellCheck={false}
-                autoComplete="off"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="member@example.com"
-              />
-            </Field>
-            <Field label={t("passwordLabel")}>
-              <Input
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </Field>
-            <Field label={t("roleLabel")}>
-              <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-                {assignableRoles.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Button type="submit" disabled={busy || !email || password.length < 8}>
-              <UserPlus aria-hidden="true" className="h-4 w-4" /> {busy ? t("creating") : t("create")}
-            </Button>
-          </form>
+          <Dialog
+            open={open}
+            onClose={closeDialog}
+            title={t("addMember")}
+            description={t("membersDesc")}
+            footer={
+              <>
+                <Button variant="ghost" onClick={closeDialog}>{tc("cancel")}</Button>
+                <Button type="submit" form="new-member-form" disabled={busy || !email || password.length < 8}>
+                  <UserPlus aria-hidden="true" className="h-4 w-4" /> {busy ? t("creating") : t("create")}
+                </Button>
+              </>
+            }
+          >
+            <form id="new-member-form" onSubmit={create} className="space-y-3">
+              <Field label={t("emailLabel")}>
+                <Input
+                  id="new-member-email"
+                  type="email"
+                  required
+                  spellCheck={false}
+                  autoComplete="off"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="member@example.com"
+                />
+              </Field>
+              <Field label={t("passwordLabel")}>
+                <Input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                />
+              </Field>
+              <Field label={t("roleLabel")}>
+                <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+                  {assignableRoles.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </Select>
+              </Field>
+              <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+            </form>
+          </Dialog>
         )}
 
         {members === null ? (
