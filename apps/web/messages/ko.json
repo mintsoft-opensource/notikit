@@ -374,7 +374,6 @@
     "empty": "없음",
     "activeRuns": "진행 중 실행",
     "activeRunsWarning": "진행 중인 실행이 {count}건 있습니다. 스텝을 고치면 이미 중간에 있는 유저의 다음 단계가 바뀝니다.",
-    "confirmRemoveActive": "진행 중인 실행 {count}건이 함께 삭제됩니다. 계속할까요?",
     "totalRuns": "전체 실행",
     "confirmRemoveRuns": "진행 중 {active}건을 포함해 실행 이력 {total}건이 함께 삭제됩니다. 되돌릴 수 없습니다. 계속할까요?",
     "nameLockedHint": "이름은 바꿀 수 없습니다 — SDK 의 enroll 이 이름으로 저니를 찾습니다."
