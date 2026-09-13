@@ -113,8 +113,9 @@ export function SendConsole({ projectId }: { projectId?: string }) {
         <CardHeader>
           <CardTitle>{t("compose")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <div className="min-w-0 space-y-3 rounded-tile border border-border bg-surface-muted/30 p-3.5">
+        {/* 좌우 2단을 걷어내고 전체 폭을 쓴다. 필드는 한 줄에 2개씩. */}
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {!projectId && (
               <div className="space-y-1 [&_select]:w-full">
                 <Label>{t("project")}</Label>
@@ -136,46 +137,45 @@ export function SendConsole({ projectId }: { projectId?: string }) {
               <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
             </Field>
             <Field label={t("scheduleLabel")} hint={t("scheduleHint")}>
-              <Input
-                type="datetime-local"
-                value={scheduleAt}
-                onChange={(e) => setScheduleAt(e.target.value)}
-              />
+              <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} />
             </Field>
-            <div className="border-t border-border pt-3 text-sm">
-              <label className="flex items-start gap-2 leading-relaxed">
-                <input
-                  type="checkbox"
-                  checked={processNow && !isScheduled}
-                  disabled={isScheduled}
-                  onChange={(e) => setProcessNow(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
-                />
-                <span className={isScheduled ? "text-muted-foreground" : undefined}>
-                  {isScheduled ? t("processNowDisabled") : t("processNow")}
-                </span>
-              </label>
-            </div>
           </div>
-          <div className="flex min-h-0 min-w-0 flex-col space-y-3">
-            <Field label={t("titleLabel")}>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
-            </Field>
-            <Field label={t("bodyLabel")} className="flex min-h-0 flex-1 flex-col">
-              <Textarea className="min-h-40 flex-1 lg:min-h-56" value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
-            </Field>
 
-            <div className="space-y-2 border-t border-border pt-3">
-              <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                <Info aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" /> {t("helpTitle")}
-              </p>
-              <ul className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-                <li>{t("helpTypes")}</li>
-                <li>{t("helpDeepLink")}</li>
-                <li>{t("helpSuppression")}</li>
-                <li>{t("helpLogOnly")}</li>
-              </ul>
-            </div>
+          {/* 제목·본문은 "내용"이라 설정 필드와 줄을 나눈다 — 설정 4개가 2×2 로 떨어진다 */}
+          <Field label={t("titleLabel")}>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
+          </Field>
+
+          {/* 본문은 남는 세로를 가져간다 */}
+          <Field label={t("bodyLabel")} className="flex min-h-0 flex-1 flex-col">
+            <Textarea className="min-h-40 flex-1" value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
+          </Field>
+
+          <div className="border-t border-border pt-3 text-sm">
+            <label className="flex items-start gap-2 leading-relaxed">
+              <input
+                type="checkbox"
+                checked={processNow && !isScheduled}
+                disabled={isScheduled}
+                onChange={(e) => setProcessNow(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
+              />
+              <span className={isScheduled ? "text-muted-foreground" : undefined}>
+                {isScheduled ? t("processNowDisabled") : t("processNow")}
+              </span>
+            </label>
+          </div>
+
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+              <Info aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" /> {t("helpTitle")}
+            </p>
+            <ul className="grid gap-1.5 text-xs leading-relaxed text-muted-foreground sm:grid-cols-2">
+              <li>{t("helpTypes")}</li>
+              <li>{t("helpDeepLink")}</li>
+              <li>{t("helpSuppression")}</li>
+              <li>{t("helpLogOnly")}</li>
+            </ul>
           </div>
         </CardContent>
         <CardFooter className="flex justify-end">
