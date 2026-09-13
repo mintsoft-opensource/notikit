@@ -105,14 +105,15 @@ export function SendConsole({ projectId }: { projectId?: string }) {
   }
 
   return (
-    <div className="w-full space-y-4">
+    // 화면 높이를 채운다 — 남는 세로 공간을 본문 입력으로 돌린다
+    <div className="flex w-full flex-1 flex-col space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
-      <Card>
+      <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader>
           <CardTitle>{t("compose")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <CardContent className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <div className="min-w-0 space-y-3 rounded-tile border border-border bg-surface-muted/30 p-3.5">
             {!projectId && (
               <div className="space-y-1 [&_select]:w-full">
@@ -156,12 +157,12 @@ export function SendConsole({ projectId }: { projectId?: string }) {
               </label>
             </div>
           </div>
-          <div className="min-w-0 space-y-3">
+          <div className="flex min-h-0 min-w-0 flex-col space-y-3">
             <Field label={t("titleLabel")}>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
             </Field>
-            <Field label={t("bodyLabel")}>
-              <Textarea className="min-h-40 lg:min-h-56" value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
+            <Field label={t("bodyLabel")} className="flex min-h-0 flex-1 flex-col">
+              <Textarea className="min-h-40 flex-1 lg:min-h-56" value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
             </Field>
 
             <div className="space-y-2 border-t border-border pt-3">

@@ -21,7 +21,9 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface-alt">
           {/* min-w-0 없으면 flex 아이템이 콘텐츠 폭 아래로 줄지 못한다. 넓은 차트·테이블이
               래퍼를 밀어내 가로 오버플로가 생기고, 바깥이 overflow-hidden 이라 잘려 나간다. */}
-          <div className="min-w-0 p-3 md:p-4">{children}</div>
+          {/* flex 컬럼 + min-h-full 이라, 화면 높이를 채우고 싶은 페이지는 루트에 flex-1 만
+              붙이면 된다(발송 화면). 나머지 페이지는 블록처럼 그대로 쌓여 영향이 없다. */}
+          <div className="flex min-h-full min-w-0 flex-col p-3 md:p-4">{children}</div>
         </main>
         <AppFooter />
       </div>

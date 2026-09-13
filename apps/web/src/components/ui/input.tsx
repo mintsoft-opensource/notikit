@@ -48,15 +48,18 @@ export function Field({
   label,
   hint,
   children,
+  className,
 }: {
   label: React.ReactNode;
   hint?: string;
   children: React.ReactElement<{ id?: string }>;
+  /** 남는 세로 공간을 컨트롤이 가져가야 할 때 사용 (예: 발송 본문) */
+  className?: string;
 }) {
   const generated = React.useId();
   const id = children.props.id ?? generated; // 라벨과 컨트롤이 동일 id 사용
   return (
-    <div className="space-y-1">
+    <div className={cn("space-y-1", className)}>
       <Label htmlFor={id}>{label}</Label>
       {React.cloneElement(children, { id })}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
