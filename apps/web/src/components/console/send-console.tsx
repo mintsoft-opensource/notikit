@@ -7,6 +7,7 @@ import { Send, Info, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
 import { DataRow } from "@/components/ui/data-row";
@@ -34,7 +35,20 @@ export function SendConsole({ projectId }: { projectId?: string }) {
   const [body, setBody] = React.useState("");
   const [deepLink, setDeepLink] = React.useState("");
   const [processNow, setProcessNow] = React.useState(true);
-  const [scheduleAt, setScheduleAt] = React.useState("");
+  /**
+   * 예약 발송은 날짜와 시각을 따로 받는다. DatePicker 는 `YYYY-MM-DD` 만 다루고,
+   * 네이티브 datetime-local 은 브라우저마다 생김새가 달라 콘솔 톤과 어긋난다.
+   * 아래 scheduleAt 은 둘을 합친 파생값이라 이후 로직은 그대로 쓴다.
+   */
+  const [scheduleDate, setScheduleDate] = React.useState("");
+  const [scheduleTime, setScheduleTime] = React.useState("09:00");
+  const scheduleAt = scheduleDate ? `${scheduleDate}T${scheduleTime}` : "";
+  /** 과거 날짜는 고르지 못하게. 렌더마다 새로 만들되 날짜 단위라 변동이 없다. */
+  const todayStr = React.useMemo(() => {
+    const d = new Date();
+    const p2 = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  }, []);
   const [sending, setSending] = React.useState(false);
   const [result, setResult] = React.useState<SendResult | null>(null);
 
@@ -137,7 +151,25 @@ export function SendConsole({ projectId }: { projectId?: string }) {
               <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
             </Field>
             <Field label={t("scheduleLabel")} hint={t("scheduleHint")}>
-              <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} />
+              <div className="flex gap-2">
+                <DatePicker
+                  className="flex-1"
+                  value={scheduleDate}
+                  onChange={setScheduleDate}
+                  min={todayStr}
+                  placeholder={t("scheduleDatePlaceholder")}
+                  clearLabel={t("scheduleClear")}
+                />
+                {/* 날짜가 없으면 시각만 골라도 의미가 없다 */}
+                <Input
+                  type="time"
+                  aria-label={t("scheduleTimeLabel")}
+                  className="w-32"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  disabled={!scheduleDate}
+                />
+              </div>
             </Field>
           </div>
 

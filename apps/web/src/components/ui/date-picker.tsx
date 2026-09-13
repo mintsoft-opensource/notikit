@@ -73,13 +73,15 @@ export function DatePicker({
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <div className={cn("flex items-center gap-1", className)}>
+      {/* 폭은 래퍼가 정한다. 기본 w-40 이라 기존 사용처는 그대로고,
+          className 으로 flex-1 등을 주면 버튼이 따라 늘어난다. */}
+      <div className={cn("flex w-40 items-center gap-1", className)}>
         <Popover.Trigger asChild>
           <button
             id={id}
             type="button"
             className={cn(
-              "flex h-9 w-40 items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-sm shadow-sm transition-colors",
+              "flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-sm shadow-sm transition-colors",
               "focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
               selected ? "text-foreground" : "text-muted-foreground"
             )}

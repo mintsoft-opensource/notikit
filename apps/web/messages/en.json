@@ -211,7 +211,10 @@
     "resultMessageId": "Message ID",
     "resultScheduledAt": "Scheduled for",
     "resultViewLogs": "View logs",
-    "resultStatus": "Status"
+    "resultStatus": "Status",
+    "scheduleDatePlaceholder": "Pick a date",
+    "scheduleClear": "Clear",
+    "scheduleTimeLabel": "Scheduled time"
   },
   "settings": {
     "title": "Settings",

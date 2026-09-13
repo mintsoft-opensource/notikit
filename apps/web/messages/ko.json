@@ -211,7 +211,10 @@
     "resultMessageId": "메시지 ID",
     "resultScheduledAt": "예약 시각",
     "resultViewLogs": "로그 보기",
-    "resultStatus": "상태"
+    "resultStatus": "상태",
+    "scheduleDatePlaceholder": "날짜 선택",
+    "scheduleClear": "지우기",
+    "scheduleTimeLabel": "예약 시각"
   },
   "settings": {
     "title": "설정",
