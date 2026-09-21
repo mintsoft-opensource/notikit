@@ -140,7 +140,6 @@ export function SendConsole({ projectId }: { projectId?: string }) {
               <Select value={type} onChange={(e) => setType(e.target.value as SendType)}>
                 <option value="single">{t("typeSingle")}</option>
                 <option value="topic">{t("typeTopic")}</option>
-                <option value="segment">{t("typeSegment")}</option>
                 <option value="broadcast">{t("typeBroadcast")}</option>
               </Select>
             </Field>

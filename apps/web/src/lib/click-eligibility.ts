@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { getDb } from "@/db/client";
-import { devices, pushUsers, segments, subscriptions, topics, type PushLog } from "@/db/schema";
+import { devices, pushUsers, subscriptions, topics, type PushLog } from "@/db/schema";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -53,42 +53,38 @@ export async function isPlausibleRecipient(db: Db, log: PushLog, device: ClickDe
     return u?.id === userId;
   }
 
-  if (log.type === "topic") {
+  // 'segment' 는 통합 이전 로그 — 같은 이름의 토픽으로 흡수됐으므로 같은 경로를 탄다.
+  if (log.type === "topic" || log.type === "segment") {
+    const topic = (
+      await db
+        .select({ id: topics.id, rules: topics.rules })
+        .from(topics)
+        .where(and(eq(topics.projectId, log.projectId), eq(topics.name, log.target)))
+        .limit(1)
+    )[0];
+    if (!topic) return false;
+
+    // 규칙식 그룹: 명단이 없으므로 이 기기의 유저가 지금도 규칙에 맞는지로 근사한다.
+    if (topic.rules && topic.rules.length > 0) {
+      if (!userId) return false;
+      const conds = [eq(devices.id, deviceId), eq(devices.projectId, log.projectId)];
+      for (const r of topic.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
+      const row = (
+        await db
+          .select({ id: devices.id })
+          .from(devices)
+          .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+          .where(and(...conds))
+          .limit(1)
+      )[0];
+      return Boolean(row);
+    }
+
     const row = (
       await db
         .select({ id: subscriptions.id })
         .from(subscriptions)
-        .innerJoin(topics, eq(subscriptions.topicId, topics.id))
-        .where(
-          and(
-            eq(topics.projectId, log.projectId),
-            eq(topics.name, log.target),
-            eq(subscriptions.deviceId, deviceId)
-          )
-        )
-        .limit(1)
-    )[0];
-    return Boolean(row);
-  }
-
-  if (log.type === "segment") {
-    if (!userId) return false;
-    const seg = (
-      await db
-        .select({ rules: segments.rules })
-        .from(segments)
-        .where(and(eq(segments.projectId, log.projectId), eq(segments.name, log.target)))
-        .limit(1)
-    )[0];
-    if (!seg) return false;
-    const conds = [eq(devices.id, deviceId), eq(devices.projectId, log.projectId)];
-    for (const r of seg.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
-    const row = (
-      await db
-        .select({ id: devices.id })
-        .from(devices)
-        .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
-        .where(and(...conds))
+        .where(and(eq(subscriptions.topicId, topic.id), eq(subscriptions.deviceId, deviceId)))
         .limit(1)
     )[0];
     return Boolean(row);

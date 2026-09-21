@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, or, lt, lte, gt, isNull, inArray, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, notifications, segments, type PushLog } from "@/db/schema";
+import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, notifications, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import { sendToTokens } from "@/lib/fcm";
 import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
 import { recordUninstalls, markVerified } from "@/lib/device-events";
+import { attrConds, isRuleFilled, type TopicRule } from "@/lib/topic-membership";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -59,6 +60,26 @@ async function loadSuppression(db: Db, projectId: string): Promise<Set<string>> 
   return blocked;
 }
 
+/**
+ * 토픽 해석 — 토픽 하나가 두 방식 중 하나로 명단을 갖는다.
+ *
+ * `rules` 가 비어 있으면 구독식으로 본다. 규칙 0개를 규칙식으로 받으면
+ * "조건 없음 = 전원"이 되어 실수로 전체 발송이 된다. 빈 배열은 API 에서도 막지만,
+ * 과거 데이터나 직접 UPDATE 로 들어올 수 있어 여기서도 한 번 더 막는다.
+ */
+type Group =
+  | { kind: "rules"; rules: TopicRule[] }
+  | { kind: "subs"; topicId: string };
+
+async function resolveGroup(db: Db, projectId: string, name: string): Promise<Group | null> {
+  const t = (
+    await db.select({ id: topics.id, rules: topics.rules }).from(topics)
+      .where(and(eq(topics.projectId, projectId), eq(topics.name, name))).limit(1)
+  )[0];
+  if (!t) return null;
+  return isRuleFilled(t.rules) ? { kind: "rules", rules: t.rules } : { kind: "subs", topicId: t.id };
+}
+
 /** 대상 토큰을 페이지 단위로 스트리밍 (broadcast/topic 대량 대응) */
 async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
   if (log.type === "single" && log.target) {
@@ -74,40 +95,35 @@ async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
     return;
   }
 
-  // 세그먼트: 유저 속성 규칙(AND) 매칭 → 해당 유저의 활성 디바이스 (keyset)
-  if (log.type === "segment" && log.target) {
-    const seg = (
-      await db.select({ rules: segments.rules }).from(segments)
-        .where(and(eq(segments.projectId, log.projectId), eq(segments.name, log.target))).limit(1)
-    )[0];
-    if (!seg) return;
-    const conds: SQL[] = [eq(devices.projectId, log.projectId), eq(devices.isActive, true)];
-    for (const r of seg.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
-
-    let cur = "00000000-0000-0000-0000-000000000000";
-    for (;;) {
-      const rows = await db
-        .select({ id: devices.id, token: devices.token }).from(devices)
-        .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
-        .where(and(...conds, gt(devices.id, cur)))
-        .orderBy(devices.id).limit(PAGE);
-      if (rows.length === 0) break;
-      yield rows.map((r) => r.token);
-      cur = rows[rows.length - 1].id;
-      if (rows.length < PAGE) break;
-    }
-    return;
-  }
-
+  // 토픽: 구독식이면 subscriptions 를, 규칙식이면 유저 속성을 탄다.
+  // 'segment' 는 통합 이전에 쌓인 로그 — 같은 이름의 토픽으로 흡수됐으므로 같은 경로로 처리한다.
   let topicId: string | null = null;
-  if (log.type === "topic") {
+  if (log.type === "topic" || log.type === "segment") {
     if (!log.target) return;
-    const t = (
-      await db.select({ id: topics.id }).from(topics)
-        .where(and(eq(topics.projectId, log.projectId), eq(topics.name, log.target))).limit(1)
-    )[0];
-    if (!t) return;
-    topicId = t.id;
+    const group = await resolveGroup(db, log.projectId, log.target);
+    if (!group) return;
+
+    if (group.kind === "rules") {
+      const conds: SQL[] = [
+        eq(devices.projectId, log.projectId),
+        eq(devices.isActive, true),
+        ...attrConds(group.rules),
+      ];
+      let cur = "00000000-0000-0000-0000-000000000000";
+      for (;;) {
+        const rows = await db
+          .select({ id: devices.id, token: devices.token }).from(devices)
+          .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+          .where(and(...conds, gt(devices.id, cur)))
+          .orderBy(devices.id).limit(PAGE);
+        if (rows.length === 0) break;
+        yield rows.map((r) => r.token);
+        cur = rows[rows.length - 1].id;
+        if (rows.length < PAGE) break;
+      }
+      return;
+    }
+    topicId = group.topicId;
   }
 
   // keyset 페이지네이션 (devices.id 커서) — 결정적·deep-page 성능 안정
@@ -177,35 +193,25 @@ async function countAudience(db: Db, log: PushLog): Promise<{ users: number; dev
     return tally(rows);
   }
 
-  if (log.type === "topic") {
+  if (log.type === "topic" || log.type === "segment") {
     if (!log.target) return { users: 0, devices: 0 };
-    const t = (
-      await db.select({ id: topics.id }).from(topics)
-        .where(and(eq(topics.projectId, log.projectId), eq(topics.name, log.target))).limit(1)
-    )[0];
-    if (!t) return { users: 0, devices: 0 };
+    const group = await resolveGroup(db, log.projectId, log.target);
+    if (!group) return { users: 0, devices: 0 };
+
+    if (group.kind === "rules") {
+      const rows = await db
+        .select({ userId: devices.userId, token: devices.token })
+        .from(devices)
+        .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+        .where(and(...base, ...attrConds(group.rules)));
+      return tally(rows);
+    }
+
     const rows = await db
       .select({ userId: devices.userId, token: devices.token })
       .from(subscriptions)
       .innerJoin(devices, eq(subscriptions.deviceId, devices.id))
-      .where(and(eq(subscriptions.topicId, t.id), ...base));
-    return tally(rows);
-  }
-
-  if (log.type === "segment") {
-    if (!log.target) return { users: 0, devices: 0 };
-    const seg = (
-      await db.select({ rules: segments.rules }).from(segments)
-        .where(and(eq(segments.projectId, log.projectId), eq(segments.name, log.target))).limit(1)
-    )[0];
-    if (!seg) return { users: 0, devices: 0 };
-    const conds: SQL[] = [...base];
-    for (const r of seg.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
-    const rows = await db
-      .select({ userId: devices.userId, token: devices.token })
-      .from(devices)
-      .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
-      .where(and(...conds));
+      .where(and(eq(subscriptions.topicId, group.topicId), ...base));
     return tally(rows);
   }
 

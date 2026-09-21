@@ -113,6 +113,9 @@ export const openapi = {
       post: {
         tags: ["App SDK"],
         summary: "토픽 구독",
+        description:
+          "token 이면 그 기기 하나, external_id 면 그 사람의 활성 기기 전부. 둘 중 하나만 보낸다. " +
+          "없는 그룹은 자동 생성된다. 규칙식 그룹은 명단이 자동으로 정해지므로 409.",
         security: [{ apiKey: [] }],
         requestBody: {
           required: true,
@@ -120,13 +123,57 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["topic", "token"],
-                properties: { topic: { type: "string" }, token: { type: "string" } },
+                required: ["topic"],
+                properties: {
+                  topic: { type: "string", minLength: 1, maxLength: 255 },
+                  token: { type: "string", description: "기기 하나. external_id 와 배타." },
+                  external_id: { type: "string", description: "그 사람의 활성 기기 전부. token 과 배타." },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret). external_id 를 보낼 때 필수." },
+                },
               },
             },
           },
         },
-        responses: { "200": { description: "구독됨" }, "404": { description: "디바이스 없음" } },
+        responses: {
+          "200": { description: "구독됨" },
+          "403": { description: "external_id 에 identity_hash 누락·불일치" },
+          "404": { description: "디바이스 또는 유저 없음" },
+          "409": { description: "규칙식 그룹 — 구독으로 넣을 수 없음" },
+          "422": { description: "token 과 external_id 중 정확히 하나가 필요" },
+        },
+      },
+    },
+    "/api/v1/topics/unsubscribe": {
+      post: {
+        tags: ["App SDK"],
+        summary: "토픽 구독 해지",
+        description:
+          "subscribe 와 같은 본문. 구독과 달리 없는 그룹을 만들지 않는다 — 해지 요청으로 그룹이 생기면 안 된다.",
+        security: [{ apiKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["topic"],
+                properties: {
+                  topic: { type: "string", minLength: 1, maxLength: 255 },
+                  token: { type: "string", description: "기기 하나. external_id 와 배타." },
+                  external_id: { type: "string", description: "그 사람의 활성 기기 전부. token 과 배타." },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret). external_id 를 보낼 때 필수." },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "해지됨" },
+          "403": { description: "external_id 에 identity_hash 누락·불일치" },
+          "404": { description: "그룹·디바이스·유저 없음" },
+          "409": { description: "규칙식 그룹 — 구독으로 뺄 수 없음" },
+          "422": { description: "token 과 external_id 중 정확히 하나가 필요" },
+        },
       },
     },
     "/api/v1/messages": {
@@ -147,9 +194,11 @@ export const openapi = {
                   type: {
                     type: "string",
                     enum: ["single", "broadcast", "topic", "segment"],
-                    description: "single/topic/segment 는 target 필수, broadcast 는 전체 발송",
+                    description:
+                      "single/topic 은 target 필수, broadcast 는 전체 발송. " +
+                      "segment 는 통합 전 이름으로, topic 과 똑같이 동작한다(신규 연동은 topic 을 쓸 것).",
                   },
-                  target: { type: "string", maxLength: 255, description: "external_id(single)/topic 이름/segment 이름" },
+                  target: { type: "string", maxLength: 255, description: "external_id(single) 또는 토픽 이름(topic)" },
                   scheduled_at: { type: "string", format: "date-time", description: "예약 발송 시각(ISO8601). 미지정 시 방해금지 시간대 규칙 적용" },
                   deep_link: { type: "string", format: "uri", maxLength: 2048 },
                   data: { type: "object", additionalProperties: true, description: "커스텀 데이터 페이로드(최대 8KB)" },
@@ -370,17 +419,18 @@ export const openapi = {
         responses: { "200": { description: "저장됨" }, "422": { description: "유효하지 않은 설정" } },
       },
     },
-    "/api/admin/projects/{id}/segments": {
+    "/api/admin/projects/{id}/audience/topics": {
       get: {
         tags: ["Web Admin"],
-        summary: "세그먼트 목록",
+        summary: "토픽 목록",
         security: [{ adminToken: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        responses: { "200": { description: "목록" } },
+        responses: { "200": { description: "목록 — rules 가 있으면 규칙식, 없으면 구독식" } },
       },
       post: {
         tags: ["Web Admin"],
-        summary: "세그먼트 생성 (속성 매칭 규칙)",
+        summary: "토픽 생성",
+        description: "rules 를 주면 규칙식, 안 주면 구독식. 만든 뒤에는 방식을 바꿀 수 없다.",
         security: [{ adminToken: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         requestBody: {
@@ -394,6 +444,60 @@ export const openapi = {
                   name: { type: "string", minLength: 1, maxLength: 120 },
                   rules: {
                     type: "array",
+                    minItems: 1,
+                    maxItems: 20,
+                    description: "AND 로 묶인 속성 동등 조건. 0개는 전체 발송이 되므로 허용하지 않는다.",
+                    items: {
+                      type: "object",
+                      required: ["attribute", "value"],
+                      properties: { attribute: { type: "string", maxLength: 64 }, value: { type: "string", maxLength: 255 } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "생성됨" },
+          "200": { description: "같은 이름·같은 방식의 그룹이 이미 있음" },
+          "409": { description: "같은 이름인데 채우는 방식이 다름" },
+        },
+      },
+    },
+    "/api/admin/projects/{id}/audience/topics/{topicId}": {
+      get: {
+        tags: ["Web Admin"],
+        summary: "토픽 단건 (+ 대상 규모)",
+        security: [{ adminToken: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "topicId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: { "200": { description: "그룹 + deviceCount/userCount" }, "404": { description: "없음" } },
+      },
+      patch: {
+        tags: ["Web Admin"],
+        summary: "규칙 수정",
+        description:
+          "규칙식 그룹의 조건만 바꾼다. 이름은 바꿀 수 없다 — 발송 로그가 이름으로 대상을 찾아서, " +
+          "바꾸면 예약된 발송이 0명에게 나간다.",
+        security: [{ adminToken: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "topicId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["rules"],
+                properties: {
+                  rules: {
+                    type: "array",
+                    minItems: 1,
                     maxItems: 20,
                     items: {
                       type: "object",
@@ -406,7 +510,21 @@ export const openapi = {
             },
           },
         },
-        responses: { "201": { description: "생성됨" } },
+        responses: {
+          "200": { description: "저장됨" },
+          "404": { description: "없음" },
+          "409": { description: "구독식 그룹 — 고칠 규칙이 없음" },
+        },
+      },
+      delete: {
+        tags: ["Web Admin"],
+        summary: "토픽 삭제",
+        security: [{ adminToken: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "topicId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: { "200": { description: "삭제됨 — 구독은 cascade" }, "404": { description: "없음" } },
       },
     },
     "/api/admin/projects/{id}/webhooks": {

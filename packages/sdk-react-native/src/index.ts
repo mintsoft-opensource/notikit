@@ -37,6 +37,11 @@ export class NotikitReactNative {
     return this.client.subscribe(topic, fcmToken);
   }
 
+  /** 알림 설정 토글을 끄는 경로 — 이게 없으면 켠 토픽을 앱에서 끌 수 없다 */
+  unsubscribe(topic: string, fcmToken: string) {
+    return this.client.unsubscribe(topic, fcmToken);
+  }
+
   get core(): NotikitClient {
     return this.client;
   }

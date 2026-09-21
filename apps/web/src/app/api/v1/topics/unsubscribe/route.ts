@@ -8,13 +8,18 @@ import {
   verifyTarget,
   resolveDevices,
   resolveWritableTopic,
-  subscribeDevices,
+  unsubscribeDevices,
   isFailure,
 } from "@/lib/topic-membership";
 
 export const dynamic = "force-dynamic";
 
-/** 토픽 구독 (public: api-key). token 이면 기기 하나, external_id 면 그 사람의 활성 기기 전부. */
+/**
+ * 토픽 구독 해지 (public: api-key). token 이면 기기 하나, external_id 면 그 사람의 활성 기기 전부.
+ *
+ * 구독과 달리 토픽을 만들지 않는다 — 없는 토픽에서 빼 달라는 요청은 오타일 가능성이 높고,
+ * 여기서 만들면 "해지했더니 토픽이 생겼다"가 된다.
+ */
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
@@ -37,11 +42,9 @@ export async function POST(req: Request) {
   const target = await resolveDevices(db, project.id, b);
   if (isFailure(target)) return fail(target.error, target.status);
 
-  // 토픽 자동 생성은 기기를 확인한 뒤에 한다. 먼저 만들면 404 로 끝난 요청이
-  // 빈 토픽을 남긴다.
-  const topic = await resolveWritableTopic(db, project.id, b.topic, true);
+  const topic = await resolveWritableTopic(db, project.id, b.topic, false);
   if (isFailure(topic)) return fail(topic.error, topic.status);
 
-  const added = await subscribeDevices(db, topic.topicId, target.deviceIds);
-  return ok({ subscribed: true, topic: b.topic, devices: target.deviceIds.length, added });
+  const removed = await unsubscribeDevices(db, topic.topicId, target.deviceIds);
+  return ok({ unsubscribed: true, topic: b.topic, devices: target.deviceIds.length, removed });
 }

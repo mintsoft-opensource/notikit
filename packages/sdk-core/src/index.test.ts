@@ -42,6 +42,15 @@ describe("NotikitClient", () => {
     expect(body.deep_link).toBe("https://a/1");
   });
 
+  it("subscribe by externalId sends identity_hash with it", async () => {
+    const fetch = mockFetch({ success: true, data: { topic: "vip", devices: 2 }, error: null });
+    const client = new NotikitClient({ ...base, fetch });
+    await client.subscribe("vip", { externalId: "u1", identityHash: "h1" });
+    const [url, init] = (fetch as any).mock.calls[0];
+    expect(url).toBe("https://push.test/api/v1/topics/subscribe");
+    expect(JSON.parse(init.body)).toEqual({ topic: "vip", external_id: "u1", identity_hash: "h1" });
+  });
+
   it("throws NotikitError on failure envelope", async () => {
     const fetch = mockFetch({ success: false, data: null, error: "Unauthorized" }, false, 401);
     const client = new NotikitClient({ ...base, fetch });

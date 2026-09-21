@@ -107,9 +107,19 @@ class Notikit {
     return _post('/api/v1/devices/ping', {'token': token});
   }
 
-  /// 토픽 구독
+  /// 토픽 구독.
+  ///
+  /// 규칙으로 채워지는 토픽은 명단이 자동으로 정해지므로 409 가 온다.
   Future<Map<String, dynamic>> subscribe(String topic, String token) {
     return _post('/api/v1/topics/subscribe', {'topic': topic, 'token': token});
+  }
+
+  /// 토픽 구독 해지.
+  ///
+  /// 알림 설정 토글을 끄는 경로다. 이게 없으면 유저가 한 번 켠 토픽을 앱에서 끌 수 없다.
+  /// 구독과 달리 없는 토픽을 만들지 않는다 — 없으면 404.
+  Future<Map<String, dynamic>> unsubscribe(String topic, String token) {
+    return _post('/api/v1/topics/unsubscribe', {'topic': topic, 'token': token});
   }
 
   /// 푸시 토큰 교체 (FirebaseMessaging.onTokenRefresh).

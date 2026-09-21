@@ -118,16 +118,18 @@ test.describe("smoke", () => {
     await expect(page.getByText("웹훅 배송")).toBeVisible();
   });
 
-  test("project sidebar renders project-scoped nav (발송/세그먼트/웹훅)", async ({ page }) => {
+  test("project sidebar renders project-scoped nav (발송/토픽/웹훅)", async ({ page }) => {
     await ensureLogin(page);
     const projectId = await firstProjectId(page);
     await page.goto(`/projects/${projectId}`);
     // 본문에도 발송 바로가기 버튼이 있으므로 사이드바 네비로 스코프
     const nav = page.getByRole("navigation");
     await expect(nav.getByRole("link", { name: "발송", exact: true })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "세그먼트", exact: true })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "토픽", exact: true })).toBeVisible();
     await expect(nav.getByRole("link", { name: "저니", exact: true })).toBeVisible();
     await expect(nav.getByRole("link", { name: "웹훅", exact: true })).toBeVisible();
+    // 세그먼트는 토픽으로 흡수됐다 — 메뉴가 남아 있으면 통합이 덜 된 것이다
+    await expect(nav.getByRole("link", { name: "세그먼트", exact: true })).toHaveCount(0);
   });
 
   test("tenant isolation: 세션 유저는 타 org 프로젝트에 접근 불가", async ({ page }) => {

@@ -17,9 +17,9 @@
 ### ✅ 구현됨 — 제품
 - **디바이스**: 업서트·멀티디바이스·메타(locale/timezone/country)·무효토큰 자동정리(전송응답 unregistered)
 - **Identity**: `identify`·유저 속성·`identity_hash`(HMAC) 검증
-- **메시징**: 개인(single)/토픽/세그먼트/broadcast, 예약발송(`scheduled_at`), 딥링크, A/B **변형 분배**, 카카오 폴백 플래그
+- **메시징**: 개인(single)/토픽/broadcast, 예약발송(`scheduled_at`), 딥링크, A/B **변형 분배**, 카카오 폴백 플래그
 - **억제리스트**(opt-out) · **In-app 인박스**(조회/읽음) · **Quiet hours**(프로젝트 UTC)
-- **세그먼트**(속성 동등 매칭) · **저니**(명시적 enroll + send/wait) · **카카오 알림톡 폴백**
+- **토픽 규칙식**(속성 동등 매칭) · **저니**(명시적 enroll + send/wait) · **카카오 알림톡 폴백**
 - **웹훅**(HMAC 서명 + 원자적 재시도) · **분석**(디바이스 활동/DAU·발송 집계) · rate limit
 - **멀티테넌시**(Org→Project, env 분리, 프로젝트별 Firebase 격리·AES-GCM)
 - **SDK**: core/web/react/react-native + android(Kotlin)/swift/flutter · **MCP**(5 tools) · OpenAPI 문서 · **log-only 모드**
@@ -74,7 +74,7 @@
 - **알림 선호센터**(토픽/카테고리 opt-in) `확장` — GDPR·개인정보 심사에서 요구될 수 있음
 
 ## C. 메시징
-- **개인/세그먼트/토픽 발송** `계약`
+- **개인/토픽 발송** `계약` — 토픽은 구독식·규칙식 둘 다 같은 경로
 - 템플릿 + **변수치환** `계약` — ⚠️ **토픽 브로드캐스트는 개인화 불가**(수신자별 개별 렌더링 필요)
 - **Rich push**(이미지·버튼·딥링크) · silent/data · 우선순위 · TTL/collapse `확장`
 - **딥링크** `계약` — payload `deep_link` + 네이티브 Universal/App Links
@@ -96,7 +96,7 @@
 > **CSV export는 온프렘에서 자주 요구된다.** 고객이 자기 BI로 가져가려 한다.
 
 ## F. 타게팅
-- **세그먼트**(속성 동등 매칭 구현됨, 행동·지역 규칙 미구현) `확장`
+- **토픽 규칙식**(속성 동등 매칭 구현됨, 행동·지역 규칙 미구현) `확장`
 - **Quiet hours** `계약`(구현됨) · 빈도 제한(fatigue) · 지역 타게팅 · 발송시간 최적화 `확장`
 
 ## G. 자동화 / 참여
@@ -138,7 +138,7 @@
 
 ## M. AI 기능
 - **AI 카피라이팅** `확장`
-- ML 발송시간 예측 · 세그먼트 자동제안 · 자동 번역 `후순위`
+- ML 발송시간 예측 · 토픽 규칙 자동제안 · 자동 번역 `후순위`
 
 ## N. 컴플라이언스
 - 수신거부/opt-out `계약`(구현됨)

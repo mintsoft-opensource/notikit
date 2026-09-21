@@ -6,7 +6,9 @@ export function PageHeader({
   actions,
   className,
 }: {
-  title: string;
+  // ReactNode 인 이유: 제목 옆에 상태 배지를 붙이는 화면이 있다(토픽 상세).
+  // h1 안에 span 이 들어가는 건 유효하고, 배지가 제목의 일부로 읽히는 게 맞다.
+  title: React.ReactNode;
   description?: string;
   actions?: React.ReactNode;
   className?: string;

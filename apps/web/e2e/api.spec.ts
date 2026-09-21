@@ -402,15 +402,16 @@ test.describe("App SDK API 전체 플로우", () => {
     expect((await inbox2.json()).data.unread).toBe(0);
   });
 
-  test("세그먼트: 속성 규칙(plan=pro) 매칭 유저만 대상", async ({ request }) => {
+  test("규칙식 그룹: 속성 규칙(plan=pro) 매칭 유저만 대상", async ({ request }) => {
     const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `seg-${Date.now()}` } });
     const cj = await created.json();
     const apiKey = cj.data.project.apiKey as string;
     const apiSecret = cj.data.api_secret as string;
     const pid = cj.data.project.id as string;
 
-    // 세그먼트 생성
-    await request.post(`/api/admin/projects/${pid}/segments`, { headers: { "x-admin-token": ADMIN }, data: { name: "pro-users", rules: [{ attribute: "plan", value: "pro" }] } });
+    // 규칙식 대상 그룹 생성
+    const mk = await request.post(`/api/admin/projects/${pid}/audience/topics`, { headers: { "x-admin-token": ADMIN }, data: { name: "pro-users", rules: [{ attribute: "plan", value: "pro" }] } });
+    expect(mk.status()).toBe(201);
 
     // pro 유저 + free 유저 등록/속성
     for (const [ext, plan] of [["pro-1", "pro"], ["free-1", "free"]] as const) {
@@ -419,13 +420,58 @@ test.describe("App SDK API 전체 플로우", () => {
       await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: h, attributes: { plan } } });
     }
 
-    // 세그먼트 발송 + 처리
-    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "s", body: "b", type: "segment", target: "pro-users" } });
+    // 규칙식 그룹은 구독으로 넣고 뺄 수 없다 — 명단이 자동으로 정해지므로
+    const sub = await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "pro-users", external_id: "free-1", identity_hash: idHash("free-1", apiSecret) } });
+    expect(sub.status()).toBe(409);
+
+    // 그룹 발송 + 처리
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "s", body: "b", type: "topic", target: "pro-users" } });
     await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
 
     const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
     const lj = await logs.json();
     expect(lj.data.logs[0].totalCount).toBe(1); // pro 유저 1명만
+  });
+
+  test("구독식 그룹: external_id 로 구독하면 그 사람의 기기가 전부 들어간다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `sub-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+
+    const ext = "multi-device";
+    const h = idHash(ext, apiSecret);
+    const stamp = Date.now();
+    for (const suffix of ["a", "b"]) {
+      await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `sub-${suffix}-${stamp}`, platform: "web", external_id: ext, identity_hash: h } });
+    }
+    await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: h } });
+
+    // 증명 없는 external_id 구독은 거부된다 — 공개 api-key 만으로 남의 기기를 넣고 빼지 못한다
+    const forged = await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", external_id: ext } });
+    expect(forged.status()).toBe(403);
+    const forgedUnsub = await request.post("/api/v1/topics/unsubscribe", { headers: { "api-key": apiKey }, data: { topic: "news", external_id: ext, identity_hash: "bad" } });
+    expect(forgedUnsub.status()).toBe(403);
+
+    // 사람 단위 구독 — 기기 2대가 한 번에 들어간다
+    const sub = await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", external_id: ext, identity_hash: h } });
+    expect(sub.status()).toBe(200);
+    expect((await sub.json()).data.added).toBe(2);
+
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "s", body: "b", type: "topic", target: "news" } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
+    expect((await logs.json()).data.logs[0].totalCount).toBe(2);
+
+    // 해지도 사람 단위 — 기기 2대가 한 번에 빠진다
+    const unsub = await request.post("/api/v1/topics/unsubscribe", { headers: { "api-key": apiKey }, data: { topic: "news", external_id: ext, identity_hash: h } });
+    expect(unsub.status()).toBe(200);
+    expect((await unsub.json()).data.removed).toBe(2);
+
+    // 없는 그룹에서 빼 달라는 요청은 그룹을 만들지 않는다
+    const missing = await request.post("/api/v1/topics/unsubscribe", { headers: { "api-key": apiKey }, data: { topic: "nope", external_id: ext, identity_hash: h } });
+    expect(missing.status()).toBe(404);
   });
 
   test("방해금지 시간대: quiet 구간 발송은 자동 예약", async ({ request }) => {

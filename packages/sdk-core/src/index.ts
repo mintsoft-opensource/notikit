@@ -5,6 +5,9 @@ import {
   type SendInput,
   type ReportClickInput,
   type ApiEnvelope,
+  type SubscribeTarget,
+  type TopicMembershipResult,
+  targetBody,
   NotikitError,
 } from "./types.js";
 
@@ -131,12 +134,32 @@ export class NotikitClient {
     });
   }
 
-  /** 토픽 구독 */
-  subscribe(topic: string, token: string) {
-    return this.request<{ subscribed: boolean; topic: string }>(
-      "/api/v1/topics/subscribe",
-      { topic, token }
-    );
+  /**
+   * 토픽 구독.
+   *
+   * 대상은 토큰(기기 하나) 또는 external_id(그 사람의 활성 기기 전부) 중 하나다.
+   * 앱에서는 자기 토큰을 아니까 토큰을, 백엔드에서 "이 사람을 넣어줘" 할 때는
+   * external_id 를 쓴다. 후자는 기기 목록을 백엔드가 관리하지 않아도 된다.
+   *
+   * 규칙으로 채워지는 토픽은 명단이 자동으로 정해지므로 409 가 온다.
+   */
+  subscribe(topic: string, target: SubscribeTarget) {
+    return this.request<TopicMembershipResult>("/api/v1/topics/subscribe", {
+      topic,
+      ...targetBody(target),
+    });
+  }
+
+  /**
+   * 토픽 구독 해지. subscribe 와 같은 대상 지정을 쓴다.
+   *
+   * 없는 토픽이면 404 다 — 구독과 달리 토픽을 만들지 않는다.
+   */
+  unsubscribe(topic: string, target: SubscribeTarget) {
+    return this.request<TopicMembershipResult>("/api/v1/topics/unsubscribe", {
+      topic,
+      ...targetBody(target),
+    });
   }
 
   /** 푸시 전송 (서버→디바이스; 보통 백엔드에서 호출) */

@@ -121,11 +121,21 @@ export const devices = pgTable("devices", {
   projIdx: index("devices_project_idx").on(t.projectId),
 }));
 
-/** 토픽 */
+/**
+ * 토픽 = 이름 붙인 수신자 그룹. 명단을 채우는 방식이 두 가지다.
+ *
+ * - `rules` 가 null  → **구독식**. 유저가 직접 구독하고 `subscriptions` 에 행이 쌓인다.
+ * - `rules` 가 있으면 → **규칙식**. 명단을 저장하지 않고 발송 시점에 유저 속성으로 뽑는다.
+ *
+ * 규칙식은 구독 API 로 건드릴 수 없다(자동으로 채워지는 그룹에 손으로 넣으면
+ * 둘 중 뭐가 맞는지 알 수 없어진다). 구독 라우트에서 409 로 막는다.
+ */
 export const topics = pgTable("topics", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  // 규칙 (AND): [{ attribute, value }] — attributes->>attribute = value
+  rules: jsonb("rules").$type<{ attribute: string; value: string }[] | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   nameIdx: uniqueIndex("topics_name_idx").on(t.projectId, t.name),
@@ -339,17 +349,7 @@ export const journeyRuns = pgTable("journey_runs", {
   uniqRun: uniqueIndex("journey_runs_uniq_idx").on(t.journeyId, t.userId),
 }));
 
-/** 세그먼트 — 유저 속성 규칙 기반 오디언스 */
-export const segments = pgTable("segments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  // 규칙 (AND): [{ attribute, value }] — attributes->>attribute = value
-  rules: jsonb("rules").$type<{ attribute: string; value: string }[]>().notNull().default([]),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => ({
-  nameIdx: uniqueIndex("segments_name_idx").on(t.projectId, t.name),
-}));
+// segments 테이블은 topics.rules 로 흡수됐다(0015). 실제 DROP 은 0016.
 
 /** In-app 인박스 — 유저별 알림 이력 (푸시 놓쳐도 앱에서 확인) */
 export const notifications = pgTable("notifications", {

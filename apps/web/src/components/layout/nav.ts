@@ -110,7 +110,6 @@ export function projectNavGroups(id: string): NavGroup[] {
     {
       labelKey: "engagement",
       items: [
-        { labelKey: "segments", href: `/projects/${id}/segments`, icon: Users },
         { labelKey: "journeys", href: `/projects/${id}/journeys`, icon: GitBranch },
         { labelKey: "webhooks", href: `/projects/${id}/webhooks`, icon: Webhook },
       ],

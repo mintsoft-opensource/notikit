@@ -54,6 +54,37 @@ export type SendInput =
   | (SendBase & { type: "single" | "topic"; target: string })
   | (SendBase & { type: "broadcast"; target?: string });
 
+/**
+ * 토픽 구독·해지 대상.
+ *
+ * 문자열이면 토큰이다 — 기존 `subscribe(topic, token)` 호출을 그대로 살리기 위해서다.
+ * 백엔드에서 "이 사람을" 넣고 뺄 때는 `{ externalId }` 를 쓴다. 그 사람의 활성 기기
+ * 전부가 대상이 되므로, 기기 목록을 백엔드가 따로 관리하지 않아도 된다.
+ * 공개 api-key 만으로 남의 기기를 넣고 빼지 못하도록 identityHash 가 필수다.
+ */
+export type SubscribeTarget = string | { token: string } | { externalId: string; identityHash: string };
+
+export interface TopicMembershipResult {
+  topic: string;
+  /** 대상으로 잡힌 기기 수 */
+  devices: number;
+  /** 실제로 추가된 구독 수 (이미 구독 중이면 0) */
+  added?: number;
+  /** 실제로 제거된 구독 수 */
+  removed?: number;
+  subscribed?: boolean;
+  unsubscribed?: boolean;
+}
+
+/** SubscribeTarget → 요청 본문. 서버는 token 과 external_id 중 정확히 하나를 요구한다. */
+export function targetBody(
+  target: SubscribeTarget
+): { token: string } | { external_id: string; identity_hash: string } {
+  if (typeof target === "string") return { token: target };
+  if ("token" in target) return { token: target.token };
+  return { external_id: target.externalId, identity_hash: target.identityHash };
+}
+
 export interface ReportClickInput {
   /** 푸시 페이로드의 data.notikit_log_id */
   logId: string;

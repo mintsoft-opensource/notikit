@@ -84,6 +84,31 @@ describe("NotikitReactNative", () => {
     expect(body).toEqual({ topic: "news", token: "fcm_token_3" });
   });
 
+  it("unsubscribe posts topic and token to the unsubscribe endpoint", async () => {
+    const fetch = mockFetch(okEnvelope({ unsubscribed: true, topic: "news", removed: 1 }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+
+    const res = await rn.unsubscribe("news", "fcm_token_3");
+
+    expect(res).toEqual({ unsubscribed: true, topic: "news", removed: 1 });
+    const { url, body } = lastCall(fetch);
+    // 구독과 **다른** 경로여야 한다 — 같은 경로로 보내면 끄기가 켜기가 된다
+    expect(url).toBe("https://push.test/api/v1/topics/unsubscribe");
+    expect(body).toEqual({ topic: "news", token: "fcm_token_3" });
+  });
+
+  it("subscribe by externalId sends external_id, not token", async () => {
+    const fetch = mockFetch(okEnvelope({ subscribed: true, topic: "vip", devices: 2, added: 2 }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+
+    await rn.core.subscribe("vip", { externalId: "user-9" });
+
+    const { body } = lastCall(fetch);
+    expect(body).toEqual({ topic: "vip", external_id: "user-9" });
+    // 서버는 token 과 external_id 중 정확히 하나만 받는다 — 둘 다 보내면 422
+    expect(body.token).toBeUndefined();
+  });
+
   it("throws NotikitError with server message on API failure", async () => {
     const fetch = mockFetch({ success: false, data: null, error: "Invalid api key" }, 401);
     const rn = new NotikitReactNative({ ...base, fetch });
