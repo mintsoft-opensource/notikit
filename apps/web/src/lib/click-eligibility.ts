@@ -39,6 +39,19 @@ export async function isPlausibleRecipient(db: Db, log: PushLog, device: ClickDe
 
   const { id: deviceId, userId } = device;
   if (log.type === "broadcast") return true;
+
+  if (log.type === "multi") {
+    if (!userId || !log.targets?.length) return false;
+    const u = (
+      await db
+        .select({ externalId: pushUsers.externalId })
+        .from(pushUsers)
+        .where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.id, userId)))
+        .limit(1)
+    )[0];
+    return Boolean(u && log.targets.includes(u.externalId));
+  }
+
   if (!log.target) return false;
 
   if (log.type === "single") {

@@ -3,12 +3,20 @@ import { pushLogs } from "@/db/schema";
 import { nextAllowedTime } from "@/lib/quiet-hours";
 import { z } from "zod";
 
+/** 다중 발송 한 건의 최대 인원 — 이보다 많으면 토픽으로 묶는 게 맞다 */
+export const MAX_MULTI_TARGETS = 1000;
+
+/** 발송 요청 본문 상한 — 기본 32KB 로는 다중 발송 1000명 목록이 들어가지 않는다 */
+export const MESSAGE_BODY_LIMIT = 96 * 1024;
+
 /** 푸시 발송 입력 스키마 (App SDK /v1/messages 와 Web Admin 발송이 공유) */
 export const messageSchema = z.object({
   title: z.string().min(1).max(255),
   body: z.string().min(1).max(4000),
-  type: z.enum(["single", "broadcast", "topic", "segment"]),
+  type: z.enum(["single", "multi", "broadcast", "topic", "segment"]),
   target: z.string().max(255).optional(),
+  /** type=multi 의 받는 사람. 중복은 서버에서 합친다. */
+  targets: z.array(z.string().min(1).max(255)).min(1).max(MAX_MULTI_TARGETS).optional(),
   scheduled_at: z.string().datetime().optional(),
   deep_link: z.string().url().max(2048).optional(),
   data: z
@@ -24,6 +32,13 @@ export const messageSchema = z.object({
 });
 
 export type MessageInput = z.infer<typeof messageSchema>;
+
+/** 타입별 대상 필드 검사 — 콘솔(admin)과 SDK(v1) 발송이 같은 규칙을 쓴다. null 이면 통과. */
+export function targetError(b: MessageInput): string | null {
+  if (b.type === "multi") return b.targets?.length ? null : "targets is required for type=multi";
+  if (b.type !== "broadcast" && !b.target) return "target is required unless type=broadcast";
+  return null;
+}
 
 export type EnqueueProject = { id: string; quietStartHour: number | null; quietEndHour: number | null };
 
@@ -49,7 +64,8 @@ export async function enqueuePush(project: EnqueueProject, b: MessageInput) {
     .values({
       projectId: project.id,
       type: b.type,
-      target: b.target,
+      target: b.type === "multi" ? null : b.target,
+      targets: b.type === "multi" ? [...new Set(b.targets)] : null,
       title: b.title,
       body: b.body,
       deepLink: b.deep_link,

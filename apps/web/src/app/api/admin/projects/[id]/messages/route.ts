@@ -5,7 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { requireProject, checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimit } from "@/lib/rate-limit";
-import { messageSchema, enqueuePush } from "@/lib/messages";
+import { messageSchema, enqueuePush, targetError, MESSAGE_BODY_LIMIT } from "@/lib/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   let payload: unknown;
   try {
-    payload = await readJsonLimited(req);
+    payload = await readJsonLimited(req, MESSAGE_BODY_LIMIT);
   } catch (e) {
     return e instanceof PayloadTooLargeError ? fail("Payload too large", 413) : fail("Invalid JSON", 400);
   }
@@ -41,9 +41,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  if (b.type !== "broadcast" && !b.target) {
-    return fail("target is required unless type=broadcast", 422);
-  }
+  const targetErr = targetError(b);
+  if (targetErr) return fail(targetErr, 422);
 
   const { message, scheduled } = await enqueuePush(project, b);
   return ok({ message }, { scheduled }, 202);

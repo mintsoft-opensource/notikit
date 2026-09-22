@@ -49,9 +49,13 @@ interface SendBase {
   data?: Record<string, unknown>;
 }
 
-/** 판별 유니온 — single/topic 은 target 필수, broadcast 는 선택 */
+/**
+ * 판별 유니온 — single/topic 은 target 필수, multi 는 targets(external_id 목록) 필수, broadcast 는 선택.
+ * title/body 에 `{{속성}}` 을 쓰면 받는 사람의 값으로 치환된다.
+ */
 export type SendInput =
   | (SendBase & { type: "single" | "topic"; target: string })
+  | (SendBase & { type: "multi"; targets: string[] })
   | (SendBase & { type: "broadcast"; target?: string });
 
 /**

@@ -9,6 +9,7 @@ import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
 import { recordUninstalls, markVerified } from "@/lib/device-events";
 import { attrConds, isRuleFilled, type TopicRule } from "@/lib/topic-membership";
+import { hasPlaceholders, renderTemplate, type Recipient } from "@/lib/personalize";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -80,6 +81,28 @@ async function resolveGroup(db: Db, projectId: string, name: string): Promise<Gr
   return isRuleFilled(t.rules) ? { kind: "rules", rules: t.rules } : { kind: "subs", topicId: t.id };
 }
 
+/** multi 발송의 받는 사람 → 존재하는 유저 id. 없는 아이디는 조용히 빠진다(분모에도 안 잡힌다). */
+async function resolveMultiUsers(db: Db, log: PushLog): Promise<string[]> {
+  const ids = log.targets ?? [];
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({ id: pushUsers.id }).from(pushUsers)
+    .where(and(eq(pushUsers.projectId, log.projectId), inArray(pushUsers.externalId, ids)));
+  return rows.map((r) => r.id);
+}
+
+/** 치환용 — 토큰마다 받는 사람의 아이디·속성. 익명 기기는 null(기본값으로 채워진다). */
+async function loadRecipients(db: Db, projectId: string, tokens: string[]): Promise<Map<string, Recipient>> {
+  const rows = await db
+    .select({ token: devices.token, externalId: pushUsers.externalId, attributes: pushUsers.attributes })
+    .from(devices)
+    .leftJoin(pushUsers, eq(devices.userId, pushUsers.id))
+    .where(and(eq(devices.projectId, projectId), inArray(devices.token, tokens)));
+  return new Map(
+    rows.map((r) => [r.token, r.externalId ? { externalId: r.externalId, attributes: r.attributes } : null])
+  );
+}
+
 /** 대상 토큰을 페이지 단위로 스트리밍 (broadcast/topic 대량 대응) */
 async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
   if (log.type === "single" && log.target) {
@@ -92,6 +115,17 @@ async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
       .select({ token: devices.token }).from(devices)
       .where(and(eq(devices.projectId, log.projectId), eq(devices.userId, user.id), eq(devices.isActive, true)));
     if (rows.length) yield rows.map((r) => r.token);
+    return;
+  }
+
+  if (log.type === "multi") {
+    const userIds = await resolveMultiUsers(db, log);
+    for (const ids of chunk(userIds, PAGE)) {
+      const rows = await db
+        .select({ token: devices.token }).from(devices)
+        .where(and(eq(devices.projectId, log.projectId), inArray(devices.userId, ids), eq(devices.isActive, true)));
+      if (rows.length) yield rows.map((r) => r.token);
+    }
     return;
   }
 
@@ -193,6 +227,15 @@ async function countAudience(db: Db, log: PushLog): Promise<{ users: number; dev
     return tally(rows);
   }
 
+  if (log.type === "multi") {
+    const userIds = await resolveMultiUsers(db, log);
+    if (userIds.length === 0) return { users: 0, devices: 0 };
+    const rows = await db
+      .select({ userId: devices.userId, token: devices.token }).from(devices)
+      .where(and(...base, inArray(devices.userId, userIds)));
+    return tally(rows);
+  }
+
   if (log.type === "topic" || log.type === "segment") {
     if (!log.target) return { users: 0, devices: 0 };
     const group = await resolveGroup(db, log.projectId, log.target);
@@ -261,6 +304,7 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     let failure = 0;
 
     const variants = log.variants ?? null;
+    const personalized = hasPlaceholders(log.title, log.body, ...(variants ?? []).flatMap((v) => [v.title, v.body]));
     const variantStats: Record<string, { sent: number; success: number }> = {};
     if (variants) variants.forEach((_, i) => (variantStats[String(i)] = { sent: 0, success: 0 }));
     const invalidAll: string[] = [];
@@ -297,35 +341,36 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
         return out;
       };
 
-      if (variants) {
-        // A/B: 토큰을 변형에 배정 후 각 변형 콘텐츠로 발송
-        const groups: string[][] = variants.map(() => []);
-        for (const t of tokens) groups[variantIndex(t, variants.length)].push(t);
-        for (let vi = 0; vi < variants.length; vi++) {
-          variantStats[String(vi)].sent += groups[vi].length;
-          if (logOnly || groups[vi].length === 0) continue;
-          const v = variants[vi];
-          const results = await mapLimit(splitByPlatform(groups[vi]), CONCURRENCY, (g) =>
-            sendToTokens(project!.id, sa!, g.batch, { title: v.title, body: v.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined }, false, g.dataOnly)
-          );
-          for (const r of results) {
-            success += r.success;
-            failure += r.failure;
-            variantStats[String(vi)].success += r.success;
-            invalidAll.push(...r.invalidTokens);
-            validAll.push(...r.validTokens);
-          }
-        }
-      } else if (!logOnly) {
-        const results = await mapLimit(splitByPlatform(tokens), CONCURRENCY, (g) =>
-          sendToTokens(project!.id, sa!, g.batch, { title: log.title, body: log.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined }, false, g.dataOnly)
-        );
-        for (const r of results) {
-          success += r.success;
-          failure += r.failure;
-          invalidAll.push(...r.invalidTokens);
-          validAll.push(...r.validTokens);
-        }
+      // 토큰마다 보낼 내용을 정한다: A/B 변형 배정 → 치환. 같은 내용끼리 묶어 배치로 보낸다.
+      // 치환이 없으면 변형 수만큼, 있으면 최악의 경우 사람 수만큼 묶음이 생긴다.
+      const recipients = personalized ? await loadRecipients(db, log.projectId, tokens) : null;
+      const groups = new Map<string, { vi: number | null; title: string; body: string; tokens: string[] }>();
+      for (const tok of tokens) {
+        const vi = variants ? variantIndex(tok, variants.length) : null;
+        const base = vi === null ? { title: log.title, body: log.body } : variants![vi];
+        const who = recipients?.get(tok) ?? null;
+        const title = recipients ? renderTemplate(base.title, who) : base.title;
+        const body = recipients ? renderTemplate(base.body, who) : base.body;
+        const key = `${vi}\u0000${title}\u0000${body}`;
+        const g = groups.get(key) ?? { vi, title, body, tokens: [] };
+        g.tokens.push(tok);
+        groups.set(key, g);
+      }
+
+      for (const g of groups.values()) if (g.vi !== null) variantStats[String(g.vi)].sent += g.tokens.length;
+      if (logOnly) continue;
+
+      const jobs = [...groups.values()].flatMap((g) => splitByPlatform(g.tokens).map((p) => ({ ...p, g })));
+      const results = await mapLimit(jobs, CONCURRENCY, (j) =>
+        sendToTokens(project!.id, sa!, j.batch, { title: j.g.title, body: j.g.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined }, false, j.dataOnly)
+          .then((r) => ({ r, vi: j.g.vi }))
+      );
+      for (const { r, vi } of results) {
+        success += r.success;
+        failure += r.failure;
+        if (vi !== null) variantStats[String(vi)].success += r.success;
+        invalidAll.push(...r.invalidTokens);
+        validAll.push(...r.validTokens);
       }
     }
     // 무효 토큰 비활성화 + **앱 삭제로 기록**. FCM 의 not-registered 판정이
@@ -342,31 +387,38 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       .returning({ id: pushLogs.id });
     if (finalized.length === 0) return reload(db, logId); // stale 재클레임에 의해 대체됨 → 부작용 스킵
 
-    // In-app 인박스 + 카카오 폴백: 단건(유저 타겟) 발송 (소유 확인 후 1회)
-    if (log.type === "single" && log.target) {
-      const u = (
-        await db.select({ id: pushUsers.id, phone: pushUsers.phone }).from(pushUsers)
-          .where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.externalId, log.target))).limit(1)
-      )[0];
-      if (u) {
-        await db.insert(notifications).values({
-          projectId: log.projectId,
-          userId: u.id,
-          title: log.title,
-          body: log.body,
-          deepLink: log.deepLink,
-          data: log.data,
-        });
-        // 카카오 알림톡 폴백: device 발송 성공 0 + phone + 설정 존재 시
-        if (log.kakaoFallback && u.phone && project?.kakaoConfigEnc && success === 0) {
-          try {
-            const cfg = parseKakaoConfig(decryptSecret(project.kakaoConfigEnc));
-            await assertSafeWebhookUrl(cfg.provider_url); // 발송 시점 SSRF 재검증(DNS 변경 대응)
-            const r = await sendAlimtalk(cfg, u.phone, `${log.title}\n${log.body}`);
-            if (r.ok) await db.update(pushLogs).set({ kakaoCount: 1 }).where(eq(pushLogs.id, logId));
-          } catch {
-            /* 폴백 실패는 무시 */
-          }
+    // In-app 인박스: 사람을 지정한 발송(single·multi)만 (소유 확인 후 1회)
+    if (log.type === "single" || log.type === "multi") {
+      const ids = log.type === "single" ? (log.target ? [log.target] : []) : (log.targets ?? []);
+      const users = ids.length
+        ? await db
+            .select({ id: pushUsers.id, externalId: pushUsers.externalId, attributes: pushUsers.attributes, phone: pushUsers.phone })
+            .from(pushUsers)
+            .where(and(eq(pushUsers.projectId, log.projectId), inArray(pushUsers.externalId, ids)))
+        : [];
+      if (users.length) {
+        await db.insert(notifications).values(
+          users.map((u) => ({
+            projectId: log.projectId,
+            userId: u.id,
+            title: renderTemplate(log.title, u),
+            body: renderTemplate(log.body, u),
+            deepLink: log.deepLink,
+            data: log.data,
+          }))
+        );
+      }
+
+      // 카카오 알림톡 폴백: 단건만. device 발송 성공 0 + phone + 설정 존재 시
+      const u = log.type === "single" ? users[0] : undefined;
+      if (u && log.kakaoFallback && u.phone && project?.kakaoConfigEnc && success === 0) {
+        try {
+          const cfg = parseKakaoConfig(decryptSecret(project.kakaoConfigEnc));
+          await assertSafeWebhookUrl(cfg.provider_url); // 발송 시점 SSRF 재검증(DNS 변경 대응)
+          const r = await sendAlimtalk(cfg, u.phone, `${renderTemplate(log.title, u)}\n${renderTemplate(log.body, u)}`);
+          if (r.ok) await db.update(pushLogs).set({ kakaoCount: 1 }).where(eq(pushLogs.id, logId));
+        } catch {
+          /* 폴백 실패는 무시 */
         }
       }
     }

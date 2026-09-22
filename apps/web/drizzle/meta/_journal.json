@@ -120,6 +120,13 @@
       "when": 1789090878492,
       "tag": "0016_drop_segments",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789090879492,
+      "tag": "0017_push_log_targets",
+      "breakpoints": true
     }
   ]
 }

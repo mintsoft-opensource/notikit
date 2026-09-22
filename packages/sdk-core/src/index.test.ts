@@ -51,6 +51,15 @@ describe("NotikitClient", () => {
     expect(JSON.parse(init.body)).toEqual({ topic: "vip", external_id: "u1", identity_hash: "h1" });
   });
 
+  it("send multi posts targets instead of target", async () => {
+    const fetch = mockFetch({ success: true, data: { message: {} }, error: null }, true, 202);
+    const client = new NotikitClient({ ...base, fetch });
+    await client.send({ title: "T", body: "{{name}}", type: "multi", targets: ["u1", "u2"] });
+    const body = JSON.parse((fetch as any).mock.calls[0][1].body);
+    expect(body).toMatchObject({ type: "multi", targets: ["u1", "u2"], body: "{{name}}" });
+    expect(body).not.toHaveProperty("target");
+  });
+
   it("throws NotikitError on failure envelope", async () => {
     const fetch = mockFetch({ success: false, data: null, error: "Unauthorized" }, false, 401);
     const client = new NotikitClient({ ...base, fetch });

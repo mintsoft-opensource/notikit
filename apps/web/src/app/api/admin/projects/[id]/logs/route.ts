@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { pushLogs } from "@/db/schema";
@@ -7,7 +7,7 @@ import { requireProject, checkOrigin } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
 
-const TYPES = ["single", "topic", "broadcast", "segment"] as const;
+const TYPES = ["single", "multi", "topic", "broadcast", "segment"] as const;
 type LogType = (typeof TYPES)[number];
 const LIMIT = 50;
 
@@ -57,7 +57,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const { from, to } = parseRange(url);
 
   const conds = [eq(pushLogs.projectId, id)];
-  if (type) conds.push(eq(pushLogs.type, type));
+  // "단건 푸시" 화면은 사람을 지정한 발송을 본다 — 한 명(single)이든 여러 명(multi)이든
+  if (type === "single") conds.push(inArray(pushLogs.type, ["single", "multi"]));
+  else if (type) conds.push(eq(pushLogs.type, type));
   if (from) conds.push(gte(pushLogs.createdAt, from));
   if (to) conds.push(lt(pushLogs.createdAt, to));
   if (cursor) conds.push(beforeCursor(pushLogs.createdAt, pushLogs.id, cursor));

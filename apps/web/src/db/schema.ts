@@ -177,8 +177,10 @@ export const suppressions = pgTable("suppressions", {
 export const pushLogs = pgTable("push_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  type: text("type").notNull(), // single | broadcast | topic
+  type: text("type").notNull(), // single | multi | broadcast | topic
   target: text("target"),
+  // multi 발송의 받는 사람(external_id) 목록
+  targets: jsonb("targets").$type<string[]>(),
   title: text("title").notNull(),
   body: text("body").notNull(),
   data: jsonb("data").$type<Record<string, unknown>>(),

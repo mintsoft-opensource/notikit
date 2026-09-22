@@ -189,16 +189,23 @@ export const openapi = {
                 type: "object",
                 required: ["title", "body", "type"],
                 properties: {
-                  title: { type: "string", maxLength: 255 },
-                  body: { type: "string", maxLength: 4000 },
+                  title: { type: "string", maxLength: 255, description: "`{{속성}}`·`{{external_id}}`·`{{속성|기본값}}` 치환 지원" },
+                  body: { type: "string", maxLength: 4000, description: "title 과 같은 치환 지원" },
                   type: {
                     type: "string",
-                    enum: ["single", "broadcast", "topic", "segment"],
+                    enum: ["single", "multi", "broadcast", "topic", "segment"],
                     description:
-                      "single/topic 은 target 필수, broadcast 는 전체 발송. " +
+                      "single/topic 은 target 필수, multi 는 targets 필수, broadcast 는 전체 발송. " +
                       "segment 는 통합 전 이름으로, topic 과 똑같이 동작한다(신규 연동은 topic 을 쓸 것).",
                   },
                   target: { type: "string", maxLength: 255, description: "external_id(single) 또는 토픽 이름(topic)" },
+                  targets: {
+                    type: "array",
+                    minItems: 1,
+                    maxItems: 1000,
+                    items: { type: "string", maxLength: 255 },
+                    description: "multi 의 받는 사람 external_id 목록. 없는 아이디는 건너뛴다.",
+                  },
                   scheduled_at: { type: "string", format: "date-time", description: "예약 발송 시각(ISO8601). 미지정 시 방해금지 시간대 규칙 적용" },
                   deep_link: { type: "string", format: "uri", maxLength: 2048 },
                   data: { type: "object", additionalProperties: true, description: "커스텀 데이터 페이로드(최대 8KB)" },

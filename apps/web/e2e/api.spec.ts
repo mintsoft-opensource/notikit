@@ -474,6 +474,69 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(missing.status()).toBe(404);
   });
 
+  test("다중 발송: 고른 사람들의 기기에만 가고, 없는 아이디는 건너뛴다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `multi-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const stamp = Date.now();
+
+    // a: 기기 2대, b: 1대, c: 목록에 없음(받으면 안 된다)
+    for (const [ext, n] of [["m-a", 2], ["m-b", 1], ["m-c", 1]] as const) {
+      const h = idHash(ext, apiSecret);
+      for (let i = 0; i < n; i++) {
+        await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `m-${ext}-${i}-${stamp}`, platform: "web", external_id: ext, identity_hash: h } });
+      }
+    }
+
+    const missing = await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { title: "t", body: "b", type: "multi" } });
+    expect(missing.status()).toBe(422);
+
+    const send = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "t", body: "b", type: "multi", targets: ["m-a", "m-b", "m-a", "nobody"] },
+    });
+    expect(send.status()).toBe(202);
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    const logs = await request.get(`/api/admin/projects/${pid}/logs?type=single`, { headers: { "x-admin-token": ADMIN } });
+    const log = (await logs.json()).data.logs[0];
+    // 중복 m-a 는 한 번, nobody 는 건너뛰고, m-c 는 목록에 없으므로 3대
+    expect(log.totalCount).toBe(3);
+
+    // 목록에 있던 사람만 인박스를 받는다
+    const inboxOf = async (ext: string) =>
+      (await (await request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${idHash(ext, apiSecret)}`, { headers: { "api-key": apiKey } })).json()).data.notifications.length;
+    expect(await inboxOf("m-a")).toBe(1);
+    expect(await inboxOf("m-c")).toBe(0);
+  });
+
+  test("치환: {{속성}} 은 받는 사람마다 바뀌고, 값이 없으면 기본값", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `tpl-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+
+    for (const [ext, attrs] of [["t-named", { name: "민지" }], ["t-anon", {}]] as const) {
+      const h = idHash(ext, apiSecret);
+      await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `tpl-${ext}-${Date.now()}`, platform: "web", external_id: ext, identity_hash: h } });
+      await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: h, attributes: attrs } });
+    }
+
+    await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "{{name|고객}}님", body: "아이디 {{external_id}}", type: "multi", targets: ["t-named", "t-anon"] },
+    });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    const first = async (ext: string) =>
+      (await (await request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${idHash(ext, apiSecret)}`, { headers: { "api-key": apiKey } })).json()).data.notifications[0];
+    expect(await first("t-named")).toMatchObject({ title: "민지님", body: "아이디 t-named" });
+    expect(await first("t-anon")).toMatchObject({ title: "고객님", body: "아이디 t-anon" });
+  });
+
   test("방해금지 시간대: quiet 구간 발송은 자동 예약", async ({ request }) => {
     const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `quiet-${Date.now()}` } });
     const cj = await created.json();
