@@ -6,14 +6,20 @@ import { toast } from "sonner";
 import { Send, Info, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
+import { Input, Textarea, Field } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
-import { ProjectPicker } from "@/components/console/shared";
 import { DataRow } from "@/components/ui/data-row";
 import { useProjects, adminApi } from "@/lib/admin-client";
+import { SendTarget, type SendType } from "@/components/console/send-target";
+import { SendPreview } from "@/components/console/send-preview";
+import { SendVariables, useAttributeKeys } from "@/components/console/send-variables";
+import type { PickedUser } from "@/components/console/send-user-picker";
+import { renderTemplate } from "@/lib/personalize";
 
-type SendType = "single" | "broadcast" | "topic" | "segment";
+const TITLE_KEY = { single: "titleSingle", multi: "titleMulti", broadcast: "titleBroadcast", topic: "titleTopic" } as const;
+const SUBTITLE_KEY = { single: "subtitleSingle", multi: "subtitleMulti", broadcast: "subtitleBroadcast", topic: "subtitleTopic" } as const;
+const TARGET_ERROR_KEY = { single: "errTargetUser", multi: "errTargetUsers", topic: "errTargetTopic", broadcast: "errTargetUser" } as const;
 
 /** 발송 뒤 하단에 남기는 결과 — 토스트는 사라지므로 확인할 수 있게 화면에 붙여둔다 */
 type SendResult = {
@@ -23,14 +29,21 @@ type SendResult = {
   error?: string;
 };
 
-/** 발송 콘솔 — projectId 고정(프로젝트 상세) 또는 피커(글로벌). admin 세션으로 발송(api-secret 불필요). */
-export function SendConsole({ projectId }: { projectId?: string }) {
+/**
+ * 발송 콘솔 — 발송 방식(개별·전체·토픽)마다 화면이 따로 있다. 방식을 폼 안의 선택지로 두면
+ * 전체 발송이 드롭다운 한 칸 차이로 나가 버린다. admin 세션으로 발송(api-secret 불필요).
+ */
+export function SendConsole({ projectId, type, initialTarget = "" }: { projectId: string; type: SendType; initialTarget?: string }) {
   const t = useTranslations("send");
   const { projects } = useProjects();
-  const [picked, setPicked] = React.useState("");
-  const sel = projectId ?? picked;
-  const [type, setType] = React.useState<SendType>("single");
-  const [target, setTarget] = React.useState("");
+  const appName = projects.find((p) => p.id === projectId)?.name ?? "Notikit";
+  const [target, setTarget] = React.useState(initialTarget);
+  const [users, setUsers] = React.useState<PickedUser[]>([]);
+  const attributeKeys = useAttributeKeys(projectId);
+  /** 변수 버튼이 어느 칸에 넣을지 — 마지막으로 포커스한 제목/본문 */
+  const titleRef = React.useRef<HTMLInputElement>(null);
+  const bodyRef = React.useRef<HTMLTextAreaElement>(null);
+  const lastFieldRef = React.useRef<"title" | "body">("body");
   const [title, setTitle] = React.useState("");
   const [body, setBody] = React.useState("");
   const [deepLink, setDeepLink] = React.useState("");
@@ -52,15 +65,34 @@ export function SendConsole({ projectId }: { projectId?: string }) {
   const [sending, setSending] = React.useState(false);
   const [result, setResult] = React.useState<SendResult | null>(null);
 
-  const needsTarget = type !== "broadcast";
+  const picksUsers = type === "single" || type === "multi";
+  const hasTarget = picksUsers ? users.length > 0 : type === "broadcast" || Boolean(target);
   // 예약이면 지금 큐를 돌릴 이유가 없다 — 예약 시각에 워커가 처리한다
   const isScheduled = scheduleAt.trim().length > 0;
 
+  /** 미리보기는 고른 첫 사용자 기준으로 치환한다. 토픽·전체는 누가 받을지 모르니 기본값으로 보여 준다. */
+  const previewAs = picksUsers && users[0] ? users[0] : null;
+
+  function insertVariable(token: string) {
+    const field = lastFieldRef.current;
+    const el = field === "title" ? titleRef.current : bodyRef.current;
+    const current = field === "title" ? title : body;
+    const start = el?.selectionStart ?? current.length;
+    const end = el?.selectionEnd ?? current.length;
+    const next = current.slice(0, start) + token + current.slice(end);
+    (field === "title" ? setTitle : setBody)(next);
+    // 넣은 뒤 커서를 변수 뒤로 — 이어서 타이핑할 수 있게
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(start + token.length, start + token.length);
+    });
+  }
+
   async function submit() {
-    if (!sel) return toast.error(t("errSelectProject"));
     if (!title || !body) return toast.error(t("errTitleBody"));
-    if (needsTarget && !target) return toast.error(t("errTarget"));
+    if (!hasTarget) return toast.error(t(TARGET_ERROR_KEY[type]));
     if (sending) return;
+    if (type === "broadcast" && !confirm(t("confirmBroadcast"))) return;
 
     // datetime-local 은 타임존 없는 로컬 시각이라 그대로 보내면 서버가 UTC 로 읽는다.
     // Date 로 한 번 통과시켜 오프셋을 붙인 ISO 로 바꾼다.
@@ -77,12 +109,14 @@ export function SendConsole({ projectId }: { projectId?: string }) {
     let messageId: string | undefined;
     try {
       const payload: Record<string, unknown> = { title, body, type };
-      if (needsTarget) payload.target = target;
+      if (type === "single") payload.target = users[0].externalId;
+      else if (type === "multi") payload.targets = users.map((u) => u.externalId);
+      else if (type === "topic") payload.target = target;
       if (deepLink) payload.deep_link = deepLink;
       if (scheduledIso) payload.scheduled_at = scheduledIso;
 
       const res = await adminApi<{ message?: { id?: string } }>(
-        `/api/admin/projects/${sel}/messages`,
+        `/api/admin/projects/${projectId}/messages`,
         { method: "POST", body: JSON.stringify(payload) }
       );
       messageId = res?.message?.id;
@@ -107,7 +141,7 @@ export function SendConsole({ projectId }: { projectId?: string }) {
 
     // 큐잉은 이미 성공 — 즉시 처리 실패를 "발송 실패"로 오인시키지 않도록 별도 처리
     try {
-      await adminApi(`/api/admin/projects/${sel}/process-queue`, { method: "POST", body: "{}" });
+      await adminApi(`/api/admin/projects/${projectId}/process-queue`, { method: "POST", body: "{}" });
       toast.success(t("processed"));
       setResult({ status: "processed", messageId });
     } catch (e) {
@@ -121,100 +155,98 @@ export function SendConsole({ projectId }: { projectId?: string }) {
   return (
     // 화면 높이를 채운다 — 남는 세로 공간을 본문 입력으로 돌린다
     <div className="flex w-full flex-1 flex-col space-y-4">
-      <PageHeader title={t("title")} description={t("subtitle")} />
+      <PageHeader title={t(TITLE_KEY[type])} description={t(SUBTITLE_KEY[type])} />
 
-      <Card className="flex min-h-0 flex-1 flex-col">
-        <CardHeader>
-          <CardTitle>{t("compose")}</CardTitle>
-        </CardHeader>
-        {/* 좌우 2단을 걷어내고 전체 폭을 쓴다. 필드는 한 줄에 2개씩. */}
-        <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {!projectId && (
-              <div className="space-y-1 [&_select]:w-full">
-                <Label>{t("project")}</Label>
-                <ProjectPicker projects={projects} value={picked} onChange={setPicked} />
-              </div>
-            )}
-            <Field label={t("sendType")}>
-              <Select value={type} onChange={(e) => setType(e.target.value as SendType)}>
-                <option value="single">{t("typeSingle")}</option>
-                <option value="topic">{t("typeTopic")}</option>
-                <option value="broadcast">{t("typeBroadcast")}</option>
-              </Select>
-            </Field>
-            <Field label={type === "single" ? "external_id" : type === "broadcast" ? t("targetUnneeded") : t("targetNameOf", { type })}>
-              <Input spellCheck={false} autoComplete="off" value={target} onChange={(e) => setTarget(e.target.value)} disabled={!needsTarget} placeholder={needsTarget ? t("targetPlaceholder") : t("broadcastAll")} />
-            </Field>
-            <Field label={t("deepLink")}>
-              <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
-            </Field>
-            <Field label={t("scheduleLabel")} hint={t("scheduleHint")}>
-              <div className="flex gap-2">
-                <DatePicker
-                  className="flex-1"
-                  value={scheduleDate}
-                  onChange={setScheduleDate}
-                  min={todayStr}
-                  placeholder={t("scheduleDatePlaceholder")}
-                  clearLabel={t("scheduleClear")}
+      {/* 작성은 넓게, 미리보기·안내는 오른쪽 좁은 열. 좁은 화면에서는 아래로 떨어진다. */}
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Card className="flex min-h-0 flex-col">
+          <CardContent className="flex min-h-0 flex-1 flex-col divide-y divide-border">
+            <Section title={t("sectionTarget")}>
+              <SendTarget projectId={projectId} type={type} target={target} onTarget={setTarget} users={users} onUsers={setUsers} />
+            </Section>
+
+            <Section title={t("sectionContent")} className="flex min-h-0 flex-1 flex-col">
+              <Field label={t("titleLabel")}>
+                <Input ref={titleRef} value={title} onFocus={() => (lastFieldRef.current = "title")} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
+              </Field>
+              {/* 본문은 남는 세로를 가져간다 */}
+              <Field label={t("bodyLabel")} className="flex min-h-0 flex-1 flex-col">
+                <Textarea ref={bodyRef} className="min-h-28 flex-1" value={body} onFocus={() => (lastFieldRef.current = "body")} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
+              </Field>
+              <SendVariables keys={attributeKeys} onInsert={insertVariable} />
+              <Field label={t("deepLink")}>
+                <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
+              </Field>
+            </Section>
+
+            <Section title={t("sectionOptions")}>
+              <Field label={t("scheduleLabel")} hint={t("scheduleHint")}>
+                <div className="flex gap-2 sm:max-w-md">
+                  <DatePicker
+                    className="flex-1"
+                    value={scheduleDate}
+                    onChange={setScheduleDate}
+                    min={todayStr}
+                    placeholder={t("scheduleDatePlaceholder")}
+                    clearLabel={t("scheduleClear")}
+                  />
+                  {/* 날짜가 없으면 시각만 골라도 의미가 없다 */}
+                  <Input
+                    type="time"
+                    aria-label={t("scheduleTimeLabel")}
+                    className="w-32"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    disabled={!scheduleDate}
+                  />
+                </div>
+              </Field>
+              <label className="flex items-start gap-2 text-sm leading-relaxed">
+                <input
+                  type="checkbox"
+                  checked={processNow && !isScheduled}
+                  disabled={isScheduled}
+                  onChange={(e) => setProcessNow(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
                 />
-                {/* 날짜가 없으면 시각만 골라도 의미가 없다 */}
-                <Input
-                  type="time"
-                  aria-label={t("scheduleTimeLabel")}
-                  className="w-32"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  disabled={!scheduleDate}
-                />
-              </div>
-            </Field>
-          </div>
+                <span className={isScheduled ? "text-muted-foreground" : undefined}>
+                  {isScheduled ? t("processNowDisabled") : t("processNow")}
+                </span>
+              </label>
+            </Section>
+          </CardContent>
+          <CardFooter className="flex justify-end pt-3">
+            <Button onClick={submit} disabled={sending}>
+              {isScheduled ? <Clock aria-hidden="true" className="h-4 w-4" /> : <Send aria-hidden="true" className="h-4 w-4" />}
+              {sending ? t("sending") : isScheduled ? t("submitScheduled") : t("submit")}
+            </Button>
+          </CardFooter>
+        </Card>
 
-          {/* 제목·본문은 "내용"이라 설정 필드와 줄을 나눈다 — 설정 4개가 2×2 로 떨어진다 */}
-          <Field label={t("titleLabel")}>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
-          </Field>
-
-          {/* 본문은 남는 세로를 가져간다 */}
-          <Field label={t("bodyLabel")} className="flex min-h-0 flex-1 flex-col">
-            <Textarea className="min-h-40 flex-1" value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
-          </Field>
-
-          <div className="border-t border-border pt-3 text-sm">
-            <label className="flex items-start gap-2 leading-relaxed">
-              <input
-                type="checkbox"
-                checked={processNow && !isScheduled}
-                disabled={isScheduled}
-                onChange={(e) => setProcessNow(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
-              />
-              <span className={isScheduled ? "text-muted-foreground" : undefined}>
-                {isScheduled ? t("processNowDisabled") : t("processNow")}
-              </span>
-            </label>
-          </div>
-
-          <div className="space-y-2 border-t border-border pt-3">
-            <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-              <Info aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" /> {t("helpTitle")}
-            </p>
-            <ul className="grid gap-1.5 text-xs leading-relaxed text-muted-foreground sm:grid-cols-2">
-              <li>{t("helpTypes")}</li>
-              <li>{t("helpDeepLink")}</li>
-              <li>{t("helpSuppression")}</li>
-              <li>{t("helpLogOnly")}</li>
-            </ul>
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-end">
-          <Button onClick={submit} disabled={sending}>
-            <Send aria-hidden="true" className="h-4 w-4" /> {sending ? t("sending") : t("submit")}
-          </Button>
-        </CardFooter>
-      </Card>
+        <aside className="space-y-4">
+          <SendPreview
+            appName={appName}
+            title={renderTemplate(title, previewAs)}
+            body={renderTemplate(body, previewAs)}
+            deepLink={deepLink}
+            note={previewAs ? t("previewAs", { id: previewAs.externalId }) : t("previewDefault")}
+          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1.5">
+                <Info aria-hidden="true" className="h-4 w-4 text-muted-foreground" /> {t("helpTitle")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-xs leading-relaxed text-muted-foreground">
+                <li>{t("helpDeepLink")}</li>
+                <li>{t("helpSuppression")}</li>
+                <li>{t("helpLogOnly")}</li>
+              </ul>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
 
       {result && (
         <Card>
@@ -258,5 +290,14 @@ export function SendConsole({ projectId }: { projectId?: string }) {
         </Card>
       )}
     </div>
+  );
+}
+
+function Section({ title, className, children }: { title: string; className?: string; children: React.ReactNode }) {
+  return (
+    <section className={`space-y-3 py-4 first:pt-3 ${className ?? ""}`}>
+      <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{title}</h2>
+      {children}
+    </section>
   );
 }

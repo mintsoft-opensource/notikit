@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import postgres from "postgres";
-import { scryptSync, randomBytes } from "node:crypto";
+import { scryptSync, randomBytes, createHmac } from "node:crypto";
 
 const ADMIN = { email: "e2e-admin@notikit.dev", password: "e2e-password-1234" };
 /** 프로그램적 superadmin 토큰 — 세션 로그인 계정(ADMIN)과 다르다 */
@@ -124,12 +124,91 @@ test.describe("smoke", () => {
     await page.goto(`/projects/${projectId}`);
     // 본문에도 발송 바로가기 버튼이 있으므로 사이드바 네비로 스코프
     const nav = page.getByRole("navigation");
-    await expect(nav.getByRole("link", { name: "발송", exact: true })).toBeVisible();
+    for (const label of ["개별 발송", "다중 발송", "전체 발송", "토픽 발송", "발송 큐"]) {
+      await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+    }
     await expect(nav.getByRole("link", { name: "토픽", exact: true })).toBeVisible();
     await expect(nav.getByRole("link", { name: "저니", exact: true })).toBeVisible();
     await expect(nav.getByRole("link", { name: "웹훅", exact: true })).toBeVisible();
     // 세그먼트는 토픽으로 흡수됐다 — 메뉴가 남아 있으면 통합이 덜 된 것이다
     await expect(nav.getByRole("link", { name: "세그먼트", exact: true })).toHaveCount(0);
+  });
+
+  test("발송: 방식별 화면이 따로 있고 옛 /send 는 개별 발송으로 간다", async ({ page }) => {
+    await ensureLogin(page);
+    const projectId = await firstProjectId(page);
+
+    await page.goto(`/projects/${projectId}/send`);
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/send/single$`));
+    await expect(page.getByRole("main").getByRole("heading", { name: "개별 발송", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "사용자 아이디" })).toBeVisible();
+
+    await page.goto(`/projects/${projectId}/send/broadcast`);
+    await expect(page.getByRole("main").getByRole("heading", { name: "전체 발송", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "사용자 아이디" })).toHaveCount(0);
+
+    // 토픽 화면은 링크로 받은 토픽을 미리 골라 둔다
+    await page.goto(`/projects/${projectId}/send/topic?target=news`);
+    await expect(page.getByRole("main").getByRole("heading", { name: "토픽 발송", exact: true })).toBeVisible();
+
+    // 미리보기는 입력한 제목을 그대로 보여 준다
+    await page.getByLabel("제목").fill("미리보기 제목");
+    await expect(page.getByText("미리보기 제목", { exact: true })).toBeVisible();
+  });
+
+  test("개별 발송: 받는 사람은 팝업에서 검색해 고른다", async ({ page }) => {
+    await ensureLogin(page);
+    const created = await page.request.post("/api/admin/projects", { data: { name: `pick-${Date.now()}` }, headers: { origin: ORIGIN } });
+    const cj = (await created.json()).data;
+    const ext = `picker-${Date.now()}`;
+    const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
+    const ident = await page.request.post("/api/v1/users/identify", { headers: { "api-key": cj.project.apiKey }, data: { external_id: ext, identity_hash: hash } });
+    expect(ident.ok()).toBeTruthy();
+
+    await page.goto(`/projects/${cj.project.id}/send/single`);
+    await page.getByRole("button", { name: "사용자 아이디" }).click();
+    const dlg = page.getByRole("dialog", { name: "사용자 검색" });
+    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill("picker-");
+    await dlg.getByRole("button", { name: new RegExp(ext) }).click();
+    await expect(dlg).toBeHidden();
+    await expect(page.getByRole("button", { name: "사용자 아이디" })).toContainText(ext);
+
+    // 없는 사람을 찾으면 목록 대신 안내가 나온다
+    await page.getByRole("button", { name: "사용자 아이디" }).click();
+    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill("nobody-here-xyz");
+    await expect(dlg.getByText("일치하는 사용자가 없습니다")).toBeVisible();
+  });
+
+  test("다중 발송: 팝업에서 여러 명을 고르고, 미리보기는 첫 사람 기준으로 치환한다", async ({ page }) => {
+    await ensureLogin(page);
+    const created = await page.request.post("/api/admin/projects", { data: { name: `multi-ui-${Date.now()}` }, headers: { origin: ORIGIN } });
+    const cj = (await created.json()).data;
+    const stamp = Date.now();
+    const exts = [`mu-a-${stamp}`, `mu-b-${stamp}`];
+    for (const [i, ext] of exts.entries()) {
+      const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
+      await page.request.post("/api/v1/users/identify", { headers: { "api-key": cj.project.apiKey }, data: { external_id: ext, identity_hash: hash, attributes: { name: i === 0 ? "민지" : "도윤" } } });
+    }
+
+    await page.goto(`/projects/${cj.project.id}/send/multi`);
+    await expect(page.getByRole("main").getByRole("heading", { name: "다중 발송", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "사용자 추가" }).click();
+    const dlg = page.getByRole("dialog", { name: "사용자 검색" });
+    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill(`mu-`);
+    await dlg.getByRole("button", { name: new RegExp(exts[0]) }).click();
+    await dlg.getByRole("button", { name: new RegExp(exts[1]) }).click();
+    await dlg.getByRole("button", { name: "2명 선택" }).click();
+    await expect(dlg).toBeHidden();
+    await expect(page.getByText("사용자 아이디 (2명)")).toBeVisible();
+
+    // 변수 버튼은 커서 위치에 넣고, 미리보기는 고른 순서의 첫 사람 값으로 보인다
+    await page.getByLabel("제목").fill("님 안녕하세요");
+    await page.getByLabel("제목").evaluate((el: HTMLInputElement) => el.setSelectionRange(0, 0));
+    await page.getByRole("button", { name: "{{name}}" }).click();
+    await expect(page.getByLabel("제목")).toHaveValue("{{name}}님 안녕하세요");
+    const previewText = await page.getByText("민지님 안녕하세요", { exact: true }).count();
+    const otherText = await page.getByText("도윤님 안녕하세요", { exact: true }).count();
+    expect(previewText + otherText).toBe(1);
   });
 
   test("tenant isolation: 세션 유저는 타 org 프로젝트에 접근 불가", async ({ page }) => {

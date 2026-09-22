@@ -231,7 +231,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                   </TableCell>
                   <TableCell label={t("sendToTopic")} className="flex items-center gap-2 justify-self-end">
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/projects/${projectId}/send?type=topic&target=${encodeURIComponent(tp.name)}`}>
+                      <Link href={`/projects/${projectId}/send/topic?target=${encodeURIComponent(tp.name)}`}>
                         <Send aria-hidden="true" className="h-3.5 w-3.5" /> {t("sendToTopic")}
                       </Link>
                     </Button>

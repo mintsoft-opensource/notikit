@@ -79,7 +79,15 @@ export function projectNavGroups(id: string): NavGroup[] {
       labelKey: "project",
       items: [
         { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
-        { labelKey: "send", href: `/projects/${id}/send`, icon: Send },
+      ],
+    },
+    {
+      labelKey: "send",
+      items: [
+        { labelKey: "sendSingle", href: `/projects/${id}/send/single`, icon: Send },
+        { labelKey: "sendMulti", href: `/projects/${id}/send/multi`, icon: Users },
+        { labelKey: "sendBroadcast", href: `/projects/${id}/send/broadcast`, icon: Megaphone },
+        { labelKey: "sendTopic", href: `/projects/${id}/send/topic`, icon: Radio },
         { labelKey: "queue", href: `/projects/${id}/queue`, icon: Hourglass },
       ],
     },

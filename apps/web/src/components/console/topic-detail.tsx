@@ -129,7 +129,7 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
               <Link href={backHref}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href={`/projects/${projectId}/send?type=topic&target=${encodeURIComponent(data.topic.name)}`}>
+              <Link href={`/projects/${projectId}/send/topic?target=${encodeURIComponent(data.topic.name)}`}>
                 <Send aria-hidden="true" className="h-4 w-4" /> {t("sendToTopic")}
               </Link>
             </Button>
