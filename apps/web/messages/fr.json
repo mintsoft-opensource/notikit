@@ -787,6 +787,8 @@
     "noContent": "Aucun titre ni corps (champs uniquement)",
     "useToSend": "Envoyer avec ce modèle",
     "edit": "Modifier",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "nameHint": "L'API appelle ce modèle par son nom (\"template\": \"nom\")",
+    "renameWarning": "Renommer casse les requêtes API qui utilisent encore \"{name}\" — elles recevront une erreur 404."
   }
 }

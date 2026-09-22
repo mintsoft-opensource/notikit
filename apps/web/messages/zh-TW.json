@@ -787,6 +787,8 @@
     "noContent": "無標題或內文(僅欄位)",
     "useToSend": "用此範本發送",
     "edit": "編輯",
-    "delete": "刪除"
+    "delete": "刪除",
+    "nameHint": "API 會透過這個名稱呼叫範本 (\"template\": \"名稱\")",
+    "renameWarning": "重新命名後，仍使用 \"{name}\" 的 API 請求將找不到範本，回傳 404。"
   }
 }

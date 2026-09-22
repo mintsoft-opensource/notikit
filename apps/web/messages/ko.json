@@ -787,6 +787,8 @@
     "noContent": "제목·본문 없음 (필드만)",
     "useToSend": "이 템플릿으로 발송",
     "edit": "수정",
-    "delete": "삭제"
+    "delete": "삭제",
+    "nameHint": "API 에서는 이 이름으로 템플릿을 부릅니다 (\"template\": \"이름\")",
+    "renameWarning": "이름을 바꾸면 \"{name}\" 으로 부르던 API 요청은 템플릿을 찾지 못해 404 가 됩니다."
   }
 }

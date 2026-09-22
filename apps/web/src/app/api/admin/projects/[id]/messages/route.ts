@@ -5,7 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { requireProject, checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimit } from "@/lib/rate-limit";
-import { messageSchema, enqueuePush, targetError, MESSAGE_BODY_LIMIT } from "@/lib/messages";
+import { messageSchema, enqueuePush, prepareMessage, MESSAGE_BODY_LIMIT } from "@/lib/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +41,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  const targetErr = targetError(b);
-  if (targetErr) return fail(targetErr, 422);
+  const prepared = await prepareMessage(project.id, b);
+  if ("error" in prepared) return fail(prepared.error, prepared.status);
 
-  const { message, scheduled } = await enqueuePush(project, b);
+  const { message, scheduled } = await enqueuePush(project, prepared.message);
   return ok({ message }, { scheduled }, 202);
 }

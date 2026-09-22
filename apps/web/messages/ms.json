@@ -787,6 +787,8 @@
     "noContent": "Tiada tajuk atau kandungan (medan sahaja)",
     "useToSend": "Hantar dengan templat ini",
     "edit": "Sunting",
-    "delete": "Padam"
+    "delete": "Padam",
+    "nameHint": "API memanggil templat ini mengikut namanya (\"template\": \"nama\")",
+    "renameWarning": "Menukar nama menyebabkan permintaan API yang masih menggunakan \"{name}\" tidak menjumpai templat dan akan menerima ralat 404."
   }
 }

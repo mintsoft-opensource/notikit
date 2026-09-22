@@ -41,7 +41,17 @@ await notikit.send({ title: "안녕", body: "본문", type: "single", target: "u
 | `registerDevice(input)` | 토큰 등록·업서트 |
 | `identify(input)` | 유저 식별/속성 |
 | `subscribe(topic, token)` | 토픽 구독 |
-| `send(input)` | 푸시 전송(큐잉) |
+| `send(input)` | 푸시 전송(큐잉). `template`·`fields` 로 콘솔 템플릿 사용, `type: "multi"` + `targets` 로 여러 명 |
+| `unsubscribe(topic, target)` | 토픽 구독 해지 |
+| `readPushData(data)` | 받은 푸시에서 `{ logId, deepLink, custom }` — `custom` 은 커스텀 필드만 |
+
+```ts
+// 서버: 콘솔 템플릿 이름으로 발송
+await notikit.send({ type: "single", target: "u-42", template: "주문 도착", fields: { order_id: "A-1024" } });
+
+// 앱(RN·웹): 받은 푸시에서 커스텀 필드 읽기
+const { custom, deepLink } = readPushData(remoteMessage.data);
+```
 
 - `fetch` 를 주입하면 RN/Node 커스텀 환경에서도 동작합니다.
 - 에러는 `NotikitError`(status 포함)로 throw.

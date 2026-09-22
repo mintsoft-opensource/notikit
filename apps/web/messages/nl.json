@@ -787,6 +787,8 @@
     "noContent": "Geen titel of inhoud (alleen velden)",
     "useToSend": "Verzenden met dit sjabloon",
     "edit": "Bewerken",
-    "delete": "Verwijderen"
+    "delete": "Verwijderen",
+    "nameHint": "De API roept dit sjabloon aan via de naam (\"template\": \"naam\")",
+    "renameWarning": "Hernoemen zorgt ervoor dat API-verzoeken die nog \"{name}\" gebruiken het sjabloon niet vinden en een 404 krijgen."
   }
 }

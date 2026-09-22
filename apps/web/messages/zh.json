@@ -787,6 +787,8 @@
     "noContent": "无标题或正文(仅字段)",
     "useToSend": "用此模板发送",
     "edit": "编辑",
-    "delete": "删除"
+    "delete": "删除",
+    "nameHint": "API 会通过这个名称调用模板 (\"template\": \"名称\")",
+    "renameWarning": "重命名后，仍使用 \"{name}\" 的 API 请求将找不到模板，返回 404。"
   }
 }

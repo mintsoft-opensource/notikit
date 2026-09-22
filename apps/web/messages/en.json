@@ -787,6 +787,8 @@
     "noContent": "No title or body (fields only)",
     "useToSend": "Send with this",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "nameHint": "The API calls this template by its name (\"template\": \"name\")",
+    "renameWarning": "Renaming breaks API requests that still use \"{name}\" — they will get a 404."
   }
 }

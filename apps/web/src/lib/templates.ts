@@ -70,3 +70,37 @@ export function fieldKeyError(key: string): string | null {
   const r = templateFieldSchema.shape.key.safeParse(key);
   return r.success ? null : (r.error.issues[0]?.message ?? "invalid key");
 }
+
+type StoredTemplate = { title: string; body: string; deepLink: string | null; fields: TemplateField[] };
+type TemplateRequest = {
+  title?: string;
+  body?: string;
+  deep_link?: string;
+  data?: Record<string, unknown>;
+  fields?: Record<string, string>;
+};
+
+/**
+ * API 발송에 템플릿 적용 — 요청에 직접 준 값이 템플릿보다 우선한다.
+ * `fields` 는 템플릿이 정의한 키만 받는다. 오타 난 키를 조용히 버리면 앱이 값을 못 받고도 발송은 성공한다.
+ */
+export function applyTemplate(
+  tpl: StoredTemplate,
+  req: TemplateRequest
+): { title: string; body: string; deep_link?: string; data?: Record<string, unknown> } | { error: string } {
+  const known = new Set(tpl.fields.map((f) => f.key));
+  const unknown = Object.keys(req.fields ?? {}).filter((k) => !known.has(k));
+  if (unknown.length) return { error: `unknown template fields: ${unknown.join(", ")}` };
+
+  const built = buildCustomData(tpl.fields, req.fields ?? {});
+  if ("missing" in built) return { error: `missing required template fields: ${built.missing.join(", ")}` };
+
+  const data = { ...built.data, ...req.data };
+  const deepLink = req.deep_link ?? tpl.deepLink ?? undefined;
+  return {
+    title: req.title || tpl.title,
+    body: req.body || tpl.body,
+    ...(deepLink ? { deep_link: deepLink } : {}),
+    ...(Object.keys(data).length ? { data } : {}),
+  };
+}

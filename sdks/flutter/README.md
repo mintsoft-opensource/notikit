@@ -35,6 +35,9 @@ await notikit.registerDevice(
 | `registerDevice(...)` | FCM 토큰 등록 |
 | `identify(...)` | 유저 식별 |
 | `subscribe(topic, token)` | 토픽 구독 |
+| `unsubscribe(topic, token)` | 토픽 구독 해지 |
+| `Notikit.customDataFromPayload(message.data)` | 받은 푸시에서 커스텀 필드(템플릿 필드 포함)만 꺼내기 |
+| `Notikit.deepLinkFromPayload(message.data)` | 받은 푸시의 딥링크 |
 
 ## 라이선스
 Apache-2.0

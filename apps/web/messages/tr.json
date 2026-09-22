@@ -787,6 +787,8 @@
     "noContent": "Başlık veya gövde yok (yalnızca alanlar)",
     "useToSend": "Bununla gönder",
     "edit": "Düzenle",
-    "delete": "Sil"
+    "delete": "Sil",
+    "nameHint": "API bu şablonu adıyla çağırır (\"template\": \"ad\")",
+    "renameWarning": "Yeniden adlandırma, hâlâ \"{name}\" kullanan API isteklerinin şablonu bulamayıp 404 almasına neden olur."
   }
 }

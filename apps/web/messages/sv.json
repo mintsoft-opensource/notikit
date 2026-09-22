@@ -787,6 +787,8 @@
     "noContent": "Ingen titel eller text (endast fält)",
     "useToSend": "Skicka med denna",
     "edit": "Redigera",
-    "delete": "Ta bort"
+    "delete": "Ta bort",
+    "nameHint": "API:et anropar den här mallen med dess namn (\"template\": \"namn\")",
+    "renameWarning": "Att byta namn gör att API-anrop som fortfarande använder \"{name}\" inte hittar mallen och får ett 404-fel."
   }
 }

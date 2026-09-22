@@ -571,6 +571,42 @@ test.describe("App SDK API 전체 플로우", () => {
     expect((await request.delete(`${base}/${tid}`, { headers: admin })).status()).toBe(200);
   });
 
+  test("템플릿 발송(API): 이름으로 부르면 내용·필드가 채워지고, 잘못된 입력은 거절", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `tpl-api-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const send = (data: Record<string, unknown>) =>
+      request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { type: "single", target: "tpl-u", ...data } });
+
+    const ext = "tpl-u";
+    const h = idHash(ext, apiSecret);
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `tpl-api-${Date.now()}`, platform: "web", external_id: ext, identity_hash: h } });
+    await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: h, attributes: { name: "민지" } } });
+    await request.post(`/api/admin/projects/${pid}/templates`, {
+      headers: { "x-admin-token": ADMIN },
+      data: { name: "주문 도착", title: "{{name|고객}}님, 주문 도착", body: "확인해 보세요", deep_link: "myapp://orders", fields: [{ key: "order_id", required: true }, { key: "screen", default: "order" }] },
+    });
+
+    expect((await send({ template: "없는 템플릿" })).status()).toBe(404);
+    expect((await send({ template: "주문 도착" })).status()).toBe(422); // 필수 order_id 누락
+    expect((await send({ template: "주문 도착", fields: { order_id: "A", orderId: "B" } })).status()).toBe(422); // 오타 키
+    expect((await send({ title: "t", body: "b", fields: { order_id: "A" } })).status()).toBe(422); // 템플릿 없이 fields
+    expect((await send({})).status()).toBe(422); // 제목·본문도 템플릿도 없음
+
+    expect((await send({ template: "주문 도착", fields: { order_id: "A-1024" } })).status()).toBe(202);
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    const inbox = await request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${h}`, { headers: { "api-key": apiKey } });
+    expect((await inbox.json()).data.notifications[0]).toMatchObject({
+      title: "민지님, 주문 도착",
+      body: "확인해 보세요",
+      deepLink: "myapp://orders",
+      data: { order_id: "A-1024", screen: "order" },
+    });
+  });
+
   test("방해금지 시간대: quiet 구간 발송은 자동 예약", async ({ request }) => {
     const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `quiet-${Date.now()}` } });
     const cj = await created.json();

@@ -169,6 +169,8 @@ export class NotikitClient {
       body: input.body,
       type: input.type,
       ...(input.type === "multi" ? { targets: input.targets } : { target: input.target }),
+      template: input.template,
+      fields: input.fields,
       deep_link: input.deepLink,
       data: input.data,
     });

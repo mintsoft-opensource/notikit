@@ -527,7 +527,9 @@
     "templates.noContent": "タイトル・本文なし(フィールドのみ)",
     "templates.useToSend": "このテンプレートで送信",
     "templates.edit": "編集",
-    "templates.delete": "削除"
+    "templates.delete": "削除",
+    "templates.nameHint": "API ではこの名前でテンプレートを呼び出します (\"template\": \"名前\")",
+    "templates.renameWarning": "名前を変更すると、\"{name}\" を使っていたAPIリクエストはテンプレートが見つからず404になります。"
   },
   "zh": {
     "meta.description": "以用户为中心的推送通知基础设施",
@@ -1057,7 +1059,9 @@
     "templates.noContent": "无标题或正文(仅字段)",
     "templates.useToSend": "用此模板发送",
     "templates.edit": "编辑",
-    "templates.delete": "删除"
+    "templates.delete": "删除",
+    "templates.nameHint": "API 会通过这个名称调用模板 (\"template\": \"名称\")",
+    "templates.renameWarning": "重命名后，仍使用 \"{name}\" 的 API 请求将找不到模板，返回 404。"
   },
   "zh-TW": {
     "meta.description": "以使用者為中心的推播通知基礎設施",
@@ -1587,7 +1591,9 @@
     "templates.noContent": "無標題或內文(僅欄位)",
     "templates.useToSend": "用此範本發送",
     "templates.edit": "編輯",
-    "templates.delete": "刪除"
+    "templates.delete": "刪除",
+    "templates.nameHint": "API 會透過這個名稱呼叫範本 (\"template\": \"名稱\")",
+    "templates.renameWarning": "重新命名後，仍使用 \"{name}\" 的 API 請求將找不到範本，回傳 404。"
   },
   "es": {
     "meta.description": "Infraestructura de notificaciones push centrada en el usuario",
@@ -2117,7 +2123,9 @@
     "templates.noContent": "Sin título ni cuerpo (solo campos)",
     "templates.useToSend": "Enviar con esta",
     "templates.edit": "Editar",
-    "templates.delete": "Eliminar"
+    "templates.delete": "Eliminar",
+    "templates.nameHint": "La API llama a esta plantilla por su nombre (\"template\": \"nombre\")",
+    "templates.renameWarning": "Cambiar el nombre hace que las solicitudes a la API que aún usan \"{name}\" no encuentren la plantilla y reciban un 404."
   },
   "pt": {
     "meta.description": "Infraestrutura de notificações push centrada no utilizador",
@@ -2647,7 +2655,9 @@
     "templates.noContent": "Sem título nem corpo (apenas campos)",
     "templates.useToSend": "Enviar com este",
     "templates.edit": "Editar",
-    "templates.delete": "Eliminar"
+    "templates.delete": "Eliminar",
+    "templates.nameHint": "A API chama este modelo pelo seu nome (\"template\": \"nome\")",
+    "templates.renameWarning": "Mudar o nome faz com que os pedidos à API que ainda usam \"{name}\" não encontrem o modelo e recebam um 404."
   },
   "pt-BR": {
     "meta.description": "Infraestrutura de notificações push centrada no usuário",
@@ -3177,7 +3187,9 @@
     "templates.noContent": "Sem título ou corpo (apenas campos)",
     "templates.useToSend": "Enviar com este",
     "templates.edit": "Editar",
-    "templates.delete": "Excluir"
+    "templates.delete": "Excluir",
+    "templates.nameHint": "A API chama este modelo pelo nome dele (\"template\": \"nome\")",
+    "templates.renameWarning": "Renomear faz com que as requisições à API que ainda usam \"{name}\" não encontrem o modelo e recebam um 404."
   },
   "fr": {
     "meta.description": "Infrastructure de notifications push centrée sur l'utilisateur",
@@ -3707,7 +3719,9 @@
     "templates.noContent": "Aucun titre ni corps (champs uniquement)",
     "templates.useToSend": "Envoyer avec ce modèle",
     "templates.edit": "Modifier",
-    "templates.delete": "Supprimer"
+    "templates.delete": "Supprimer",
+    "templates.nameHint": "L'API appelle ce modèle par son nom (\"template\": \"nom\")",
+    "templates.renameWarning": "Renommer casse les requêtes API qui utilisent encore \"{name}\" — elles recevront une erreur 404."
   },
   "de": {
     "meta.description": "Nutzerzentrierte Push-Benachrichtigungs-Infrastruktur",
@@ -4237,7 +4251,9 @@
     "templates.noContent": "Kein Titel oder Text (nur Felder)",
     "templates.useToSend": "Mit dieser Vorlage senden",
     "templates.edit": "Bearbeiten",
-    "templates.delete": "Löschen"
+    "templates.delete": "Löschen",
+    "templates.nameHint": "Die API ruft diese Vorlage über ihren Namen auf (\"template\": \"Name\")",
+    "templates.renameWarning": "Durch das Umbenennen schlagen API-Anfragen fehl, die noch \"{name}\" verwenden — sie erhalten einen 404-Fehler."
   },
   "it": {
     "meta.description": "Infrastruttura di notifiche push centrata sull'utente",
@@ -4767,7 +4783,9 @@
     "templates.noContent": "Nessun titolo o corpo (solo campi)",
     "templates.useToSend": "Invia con questo",
     "templates.edit": "Modifica",
-    "templates.delete": "Elimina"
+    "templates.delete": "Elimina",
+    "templates.nameHint": "L'API richiama questo modello tramite il suo nome (\"template\": \"nome\")",
+    "templates.renameWarning": "Rinominare interrompe le richieste API che usano ancora \"{name}\": riceveranno un errore 404."
   },
   "nl": {
     "meta.description": "Gebruikersgerichte pushnotificatie-infrastructuur",
@@ -5297,7 +5315,9 @@
     "templates.noContent": "Geen titel of inhoud (alleen velden)",
     "templates.useToSend": "Verzenden met dit sjabloon",
     "templates.edit": "Bewerken",
-    "templates.delete": "Verwijderen"
+    "templates.delete": "Verwijderen",
+    "templates.nameHint": "De API roept dit sjabloon aan via de naam (\"template\": \"naam\")",
+    "templates.renameWarning": "Hernoemen zorgt ervoor dat API-verzoeken die nog \"{name}\" gebruiken het sjabloon niet vinden en een 404 krijgen."
   },
   "sv": {
     "meta.description": "Användarcentrerad push-notisinfrastruktur",
@@ -5827,7 +5847,9 @@
     "templates.noContent": "Ingen titel eller text (endast fält)",
     "templates.useToSend": "Skicka med denna",
     "templates.edit": "Redigera",
-    "templates.delete": "Ta bort"
+    "templates.delete": "Ta bort",
+    "templates.nameHint": "API:et anropar den här mallen med dess namn (\"template\": \"namn\")",
+    "templates.renameWarning": "Att byta namn gör att API-anrop som fortfarande använder \"{name}\" inte hittar mallen och får ett 404-fel."
   },
   "pl": {
     "meta.description": "Infrastruktura powiadomień push zorientowana na użytkownika",
@@ -6357,7 +6379,9 @@
     "templates.noContent": "Brak tytułu i treści (tylko pola)",
     "templates.useToSend": "Wyślij z tym szablonem",
     "templates.edit": "Edytuj",
-    "templates.delete": "Usuń"
+    "templates.delete": "Usuń",
+    "templates.nameHint": "API wywołuje ten szablon po nazwie (\"template\": \"nazwa\")",
+    "templates.renameWarning": "Zmiana nazwy sprawi, że żądania API wciąż używające \"{name}\" nie znajdą szablonu i otrzymają błąd 404."
   },
   "ru": {
     "meta.description": "пользователь-ориентированная инфраструктура push-уведомлений",
@@ -6887,7 +6911,9 @@
     "templates.noContent": "Нет заголовка или текста (только поля)",
     "templates.useToSend": "Отправить с этим шаблоном",
     "templates.edit": "Редактировать",
-    "templates.delete": "Удалить"
+    "templates.delete": "Удалить",
+    "templates.nameHint": "API обращается к этому шаблону по имени (\"template\": \"имя\")",
+    "templates.renameWarning": "После переименования запросы API, использующие \"{name}\", не найдут шаблон и получат ошибку 404."
   },
   "uk": {
     "meta.description": "орієнтована на користувача інфраструктура push-сповіщень",
@@ -7417,7 +7443,9 @@
     "templates.noContent": "Немає заголовка чи тексту (лише поля)",
     "templates.useToSend": "Надіслати з цим шаблоном",
     "templates.edit": "Редагувати",
-    "templates.delete": "Видалити"
+    "templates.delete": "Видалити",
+    "templates.nameHint": "API звертається до цього шаблону за іменем (\"template\": \"ім'я\")",
+    "templates.renameWarning": "Після перейменування запити API, що досі використовують \"{name}\", не знайдуть шаблон і отримають помилку 404."
   },
   "tr": {
     "meta.description": "Kullanıcı odaklı push bildirim altyapısı",
@@ -7947,7 +7975,9 @@
     "templates.noContent": "Başlık veya gövde yok (yalnızca alanlar)",
     "templates.useToSend": "Bununla gönder",
     "templates.edit": "Düzenle",
-    "templates.delete": "Sil"
+    "templates.delete": "Sil",
+    "templates.nameHint": "API bu şablonu adıyla çağırır (\"template\": \"ad\")",
+    "templates.renameWarning": "Yeniden adlandırma, hâlâ \"{name}\" kullanan API isteklerinin şablonu bulamayıp 404 almasına neden olur."
   },
   "ar": {
     "meta.description": "بنية إشعارات دفع تتمحور حول المستخدم",
@@ -8477,7 +8507,9 @@
     "templates.noContent": "لا يوجد عنوان أو نص (حقول فقط)",
     "templates.useToSend": "الإرسال باستخدام هذا القالب",
     "templates.edit": "تعديل",
-    "templates.delete": "حذف"
+    "templates.delete": "حذف",
+    "templates.nameHint": "تستدعي واجهة برمجة التطبيقات (API) هذا القالب باستخدام اسمه (\"template\": \"الاسم\")",
+    "templates.renameWarning": "إعادة التسمية تُعطّل طلبات API التي لا تزال تستخدم \"{name}\" — ستحصل على خطأ 404."
   },
   "he": {
     "meta.description": "תשתית התראות פוש ממוקדת משתמש",
@@ -9007,7 +9039,9 @@
     "templates.noContent": "אין כותרת או גוף (שדות בלבד)",
     "templates.useToSend": "שליחה עם תבנית זו",
     "templates.edit": "עריכה",
-    "templates.delete": "מחיקה"
+    "templates.delete": "מחיקה",
+    "templates.nameHint": "ה-API קורא לתבנית הזו לפי שמה (\"template\": \"שם\")",
+    "templates.renameWarning": "שינוי השם גורם לבקשות API שעדיין משתמשות ב-\"{name}\" לא למצוא את התבנית ולקבל שגיאת 404."
   },
   "fa": {
     "meta.description": "زیرساخت اعلان پوش کاربرمحور",
@@ -9537,7 +9571,9 @@
     "templates.noContent": "بدون عنوان یا متن (فقط فیلد)",
     "templates.useToSend": "ارسال با این قالب",
     "templates.edit": "ویرایش",
-    "templates.delete": "حذف"
+    "templates.delete": "حذف",
+    "templates.nameHint": "API این قالب را با نام آن فراخوانی می‌کند (\"template\": \"نام\")",
+    "templates.renameWarning": "تغییر نام باعث می‌شود درخواست‌های API که هنوز از \"{name}\" استفاده می‌کنند قالب را پیدا نکنند و خطای 404 دریافت کنند."
   },
   "hi": {
     "meta.description": "उपयोगकर्ता-केंद्रित पुश सूचना इन्फ्रास्ट्रक्चर",
@@ -10067,7 +10103,9 @@
     "templates.noContent": "कोई शीर्षक या मुख्य भाग नहीं (केवल फ़ील्ड)",
     "templates.useToSend": "इस टेम्पलेट से भेजें",
     "templates.edit": "संपादित करें",
-    "templates.delete": "हटाएं"
+    "templates.delete": "हटाएं",
+    "templates.nameHint": "API इस टेम्पलेट को इसके नाम से बुलाता है (\"template\": \"नाम\")",
+    "templates.renameWarning": "नाम बदलने पर, अभी भी \"{name}\" का उपयोग करने वाले API अनुरोधों को टेम्पलेट नहीं मिलेगा और उन्हें 404 मिलेगा।"
   },
   "th": {
     "meta.description": "โครงสร้างพื้นฐานการแจ้งเตือนพุชที่เน้นผู้ใช้",
@@ -10597,7 +10635,9 @@
     "templates.noContent": "ไม่มีหัวข้อหรือเนื้อหา (มีเฉพาะฟิลด์)",
     "templates.useToSend": "ส่งด้วยเทมเพลตนี้",
     "templates.edit": "แก้ไข",
-    "templates.delete": "ลบ"
+    "templates.delete": "ลบ",
+    "templates.nameHint": "API เรียกใช้เทมเพลตนี้ด้วยชื่อของมัน (\"template\": \"ชื่อ\")",
+    "templates.renameWarning": "การเปลี่ยนชื่อจะทำให้คำขอ API ที่ยังใช้ \"{name}\" หาเทมเพลตไม่พบ และจะได้รับ 404"
   },
   "vi": {
     "meta.description": "Hạ tầng thông báo đẩy lấy người dùng làm trung tâm",
@@ -11127,7 +11167,9 @@
     "templates.noContent": "Không có tiêu đề hoặc nội dung (chỉ có trường)",
     "templates.useToSend": "Gửi bằng mẫu này",
     "templates.edit": "Chỉnh sửa",
-    "templates.delete": "Xóa"
+    "templates.delete": "Xóa",
+    "templates.nameHint": "API gọi mẫu này bằng tên của nó (\"template\": \"tên\")",
+    "templates.renameWarning": "Đổi tên sẽ khiến các yêu cầu API vẫn dùng \"{name}\" không tìm thấy mẫu và nhận lỗi 404."
   },
   "id": {
     "meta.description": "Infrastruktur notifikasi push berpusat pada pengguna",
@@ -11657,7 +11699,9 @@
     "templates.noContent": "Tidak ada judul atau isi (hanya bidang)",
     "templates.useToSend": "Kirim dengan template ini",
     "templates.edit": "Edit",
-    "templates.delete": "Hapus"
+    "templates.delete": "Hapus",
+    "templates.nameHint": "API memanggil template ini berdasarkan namanya (\"template\": \"nama\")",
+    "templates.renameWarning": "Mengganti nama membuat permintaan API yang masih menggunakan \"{name}\" tidak menemukan template dan mendapat error 404."
   },
   "ms": {
     "meta.description": "Infrastruktur pemberitahuan tolak berpusatkan pengguna",
@@ -12187,6 +12231,8 @@
     "templates.noContent": "Tiada tajuk atau kandungan (medan sahaja)",
     "templates.useToSend": "Hantar dengan templat ini",
     "templates.edit": "Sunting",
-    "templates.delete": "Padam"
+    "templates.delete": "Padam",
+    "templates.nameHint": "API memanggil templat ini mengikut namanya (\"template\": \"nama\")",
+    "templates.renameWarning": "Menukar nama menyebabkan permintaan API yang masih menggunakan \"{name}\" tidak menjumpai templat dan akan menerima ralat 404."
   }
 }

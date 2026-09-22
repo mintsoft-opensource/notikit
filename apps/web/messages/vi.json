@@ -787,6 +787,8 @@
     "noContent": "Không có tiêu đề hoặc nội dung (chỉ có trường)",
     "useToSend": "Gửi bằng mẫu này",
     "edit": "Chỉnh sửa",
-    "delete": "Xóa"
+    "delete": "Xóa",
+    "nameHint": "API gọi mẫu này bằng tên của nó (\"template\": \"tên\")",
+    "renameWarning": "Đổi tên sẽ khiến các yêu cầu API vẫn dùng \"{name}\" không tìm thấy mẫu và nhận lỗi 404."
   }
 }

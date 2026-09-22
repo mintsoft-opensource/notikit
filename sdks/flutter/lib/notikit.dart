@@ -254,4 +254,27 @@ class Notikit {
     final v = data?[logIdKey];
     return (v is String && v.isNotEmpty) ? v : null;
   }
+
+  /// 푸시 data 에서 딥링크 추출
+  static String? deepLinkFromPayload(Map<String, dynamic>? data) {
+    final v = data?['deep_link'];
+    return (v is String && v.isNotEmpty) ? v : null;
+  }
+
+  /// notikit·FCM 이 쓰는 키. 이것을 뺀 나머지가 발송 때 넣은 커스텀 필드다(서버의 금지 키 목록과 같다).
+  static const Set<String> _internalKeys = {
+    'deep_link', logIdKey, 'title', 'body', 'icon',
+    'aps', 'from', 'collapse_key', 'notification', 'message_type', 'fcm_options',
+  };
+  static const List<String> _internalPrefixes = ['google.', 'gcm.'];
+
+  /// 발송 때 넣은 커스텀 필드(템플릿 필드 포함)만 골라낸다. `RemoteMessage.data` 를 그대로 넘기면 된다.
+  static Map<String, String> customDataFromPayload(Map<String, dynamic>? data) {
+    final out = <String, String>{};
+    data?.forEach((k, v) {
+      if (_internalKeys.contains(k) || _internalPrefixes.any(k.startsWith)) return;
+      if (v is String) out[k] = v;
+    });
+    return out;
+  }
 }

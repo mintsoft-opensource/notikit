@@ -787,6 +787,8 @@
     "noContent": "Brak tytułu i treści (tylko pola)",
     "useToSend": "Wyślij z tym szablonem",
     "edit": "Edytuj",
-    "delete": "Usuń"
+    "delete": "Usuń",
+    "nameHint": "API wywołuje ten szablon po nazwie (\"template\": \"nazwa\")",
+    "renameWarning": "Zmiana nazwy sprawi, że żądania API wciąż używające \"{name}\" nie znajdą szablonu i otrzymają błąd 404."
   }
 }

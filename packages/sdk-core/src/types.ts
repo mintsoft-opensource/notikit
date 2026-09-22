@@ -42,12 +42,25 @@ export interface IdentifyInput {
   timezone?: string;
 }
 
-interface SendBase {
-  title: string;
-  body: string;
+/**
+ * 내용은 직접 쓰거나(title·body) 콘솔 템플릿 이름으로 부른다.
+ * 템플릿과 함께 title·body 를 주면 그 값이 템플릿보다 우선한다.
+ */
+type SendContent =
+  | { title: string; body: string; template?: undefined; fields?: undefined }
+  | {
+      /** 콘솔 > 발송 > 템플릿 에서 만든 템플릿 이름 */
+      template: string;
+      /** 템플릿이 정의한 커스텀 필드 값 → 푸시 data. 정의에 없는 키는 422 */
+      fields?: Record<string, string>;
+      title?: string;
+      body?: string;
+    };
+
+type SendBase = SendContent & {
   deepLink?: string;
   data?: Record<string, unknown>;
-}
+};
 
 /**
  * 판별 유니온 — single/topic 은 target 필수, multi 는 targets(external_id 목록) 필수, broadcast 는 선택.
@@ -100,6 +113,37 @@ export interface ReportClickInput {
 
 /** 푸시 페이로드에서 notikit 이 예약해 쓰는 data 키 */
 export const NOTIKIT_LOG_ID_KEY = "notikit_log_id";
+
+/**
+ * 푸시 data 에서 notikit·FCM·APNs 가 쓰는 키. 이것을 뺀 나머지가 발송 때 넣은 커스텀 필드다.
+ * 서버가 필드 키로 쓰지 못하게 막는 목록과 같다.
+ */
+const INTERNAL_KEYS = new Set(["deep_link", "notikit_log_id", "title", "body", "icon", "aps", "from", "collapse_key", "notification", "message_type", "fcm_options"]);
+const INTERNAL_PREFIXES = ["google.", "gcm."];
+
+export interface NotikitPushData {
+  /** 발송 id — 없으면 notikit 발송이 아니다 */
+  logId?: string;
+  deepLink?: string;
+  /** 발송 때 넣은 커스텀 필드(템플릿 필드 포함). 값은 항상 문자열이다. */
+  custom: Record<string, string>;
+}
+
+/** 수신한 푸시 data(FCM RemoteMessage.data, 서비스워커 payload.data 등)를 읽는다 */
+export function readPushData(data: unknown): NotikitPushData {
+  if (!data || typeof data !== "object") return { custom: {} };
+  const custom: Record<string, string> = {};
+  for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+    if (INTERNAL_KEYS.has(k) || INTERNAL_PREFIXES.some((p) => k.startsWith(p))) continue;
+    if (typeof v === "string") custom[k] = v;
+  }
+  const deepLink = (data as Record<string, unknown>).deep_link;
+  return {
+    logId: logIdFromPayload(data),
+    deepLink: typeof deepLink === "string" && deepLink ? deepLink : undefined,
+    custom,
+  };
+}
 
 /** 수신 페이로드의 data 에서 발송 id 추출 — 없으면 notikit 발송이 아니다 */
 export function logIdFromPayload(data: unknown): string | undefined {

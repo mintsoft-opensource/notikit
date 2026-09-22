@@ -187,10 +187,16 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["title", "body", "type"],
+                required: ["type"],
                 properties: {
-                  title: { type: "string", maxLength: 255, description: "`{{속성}}`·`{{external_id}}`·`{{속성|기본값}}` 치환 지원" },
-                  body: { type: "string", maxLength: 4000, description: "title 과 같은 치환 지원" },
+                  title: { type: "string", maxLength: 255, description: "`{{속성}}`·`{{external_id}}`·`{{속성|기본값}}` 치환 지원. template 을 쓰면 생략 가능(주면 템플릿보다 우선)" },
+                  body: { type: "string", maxLength: 4000, description: "title 과 같은 치환 지원. template 을 쓰면 생략 가능" },
+                  template: { type: "string", maxLength: 120, description: "콘솔 > 발송 > 템플릿 의 이름. 제목·본문·딥링크·커스텀 필드를 채운다. 없으면 404" },
+                  fields: {
+                    type: "object",
+                    additionalProperties: { type: "string", maxLength: 500 },
+                    description: "템플릿이 정의한 커스텀 필드 값 → 푸시 data. 필수 누락·정의에 없는 키는 422. template 없이 주면 422",
+                  },
                   type: {
                     type: "string",
                     enum: ["single", "multi", "broadcast", "topic", "segment"],

@@ -51,6 +51,8 @@ export function TemplateFormDialog({
     if (open) setDraft(toDraft(editing));
   }, [open, editing]);
 
+  const renamed = Boolean(editing && draft.name.trim() && draft.name.trim() !== editing.name);
+
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const setField = (i: number, patch: Partial<TemplateField>) =>
     set("fields", draft.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)));
@@ -98,9 +100,15 @@ export function TemplateFormDialog({
       }
     >
       <div className="space-y-4">
-        <Field label={t("name")}>
+        <Field label={t("name")} hint={renamed ? undefined : t("nameHint")}>
           <Input value={draft.name} onChange={(e) => set("name", e.target.value)} maxLength={120} placeholder={t("namePlaceholder")} />
         </Field>
+        {/* API 는 이름으로 템플릿을 찾는다 — 바꾸면 옛 이름으로 부르는 서버가 조용히 404 를 받는다 */}
+        {renamed && (
+          <p role="alert" className="-mt-2 rounded-tile border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground">
+            {t("renameWarning", { name: editing!.name })}
+          </p>
+        )}
         <Field label={t("messageTitle")}>
           <Input value={draft.title} onChange={(e) => set("title", e.target.value)} maxLength={255} />
         </Field>

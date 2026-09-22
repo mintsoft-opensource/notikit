@@ -41,5 +41,20 @@ void main() {
       await notikit.subscribe('news', 't1');
       expect(captured.headers.containsKey('api-secret'), isFalse);
     });
+
+    test('customDataFromPayload skips notikit and FCM keys', () {
+      final payload = <String, dynamic>{
+        'notikit_log_id': 'log1',
+        'deep_link': 'myapp://orders',
+        'google.message_id': 'x',
+        'gcm.n.e': '1',
+        'from': '123',
+        'order_id': 'A-1',
+        'screen': 'order',
+      };
+      expect(Notikit.customDataFromPayload(payload), {'order_id': 'A-1', 'screen': 'order'});
+      expect(Notikit.deepLinkFromPayload(payload), 'myapp://orders');
+      expect(Notikit.customDataFromPayload(null), isEmpty);
+    });
   });
 }

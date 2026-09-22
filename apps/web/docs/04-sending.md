@@ -47,7 +47,42 @@ title: 발송
 
 `deep_link`, `notikit_log_id`, `title`, `body`, `icon`, `from`, `notification`, `message_type`, `collapse_key` 와 `google.`·`gcm.` 로 시작하는 키는 쓸 수 없습니다. 딥링크·클릭 추적·웹 알림이 쓰는 키이거나 FCM 이 예약한 키입니다.
 
-콘솔의 **발송 → 템플릿** 에서 제목·본문·딥링크와 커스텀 필드(키·표시 이름·기본값·필수 여부)를 묶어 저장할 수 있습니다. 발송 화면에서 템플릿을 고르면 내용이 채워지고 필드마다 입력칸이 생기며, 입력한 값이 `data` 로 나갑니다. 템플릿은 콘솔 편의 기능이라 API 로 보낼 때는 `data` 를 직접 넣으면 됩니다.
+콘솔의 **발송 → 템플릿** 에서 제목·본문·딥링크와 커스텀 필드(키·표시 이름·기본값·필수 여부)를 묶어 저장할 수 있습니다. 발송 화면에서 템플릿을 고르면 내용이 채워지고 필드마다 입력칸이 생기며, 입력한 값이 `data` 로 나갑니다. ### API 에서 템플릿으로 보내기
+
+`template` 에 템플릿 **이름**을, `fields` 에 커스텀 필드 값을 넣습니다. 문구는 콘솔에서 고치고, 서버 코드는 이름만 부르면 됩니다.
+
+```bash
+curl -X POST https://<notikit>/api/v1/messages \
+  -H "api-key: nk_..." -H "api-secret: sk_..." -H "content-type: application/json" \
+  -d '{ "type": "single", "target": "u-42", "template": "주문 도착", "fields": { "order_id": "A-1024" } }'
+```
+
+```ts
+// @notikit/core (서버)
+await notikit.send({ type: "single", target: "u-42", template: "주문 도착", fields: { order_id: "A-1024" } });
+```
+
+| 상황 | 결과 |
+|---|---|
+| 요청에 `title`·`body`·`deep_link`·`data` 도 줌 | 요청 값이 템플릿보다 우선 |
+| `fields` 에 없는 필드 | 템플릿 기본값, 기본값도 없으면 뺌 |
+| 필수 필드 누락 · 템플릿에 없는 키 | 422 |
+| 없는 템플릿 이름 | 404 |
+
+> 템플릿 이름을 바꾸면 옛 이름으로 부르는 요청은 404 가 됩니다. 콘솔 편집 화면에서도 경고합니다.
+
+### 앱에서 커스텀 필드 읽기
+
+앱 SDK 는 받은 푸시에서 notikit·FCM 이 쓰는 키를 빼고 커스텀 필드만 돌려주는 도우미를 제공합니다. 값은 항상 문자열입니다.
+
+| SDK | 호출 |
+|---|---|
+| Android | `Notikit.customDataFromPayload(remoteMessage.data)` |
+| iOS | `Notikit.customData(fromPayload: response.notification.request.content.userInfo)` |
+| Flutter | `Notikit.customDataFromPayload(message.data)` |
+| React Native · Web | `readPushData(data).custom` (`@notikit/core` 에서도 export) |
+
+앱에서 발송하는 기능은 없습니다. 발송에는 `api-secret` 이 필요한데, 앱에 넣으면 누구나 꺼내 푸시를 보낼 수 있기 때문입니다. 발송은 서버에서 하세요.
 
 ## 토픽 — 명단을 채우는 두 가지 방식
 

@@ -787,6 +787,8 @@
     "noContent": "Kein Titel oder Text (nur Felder)",
     "useToSend": "Mit dieser Vorlage senden",
     "edit": "Bearbeiten",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "nameHint": "Die API ruft diese Vorlage über ihren Namen auf (\"template\": \"Name\")",
+    "renameWarning": "Durch das Umbenennen schlagen API-Anfragen fehl, die noch \"{name}\" verwenden — sie erhalten einen 404-Fehler."
   }
 }

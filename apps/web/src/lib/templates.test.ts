@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { templateSchema, buildCustomData } from "./templates";
+import { templateSchema, buildCustomData, applyTemplate } from "./templates";
 
 const base = { name: "주문 도착", title: "{{name|고객}}님, 주문이 도착했어요", body: "확인해 보세요" };
 
@@ -50,5 +50,33 @@ describe("buildCustomData", () => {
 
   it("returns no data when nothing is filled", () => {
     expect(buildCustomData([{ key: "memo" }], {})).toEqual({ data: undefined });
+  });
+});
+
+describe("applyTemplate", () => {
+  const tpl = {
+    title: "{{name|고객}}님, 주문 도착",
+    body: "확인해 보세요",
+    deepLink: "myapp://orders",
+    fields: [{ key: "order_id", required: true }, { key: "screen", default: "order" }],
+  };
+
+  it("fills title, body, deep link and data from the template", () => {
+    expect(applyTemplate(tpl, { fields: { order_id: "A-1" } })).toEqual({
+      title: "{{name|고객}}님, 주문 도착",
+      body: "확인해 보세요",
+      deep_link: "myapp://orders",
+      data: { order_id: "A-1", screen: "order" },
+    });
+  });
+
+  it("lets values in the request win over the template", () => {
+    const r = applyTemplate(tpl, { title: "직접", deep_link: "https://x.test", fields: { order_id: "A-1" }, data: { screen: "home", extra: "1" } });
+    expect(r).toMatchObject({ title: "직접", body: "확인해 보세요", deep_link: "https://x.test", data: { order_id: "A-1", screen: "home", extra: "1" } });
+  });
+
+  it("rejects missing required fields and unknown field keys", () => {
+    expect(applyTemplate(tpl, {})).toEqual({ error: "missing required template fields: order_id" });
+    expect(applyTemplate(tpl, { fields: { order_id: "A", orderId: "B" } })).toEqual({ error: "unknown template fields: orderId" });
   });
 });

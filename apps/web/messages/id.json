@@ -787,6 +787,8 @@
     "noContent": "Tidak ada judul atau isi (hanya bidang)",
     "useToSend": "Kirim dengan template ini",
     "edit": "Edit",
-    "delete": "Hapus"
+    "delete": "Hapus",
+    "nameHint": "API memanggil template ini berdasarkan namanya (\"template\": \"nama\")",
+    "renameWarning": "Mengganti nama membuat permintaan API yang masih menggunakan \"{name}\" tidak menemukan template dan mendapat error 404."
   }
 }

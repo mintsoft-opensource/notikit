@@ -787,6 +787,8 @@
     "noContent": "Sin título ni cuerpo (solo campos)",
     "useToSend": "Enviar con esta",
     "edit": "Editar",
-    "delete": "Eliminar"
+    "delete": "Eliminar",
+    "nameHint": "La API llama a esta plantilla por su nombre (\"template\": \"nombre\")",
+    "renameWarning": "Cambiar el nombre hace que las solicitudes a la API que aún usan \"{name}\" no encuentren la plantilla y reciban un 404."
   }
 }

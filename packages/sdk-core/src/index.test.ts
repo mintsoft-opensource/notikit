@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { NotikitClient, NotikitError, NotikitSession, memoryStorage } from "./index";
+import { NotikitClient, NotikitError, NotikitSession, memoryStorage, readPushData } from "./index";
 
 function mockFetch(response: unknown, ok = true, status = 200) {
   return vi.fn(async () =>
@@ -58,6 +58,15 @@ describe("NotikitClient", () => {
     const body = JSON.parse((fetch as any).mock.calls[0][1].body);
     expect(body).toMatchObject({ type: "multi", targets: ["u1", "u2"], body: "{{name}}" });
     expect(body).not.toHaveProperty("target");
+  });
+
+  it("send by template posts the template name and field values", async () => {
+    const fetch = mockFetch({ success: true, data: { message: {} }, error: null }, true, 202);
+    const client = new NotikitClient({ ...base, fetch });
+    await client.send({ type: "single", target: "u1", template: "주문 도착", fields: { order_id: "A-1" } });
+    const body = JSON.parse((fetch as any).mock.calls[0][1].body);
+    expect(body).toMatchObject({ type: "single", target: "u1", template: "주문 도착", fields: { order_id: "A-1" } });
+    expect(body).not.toHaveProperty("title");
   });
 
   it("throws NotikitError on failure envelope", async () => {
@@ -149,5 +158,27 @@ describe("NotikitSession", () => {
     await storage.setItem("notikit.user", "{not json");
     const client = new NotikitClient({ baseUrl: "https://p.test", apiKey: "nk", fetch: (async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: {} }) })) as unknown as typeof fetch });
     expect(await new NotikitSession(client, storage, "web").getUser()).toBeNull();
+  });
+});
+
+describe("readPushData", () => {
+  it("separates custom fields from notikit and FCM keys", () => {
+    const r = readPushData({
+      notikit_log_id: "log1",
+      deep_link: "myapp://orders",
+      title: "t",
+      body: "b",
+      "google.message_id": "x",
+      "gcm.n.e": "1",
+      from: "123",
+      order_id: "A-1",
+      screen: "order",
+    });
+    expect(r).toEqual({ logId: "log1", deepLink: "myapp://orders", custom: { order_id: "A-1", screen: "order" } });
+  });
+
+  it("returns empty custom data for non-notikit or missing payloads", () => {
+    expect(readPushData(undefined)).toEqual({ custom: {} });
+    expect(readPushData({ foo: 1 })).toEqual({ logId: undefined, deepLink: undefined, custom: {} });
   });
 });
