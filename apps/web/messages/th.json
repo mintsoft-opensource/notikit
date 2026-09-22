@@ -38,7 +38,8 @@
     "sendSingle": "ส่งตรง",
     "sendBroadcast": "ส่งกระจาย",
     "sendTopic": "ส่งตามหัวข้อ",
-    "sendMulti": "ส่งแบบหลายคน"
+    "sendMulti": "ส่งแบบหลายคน",
+    "templates": "เทมเพลต"
   },
   "header": {
     "openMenu": "เปิดเมนู",
@@ -238,7 +239,20 @@
     "variablesHint": "คลิกเพื่อแทรกที่ตำแหน่งเคอร์เซอร์ ระบบจะแทนที่ด้วยค่าคุณสมบัติของผู้รับแต่ละคน เพิ่มค่าเริ่มต้นสำหรับกรณีที่ไม่มีค่า เช่น {example}",
     "fallbackSample": "คุณลูกค้า",
     "previewAs": "แสดงด้วยค่าของ {id}",
-    "previewDefault": "ตัวแปรจะแสดงด้วยค่าเริ่มต้น"
+    "previewDefault": "ตัวแปรจะแสดงด้วยค่าเริ่มต้น",
+    "template": "เทมเพลต",
+    "noTemplate": "เขียนโดยไม่ใช้เทมเพลต",
+    "manageTemplates": "จัดการเทมเพลต",
+    "confirmApplyTemplate": "แทนที่หัวข้อ เนื้อหา และดีปลิงก์ด้วยเทมเพลต \"{name}\" ใช่หรือไม่",
+    "sectionCustomFields": "ฟิลด์กำหนดเอง",
+    "extraKey": "คีย์ฟิลด์",
+    "extraValue": "ค่าฟิลด์",
+    "removeExtra": "ลบฟิลด์",
+    "addExtra": "เพิ่มฟิลด์",
+    "customFieldsHint": "จะถูกส่งไปพร้อมกับ push data เพื่อให้แอปของคุณอ่านได้",
+    "errRequiredFields": "กรอกฟิลด์ที่จำเป็น: {fields}",
+    "errExtraKey": "ไม่สามารถใช้คีย์ฟิลด์นี้ได้: {key}",
+    "errDuplicateKey": "คีย์ฟิลด์ซ้ำกัน: {key}"
   },
   "settings": {
     "title": "การตั้งค่า",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "เทมเพลต",
+    "subtitle": "บันทึกข้อความที่คุณส่งบ่อย พร้อมฟิลด์กำหนดเอง แล้วเรียกใช้ตอนส่ง",
+    "newTitle": "เทมเพลตใหม่",
+    "editTitle": "แก้ไขเทมเพลต",
+    "formHint": "หัวข้อและเนื้อหาสามารถใช้ตัวแปรได้ ค่าฟิลด์กำหนดเองจะกรอกตอนส่ง",
+    "name": "ชื่อเทมเพลต",
+    "namePlaceholder": "เช่น: คำสั่งซื้อมาถึงแล้ว",
+    "messageTitle": "หัวข้อ",
+    "messageBody": "เนื้อหา",
+    "deepLink": "ดีปลิงก์ (ไม่บังคับ)",
+    "fields": "ฟิลด์กำหนดเอง",
+    "fieldsHint": "แต่ละฟิลด์จะกลายเป็นช่องกรอกข้อมูลตอนส่ง ค่าของมันจะส่งถึงแอปของคุณในรูปแบบ push data แถวที่ไม่มีคีย์จะไม่ถูกบันทึก",
+    "fieldKey": "คีย์",
+    "fieldLabel": "ป้ายชื่อ",
+    "fieldLabelPlaceholder": "เช่น: หมายเลขคำสั่งซื้อ",
+    "fieldDefault": "ค่าเริ่มต้น",
+    "fieldRequired": "จำเป็น",
+    "removeField": "ลบฟิลด์",
+    "addField": "เพิ่มฟิลด์",
+    "saved": "บันทึกเทมเพลตแล้ว",
+    "deleted": "ลบเทมเพลตแล้ว",
+    "confirmDelete": "ลบเทมเพลต \"{name}\" ใช่หรือไม่ การส่งที่ทำไปแล้วจะไม่ได้รับผลกระทบ",
+    "empty": "ยังไม่มีเทมเพลต",
+    "fieldCount": "{count} ฟิลด์",
+    "noContent": "ไม่มีหัวข้อหรือเนื้อหา (มีเฉพาะฟิลด์)",
+    "useToSend": "ส่งด้วยเทมเพลตนี้",
+    "edit": "แก้ไข",
+    "delete": "ลบ"
   }
 }

@@ -141,6 +141,21 @@ export const topics = pgTable("topics", {
   nameIdx: uniqueIndex("topics_name_idx").on(t.projectId, t.name),
 }));
 
+/** 메시지 템플릿 — 제목·본문·딥링크 + 커스텀 필드(푸시 data) 정의 */
+export const messageTemplates = pgTable("message_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull().default(""),
+  deepLink: text("deep_link"),
+  fields: jsonb("fields").$type<{ key: string; label?: string; default?: string; required?: boolean }[]>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  nameIdx: uniqueIndex("message_templates_name_idx").on(t.projectId, t.name),
+}));
+
 /** 토픽 구독 */
 export const subscriptions = pgTable("subscriptions", {
   id: uuid("id").primaryKey().defaultRandom(),

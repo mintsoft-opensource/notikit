@@ -38,7 +38,8 @@
     "sendSingle": "Kirim langsung",
     "sendBroadcast": "Siaran",
     "sendTopic": "Kirim per topik",
-    "sendMulti": "Kirim multi"
+    "sendMulti": "Kirim multi",
+    "templates": "Template"
   },
   "header": {
     "openMenu": "Buka menu",
@@ -238,7 +239,20 @@
     "variablesHint": "Klik untuk menyisipkan di posisi kursor; akan diganti dengan nilai atribut setiap penerima. Tambahkan nilai default untuk kasus tanpa nilai, seperti {example}.",
     "fallbackSample": "Pelanggan",
     "previewAs": "Ditampilkan dengan nilai {id}",
-    "previewDefault": "Variabel ditampilkan dengan nilai default-nya"
+    "previewDefault": "Variabel ditampilkan dengan nilai default-nya",
+    "template": "Template",
+    "noTemplate": "Tulis tanpa template",
+    "manageTemplates": "Kelola template",
+    "confirmApplyTemplate": "Ganti judul, isi, dan deep link dengan template \"{name}\"?",
+    "sectionCustomFields": "Bidang khusus",
+    "extraKey": "Kunci bidang",
+    "extraValue": "Nilai bidang",
+    "removeExtra": "Hapus bidang",
+    "addExtra": "Tambah bidang",
+    "customFieldsHint": "Dikirim bersama sebagai push data agar aplikasi Anda bisa membacanya",
+    "errRequiredFields": "Isi bidang yang wajib diisi: {fields}",
+    "errExtraKey": "Kunci bidang ini tidak dapat digunakan: {key}",
+    "errDuplicateKey": "Kunci bidang duplikat: {key}"
   },
   "settings": {
     "title": "Pengaturan",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Template",
+    "subtitle": "Simpan pesan yang sering Anda kirim beserta bidang khususnya, lalu muat saat mengirim",
+    "newTitle": "Template baru",
+    "editTitle": "Edit template",
+    "formHint": "Judul dan isi dapat menggunakan variabel. Nilai bidang khusus diisi saat mengirim.",
+    "name": "Nama template",
+    "namePlaceholder": "mis. Pesanan tiba",
+    "messageTitle": "Judul",
+    "messageBody": "Isi",
+    "deepLink": "Deep link (opsional)",
+    "fields": "Bidang khusus",
+    "fieldsHint": "Setiap bidang menjadi kolom input saat mengirim; nilainya sampai ke aplikasi Anda sebagai push data. Baris tanpa kunci tidak akan disimpan.",
+    "fieldKey": "Kunci",
+    "fieldLabel": "Label",
+    "fieldLabelPlaceholder": "mis. Nomor pesanan",
+    "fieldDefault": "Nilai default",
+    "fieldRequired": "Wajib",
+    "removeField": "Hapus bidang",
+    "addField": "Tambah bidang",
+    "saved": "Template disimpan",
+    "deleted": "Template dihapus",
+    "confirmDelete": "Hapus template \"{name}\"? Pengiriman yang sudah dilakukan tidak akan terpengaruh.",
+    "empty": "Belum ada template",
+    "fieldCount": "{count} bidang",
+    "noContent": "Tidak ada judul atau isi (hanya bidang)",
+    "useToSend": "Kirim dengan template ini",
+    "edit": "Edit",
+    "delete": "Hapus"
   }
 }

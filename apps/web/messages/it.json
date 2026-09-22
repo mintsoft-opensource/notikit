@@ -38,7 +38,8 @@
     "sendSingle": "Invio diretto",
     "sendBroadcast": "Trasmissione",
     "sendTopic": "Invio per argomento",
-    "sendMulti": "Invio multiplo"
+    "sendMulti": "Invio multiplo",
+    "templates": "Modelli"
   },
   "header": {
     "openMenu": "Apri menu",
@@ -238,7 +239,20 @@
     "variablesHint": "Fai clic per inserirla nel punto del cursore; viene sostituita con il valore dell'attributo di ciascun destinatario. Aggiungi un valore predefinito per i casi mancanti, come {example}.",
     "fallbackSample": "cliente",
     "previewAs": "Mostrato con i valori di {id}",
-    "previewDefault": "Le variabili sono mostrate con i loro valori predefiniti"
+    "previewDefault": "Le variabili sono mostrate con i loro valori predefiniti",
+    "template": "Modello",
+    "noTemplate": "Scrivi senza modello",
+    "manageTemplates": "Gestisci modelli",
+    "confirmApplyTemplate": "Sostituire titolo, corpo e deep link con il modello \"{name}\"?",
+    "sectionCustomFields": "Campi personalizzati",
+    "extraKey": "Chiave del campo",
+    "extraValue": "Valore del campo",
+    "removeExtra": "Rimuovi campo",
+    "addExtra": "Aggiungi campo",
+    "customFieldsHint": "Viene inviato come dati push così la tua app può leggerlo",
+    "errRequiredFields": "Compila i campi obbligatori: {fields}",
+    "errExtraKey": "Questa chiave di campo non può essere usata: {key}",
+    "errDuplicateKey": "Chiave di campo duplicata: {key}"
   },
   "settings": {
     "title": "Impostazioni",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Modelli",
+    "subtitle": "Salva i messaggi che invii spesso, con i relativi campi personalizzati, e caricali quando invii",
+    "newTitle": "Nuovo modello",
+    "editTitle": "Modifica modello",
+    "formHint": "Titolo e corpo possono usare variabili. I valori dei campi personalizzati si compilano al momento dell'invio.",
+    "name": "Nome del modello",
+    "namePlaceholder": "es. Ordine arrivato",
+    "messageTitle": "Titolo",
+    "messageBody": "Corpo",
+    "deepLink": "Deep link (opzionale)",
+    "fields": "Campi personalizzati",
+    "fieldsHint": "Ogni campo diventa un campo di inserimento all'invio; il suo valore arriva alla tua app come dati push. Le righe senza chiave non vengono salvate.",
+    "fieldKey": "Chiave",
+    "fieldLabel": "Etichetta",
+    "fieldLabelPlaceholder": "es. Numero ordine",
+    "fieldDefault": "Valore predefinito",
+    "fieldRequired": "Obbligatorio",
+    "removeField": "Rimuovi campo",
+    "addField": "Aggiungi campo",
+    "saved": "Modello salvato",
+    "deleted": "Modello eliminato",
+    "confirmDelete": "Eliminare il modello \"{name}\"? Gli invii già effettuati non sono interessati.",
+    "empty": "Nessun modello ancora",
+    "fieldCount": "{count} campi",
+    "noContent": "Nessun titolo o corpo (solo campi)",
+    "useToSend": "Invia con questo",
+    "edit": "Modifica",
+    "delete": "Elimina"
   }
 }

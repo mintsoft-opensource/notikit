@@ -38,7 +38,8 @@
     "sendSingle": "שליחה ישירה",
     "sendBroadcast": "שידור לכולם",
     "sendTopic": "שליחה לפי נושא",
-    "sendMulti": "שליחה מרובה"
+    "sendMulti": "שליחה מרובה",
+    "templates": "תבניות"
   },
   "header": {
     "openMenu": "פתח תפריט",
@@ -238,7 +239,20 @@
     "variablesHint": "לחץ כדי להוסיף במיקום הסמן; הוא יוחלף בערך המאפיין של כל נמען. הוסף ערך ברירת מחדל למקרים שאין בהם ערך, כמו {example}.",
     "fallbackSample": "לקוח",
     "previewAs": "מוצג עם הערכים של {id}",
-    "previewDefault": "המשתנים מוצגים עם ערכי ברירת המחדל שלהם"
+    "previewDefault": "המשתנים מוצגים עם ערכי ברירת המחדל שלהם",
+    "template": "תבנית",
+    "noTemplate": "כתיבה ללא תבנית",
+    "manageTemplates": "ניהול תבניות",
+    "confirmApplyTemplate": "להחליף את הכותרת, הגוף והקישור העמוק בתבנית \"{name}\"?",
+    "sectionCustomFields": "שדות מותאמים אישית",
+    "extraKey": "מפתח שדה",
+    "extraValue": "ערך שדה",
+    "removeExtra": "הסרת שדה",
+    "addExtra": "הוספת שדה",
+    "customFieldsHint": "נשלח יחד כנתוני push כדי שהאפליקציה שלך תוכל לקרוא אותם",
+    "errRequiredFields": "מלא את השדות הנדרשים: {fields}",
+    "errExtraKey": "לא ניתן להשתמש במפתח השדה הזה: {key}",
+    "errDuplicateKey": "מפתח שדה כפול: {key}"
   },
   "settings": {
     "title": "הגדרות",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "תבניות",
+    "subtitle": "שמור הודעות שאתה שולח לעיתים קרובות, עם השדות המותאמים אישית שלהן, וטען אותן בעת השליחה",
+    "newTitle": "תבנית חדשה",
+    "editTitle": "עריכת תבנית",
+    "formHint": "ניתן להשתמש במשתנים בכותרת ובגוף ההודעה. ערכי השדות המותאמים אישית מוזנים בעת השליחה.",
+    "name": "שם התבנית",
+    "namePlaceholder": "לדוגמה: ההזמנה הגיעה",
+    "messageTitle": "כותרת",
+    "messageBody": "גוף ההודעה",
+    "deepLink": "קישור עמוק (אופציונלי)",
+    "fields": "שדות מותאמים אישית",
+    "fieldsHint": "כל שדה הופך לשדה קלט בעת השליחה; הערך שלו מגיע לאפליקציה כנתוני push. שורות ללא מפתח לא נשמרות.",
+    "fieldKey": "מפתח",
+    "fieldLabel": "תווית",
+    "fieldLabelPlaceholder": "לדוגמה: מספר הזמנה",
+    "fieldDefault": "ברירת מחדל",
+    "fieldRequired": "שדה חובה",
+    "removeField": "הסרת שדה",
+    "addField": "הוספת שדה",
+    "saved": "התבנית נשמרה",
+    "deleted": "התבנית נמחקה",
+    "confirmDelete": "למחוק את התבנית \"{name}\"? זה לא ישפיע על שליחות שכבר בוצעו.",
+    "empty": "אין עדיין תבניות",
+    "fieldCount": "{count} שדות",
+    "noContent": "אין כותרת או גוף (שדות בלבד)",
+    "useToSend": "שליחה עם תבנית זו",
+    "edit": "עריכה",
+    "delete": "מחיקה"
   }
 }

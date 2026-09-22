@@ -38,7 +38,8 @@
     "sendSingle": "Direct send",
     "sendBroadcast": "Broadcast",
     "sendTopic": "Topic send",
-    "sendMulti": "Multi send"
+    "sendMulti": "Multi send",
+    "templates": "Templates"
   },
   "header": {
     "openMenu": "Open menu",
@@ -238,7 +239,20 @@
     "variablesHint": "Click to insert at the cursor; it is replaced with each recipient's attribute value. Add a fallback for missing values, like {example}.",
     "fallbackSample": "there",
     "previewAs": "Shown with {id}'s values",
-    "previewDefault": "Variables are shown with their fallback values"
+    "previewDefault": "Variables are shown with their fallback values",
+    "template": "Template",
+    "noTemplate": "Write without a template",
+    "manageTemplates": "Manage templates",
+    "confirmApplyTemplate": "Replace the title, body and deep link with the \"{name}\" template?",
+    "sectionCustomFields": "Custom fields",
+    "extraKey": "Field key",
+    "extraValue": "Field value",
+    "removeExtra": "Remove field",
+    "addExtra": "Add field",
+    "customFieldsHint": "Sent along as push data so your app can read them",
+    "errRequiredFields": "Fill in the required fields: {fields}",
+    "errExtraKey": "This field key can't be used: {key}",
+    "errDuplicateKey": "Duplicate field key: {key}"
   },
   "settings": {
     "title": "Settings",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Templates",
+    "subtitle": "Save messages you send often, with their custom fields, and load them when sending",
+    "newTitle": "New template",
+    "editTitle": "Edit template",
+    "formHint": "Title and body can use variables. Custom field values are filled in when you send.",
+    "name": "Template name",
+    "namePlaceholder": "e.g. Order arrived",
+    "messageTitle": "Title",
+    "messageBody": "Body",
+    "deepLink": "Deep link (optional)",
+    "fields": "Custom fields",
+    "fieldsHint": "Each field becomes an input when sending; its value reaches your app as push data. Rows without a key are not saved.",
+    "fieldKey": "Key",
+    "fieldLabel": "Label",
+    "fieldLabelPlaceholder": "e.g. Order number",
+    "fieldDefault": "Default",
+    "fieldRequired": "Required",
+    "removeField": "Remove field",
+    "addField": "Add field",
+    "saved": "Template saved",
+    "deleted": "Template deleted",
+    "confirmDelete": "Delete the \"{name}\" template? Sends already made are not affected.",
+    "empty": "No templates yet",
+    "fieldCount": "{count} fields",
+    "noContent": "No title or body (fields only)",
+    "useToSend": "Send with this",
+    "edit": "Edit",
+    "delete": "Delete"
   }
 }

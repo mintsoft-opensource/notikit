@@ -38,7 +38,8 @@
     "sendSingle": "Wysyłka bezpośrednia",
     "sendBroadcast": "Wysyłka masowa",
     "sendTopic": "Wysyłka tematyczna",
-    "sendMulti": "Wysyłka wieloosobowa"
+    "sendMulti": "Wysyłka wieloosobowa",
+    "templates": "Szablony"
   },
   "header": {
     "openMenu": "Otwórz menu",
@@ -238,7 +239,20 @@
     "variablesHint": "Kliknij, aby wstawić w miejscu kursora; zostanie zastąpiona wartością atrybutu każdego odbiorcy. Dodaj wartość domyślną na wypadek braku danych, np. {example}.",
     "fallbackSample": "kliencie",
     "previewAs": "Wyświetlane z wartościami {id}",
-    "previewDefault": "Zmienne są wyświetlane z ich wartościami domyślnymi"
+    "previewDefault": "Zmienne są wyświetlane z ich wartościami domyślnymi",
+    "template": "Szablon",
+    "noTemplate": "Pisz bez szablonu",
+    "manageTemplates": "Zarządzaj szablonami",
+    "confirmApplyTemplate": "Zastąpić tytuł, treść i deep link szablonem \"{name}\"?",
+    "sectionCustomFields": "Pola niestandardowe",
+    "extraKey": "Klucz pola",
+    "extraValue": "Wartość pola",
+    "removeExtra": "Usuń pole",
+    "addExtra": "Dodaj pole",
+    "customFieldsHint": "Jest wysyłane razem jako dane push, dzięki czemu aplikacja może je odczytać",
+    "errRequiredFields": "Uzupełnij wymagane pola: {fields}",
+    "errExtraKey": "Nie można użyć tego klucza pola: {key}",
+    "errDuplicateKey": "Zduplikowany klucz pola: {key}"
   },
   "settings": {
     "title": "Ustawienia",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Szablony",
+    "subtitle": "Zapisuj wiadomości, które wysyłasz często, wraz z polami niestandardowymi, i wczytuj je przy wysyłce",
+    "newTitle": "Nowy szablon",
+    "editTitle": "Edytuj szablon",
+    "formHint": "Tytuł i treść mogą używać zmiennych. Wartości pól niestandardowych uzupełniasz podczas wysyłki.",
+    "name": "Nazwa szablonu",
+    "namePlaceholder": "np. Zamówienie dostarczone",
+    "messageTitle": "Tytuł",
+    "messageBody": "Treść",
+    "deepLink": "Deep link (opcjonalnie)",
+    "fields": "Pola niestandardowe",
+    "fieldsHint": "Każde pole staje się polem do wypełnienia przy wysyłce; jego wartość trafia do aplikacji jako dane push. Wiersze bez klucza nie są zapisywane.",
+    "fieldKey": "Klucz",
+    "fieldLabel": "Etykieta",
+    "fieldLabelPlaceholder": "np. Numer zamówienia",
+    "fieldDefault": "Wartość domyślna",
+    "fieldRequired": "Wymagane",
+    "removeField": "Usuń pole",
+    "addField": "Dodaj pole",
+    "saved": "Szablon zapisany",
+    "deleted": "Szablon usunięty",
+    "confirmDelete": "Usunąć szablon \"{name}\"? Nie wpłynie to na już wykonane wysyłki.",
+    "empty": "Brak szablonów",
+    "fieldCount": "Pola: {count}",
+    "noContent": "Brak tytułu i treści (tylko pola)",
+    "useToSend": "Wyślij z tym szablonem",
+    "edit": "Edytuj",
+    "delete": "Usuń"
   }
 }

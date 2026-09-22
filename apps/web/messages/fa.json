@@ -38,7 +38,8 @@
     "sendSingle": "ارسال مستقیم",
     "sendBroadcast": "ارسال همگانی",
     "sendTopic": "ارسال بر اساس موضوع",
-    "sendMulti": "ارسال گروهی"
+    "sendMulti": "ارسال گروهی",
+    "templates": "قالب‌ها"
   },
   "header": {
     "openMenu": "باز کردن منو",
@@ -238,7 +239,20 @@
     "variablesHint": "برای درج در موقعیت مکان‌نما کلیک کنید؛ با مقدار ویژگی هر گیرنده جایگزین می‌شود. برای مواقعی که مقدار موجود نیست، مقدار پیش‌فرضی مانند {example} اضافه کنید.",
     "fallbackSample": "مشتری",
     "previewAs": "نمایش با مقادیر {id}",
-    "previewDefault": "متغیرها با مقادیر پیش‌فرض خود نمایش داده می‌شوند"
+    "previewDefault": "متغیرها با مقادیر پیش‌فرض خود نمایش داده می‌شوند",
+    "template": "قالب",
+    "noTemplate": "نوشتن بدون قالب",
+    "manageTemplates": "مدیریت قالب‌ها",
+    "confirmApplyTemplate": "عنوان، متن و دیپ‌لینک با قالب \"{name}\" جایگزین شود؟",
+    "sectionCustomFields": "فیلدهای سفارشی",
+    "extraKey": "کلید فیلد",
+    "extraValue": "مقدار فیلد",
+    "removeExtra": "حذف فیلد",
+    "addExtra": "افزودن فیلد",
+    "customFieldsHint": "همراه با data پوش ارسال می‌شود تا اپلیکیشن شما بتواند آن را بخواند",
+    "errRequiredFields": "فیلدهای الزامی را پر کنید: {fields}",
+    "errExtraKey": "این کلید فیلد قابل استفاده نیست: {key}",
+    "errDuplicateKey": "کلید فیلد تکراری است: {key}"
   },
   "settings": {
     "title": "تنظیمات",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "قالب‌ها",
+    "subtitle": "پیام‌هایی که مکرراً ارسال می‌کنید را همراه با فیلدهای سفارشی‌شان ذخیره کنید و هنگام ارسال بارگذاری کنید",
+    "newTitle": "قالب جدید",
+    "editTitle": "ویرایش قالب",
+    "formHint": "در عنوان و متن می‌توان از متغیرها استفاده کرد. مقادیر فیلدهای سفارشی هنگام ارسال پر می‌شوند.",
+    "name": "نام قالب",
+    "namePlaceholder": "مثلاً: سفارش رسید",
+    "messageTitle": "عنوان",
+    "messageBody": "متن",
+    "deepLink": "دیپ‌لینک (اختیاری)",
+    "fields": "فیلدهای سفارشی",
+    "fieldsHint": "هر فیلد هنگام ارسال به یک ورودی تبدیل می‌شود؛ مقدار آن به‌صورت data پوش به اپلیکیشن شما می‌رسد. ردیف‌های بدون کلید ذخیره نمی‌شوند.",
+    "fieldKey": "کلید",
+    "fieldLabel": "برچسب",
+    "fieldLabelPlaceholder": "مثلاً: شماره سفارش",
+    "fieldDefault": "مقدار پیش‌فرض",
+    "fieldRequired": "الزامی",
+    "removeField": "حذف فیلد",
+    "addField": "افزودن فیلد",
+    "saved": "قالب ذخیره شد",
+    "deleted": "قالب حذف شد",
+    "confirmDelete": "قالب \"{name}\" حذف شود؟ این کار روی ارسال‌های قبلی تأثیری ندارد.",
+    "empty": "هنوز قالبی وجود ندارد",
+    "fieldCount": "{count} فیلد",
+    "noContent": "بدون عنوان یا متن (فقط فیلد)",
+    "useToSend": "ارسال با این قالب",
+    "edit": "ویرایش",
+    "delete": "حذف"
   }
 }

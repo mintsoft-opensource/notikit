@@ -38,7 +38,8 @@
     "sendSingle": "個別送信",
     "sendBroadcast": "一斉送信",
     "sendTopic": "トピック送信",
-    "sendMulti": "複数送信"
+    "sendMulti": "複数送信",
+    "templates": "テンプレート"
   },
   "header": {
     "openMenu": "メニューを開く",
@@ -238,7 +239,20 @@
     "variablesHint": "クリックするとカーソル位置に挿入され、受信者の属性値に置き換わります。値がない場合に備えて{example}のように既定値を付けられます。",
     "fallbackSample": "お客様",
     "previewAs": "{id} の値で置換した表示です",
-    "previewDefault": "置換変数は既定値で表示されます"
+    "previewDefault": "置換変数は既定値で表示されます",
+    "template": "テンプレート",
+    "noTemplate": "テンプレートを使わず作成",
+    "manageTemplates": "テンプレートを管理",
+    "confirmApplyTemplate": "\"{name}\" テンプレートでタイトル・本文・ディープリンクを置き換えます。続けますか?",
+    "sectionCustomFields": "カスタムフィールド",
+    "extraKey": "フィールドキー",
+    "extraValue": "フィールド値",
+    "removeExtra": "フィールドを削除",
+    "addExtra": "フィールドを追加",
+    "customFieldsHint": "プッシュのdataとして一緒に送られ、アプリ側で読み取れます",
+    "errRequiredFields": "必須フィールドを入力してください: {fields}",
+    "errExtraKey": "このフィールドキーは使用できません: {key}",
+    "errDuplicateKey": "フィールドキーが重複しています: {key}"
   },
   "settings": {
     "title": "設定",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "テンプレート",
+    "subtitle": "よく送るメッセージとカスタムフィールドをまとめておき、送信時に呼び出します",
+    "newTitle": "新規テンプレート",
+    "editTitle": "テンプレートを編集",
+    "formHint": "タイトルと本文には置換変数を使えます。カスタムフィールドは送信時に値を入力します。",
+    "name": "テンプレート名",
+    "namePlaceholder": "例: 注文到着",
+    "messageTitle": "タイトル",
+    "messageBody": "本文",
+    "deepLink": "ディープリンク(任意)",
+    "fields": "カスタムフィールド",
+    "fieldsHint": "送信時に入力欄として表示され、値はプッシュのdataとしてアプリに渡されます。キーが空の行は保存されません。",
+    "fieldKey": "キー",
+    "fieldLabel": "表示名",
+    "fieldLabelPlaceholder": "例: 注文番号",
+    "fieldDefault": "既定値",
+    "fieldRequired": "必須",
+    "removeField": "フィールドを削除",
+    "addField": "フィールドを追加",
+    "saved": "テンプレートを保存しました",
+    "deleted": "テンプレートを削除しました",
+    "confirmDelete": "\"{name}\" テンプレートを削除しますか? 送信済みの内容には影響しません。",
+    "empty": "まだテンプレートがありません",
+    "fieldCount": "フィールド {count} 件",
+    "noContent": "タイトル・本文なし(フィールドのみ)",
+    "useToSend": "このテンプレートで送信",
+    "edit": "編集",
+    "delete": "削除"
   }
 }

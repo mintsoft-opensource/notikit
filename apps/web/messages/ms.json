@@ -38,7 +38,8 @@
     "sendSingle": "Hantar terus",
     "sendBroadcast": "Siaran",
     "sendTopic": "Hantar mengikut topik",
-    "sendMulti": "Hantar berbilang"
+    "sendMulti": "Hantar berbilang",
+    "templates": "Templat"
   },
   "header": {
     "openMenu": "Buka menu",
@@ -238,7 +239,20 @@
     "variablesHint": "Klik untuk memasukkan pada kedudukan kursor; ia akan digantikan dengan nilai atribut setiap penerima. Tambah nilai lalai untuk kes tiada nilai, seperti {example}.",
     "fallbackSample": "pelanggan",
     "previewAs": "Dipaparkan dengan nilai {id}",
-    "previewDefault": "Pembolehubah dipaparkan dengan nilai lalainya"
+    "previewDefault": "Pembolehubah dipaparkan dengan nilai lalainya",
+    "template": "Templat",
+    "noTemplate": "Tulis tanpa templat",
+    "manageTemplates": "Urus templat",
+    "confirmApplyTemplate": "Gantikan tajuk, kandungan dan pautan dalam dengan templat \"{name}\"?",
+    "sectionCustomFields": "Medan tersuai",
+    "extraKey": "Kunci medan",
+    "extraValue": "Nilai medan",
+    "removeExtra": "Buang medan",
+    "addExtra": "Tambah medan",
+    "customFieldsHint": "Dihantar bersama sebagai data push supaya aplikasi anda boleh membacanya",
+    "errRequiredFields": "Isikan medan wajib: {fields}",
+    "errExtraKey": "Kunci medan ini tidak boleh digunakan: {key}",
+    "errDuplicateKey": "Kunci medan pendua: {key}"
   },
   "settings": {
     "title": "Tetapan",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Templat",
+    "subtitle": "Simpan mesej yang kerap anda hantar, berserta medan tersuainya, dan muatkan semasa menghantar",
+    "newTitle": "Templat baharu",
+    "editTitle": "Sunting templat",
+    "formHint": "Tajuk dan kandungan boleh menggunakan pembolehubah. Nilai medan tersuai diisi semasa menghantar.",
+    "name": "Nama templat",
+    "namePlaceholder": "cth: Pesanan tiba",
+    "messageTitle": "Tajuk",
+    "messageBody": "Kandungan",
+    "deepLink": "Pautan dalam (pilihan)",
+    "fields": "Medan tersuai",
+    "fieldsHint": "Setiap medan menjadi medan input semasa menghantar; nilainya sampai ke aplikasi anda sebagai data push. Baris tanpa kunci tidak disimpan.",
+    "fieldKey": "Kunci",
+    "fieldLabel": "Label",
+    "fieldLabelPlaceholder": "cth: Nombor pesanan",
+    "fieldDefault": "Nilai lalai",
+    "fieldRequired": "Wajib",
+    "removeField": "Buang medan",
+    "addField": "Tambah medan",
+    "saved": "Templat disimpan",
+    "deleted": "Templat dipadam",
+    "confirmDelete": "Padam templat \"{name}\"? Hantaran yang telah dibuat tidak akan terjejas.",
+    "empty": "Belum ada templat",
+    "fieldCount": "{count} medan",
+    "noContent": "Tiada tajuk atau kandungan (medan sahaja)",
+    "useToSend": "Hantar dengan templat ini",
+    "edit": "Sunting",
+    "delete": "Padam"
   }
 }

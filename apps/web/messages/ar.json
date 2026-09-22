@@ -38,7 +38,8 @@
     "sendSingle": "إرسال مباشر",
     "sendBroadcast": "إرسال جماعي",
     "sendTopic": "إرسال حسب الموضوع",
-    "sendMulti": "إرسال متعدد"
+    "sendMulti": "إرسال متعدد",
+    "templates": "القوالب"
   },
   "header": {
     "openMenu": "فتح القائمة",
@@ -238,7 +239,20 @@
     "variablesHint": "انقر للإدراج في موضع المؤشر؛ يتم استبداله بقيمة سمة كل مستلم. أضف قيمة افتراضية للحالات التي لا تتوفر فيها قيمة، مثل {example}.",
     "fallbackSample": "عميلنا",
     "previewAs": "معروض بقيم {id}",
-    "previewDefault": "تُعرض المتغيرات بقيمها الافتراضية"
+    "previewDefault": "تُعرض المتغيرات بقيمها الافتراضية",
+    "template": "القالب",
+    "noTemplate": "الكتابة بدون قالب",
+    "manageTemplates": "إدارة القوالب",
+    "confirmApplyTemplate": "استبدال العنوان والنص والرابط العميق بقالب \"{name}\"؟",
+    "sectionCustomFields": "الحقول المخصصة",
+    "extraKey": "مفتاح الحقل",
+    "extraValue": "قيمة الحقل",
+    "removeExtra": "إزالة الحقل",
+    "addExtra": "إضافة حقل",
+    "customFieldsHint": "يُرسل ضمن بيانات push بحيث يمكن لتطبيقك قراءتها",
+    "errRequiredFields": "املأ الحقول المطلوبة: {fields}",
+    "errExtraKey": "لا يمكن استخدام مفتاح الحقل هذا: {key}",
+    "errDuplicateKey": "مفتاح حقل مكرر: {key}"
   },
   "settings": {
     "title": "الإعدادات",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "القوالب",
+    "subtitle": "احفظ الرسائل التي ترسلها كثيرًا مع حقولها المخصصة، وحمّلها عند الإرسال",
+    "newTitle": "قالب جديد",
+    "editTitle": "تعديل القالب",
+    "formHint": "يمكن استخدام المتغيرات في العنوان والنص. تُملأ قيم الحقول المخصصة عند الإرسال.",
+    "name": "اسم القالب",
+    "namePlaceholder": "مثال: وصول الطلب",
+    "messageTitle": "العنوان",
+    "messageBody": "النص",
+    "deepLink": "رابط عميق (اختياري)",
+    "fields": "الحقول المخصصة",
+    "fieldsHint": "يصبح كل حقل خانة إدخال عند الإرسال؛ وتصل قيمته إلى تطبيقك كبيانات push. لا تُحفظ الصفوف بدون مفتاح.",
+    "fieldKey": "المفتاح",
+    "fieldLabel": "التسمية",
+    "fieldLabelPlaceholder": "مثال: رقم الطلب",
+    "fieldDefault": "القيمة الافتراضية",
+    "fieldRequired": "مطلوب",
+    "removeField": "إزالة الحقل",
+    "addField": "إضافة حقل",
+    "saved": "تم حفظ القالب",
+    "deleted": "تم حذف القالب",
+    "confirmDelete": "هل تريد حذف قالب \"{name}\"؟ لن يؤثر ذلك على الإرسالات التي تمت بالفعل.",
+    "empty": "لا توجد قوالب بعد",
+    "fieldCount": "{count} حقل",
+    "noContent": "لا يوجد عنوان أو نص (حقول فقط)",
+    "useToSend": "الإرسال باستخدام هذا القالب",
+    "edit": "تعديل",
+    "delete": "حذف"
   }
 }

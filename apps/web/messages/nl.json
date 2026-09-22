@@ -38,7 +38,8 @@
     "sendSingle": "Direct verzenden",
     "sendBroadcast": "Broadcast",
     "sendTopic": "Onderwerpverzending",
-    "sendMulti": "Meervoudig verzenden"
+    "sendMulti": "Meervoudig verzenden",
+    "templates": "Sjablonen"
   },
   "header": {
     "openMenu": "Menu openen",
@@ -238,7 +239,20 @@
     "variablesHint": "Klik om in te voegen op de cursorpositie; wordt vervangen door de attribuutwaarde van elke ontvanger. Voeg een standaardwaarde toe voor ontbrekende waarden, zoals {example}.",
     "fallbackSample": "klant",
     "previewAs": "Weergegeven met de waarden van {id}",
-    "previewDefault": "Variabelen worden weergegeven met hun standaardwaarden"
+    "previewDefault": "Variabelen worden weergegeven met hun standaardwaarden",
+    "template": "Sjabloon",
+    "noTemplate": "Schrijven zonder sjabloon",
+    "manageTemplates": "Sjablonen beheren",
+    "confirmApplyTemplate": "Titel, inhoud en deep link vervangen door het sjabloon \"{name}\"?",
+    "sectionCustomFields": "Aangepaste velden",
+    "extraKey": "Veldsleutel",
+    "extraValue": "Veldwaarde",
+    "removeExtra": "Veld verwijderen",
+    "addExtra": "Veld toevoegen",
+    "customFieldsHint": "Wordt meegestuurd als push-data zodat je app het kan lezen",
+    "errRequiredFields": "Vul de verplichte velden in: {fields}",
+    "errExtraKey": "Deze veldsleutel kan niet worden gebruikt: {key}",
+    "errDuplicateKey": "Dubbele veldsleutel: {key}"
   },
   "settings": {
     "title": "Instellingen",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Sjablonen",
+    "subtitle": "Bewaar berichten die je vaak verstuurt, met hun aangepaste velden, en laad ze bij het verzenden",
+    "newTitle": "Nieuw sjabloon",
+    "editTitle": "Sjabloon bewerken",
+    "formHint": "Titel en inhoud kunnen variabelen gebruiken. Waarden van aangepaste velden vul je in bij het verzenden.",
+    "name": "Sjabloonnaam",
+    "namePlaceholder": "bijv. Bestelling aangekomen",
+    "messageTitle": "Titel",
+    "messageBody": "Inhoud",
+    "deepLink": "Deep link (optioneel)",
+    "fields": "Aangepaste velden",
+    "fieldsHint": "Elk veld wordt een invoerveld bij het verzenden; de waarde bereikt je app als push-data. Rijen zonder sleutel worden niet opgeslagen.",
+    "fieldKey": "Sleutel",
+    "fieldLabel": "Label",
+    "fieldLabelPlaceholder": "bijv. Bestelnummer",
+    "fieldDefault": "Standaardwaarde",
+    "fieldRequired": "Verplicht",
+    "removeField": "Veld verwijderen",
+    "addField": "Veld toevoegen",
+    "saved": "Sjabloon opgeslagen",
+    "deleted": "Sjabloon verwijderd",
+    "confirmDelete": "Sjabloon \"{name}\" verwijderen? Al verzonden berichten worden niet beïnvloed.",
+    "empty": "Nog geen sjablonen",
+    "fieldCount": "{count} velden",
+    "noContent": "Geen titel of inhoud (alleen velden)",
+    "useToSend": "Verzenden met dit sjabloon",
+    "edit": "Bewerken",
+    "delete": "Verwijderen"
   }
 }

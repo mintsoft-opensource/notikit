@@ -38,7 +38,8 @@
     "sendSingle": "Envoi direct",
     "sendBroadcast": "Diffusion",
     "sendTopic": "Envoi par sujet",
-    "sendMulti": "Envoi multiple"
+    "sendMulti": "Envoi multiple",
+    "templates": "Modèles"
   },
   "header": {
     "openMenu": "Ouvrir le menu",
@@ -238,7 +239,20 @@
     "variablesHint": "Cliquez pour insérer au curseur ; elle est remplacée par la valeur de l'attribut de chaque destinataire. Ajoutez une valeur par défaut pour les cas manquants, comme {example}.",
     "fallbackSample": "ami",
     "previewAs": "Affiché avec les valeurs de {id}",
-    "previewDefault": "Les variables sont affichées avec leurs valeurs par défaut"
+    "previewDefault": "Les variables sont affichées avec leurs valeurs par défaut",
+    "template": "Modèle",
+    "noTemplate": "Rédiger sans modèle",
+    "manageTemplates": "Gérer les modèles",
+    "confirmApplyTemplate": "Remplacer le titre, le corps et le lien profond par le modèle \"{name}\" ?",
+    "sectionCustomFields": "Champs personnalisés",
+    "extraKey": "Clé du champ",
+    "extraValue": "Valeur du champ",
+    "removeExtra": "Supprimer le champ",
+    "addExtra": "Ajouter un champ",
+    "customFieldsHint": "Envoyé avec les données push afin que votre appli puisse les lire",
+    "errRequiredFields": "Remplissez les champs obligatoires : {fields}",
+    "errExtraKey": "Cette clé de champ ne peut pas être utilisée : {key}",
+    "errDuplicateKey": "Clé de champ en double : {key}"
   },
   "settings": {
     "title": "Paramètres",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Modèles",
+    "subtitle": "Enregistrez les messages que vous envoyez souvent, avec leurs champs personnalisés, et chargez-les au moment de l'envoi",
+    "newTitle": "Nouveau modèle",
+    "editTitle": "Modifier le modèle",
+    "formHint": "Le titre et le corps peuvent utiliser des variables. Les valeurs des champs personnalisés sont renseignées à l'envoi.",
+    "name": "Nom du modèle",
+    "namePlaceholder": "ex. Commande arrivée",
+    "messageTitle": "Titre",
+    "messageBody": "Corps",
+    "deepLink": "Lien profond (facultatif)",
+    "fields": "Champs personnalisés",
+    "fieldsHint": "Chaque champ devient un champ de saisie à l'envoi ; sa valeur parvient à votre appli sous forme de données push. Les lignes sans clé ne sont pas enregistrées.",
+    "fieldKey": "Clé",
+    "fieldLabel": "Libellé",
+    "fieldLabelPlaceholder": "ex. Numéro de commande",
+    "fieldDefault": "Valeur par défaut",
+    "fieldRequired": "Obligatoire",
+    "removeField": "Supprimer le champ",
+    "addField": "Ajouter un champ",
+    "saved": "Modèle enregistré",
+    "deleted": "Modèle supprimé",
+    "confirmDelete": "Supprimer le modèle \"{name}\" ? Les envois déjà effectués ne sont pas concernés.",
+    "empty": "Aucun modèle pour l'instant",
+    "fieldCount": "{count} champs",
+    "noContent": "Aucun titre ni corps (champs uniquement)",
+    "useToSend": "Envoyer avec ce modèle",
+    "edit": "Modifier",
+    "delete": "Supprimer"
   }
 }

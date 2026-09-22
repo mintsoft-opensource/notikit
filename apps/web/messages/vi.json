@@ -38,7 +38,8 @@
     "sendSingle": "Gửi trực tiếp",
     "sendBroadcast": "Gửi toàn bộ",
     "sendTopic": "Gửi theo chủ đề",
-    "sendMulti": "Gửi nhiều người"
+    "sendMulti": "Gửi nhiều người",
+    "templates": "Mẫu"
   },
   "header": {
     "openMenu": "Mở menu",
@@ -238,7 +239,20 @@
     "variablesHint": "Nhấp để chèn tại vị trí con trỏ; giá trị này sẽ được thay bằng thuộc tính của từng người nhận. Thêm giá trị mặc định cho trường hợp thiếu dữ liệu, ví dụ {example}.",
     "fallbackSample": "bạn",
     "previewAs": "Hiển thị với giá trị của {id}",
-    "previewDefault": "Các biến được hiển thị với giá trị mặc định"
+    "previewDefault": "Các biến được hiển thị với giá trị mặc định",
+    "template": "Mẫu",
+    "noTemplate": "Soạn không dùng mẫu",
+    "manageTemplates": "Quản lý mẫu",
+    "confirmApplyTemplate": "Thay thế tiêu đề, nội dung và liên kết sâu bằng mẫu \"{name}\"?",
+    "sectionCustomFields": "Trường tùy chỉnh",
+    "extraKey": "Khóa trường",
+    "extraValue": "Giá trị trường",
+    "removeExtra": "Xóa trường",
+    "addExtra": "Thêm trường",
+    "customFieldsHint": "Được gửi kèm dưới dạng push data để ứng dụng của bạn có thể đọc được",
+    "errRequiredFields": "Điền các trường bắt buộc: {fields}",
+    "errExtraKey": "Không thể dùng khóa trường này: {key}",
+    "errDuplicateKey": "Khóa trường bị trùng: {key}"
   },
   "settings": {
     "title": "Cài đặt",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Mẫu",
+    "subtitle": "Lưu các tin nhắn bạn thường gửi, cùng các trường tùy chỉnh, và tải lên khi gửi",
+    "newTitle": "Mẫu mới",
+    "editTitle": "Chỉnh sửa mẫu",
+    "formHint": "Tiêu đề và nội dung có thể dùng biến. Giá trị trường tùy chỉnh được điền khi gửi.",
+    "name": "Tên mẫu",
+    "namePlaceholder": "vd: Đơn hàng đã đến",
+    "messageTitle": "Tiêu đề",
+    "messageBody": "Nội dung",
+    "deepLink": "Liên kết sâu (tùy chọn)",
+    "fields": "Trường tùy chỉnh",
+    "fieldsHint": "Mỗi trường trở thành một ô nhập khi gửi; giá trị của nó đến ứng dụng của bạn dưới dạng push data. Các dòng không có khóa sẽ không được lưu.",
+    "fieldKey": "Khóa",
+    "fieldLabel": "Nhãn",
+    "fieldLabelPlaceholder": "vd: Số đơn hàng",
+    "fieldDefault": "Giá trị mặc định",
+    "fieldRequired": "Bắt buộc",
+    "removeField": "Xóa trường",
+    "addField": "Thêm trường",
+    "saved": "Đã lưu mẫu",
+    "deleted": "Đã xóa mẫu",
+    "confirmDelete": "Xóa mẫu \"{name}\"? Các lượt gửi đã thực hiện sẽ không bị ảnh hưởng.",
+    "empty": "Chưa có mẫu nào",
+    "fieldCount": "{count} trường",
+    "noContent": "Không có tiêu đề hoặc nội dung (chỉ có trường)",
+    "useToSend": "Gửi bằng mẫu này",
+    "edit": "Chỉnh sửa",
+    "delete": "Xóa"
   }
 }

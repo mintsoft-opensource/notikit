@@ -10,12 +10,14 @@ export function SendPreview({
   title,
   body,
   deepLink,
+  data,
   note,
 }: {
   appName: string;
   title: string;
   body: string;
   deepLink: string;
+  data?: Record<string, string>;
   note?: string;
 }) {
   const t = useTranslations("send");
@@ -49,6 +51,16 @@ export function SendPreview({
             <Link2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate font-mono">{deepLink}</span>
           </p>
+        )}
+        {data && (
+          <dl className="mt-3 space-y-1 rounded-tile border border-border p-2.5 font-mono text-2xs">
+            {Object.entries(data).map(([k, v]) => (
+              <div key={k} className="flex min-w-0 gap-2">
+                <dt className="shrink-0 text-muted-foreground">{k}</dt>
+                <dd className="truncate">{v}</dd>
+              </div>
+            ))}
+          </dl>
         )}
       </CardContent>
     </Card>

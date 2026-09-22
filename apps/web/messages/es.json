@@ -38,7 +38,8 @@
     "sendSingle": "Envío directo",
     "sendBroadcast": "Difusión",
     "sendTopic": "Envío por tema",
-    "sendMulti": "Envío múltiple"
+    "sendMulti": "Envío múltiple",
+    "templates": "Plantillas"
   },
   "header": {
     "openMenu": "Abrir menú",
@@ -238,7 +239,20 @@
     "variablesHint": "Haz clic para insertarla en el cursor; se sustituye por el valor del atributo de cada destinatario. Añade un valor por defecto para los casos sin dato, como {example}.",
     "fallbackSample": "amigo",
     "previewAs": "Mostrado con los valores de {id}",
-    "previewDefault": "Las variables se muestran con sus valores por defecto"
+    "previewDefault": "Las variables se muestran con sus valores por defecto",
+    "template": "Plantilla",
+    "noTemplate": "Escribir sin plantilla",
+    "manageTemplates": "Gestionar plantillas",
+    "confirmApplyTemplate": "¿Reemplazar el título, el cuerpo y el enlace profundo con la plantilla \"{name}\"?",
+    "sectionCustomFields": "Campos personalizados",
+    "extraKey": "Clave del campo",
+    "extraValue": "Valor del campo",
+    "removeExtra": "Eliminar campo",
+    "addExtra": "Añadir campo",
+    "customFieldsHint": "Se envía como datos push para que tu app pueda leerlos",
+    "errRequiredFields": "Completa los campos obligatorios: {fields}",
+    "errExtraKey": "No se puede usar esta clave de campo: {key}",
+    "errDuplicateKey": "Clave de campo duplicada: {key}"
   },
   "settings": {
     "title": "Ajustes",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Plantillas",
+    "subtitle": "Guarda los mensajes que envías con frecuencia, junto con sus campos personalizados, y cárgalos al enviar",
+    "newTitle": "Nueva plantilla",
+    "editTitle": "Editar plantilla",
+    "formHint": "El título y el cuerpo pueden usar variables. Los valores de los campos personalizados se completan al enviar.",
+    "name": "Nombre de la plantilla",
+    "namePlaceholder": "p. ej. Pedido entregado",
+    "messageTitle": "Título",
+    "messageBody": "Cuerpo",
+    "deepLink": "Enlace profundo (opcional)",
+    "fields": "Campos personalizados",
+    "fieldsHint": "Cada campo se convierte en un campo de entrada al enviar; su valor llega a tu app como datos push. Las filas sin clave no se guardan.",
+    "fieldKey": "Clave",
+    "fieldLabel": "Etiqueta",
+    "fieldLabelPlaceholder": "p. ej. Número de pedido",
+    "fieldDefault": "Valor por defecto",
+    "fieldRequired": "Obligatorio",
+    "removeField": "Eliminar campo",
+    "addField": "Añadir campo",
+    "saved": "Plantilla guardada",
+    "deleted": "Plantilla eliminada",
+    "confirmDelete": "¿Eliminar la plantilla \"{name}\"? Los envíos ya realizados no se ven afectados.",
+    "empty": "Aún no hay plantillas",
+    "fieldCount": "{count} campos",
+    "noContent": "Sin título ni cuerpo (solo campos)",
+    "useToSend": "Enviar con esta",
+    "edit": "Editar",
+    "delete": "Eliminar"
   }
 }

@@ -38,7 +38,8 @@
     "sendSingle": "Direktutskick",
     "sendBroadcast": "Massutskick",
     "sendTopic": "Ämnesutskick",
-    "sendMulti": "Flerutskick"
+    "sendMulti": "Flerutskick",
+    "templates": "Mallar"
   },
   "header": {
     "openMenu": "Öppna meny",
@@ -238,7 +239,20 @@
     "variablesHint": "Klicka för att infoga vid markören; ersätts med varje mottagares attributvärde. Lägg till ett standardvärde för saknade värden, som {example}.",
     "fallbackSample": "kund",
     "previewAs": "Visas med {id}s värden",
-    "previewDefault": "Variabler visas med sina standardvärden"
+    "previewDefault": "Variabler visas med sina standardvärden",
+    "template": "Mall",
+    "noTemplate": "Skriv utan mall",
+    "manageTemplates": "Hantera mallar",
+    "confirmApplyTemplate": "Ersätta titel, text och deep link med mallen \"{name}\"?",
+    "sectionCustomFields": "Anpassade fält",
+    "extraKey": "Fältnyckel",
+    "extraValue": "Fältvärde",
+    "removeExtra": "Ta bort fält",
+    "addExtra": "Lägg till fält",
+    "customFieldsHint": "Skickas med som push-data så att din app kan läsa dem",
+    "errRequiredFields": "Fyll i de obligatoriska fälten: {fields}",
+    "errExtraKey": "Den här fältnyckeln kan inte användas: {key}",
+    "errDuplicateKey": "Dubblerad fältnyckel: {key}"
   },
   "settings": {
     "title": "Inställningar",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Mallar",
+    "subtitle": "Spara meddelanden du skickar ofta, med deras anpassade fält, och läs in dem vid utskick",
+    "newTitle": "Ny mall",
+    "editTitle": "Redigera mall",
+    "formHint": "Titel och text kan använda variabler. Värden för anpassade fält fylls i vid utskick.",
+    "name": "Mallnamn",
+    "namePlaceholder": "t.ex. Beställning har anlänt",
+    "messageTitle": "Titel",
+    "messageBody": "Text",
+    "deepLink": "Deep link (valfritt)",
+    "fields": "Anpassade fält",
+    "fieldsHint": "Varje fält blir ett inmatningsfält vid utskick; värdet når din app som push-data. Rader utan nyckel sparas inte.",
+    "fieldKey": "Nyckel",
+    "fieldLabel": "Etikett",
+    "fieldLabelPlaceholder": "t.ex. Ordernummer",
+    "fieldDefault": "Standardvärde",
+    "fieldRequired": "Obligatoriskt",
+    "removeField": "Ta bort fält",
+    "addField": "Lägg till fält",
+    "saved": "Mallen har sparats",
+    "deleted": "Mallen har tagits bort",
+    "confirmDelete": "Ta bort mallen \"{name}\"? Redan skickade utskick påverkas inte.",
+    "empty": "Inga mallar än",
+    "fieldCount": "{count} fält",
+    "noContent": "Ingen titel eller text (endast fält)",
+    "useToSend": "Skicka med denna",
+    "edit": "Redigera",
+    "delete": "Ta bort"
   }
 }

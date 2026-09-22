@@ -38,7 +38,8 @@
     "sendSingle": "单发",
     "sendBroadcast": "全体发送",
     "sendTopic": "主题发送",
-    "sendMulti": "多选发送"
+    "sendMulti": "多选发送",
+    "templates": "模板"
   },
   "header": {
     "openMenu": "打开菜单",
@@ -238,7 +239,20 @@
     "variablesHint": "点击即可插入到光标位置，并会被替换为每位接收者的属性值。为防止取不到值，可以像 {example} 这样添加默认值。",
     "fallbackSample": "顾客",
     "previewAs": "以 {id} 的值显示的效果",
-    "previewDefault": "替换变量将以默认值显示"
+    "previewDefault": "替换变量将以默认值显示",
+    "template": "模板",
+    "noTemplate": "不使用模板编写",
+    "manageTemplates": "管理模板",
+    "confirmApplyTemplate": "将使用 \"{name}\" 模板替换标题、正文和深度链接，是否继续?",
+    "sectionCustomFields": "自定义字段",
+    "extraKey": "字段键",
+    "extraValue": "字段值",
+    "removeExtra": "删除字段",
+    "addExtra": "添加字段",
+    "customFieldsHint": "将作为推送 data 一并发送，供应用读取",
+    "errRequiredFields": "请填写必填字段: {fields}",
+    "errExtraKey": "不能使用此字段键: {key}",
+    "errDuplicateKey": "字段键重复: {key}"
   },
   "settings": {
     "title": "设置",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "模板",
+    "subtitle": "将常发的消息与自定义字段保存起来，发送时直接调用",
+    "newTitle": "新建模板",
+    "editTitle": "编辑模板",
+    "formHint": "标题和正文可以使用替换变量。自定义字段的值在发送时填写。",
+    "name": "模板名称",
+    "namePlaceholder": "例如: 订单已送达",
+    "messageTitle": "标题",
+    "messageBody": "正文",
+    "deepLink": "深度链接(可选)",
+    "fields": "自定义字段",
+    "fieldsHint": "发送时会显示为输入框，其值将作为推送 data 传给应用。键为空的行不会被保存。",
+    "fieldKey": "键",
+    "fieldLabel": "显示名称",
+    "fieldLabelPlaceholder": "例如: 订单编号",
+    "fieldDefault": "默认值",
+    "fieldRequired": "必填",
+    "removeField": "删除字段",
+    "addField": "添加字段",
+    "saved": "模板已保存",
+    "deleted": "模板已删除",
+    "confirmDelete": "要删除 \"{name}\" 模板吗? 不会影响已发送的记录。",
+    "empty": "暂无模板",
+    "fieldCount": "{count} 个字段",
+    "noContent": "无标题或正文(仅字段)",
+    "useToSend": "用此模板发送",
+    "edit": "编辑",
+    "delete": "删除"
   }
 }

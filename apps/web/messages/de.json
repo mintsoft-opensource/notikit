@@ -38,7 +38,8 @@
     "sendSingle": "Direktversand",
     "sendBroadcast": "Broadcast",
     "sendTopic": "Themenversand",
-    "sendMulti": "Mehrfachversand"
+    "sendMulti": "Mehrfachversand",
+    "templates": "Vorlagen"
   },
   "header": {
     "openMenu": "Menü öffnen",
@@ -238,7 +239,20 @@
     "variablesHint": "Klicken, um an der Cursorposition einzufügen; wird durch den Attributwert jedes Empfängers ersetzt. Füge für fehlende Werte einen Standardwert hinzu, z. B. {example}.",
     "fallbackSample": "Kunde",
     "previewAs": "Angezeigt mit den Werten von {id}",
-    "previewDefault": "Variablen werden mit ihren Standardwerten angezeigt"
+    "previewDefault": "Variablen werden mit ihren Standardwerten angezeigt",
+    "template": "Vorlage",
+    "noTemplate": "Ohne Vorlage schreiben",
+    "manageTemplates": "Vorlagen verwalten",
+    "confirmApplyTemplate": "Titel, Text und Deep Link durch die Vorlage \"{name}\" ersetzen?",
+    "sectionCustomFields": "Benutzerdefinierte Felder",
+    "extraKey": "Feldschlüssel",
+    "extraValue": "Feldwert",
+    "removeExtra": "Feld entfernen",
+    "addExtra": "Feld hinzufügen",
+    "customFieldsHint": "Wird als Push-Data mitgesendet, damit deine App sie lesen kann",
+    "errRequiredFields": "Fülle die Pflichtfelder aus: {fields}",
+    "errExtraKey": "Dieser Feldschlüssel kann nicht verwendet werden: {key}",
+    "errDuplicateKey": "Doppelter Feldschlüssel: {key}"
   },
   "settings": {
     "title": "Einstellungen",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Vorlagen",
+    "subtitle": "Speichere häufig gesendete Nachrichten mit ihren benutzerdefinierten Feldern und lade sie beim Senden",
+    "newTitle": "Neue Vorlage",
+    "editTitle": "Vorlage bearbeiten",
+    "formHint": "Titel und Text können Variablen verwenden. Die Werte der benutzerdefinierten Felder werden beim Senden ausgefüllt.",
+    "name": "Vorlagenname",
+    "namePlaceholder": "z. B. Bestellung angekommen",
+    "messageTitle": "Titel",
+    "messageBody": "Text",
+    "deepLink": "Deep Link (optional)",
+    "fields": "Benutzerdefinierte Felder",
+    "fieldsHint": "Jedes Feld wird beim Senden zu einem Eingabefeld; sein Wert erreicht deine App als Push-Data. Zeilen ohne Schlüssel werden nicht gespeichert.",
+    "fieldKey": "Schlüssel",
+    "fieldLabel": "Bezeichnung",
+    "fieldLabelPlaceholder": "z. B. Bestellnummer",
+    "fieldDefault": "Standardwert",
+    "fieldRequired": "Erforderlich",
+    "removeField": "Feld entfernen",
+    "addField": "Feld hinzufügen",
+    "saved": "Vorlage gespeichert",
+    "deleted": "Vorlage gelöscht",
+    "confirmDelete": "Vorlage \"{name}\" löschen? Bereits gesendete Nachrichten sind davon nicht betroffen.",
+    "empty": "Noch keine Vorlagen",
+    "fieldCount": "{count} Felder",
+    "noContent": "Kein Titel oder Text (nur Felder)",
+    "useToSend": "Mit dieser Vorlage senden",
+    "edit": "Bearbeiten",
+    "delete": "Löschen"
   }
 }

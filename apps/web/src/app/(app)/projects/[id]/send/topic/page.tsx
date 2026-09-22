@@ -5,9 +5,16 @@ export default async function ProjectSendTopicPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ target?: string | string[] }>;
+  searchParams: Promise<{ target?: string | string[]; template?: string | string[] }>;
 }) {
   const { id } = await params;
-  const { target } = await searchParams;
-  return <SendConsole projectId={id} type="topic" initialTarget={typeof target === "string" ? target : ""} />;
+  const { target, template } = await searchParams;
+  return (
+    <SendConsole
+      projectId={id}
+      type="topic"
+      initialTarget={typeof target === "string" ? target : ""}
+      initialTemplateId={typeof template === "string" ? template : undefined}
+    />
+  );
 }

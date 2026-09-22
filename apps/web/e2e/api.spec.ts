@@ -537,6 +537,40 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(await first("t-anon")).toMatchObject({ title: "고객님", body: "아이디 t-anon" });
   });
 
+  test("템플릿: 생성·수정·삭제 + 예약 키·중복 이름·타 프로젝트 차단", async ({ request }) => {
+    const admin = { "x-admin-token": ADMIN };
+    const mk = async (name: string) =>
+      (await (await request.post("/api/admin/projects", { headers: admin, data: { name } })).json()).data.project.id as string;
+    const pid = await mk(`tpl-crud-${Date.now()}`);
+    const other = await mk(`tpl-other-${Date.now()}`);
+    const base = `/api/admin/projects/${pid}/templates`;
+
+    const created = await request.post(base, {
+      headers: admin,
+      data: { name: "주문 도착", title: "{{name|고객}}님", body: "도착했어요", deep_link: "myapp://order", fields: [{ key: "order_id", required: true }, { key: "screen", default: "order" }] },
+    });
+    expect(created.status()).toBe(201);
+    const tid = (await created.json()).data.template.id as string;
+
+    // 푸시가 이미 쓰는 키는 필드로 만들 수 없다
+    const reserved = await request.post(base, { headers: admin, data: { name: "x", title: "", body: "", fields: [{ key: "notikit_log_id" }] } });
+    expect(reserved.status()).toBe(422);
+    const dup = await request.post(base, { headers: admin, data: { name: "주문 도착", title: "", body: "" } });
+    expect(dup.status()).toBe(409);
+
+    const put = await request.put(`${base}/${tid}`, { headers: admin, data: { name: "주문 도착 v2", title: "t", body: "b", fields: [] } });
+    expect(put.status()).toBe(200);
+    expect((await put.json()).data.template).toMatchObject({ name: "주문 도착 v2", fields: [], deepLink: null });
+
+    // 다른 프로젝트 경로로는 보이지도 지워지지도 않는다
+    expect((await request.get(`/api/admin/projects/${other}/templates/${tid}`, { headers: admin })).status()).toBe(404);
+    expect((await request.delete(`/api/admin/projects/${other}/templates/${tid}`, { headers: admin })).status()).toBe(404);
+
+    const list = await request.get(base, { headers: admin });
+    expect((await list.json()).data.templates).toHaveLength(1);
+    expect((await request.delete(`${base}/${tid}`, { headers: admin })).status()).toBe(200);
+  });
+
   test("방해금지 시간대: quiet 구간 발송은 자동 예약", async ({ request }) => {
     const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `quiet-${Date.now()}` } });
     const cj = await created.json();

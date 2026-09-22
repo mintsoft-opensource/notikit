@@ -38,7 +38,8 @@
     "sendSingle": "सीधा भेजें",
     "sendBroadcast": "प्रसारण",
     "sendTopic": "टॉपिक भेजें",
-    "sendMulti": "मल्टी भेजें"
+    "sendMulti": "मल्टी भेजें",
+    "templates": "टेम्पलेट"
   },
   "header": {
     "openMenu": "मेनू खोलें",
@@ -238,7 +239,20 @@
     "variablesHint": "कर्सर की स्थिति में जोड़ने के लिए क्लिक करें; यह हर प्राप्तकर्ता के एट्रिब्यूट मान से बदल जाता है। मान न होने की स्थिति के लिए {example} जैसा डिफ़ॉल्ट मान जोड़ें।",
     "fallbackSample": "ग्राहक",
     "previewAs": "{id} के मानों के साथ दिखाया गया",
-    "previewDefault": "वेरिएबल अपने डिफ़ॉल्ट मानों के साथ दिखाए जाते हैं"
+    "previewDefault": "वेरिएबल अपने डिफ़ॉल्ट मानों के साथ दिखाए जाते हैं",
+    "template": "टेम्पलेट",
+    "noTemplate": "बिना टेम्पलेट के लिखें",
+    "manageTemplates": "टेम्पलेट प्रबंधित करें",
+    "confirmApplyTemplate": "शीर्षक, मुख्य भाग और डीप लिंक को \"{name}\" टेम्पलेट से बदलें?",
+    "sectionCustomFields": "कस्टम फ़ील्ड",
+    "extraKey": "फ़ील्ड कुंजी",
+    "extraValue": "फ़ील्ड मान",
+    "removeExtra": "फ़ील्ड हटाएं",
+    "addExtra": "फ़ील्ड जोड़ें",
+    "customFieldsHint": "यह पुश data के साथ भेजा जाता है ताकि आपका ऐप इसे पढ़ सके",
+    "errRequiredFields": "आवश्यक फ़ील्ड भरें: {fields}",
+    "errExtraKey": "इस फ़ील्ड कुंजी का उपयोग नहीं किया जा सकता: {key}",
+    "errDuplicateKey": "डुप्लिकेट फ़ील्ड कुंजी: {key}"
   },
   "settings": {
     "title": "सेटिंग्स",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "टेम्पलेट",
+    "subtitle": "अक्सर भेजे जाने वाले संदेशों को उनके कस्टम फ़ील्ड के साथ सहेजें और भेजते समय लोड करें",
+    "newTitle": "नया टेम्पलेट",
+    "editTitle": "टेम्पलेट संपादित करें",
+    "formHint": "शीर्षक और मुख्य भाग में वेरिएबल का उपयोग किया जा सकता है। कस्टम फ़ील्ड के मान भेजते समय भरे जाते हैं।",
+    "name": "टेम्पलेट का नाम",
+    "namePlaceholder": "जैसे: ऑर्डर पहुंचा",
+    "messageTitle": "शीर्षक",
+    "messageBody": "मुख्य भाग",
+    "deepLink": "डीप लिंक (वैकल्पिक)",
+    "fields": "कस्टम फ़ील्ड",
+    "fieldsHint": "भेजते समय हर फ़ील्ड एक इनपुट बन जाता है; इसका मान पुश data के रूप में आपके ऐप तक पहुंचता है। बिना कुंजी वाली पंक्तियां सहेजी नहीं जातीं।",
+    "fieldKey": "कुंजी",
+    "fieldLabel": "लेबल",
+    "fieldLabelPlaceholder": "जैसे: ऑर्डर नंबर",
+    "fieldDefault": "डिफ़ॉल्ट मान",
+    "fieldRequired": "आवश्यक",
+    "removeField": "फ़ील्ड हटाएं",
+    "addField": "फ़ील्ड जोड़ें",
+    "saved": "टेम्पलेट सहेजा गया",
+    "deleted": "टेम्पलेट हटाया गया",
+    "confirmDelete": "\"{name}\" टेम्पलेट हटाएं? पहले से भेजे गए संदेशों पर कोई असर नहीं पड़ेगा।",
+    "empty": "अभी तक कोई टेम्पलेट नहीं है",
+    "fieldCount": "{count} फ़ील्ड",
+    "noContent": "कोई शीर्षक या मुख्य भाग नहीं (केवल फ़ील्ड)",
+    "useToSend": "इस टेम्पलेट से भेजें",
+    "edit": "संपादित करें",
+    "delete": "हटाएं"
   }
 }

@@ -16,6 +16,9 @@ import { SendPreview } from "@/components/console/send-preview";
 import { SendVariables, useAttributeKeys } from "@/components/console/send-variables";
 import type { PickedUser } from "@/components/console/send-user-picker";
 import { renderTemplate } from "@/lib/personalize";
+import { buildCustomData, fieldKeyError, type TemplateField } from "@/lib/templates";
+import { SendTemplatePicker, SendCustomFields, type ExtraField } from "@/components/console/send-custom-fields";
+import type { MessageTemplate } from "@/components/console/template-form";
 
 const TITLE_KEY = { single: "titleSingle", multi: "titleMulti", broadcast: "titleBroadcast", topic: "titleTopic" } as const;
 const SUBTITLE_KEY = { single: "subtitleSingle", multi: "subtitleMulti", broadcast: "subtitleBroadcast", topic: "subtitleTopic" } as const;
@@ -33,12 +36,25 @@ type SendResult = {
  * 발송 콘솔 — 발송 방식(개별·전체·토픽)마다 화면이 따로 있다. 방식을 폼 안의 선택지로 두면
  * 전체 발송이 드롭다운 한 칸 차이로 나가 버린다. admin 세션으로 발송(api-secret 불필요).
  */
-export function SendConsole({ projectId, type, initialTarget = "" }: { projectId: string; type: SendType; initialTarget?: string }) {
+export function SendConsole({
+  projectId,
+  type,
+  initialTarget = "",
+  initialTemplateId,
+}: {
+  projectId: string;
+  type: SendType;
+  initialTarget?: string;
+  initialTemplateId?: string;
+}) {
   const t = useTranslations("send");
   const { projects } = useProjects();
   const appName = projects.find((p) => p.id === projectId)?.name ?? "Notikit";
   const [target, setTarget] = React.useState(initialTarget);
   const [users, setUsers] = React.useState<PickedUser[]>([]);
+  const [templateFields, setTemplateFields] = React.useState<TemplateField[]>([]);
+  const [fieldValues, setFieldValues] = React.useState<Record<string, string>>({});
+  const [extras, setExtras] = React.useState<ExtraField[]>([]);
   const attributeKeys = useAttributeKeys(projectId);
   /** 변수 버튼이 어느 칸에 넣을지 — 마지막으로 포커스한 제목/본문 */
   const titleRef = React.useRef<HTMLInputElement>(null);
@@ -88,9 +104,45 @@ export function SendConsole({ projectId, type, initialTarget = "" }: { projectId
     });
   }
 
+  /** 템플릿 적용 — 이미 쓴 내용이 있으면 덮어쓰기 전에 묻는다. false 면 선택을 되돌린다. */
+  function applyTemplate(tpl: MessageTemplate | null, { initial }: { initial: boolean }): boolean {
+    if (!tpl) {
+      setTemplateFields([]);
+      setFieldValues({});
+      return true;
+    }
+    const dirty = Boolean(title || body || deepLink);
+    if (!initial && dirty && !confirm(t("confirmApplyTemplate", { name: tpl.name }))) return false;
+    if (tpl.title) setTitle(tpl.title);
+    if (tpl.body) setBody(tpl.body);
+    setDeepLink(tpl.deepLink ?? "");
+    setTemplateFields(tpl.fields);
+    setFieldValues({});
+    return true;
+  }
+
+  /** 커스텀 필드 → 푸시 data. 문제가 있으면 사용자에게 보일 메시지를 돌려준다. */
+  function collectData(): { data?: Record<string, string>; error?: string } {
+    const built = buildCustomData(templateFields, fieldValues);
+    if ("missing" in built) return { error: t("errRequiredFields", { fields: built.missing.join(", ") }) };
+    const data: Record<string, string> = { ...built.data };
+    for (const x of extras) {
+      const key = x.key.trim();
+      if (!key && !x.value.trim()) continue;
+      const err = fieldKeyError(key);
+      if (err) return { error: t("errExtraKey", { key: key || "—" }) };
+      if (key in data) return { error: t("errDuplicateKey", { key }) };
+      if (x.value.trim()) data[key] = x.value.trim();
+    }
+    return Object.keys(data).length ? { data } : {};
+  }
+  const previewData = collectData().data;
+
   async function submit() {
     if (!title || !body) return toast.error(t("errTitleBody"));
     if (!hasTarget) return toast.error(t(TARGET_ERROR_KEY[type]));
+    const custom = collectData();
+    if (custom.error) return toast.error(custom.error);
     if (sending) return;
     if (type === "broadcast" && !confirm(t("confirmBroadcast"))) return;
 
@@ -113,6 +165,7 @@ export function SendConsole({ projectId, type, initialTarget = "" }: { projectId
       else if (type === "multi") payload.targets = users.map((u) => u.externalId);
       else if (type === "topic") payload.target = target;
       if (deepLink) payload.deep_link = deepLink;
+      if (custom.data) payload.data = custom.data;
       if (scheduledIso) payload.scheduled_at = scheduledIso;
 
       const res = await adminApi<{ message?: { id?: string } }>(
@@ -166,6 +219,7 @@ export function SendConsole({ projectId, type, initialTarget = "" }: { projectId
             </Section>
 
             <Section title={t("sectionContent")} className="flex min-h-0 flex-1 flex-col">
+              <SendTemplatePicker projectId={projectId} initialId={initialTemplateId} onApply={applyTemplate} />
               <Field label={t("titleLabel")}>
                 <Input ref={titleRef} value={title} onFocus={() => (lastFieldRef.current = "title")} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
               </Field>
@@ -177,6 +231,10 @@ export function SendConsole({ projectId, type, initialTarget = "" }: { projectId
               <Field label={t("deepLink")}>
                 <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
               </Field>
+            </Section>
+
+            <Section title={t("sectionCustomFields")}>
+              <SendCustomFields fields={templateFields} values={fieldValues} onValues={setFieldValues} extras={extras} onExtras={setExtras} />
             </Section>
 
             <Section title={t("sectionOptions")}>
@@ -229,6 +287,7 @@ export function SendConsole({ projectId, type, initialTarget = "" }: { projectId
             title={renderTemplate(title, previewAs)}
             body={renderTemplate(body, previewAs)}
             deepLink={deepLink}
+            data={previewData}
             note={previewAs ? t("previewAs", { id: previewAs.externalId }) : t("previewDefault")}
           />
           <Card>

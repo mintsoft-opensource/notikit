@@ -38,7 +38,8 @@
     "sendSingle": "개별 발송",
     "sendBroadcast": "전체 발송",
     "sendTopic": "토픽 발송",
-    "sendMulti": "다중 발송"
+    "sendMulti": "다중 발송",
+    "templates": "템플릿"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -238,7 +239,20 @@
     "variablesHint": "누르면 커서 위치에 들어가고, 받는 사람의 속성값으로 바뀝니다. 값이 없을 때를 대비해 {example} 처럼 기본값을 붙일 수 있습니다.",
     "fallbackSample": "고객",
     "previewAs": "{id} 기준으로 치환한 모습입니다",
-    "previewDefault": "치환 변수는 기본값으로 표시됩니다"
+    "previewDefault": "치환 변수는 기본값으로 표시됩니다",
+    "template": "템플릿",
+    "noTemplate": "템플릿 없이 작성",
+    "manageTemplates": "템플릿 관리",
+    "confirmApplyTemplate": "\"{name}\" 템플릿으로 제목·본문·딥링크를 바꿉니다. 계속할까요?",
+    "sectionCustomFields": "커스텀 필드",
+    "extraKey": "필드 키",
+    "extraValue": "필드 값",
+    "removeExtra": "필드 삭제",
+    "addExtra": "필드 추가",
+    "customFieldsHint": "푸시 data 로 함께 전달되어 앱에서 읽을 수 있습니다",
+    "errRequiredFields": "필수 필드를 채우세요: {fields}",
+    "errExtraKey": "쓸 수 없는 필드 키입니다: {key}",
+    "errDuplicateKey": "필드 키가 겹칩니다: {key}"
   },
   "settings": {
     "title": "설정",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "지원 번들 내려받기",
     "loadFailed": "업데이트 상태를 불러오지 못했습니다. 인스턴스 운영자에게 아래 오류와 함께 문의하세요.",
     "retry": "다시 시도"
+  },
+  "templates": {
+    "title": "템플릿",
+    "subtitle": "자주 보내는 메시지와 커스텀 필드를 묶어 두고 발송할 때 불러옵니다",
+    "newTitle": "새 템플릿",
+    "editTitle": "템플릿 수정",
+    "formHint": "제목·본문에는 치환 변수를 쓸 수 있습니다. 커스텀 필드는 발송할 때 값을 채웁니다.",
+    "name": "템플릿 이름",
+    "namePlaceholder": "예: 주문 도착",
+    "messageTitle": "제목",
+    "messageBody": "본문",
+    "deepLink": "딥링크 (선택)",
+    "fields": "커스텀 필드",
+    "fieldsHint": "발송할 때 입력칸으로 나타나고, 값은 푸시 data 로 앱에 전달됩니다. 키가 빈 줄은 저장되지 않습니다.",
+    "fieldKey": "키",
+    "fieldLabel": "표시 이름",
+    "fieldLabelPlaceholder": "예: 주문 번호",
+    "fieldDefault": "기본값",
+    "fieldRequired": "필수",
+    "removeField": "필드 삭제",
+    "addField": "필드 추가",
+    "saved": "템플릿을 저장했습니다",
+    "deleted": "템플릿을 삭제했습니다",
+    "confirmDelete": "\"{name}\" 템플릿을 삭제할까요? 이미 보낸 발송에는 영향이 없습니다.",
+    "empty": "아직 템플릿이 없습니다",
+    "fieldCount": "필드 {count}개",
+    "noContent": "제목·본문 없음 (필드만)",
+    "useToSend": "이 템플릿으로 발송",
+    "edit": "수정",
+    "delete": "삭제"
   }
 }

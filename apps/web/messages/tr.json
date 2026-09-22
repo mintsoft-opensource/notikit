@@ -38,7 +38,8 @@
     "sendSingle": "Doğrudan gönderim",
     "sendBroadcast": "Toplu gönderim",
     "sendTopic": "Konu bazlı gönderim",
-    "sendMulti": "Çoklu gönderim"
+    "sendMulti": "Çoklu gönderim",
+    "templates": "Şablonlar"
   },
   "header": {
     "openMenu": "Menüyü aç",
@@ -238,7 +239,20 @@
     "variablesHint": "İmleç konumuna eklemek için tıklayın; her alıcının öznitelik değeriyle değiştirilir. Değer olmadığı durumlar için {example} gibi bir varsayılan ekleyebilirsiniz.",
     "fallbackSample": "müşteri",
     "previewAs": "{id} değerleriyle gösterildi",
-    "previewDefault": "Değişkenler varsayılan değerleriyle gösterilir"
+    "previewDefault": "Değişkenler varsayılan değerleriyle gösterilir",
+    "template": "Şablon",
+    "noTemplate": "Şablonsuz yaz",
+    "manageTemplates": "Şablonları yönet",
+    "confirmApplyTemplate": "Başlık, gövde ve derin bağlantı \"{name}\" şablonuyla değiştirilsin mi?",
+    "sectionCustomFields": "Özel alanlar",
+    "extraKey": "Alan anahtarı",
+    "extraValue": "Alan değeri",
+    "removeExtra": "Alanı kaldır",
+    "addExtra": "Alan ekle",
+    "customFieldsHint": "Push data ile birlikte gönderilir, böylece uygulamanız okuyabilir",
+    "errRequiredFields": "Zorunlu alanları doldurun: {fields}",
+    "errExtraKey": "Bu alan anahtarı kullanılamaz: {key}",
+    "errDuplicateKey": "Yinelenen alan anahtarı: {key}"
   },
   "settings": {
     "title": "Ayarlar",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "Şablonlar",
+    "subtitle": "Sık gönderdiğiniz mesajları özel alanlarıyla birlikte kaydedin ve gönderirken yükleyin",
+    "newTitle": "Yeni şablon",
+    "editTitle": "Şablonu düzenle",
+    "formHint": "Başlık ve gövdede değişkenler kullanılabilir. Özel alan değerleri gönderirken doldurulur.",
+    "name": "Şablon adı",
+    "namePlaceholder": "örn. Sipariş ulaştı",
+    "messageTitle": "Başlık",
+    "messageBody": "Gövde",
+    "deepLink": "Derin bağlantı (isteğe bağlı)",
+    "fields": "Özel alanlar",
+    "fieldsHint": "Her alan gönderirken bir giriş alanı olur; değeri push data olarak uygulamanıza ulaşır. Anahtarı boş satırlar kaydedilmez.",
+    "fieldKey": "Anahtar",
+    "fieldLabel": "Etiket",
+    "fieldLabelPlaceholder": "örn. Sipariş numarası",
+    "fieldDefault": "Varsayılan",
+    "fieldRequired": "Zorunlu",
+    "removeField": "Alanı kaldır",
+    "addField": "Alan ekle",
+    "saved": "Şablon kaydedildi",
+    "deleted": "Şablon silindi",
+    "confirmDelete": "\"{name}\" şablonu silinsin mi? Daha önce yapılan gönderimler etkilenmez.",
+    "empty": "Henüz şablon yok",
+    "fieldCount": "{count} alan",
+    "noContent": "Başlık veya gövde yok (yalnızca alanlar)",
+    "useToSend": "Bununla gönder",
+    "edit": "Düzenle",
+    "delete": "Sil"
   }
 }

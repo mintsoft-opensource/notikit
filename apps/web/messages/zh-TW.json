@@ -38,7 +38,8 @@
     "sendSingle": "單發",
     "sendBroadcast": "全體發送",
     "sendTopic": "主題發送",
-    "sendMulti": "多選發送"
+    "sendMulti": "多選發送",
+    "templates": "範本"
   },
   "header": {
     "openMenu": "開啟選單",
@@ -238,7 +239,20 @@
     "variablesHint": "點擊即可插入到游標位置，並會替換為每位收件者的屬性值。為避免沒有值，可以像 {example} 這樣加上預設值。",
     "fallbackSample": "顧客",
     "previewAs": "以 {id} 的值顯示的效果",
-    "previewDefault": "替換變數將以預設值顯示"
+    "previewDefault": "替換變數將以預設值顯示",
+    "template": "範本",
+    "noTemplate": "不使用範本撰寫",
+    "manageTemplates": "管理範本",
+    "confirmApplyTemplate": "將使用 \"{name}\" 範本取代標題、內文和深層連結，是否繼續?",
+    "sectionCustomFields": "自訂欄位",
+    "extraKey": "欄位鍵",
+    "extraValue": "欄位值",
+    "removeExtra": "刪除欄位",
+    "addExtra": "新增欄位",
+    "customFieldsHint": "會作為推播 data 一併傳送，供應用程式讀取",
+    "errRequiredFields": "請填寫必填欄位: {fields}",
+    "errExtraKey": "無法使用此欄位鍵: {key}",
+    "errDuplicateKey": "欄位鍵重複: {key}"
   },
   "settings": {
     "title": "設定",
@@ -744,5 +758,35 @@
     "downloadSupportBundle": "Download support bundle",
     "loadFailed": "Could not load update status. Contact your instance operator with the error below.",
     "retry": "Retry"
+  },
+  "templates": {
+    "title": "範本",
+    "subtitle": "將常發送的訊息與自訂欄位保存起來，發送時直接載入",
+    "newTitle": "新增範本",
+    "editTitle": "編輯範本",
+    "formHint": "標題與內文可以使用替換變數。自訂欄位的值在發送時填寫。",
+    "name": "範本名稱",
+    "namePlaceholder": "例如: 訂單已送達",
+    "messageTitle": "標題",
+    "messageBody": "內文",
+    "deepLink": "深層連結(選填)",
+    "fields": "自訂欄位",
+    "fieldsHint": "發送時會顯示為輸入欄，其值會作為推播 data 傳給應用程式。鍵為空白的列不會被儲存。",
+    "fieldKey": "鍵",
+    "fieldLabel": "顯示名稱",
+    "fieldLabelPlaceholder": "例如: 訂單編號",
+    "fieldDefault": "預設值",
+    "fieldRequired": "必填",
+    "removeField": "刪除欄位",
+    "addField": "新增欄位",
+    "saved": "範本已儲存",
+    "deleted": "範本已刪除",
+    "confirmDelete": "要刪除 \"{name}\" 範本嗎? 不會影響已發送的紀錄。",
+    "empty": "尚無範本",
+    "fieldCount": "{count} 個欄位",
+    "noContent": "無標題或內文(僅欄位)",
+    "useToSend": "用此範本發送",
+    "edit": "編輯",
+    "delete": "刪除"
   }
 }

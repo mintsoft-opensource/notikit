@@ -124,7 +124,7 @@ test.describe("smoke", () => {
     await page.goto(`/projects/${projectId}`);
     // 본문에도 발송 바로가기 버튼이 있으므로 사이드바 네비로 스코프
     const nav = page.getByRole("navigation");
-    for (const label of ["개별 발송", "다중 발송", "전체 발송", "토픽 발송", "발송 큐"]) {
+    for (const label of ["개별 발송", "다중 발송", "전체 발송", "토픽 발송", "템플릿", "발송 큐"]) {
       await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
     await expect(nav.getByRole("link", { name: "토픽", exact: true })).toBeVisible();
@@ -209,6 +209,44 @@ test.describe("smoke", () => {
     const previewText = await page.getByText("민지님 안녕하세요", { exact: true }).count();
     const otherText = await page.getByText("도윤님 안녕하세요", { exact: true }).count();
     expect(previewText + otherText).toBe(1);
+  });
+
+  test("템플릿: 발송 화면에서 불러오면 내용이 채워지고, 커스텀 필드가 push data 로 간다", async ({ page }) => {
+    await ensureLogin(page);
+    const headers = { origin: ORIGIN };
+    const cj = (await (await page.request.post("/api/admin/projects", { data: { name: `tpl-ui-${Date.now()}` }, headers })).json()).data;
+    const pid = cj.project.id as string;
+    const ext = `tpl-user-${Date.now()}`;
+    const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
+    await page.request.post("/api/v1/devices", { headers: { "api-key": cj.project.apiKey }, data: { token: `tpl-tok-${Date.now()}`, platform: "web", external_id: ext, identity_hash: hash } });
+    const tpl = await page.request.post(`/api/admin/projects/${pid}/templates`, {
+      headers,
+      data: { name: "주문 도착", title: "주문이 도착했어요", body: "지금 확인해 보세요", fields: [{ key: "order_id", label: "주문 번호", required: true }, { key: "screen", default: "order" }] },
+    });
+    const tid = (await tpl.json()).data.template.id as string;
+
+    // 템플릿 목록에서 "이 템플릿으로 발송"을 누르면 개별 발송 화면에 채워진 채로 열린다
+    await page.goto(`/projects/${pid}/templates`);
+    await page.getByRole("link", { name: "이 템플릿으로 발송" }).click();
+    await expect(page).toHaveURL(new RegExp(`/send/single\\?template=${tid}`));
+    await expect(page.getByLabel("제목")).toHaveValue("주문이 도착했어요");
+    await expect(page.getByLabel("주문 번호 *")).toBeVisible();
+
+    await page.getByRole("button", { name: "사용자 아이디" }).click();
+    const dlg = page.getByRole("dialog", { name: "사용자 검색" });
+    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill(ext);
+    await dlg.getByRole("button", { name: new RegExp(ext) }).click();
+
+    // 필수 필드를 비우면 보내지 않는다
+    await page.getByRole("button", { name: "발송", exact: true }).click();
+    await expect(page.getByText("필수 필드를 채우세요: order_id")).toBeVisible();
+
+    await page.getByLabel("주문 번호 *").fill("A-100");
+    await page.getByRole("button", { name: "발송", exact: true }).click();
+    await expect(page.getByText("큐 처리 완료", { exact: true })).toBeVisible();
+
+    const inbox = await page.request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${hash}`, { headers: { "api-key": cj.project.apiKey } });
+    expect((await inbox.json()).data.notifications[0].data).toEqual({ order_id: "A-100", screen: "order" });
   });
 
   test("tenant isolation: 세션 유저는 타 org 프로젝트에 접근 불가", async ({ page }) => {
