@@ -7,7 +7,11 @@ import {
   type ApiEnvelope,
   type SubscribeTarget,
   type TopicMembershipResult,
+  type TrackConversionInput,
+  type TrackConversionResult,
   targetBody,
+  pushOptionsBody,
+  resolveUserId,
   NotikitError,
 } from "./types.js";
 
@@ -33,8 +37,9 @@ export class NotikitClient {
     this._fetch = f.bind(globalThis);
   }
 
-  private async request<T>(path: string, body: unknown): Promise<T> {
+  private async request<T>(path: string, body: unknown, extraHeaders?: Record<string, string>): Promise<T> {
     const headers: Record<string, string> = {
+      ...extraHeaders,
       "content-type": "application/json",
       "api-key": this.apiKey,
     };
@@ -59,12 +64,12 @@ export class NotikitClient {
     return json.data as T;
   }
 
-  /** 디바이스/토큰 등록·업서트 (external_id 있으면 유저 연결) */
+  /** 디바이스/토큰 등록·업서트 (userId 있으면 유저 연결) */
   registerDevice(input: RegisterDeviceInput) {
     return this.request<{ device: unknown }>("/api/v1/devices", {
       token: input.token,
       platform: input.platform,
-      external_id: input.externalId,
+      user_id: resolveUserId(input),
       identity_hash: input.identityHash,
       app_version: input.appVersion,
       os_version: input.osVersion,
@@ -77,8 +82,9 @@ export class NotikitClient {
   /** 유저 식별 (identity) */
   identify(input: IdentifyInput) {
     return this.request<{ user: unknown }>("/api/v1/users/identify", {
-      external_id: input.externalId,
+      user_id: resolveUserId(input),
       identity_hash: input.identityHash,
+      name: input.name,
       attributes: input.attributes,
       locale: input.locale,
       timezone: input.timezone,
@@ -93,7 +99,7 @@ export class NotikitClient {
     return this.request<{ device: unknown }>("/api/v1/devices", {
       token,
       platform,
-      external_id: null,
+      user_id: null,
       // 서버가 현재 바인딩된 유저의 해시를 검증한다 — 남의 토큰으로 해제하는 것을 막는다
       identity_hash: identityHash,
     });
@@ -101,7 +107,7 @@ export class NotikitClient {
 
   /**
    * 푸시 클릭(알림 탭) 보고.
-   * 유저는 서버가 토큰의 바인딩에서 해석하므로 external_id 를 보내지 않는다.
+   * 유저는 서버가 토큰의 바인딩에서 해석하므로 user_id 를 보내지 않는다.
    */
   reportClick(input: ReportClickInput) {
     return this.request<{ recorded: boolean }>("/api/v1/messages/click", {
@@ -137,9 +143,9 @@ export class NotikitClient {
   /**
    * 토픽 구독.
    *
-   * 대상은 토큰(기기 하나) 또는 external_id(그 사람의 활성 기기 전부) 중 하나다.
+   * 대상은 토큰(기기 하나) 또는 userId(그 사람의 활성 기기 전부) 중 하나다.
    * 앱에서는 자기 토큰을 아니까 토큰을, 백엔드에서 "이 사람을 넣어줘" 할 때는
-   * external_id 를 쓴다. 후자는 기기 목록을 백엔드가 관리하지 않아도 된다.
+   * userId 를 쓴다. 후자는 기기 목록을 백엔드가 관리하지 않아도 된다.
    *
    * 규칙으로 채워지는 토픽은 명단이 자동으로 정해지므로 409 가 온다.
    */
@@ -163,16 +169,48 @@ export class NotikitClient {
   }
 
   /** 푸시 전송 (서버→디바이스; 보통 백엔드에서 호출) */
-  send(input: SendInput) {
-    return this.request<{ message: unknown }>("/api/v1/messages", {
-      title: input.title,
-      body: input.body,
-      type: input.type,
-      ...(input.type === "multi" ? { targets: input.targets } : { target: input.target }),
-      template: input.template,
-      fields: input.fields,
-      deep_link: input.deepLink,
-      data: input.data,
+  async send(input: SendInput) {
+    const headers = input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : undefined;
+    return this.request<{ message: unknown }>(
+      "/api/v1/messages",
+      {
+        title: input.title,
+        body: input.body,
+        type: input.type,
+        ...(input.type === "multi" ? { targets: input.targets } : { target: input.target }),
+        template: input.template,
+        fields: input.fields,
+        deep_link: input.deepLink,
+        image_url: input.imageUrl,
+        data: input.data,
+        scheduled_at: toIsoString(input.scheduledAt),
+        variants: input.variants?.map(({ title, body }) => ({ title, body })),
+        kakao_fallback: input.kakaoFallback,
+        options: pushOptionsBody(input.options),
+      },
+      headers
+    );
+  }
+
+  /**
+   * 전환 보고 — 앱에서 일어난 행동을 푸시 성과로 귀속한다.
+   *
+   * 서버가 **그 기기/사람이 최근 24시간 안에 클릭한 마지막 발송**에 붙인다. 클릭이 없으면
+   * 귀속할 발송이 없어 `attributed: false` 로 끝난다(오류가 아니다).
+   * 같은 날 같은 (발송, 사람, 이름)은 한 번만 남으므로 재시도해도 매출이 부풀지 않는다.
+   */
+  trackConversion(input: TrackConversionInput) {
+    return this.request<TrackConversionResult>("/api/v1/events", {
+      name: input.name,
+      value_cents: input.valueCents,
+      ...(input.token ? { token: input.token } : { user_id: resolveUserId(input), identity_hash: input.identityHash }),
     });
   }
+}
+
+function toIsoString(value: Date | string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) throw new TypeError(`Invalid scheduledAt: ${String(value)}`);
+  return date.toISOString();
 }

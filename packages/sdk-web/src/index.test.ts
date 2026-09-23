@@ -167,14 +167,37 @@ describe("NotikitWeb.register", () => {
     const body = JSON.parse(init.body);
     expect(body).toMatchObject({
       platform: "web",
-      external_id: "u1",
+      user_id: "u1",
       identity_hash: "h1",
       locale: "ko-KR",
     });
+    expect(body).not.toHaveProperty("external_id");
     expect(body.timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
     // 서버는 이 값을 그대로 FCM 에 넘긴다 — 구독 JSON 이면 발송이 전부 실패한다
     expect(body.token).toBe(FCM_TOKEN);
     expect(token).toBe(FCM_TOKEN);
+  });
+
+  it("registers the device with userId as user_id", async () => {
+    installBrowserEnv();
+    const fetch = okFetch();
+    const notikit = new NotikitWeb({ ...base, userId: "u2", identityHash: "h2", fetch });
+
+    await notikit.register();
+
+    const body = JSON.parse((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+    expect(body).toMatchObject({ platform: "web", user_id: "u2", identity_hash: "h2" });
+    expect(body).not.toHaveProperty("external_id");
+  });
+
+  it("prefers userId over the deprecated externalId", async () => {
+    installBrowserEnv();
+    const fetch = okFetch();
+    const notikit = new NotikitWeb({ ...base, userId: "new", externalId: "old", fetch });
+
+    await notikit.register();
+
+    expect(JSON.parse((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body).user_id).toBe("new");
   });
 
   it("never sends the api-secret header from the browser", async () => {
@@ -191,7 +214,7 @@ describe("NotikitWeb.register", () => {
 });
 
 describe("NotikitWeb.identify", () => {
-  it("posts external_id, identityHash and attributes to the identify endpoint", async () => {
+  it("posts user_id, identityHash and attributes to the identify endpoint", async () => {
     installBrowserEnv();
     const fetch = mockFetch({ success: true, data: { user: { id: "u1" } }, error: null });
     const notikit = new NotikitWeb({ ...base, identityHash: "h1", fetch });
@@ -201,11 +224,12 @@ describe("NotikitWeb.identify", () => {
     const [url, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(url).toBe("https://push.test/api/v1/users/identify");
     expect(JSON.parse(init.body)).toMatchObject({
-      external_id: "u1",
+      user_id: "u1",
       identity_hash: "h1",
       attributes: { plan: "pro" },
       locale: "ko-KR",
     });
+    expect(JSON.parse(init.body)).not.toHaveProperty("external_id");
   });
 
   it("surfaces server failures as NotikitError", async () => {

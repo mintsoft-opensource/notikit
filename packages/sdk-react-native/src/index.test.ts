@@ -19,7 +19,7 @@ function lastCall(fetch: unknown) {
 }
 
 describe("NotikitReactNative", () => {
-  it("register sends fcm token and platform without identity_hash when externalId is absent", async () => {
+  it("register sends fcm token and platform without identity_hash when userId is absent", async () => {
     const fetch = mockFetch(okEnvelope({ device: { id: "d1" } }));
     const rn = new NotikitReactNative({ ...base, identityHash: "ih_1", fetch });
 
@@ -30,11 +30,12 @@ describe("NotikitReactNative", () => {
     expect(url).toBe("https://push.test/api/v1/devices");
     expect(body.token).toBe("fcm_token_1");
     expect(body.platform).toBe("android");
+    expect(body.user_id).toBeUndefined();
     expect(body.external_id).toBeUndefined();
     expect(body.identity_hash).toBeUndefined();
   });
 
-  it("register includes identity_hash only when externalId is provided", async () => {
+  it("register includes identity_hash only when userId is provided", async () => {
     const fetch = mockFetch(okEnvelope({ device: { id: "d2" } }));
     const rn = new NotikitReactNative({ ...base, identityHash: "ih_1", fetch });
 
@@ -42,7 +43,8 @@ describe("NotikitReactNative", () => {
 
     const { body } = lastCall(fetch);
     expect(body.platform).toBe("ios");
-    expect(body.external_id).toBe("user-42");
+    expect(body.user_id).toBe("user-42");
+    expect(body.external_id).toBeUndefined();
     expect(body.identity_hash).toBe("ih_1");
   });
 
@@ -67,7 +69,8 @@ describe("NotikitReactNative", () => {
     expect(res).toEqual({ user: { id: "u1" } });
     const { url, body } = lastCall(fetch);
     expect(url).toBe("https://push.test/api/v1/users/identify");
-    expect(body.external_id).toBe("user-9");
+    expect(body.user_id).toBe("user-9");
+    expect(body.external_id).toBeUndefined();
     expect(body.identity_hash).toBe("ih_9");
     expect(body.attributes).toEqual({ plan: "pro" });
   });
@@ -97,16 +100,37 @@ describe("NotikitReactNative", () => {
     expect(body).toEqual({ topic: "news", token: "fcm_token_3" });
   });
 
-  it("subscribe by externalId sends external_id, not token", async () => {
+  it("subscribe by the deprecated externalId sends user_id, not token", async () => {
     const fetch = mockFetch(okEnvelope({ subscribed: true, topic: "vip", devices: 2, added: 2 }));
     const rn = new NotikitReactNative({ ...base, fetch });
 
-    await rn.core.subscribe("vip", { externalId: "user-9" });
+    await rn.core.subscribe("vip", { externalId: "user-9", identityHash: "ih" });
 
     const { body } = lastCall(fetch);
-    expect(body).toEqual({ topic: "vip", external_id: "user-9" });
-    // 서버는 token 과 external_id 중 정확히 하나만 받는다 — 둘 다 보내면 422
+    expect(body).toEqual({ topic: "vip", user_id: "user-9", identity_hash: "ih" });
+    // 서버는 token 과 user_id 중 정확히 하나만 받는다 — 둘 다 보내면 422
     expect(body.token).toBeUndefined();
+  });
+
+  it("subscribe by userId sends user_id", async () => {
+    const fetch = mockFetch(okEnvelope({ subscribed: true, topic: "vip", devices: 1, added: 1 }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+
+    await rn.core.subscribe("vip", { userId: "user-9", identityHash: "ih" });
+
+    const { body } = lastCall(fetch);
+    expect(body).toEqual({ topic: "vip", user_id: "user-9", identity_hash: "ih" });
+  });
+
+  it("core registerDevice still accepts the deprecated externalId and sends user_id", async () => {
+    const fetch = mockFetch(okEnvelope({ device: {} }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+
+    await rn.core.registerDevice({ token: "t", platform: "android", externalId: "legacy" });
+
+    const { body } = lastCall(fetch);
+    expect(body.user_id).toBe("legacy");
+    expect(body.external_id).toBeUndefined();
   });
 
   it("throws NotikitError with server message on API failure", async () => {

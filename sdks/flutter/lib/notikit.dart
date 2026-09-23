@@ -43,7 +43,7 @@ class Notikit {
     return _postRaw(path, Map<String, dynamic>.from(body)..removeWhere((_, v) => v == null));
   }
 
-  /// null 을 그대로 실어 전송 — 명시적 해제(external_id: null)와 미지정을 구분해야 할 때.
+  /// null 을 그대로 실어 전송 — 명시적 해제(user_id: null)와 미지정을 구분해야 할 때.
   Future<Map<String, dynamic>> _postRaw(String path, Map<String, dynamic> body) async {
     final headers = <String, String>{
       'content-type': 'application/json',
@@ -68,34 +68,42 @@ class Notikit {
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
   }
 
-  /// 디바이스/토큰 등록 (external_id 바인딩 시 identityHash 필요)
+  /// 디바이스/토큰 등록 (user id 바인딩 시 identityHash 필요)
   Future<Map<String, dynamic>> registerDevice({
     required String token,
     required String platform,
-    String? externalId,
+    String? userId,
+    @Deprecated('Use userId') String? externalId,
     String? identityHash,
     String? locale,
     String? timezone,
   }) {
+    final uid = userId ?? externalId;
     return _post('/api/v1/devices', {
       'token': token,
       'platform': platform,
-      'external_id': externalId,
-      'identity_hash': externalId != null ? identityHash : null,
+      'user_id': uid,
+      'identity_hash': uid != null ? identityHash : null,
       'locale': locale,
       'timezone': timezone,
     });
   }
 
-  /// 유저 식별
+  /// 유저 식별 — userId 는 고객 서비스의 유저 id
   Future<Map<String, dynamic>> identify({
-    required String externalId,
+    String? userId,
+    @Deprecated('Use userId') String? externalId,
     String? identityHash,
     Map<String, dynamic>? attributes,
+    /// 치환 변수 {{name}} 과 콘솔 표시에 쓰인다
+    String? name,
   }) {
+    final uid = userId ?? externalId;
+    if (uid == null) throw ArgumentError('userId is required');
     return _post('/api/v1/users/identify', {
-      'external_id': externalId,
+      'user_id': uid,
       'identity_hash': identityHash,
+      'name': name,
       'attributes': attributes,
     });
   }
@@ -153,13 +161,13 @@ class Notikit {
       'platform': platform,
       // 서버가 현재 바인딩된 유저의 해시를 검증한다 — 남의 토큰으로 해제하는 것을 막는다
       if (identityHash != null) 'identity_hash': identityHash,
-      'external_id': null,
+      'user_id': null,
     });
   }
 
   /// 푸시 클릭(알림 탭) 보고.
   ///
-  /// 유저는 서버가 토큰의 바인딩에서 해석하므로 externalId 를 보내지 않는다.
+  /// 유저는 서버가 토큰의 바인딩에서 해석하므로 user id 를 보내지 않는다.
   Future<Map<String, dynamic>> reportClick({
     required String logId,
     required String token,
@@ -263,7 +271,7 @@ class Notikit {
 
   /// notikit·FCM 이 쓰는 키. 이것을 뺀 나머지가 발송 때 넣은 커스텀 필드다(서버의 금지 키 목록과 같다).
   static const Set<String> _internalKeys = {
-    'deep_link', logIdKey, 'title', 'body', 'icon',
+    'deep_link', logIdKey, 'title', 'body', 'icon', 'image',
     'aps', 'from', 'collapse_key', 'notification', 'message_type', 'fcm_options',
   };
   static const List<String> _internalPrefixes = ['google.', 'gcm.'];

@@ -1,5 +1,5 @@
 import { NotikitClient } from "./index.js";
-import { logIdFromPayload, type Platform } from "./types.js";
+import { logIdFromPayload, resolveUserId, type Platform, type RequiredUserId } from "./types.js";
 
 /**
  * 플랫폼별 영속 저장소. 푸시 클릭은 앱이 죽은 상태에서 콜드 스타트로 들어오므로
@@ -12,10 +12,28 @@ export interface NotikitStorage {
   removeItem(key: string): void | Promise<void>;
 }
 
+/** 로그인에 넘기는 유저 — `{ userId }` 또는 이전 이름 `{ externalId }` */
+export type LoginUser = RequiredUserId & { identityHash?: string };
+
 /** 로그인 시 저장해두는 유저 — 클릭 시점에 바인딩이 최신인지 보장하는 데 쓴다 */
 export interface StoredUser {
+  userId: string;
+  /** @deprecated `userId` 와 같은 값. 이전 이름으로 읽던 코드를 위해 남겨둔다. */
   externalId: string;
   identityHash?: string;
+}
+
+/** 저장된 유저를 읽는다 — 이전 버전이 `externalId` 키로 저장한 값도 받는다 */
+function parseUser(raw: string | null): StoredUser | null {
+  const v = safeParse<{ userId?: unknown; externalId?: unknown; identityHash?: unknown }>(raw);
+  if (!v || typeof v !== "object") return null;
+  const userId = typeof v.userId === "string" ? v.userId : typeof v.externalId === "string" ? v.externalId : undefined;
+  if (!userId) return null;
+  return {
+    userId,
+    externalId: userId,
+    ...(typeof v.identityHash === "string" ? { identityHash: v.identityHash } : {}),
+  };
 }
 
 interface QueuedClick {
@@ -29,6 +47,8 @@ interface QueuedClick {
    * 그 사이 계정이 바뀌었으면 이 클릭은 다음 사람에게 귀속된다 — 그래서 폐기한다.
    * 비로그인 상태의 클릭은 undefined.
    */
+  userId?: string;
+  /** 이전 버전이 저장한 큐 항목의 유저 키 — 읽기 전용 */
   externalId?: string;
 }
 
@@ -74,7 +94,7 @@ function parseQueue(raw: string | null): QueuedClick[] {
  * 로그인 유저를 영속 저장하고, 푸시 클릭을 보고하는 세션 계층.
  *
  * 저장한 유저를 **클릭에 실어 보내지 않는다**. 서버가 신뢰하는 것은 디바이스 바인딩이고,
- * 클라이언트가 주장하는 external_id 를 믿으면 등록 시 identity_hash 로 막아둔 사칭이
+ * 클라이언트가 주장하는 user_id 를 믿으면 등록 시 identity_hash 로 막아둔 사칭이
  * 클릭 경로로 다시 열린다. 저장한 유저는 **바인딩을 최신으로 유지**하는 데만 쓴다.
  */
 export class NotikitSession {
@@ -97,19 +117,21 @@ export class NotikitSession {
   }
 
   async getUser(): Promise<StoredUser | null> {
-    return safeParse<StoredUser>(await this.storage.getItem(USER_KEY));
+    return parseUser(await this.storage.getItem(USER_KEY));
   }
 
   /**
    * 로그인 — 유저를 저장하고 디바이스를 그 유저에 바인딩한다.
    * 이후 이 기기의 클릭은 서버가 이 유저로 귀속한다.
    */
-  async login(user: StoredUser, token: string): Promise<void> {
-    await this.storage.setItem(USER_KEY, JSON.stringify(user));
+  async login(user: LoginUser, token: string): Promise<void> {
+    const userId = resolveUserId(user) as string;
+    const stored = user.identityHash === undefined ? { userId } : { userId, identityHash: user.identityHash };
+    await this.storage.setItem(USER_KEY, JSON.stringify(stored));
     await this.client.registerDevice({
       token,
       platform: this.platform,
-      externalId: user.externalId,
+      userId,
       identityHash: user.identityHash,
     });
     // 밀린 언바인딩은 **새 바인딩이 실제로 서버에 반영된 뒤에만** 버린다.
@@ -176,7 +198,7 @@ export class NotikitSession {
       return true;
     } catch {
       const user = await this.getUser();
-      await this.enqueue({ logId, token, destination, at: Date.now(), externalId: user?.externalId });
+      await this.enqueue({ logId, token, destination, at: Date.now(), userId: user?.userId });
       return false;
     }
   }
@@ -217,14 +239,14 @@ export class NotikitSession {
     const queue = await this.serialize(async () => parseQueue(await this.storage.getItem(QUEUE_KEY)));
     if (queue.length === 0) return 0;
 
-    const current = (await this.getUser())?.externalId;
+    const current = (await this.getUser())?.userId;
     const done = new Set<string>();
     let sent = 0;
 
     for (const c of queue) {
       const key = `${c.logId}|${c.token}`;
       // 만료됐거나, 클릭 당시 유저와 지금 유저가 다르면 보내지 않고 버린다
-      if (Date.now() - c.at >= QUEUE_TTL_MS || c.externalId !== current) {
+      if (Date.now() - c.at >= QUEUE_TTL_MS || resolveUserId(c) !== current) {
         done.add(key);
         continue;
       }

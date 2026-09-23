@@ -77,6 +77,13 @@ describe("useNotikit", () => {
     await rerender({ ...config, apiKey: "nk_other" });
     expect(result.current).not.toBe(first);
   });
+
+  it("creates a new instance when userId changes", async () => {
+    const { result, rerender } = await renderHook(() => useNotikit());
+    const first = result.current;
+    await rerender({ ...config, userId: "u1" } as typeof config);
+    expect(result.current).not.toBe(first);
+  });
 });
 
 describe("usePushRegistration", () => {

@@ -53,6 +53,7 @@ if (NOTIKIT.firebase.appId) {
     return self.registration.showNotification(data.title || n.title || "알림", {
       body: data.body || n.body || "",
       icon: data.icon || n.icon,
+      image: data.image || n.image,
       data: {
         deep_link: data.deep_link || "/",
         // 클릭 보고에 필요한 발송 id. 서버가 data 에 실어 보낸다.

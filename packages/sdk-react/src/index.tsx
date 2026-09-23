@@ -18,6 +18,7 @@ export function NotikitProvider({
     config.baseUrl,
     config.apiKey,
     config.vapidPublicKey,
+    config.userId,
     config.externalId,
     config.identityHash,
     config.serviceWorkerPath,

@@ -36,7 +36,7 @@ const notikit = new NotikitWeb({
   baseUrl: "https://push.example.com",
   apiKey: "nk_xxx",
   vapidPublicKey: "B...",   // Firebase 콘솔 > 클라우드 메시징 > 웹 푸시 인증서
-  externalId: "user-123",
+  userId: "user-123",       // 고객 서비스의 유저 id (서버에는 user_id 로 전송)
   firebase: {
     apiKey: "AIza...",
     projectId: "my-project",
@@ -51,6 +51,9 @@ if (NotikitWeb.isSupported()) {
   await notikit.register(); // 권한 요청 → FCM 토큰 → 서버 등록
 }
 ```
+
+`userId` 는 고객 서비스의 유저 id 이며 서버에 `user_id` 로 보냅니다. 이전 이름 `externalId`(`external_id`)도
+그대로 동작하지만 deprecated 입니다 — 둘 다 주면 `userId` 가 이깁니다. `identify(userId, attributes?, name?)` 도 같습니다.
 
 이미 Firebase 를 초기화한 앱이라면 **토큰 획득만** 넘겨받게 할 수 있습니다 — SDK 가
 `initializeApp` 을 또 부르면 앱이 쓰던 인스턴스와 어긋납니다. (`firebase` 설정은 그래도

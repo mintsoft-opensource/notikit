@@ -1,4 +1,4 @@
-import { NotikitClient, NOTIKIT_LOG_ID_KEY, type NotikitConfig } from "@notikit/core";
+import { NotikitClient, NOTIKIT_LOG_ID_KEY, resolveUserId, type NotikitConfig } from "@notikit/core";
 import { saveToken } from "./token-store.js";
 
 /** 워커용 토큰 저장을 기다려 주는 최대 시간 */
@@ -40,9 +40,11 @@ export interface NotikitWebConfig extends Omit<NotikitConfig, "apiSecret"> {
   onForegroundMessage?: (data: Record<string, string>) => void;
   /** 서비스워커 경로 (기본 /notikit-sw.js) */
   serviceWorkerPath?: string;
-  /** 유저 식별자 (로그인 시) */
+  /** 유저 id — 고객 서비스의 유저 식별자 (로그인 시) */
+  userId?: string;
+  /** @deprecated `userId` 를 쓴다. 같은 값으로 취급한다. */
   externalId?: string;
-  /** external_id 바인딩 시 identity 검증 해시(고객 서버가 계산) */
+  /** user id 바인딩 시 identity 검증 해시(고객 서버가 계산) */
   identityHash?: string;
 }
 
@@ -106,7 +108,7 @@ export class NotikitWeb {
     await this.client.registerDevice({
       token,
       platform: "web",
-      externalId: this.config.externalId,
+      userId: resolveUserId(this.config),
       identityHash: this.config.identityHash,
       locale: navigator.language,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -197,15 +199,25 @@ export class NotikitWeb {
     });
   }
 
-  /** 유저 식별 */
-  identify(externalId: string, attributes?: Record<string, unknown>) {
+  /** 유저 식별. name 은 치환 변수 {{name}} 과 콘솔 표시에 쓰인다 */
+  identify(userId: string, attributes?: Record<string, unknown>, name?: string | null) {
     return this.client.identify({
-      externalId,
+      userId,
       identityHash: this.config.identityHash,
+      name,
       attributes,
       locale: typeof navigator !== "undefined" ? navigator.language : undefined,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
+  }
+
+  /**
+   * 전환 보고 — 직전 24시간 안에 이 기기가 클릭한 발송의 성과로 귀속된다.
+   * `register()` 로 토큰을 받은 뒤에만 쓸 수 있다(토큰이 없으면 서버가 기기를 찾지 못한다).
+   */
+  trackConversion(name: string, valueCents?: number) {
+    if (!this.lastToken) throw new Error("register() must run before trackConversion()");
+    return this.client.trackConversion({ name, valueCents, token: this.lastToken });
   }
 
   get core(): NotikitClient {

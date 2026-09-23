@@ -29,7 +29,7 @@ export default function App() {
         baseUrl: "https://push.example.com",
         apiKey: "nk_xxx",
         vapidPublicKey: "BÖ...",
-        externalId: "user-123",
+        userId: "user-123", // 고객 서비스의 유저 id (서버에는 user_id 로 전송)
       }}
     >
       <PushButton />
@@ -44,6 +44,9 @@ export default function App() {
 | `<NotikitProvider config>` | 컨텍스트 제공 |
 | `useNotikit()` | `NotikitWeb` 인스턴스 |
 | `usePushRegistration()` | `{ status, token, error, register }` |
+
+`config` 는 `@notikit/web-sdk` 의 `NotikitWebConfig` 입니다. 이전 이름 `externalId`(`external_id`)도 그대로
+동작하지만 deprecated 입니다 — `userId` 를 쓰세요.
 
 ## 라이선스
 Apache-2.0

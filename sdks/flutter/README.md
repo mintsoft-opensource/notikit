@@ -24,7 +24,7 @@ final token = await FirebaseMessaging.instance.getToken();
 await notikit.registerDevice(
   token: token!,
   platform: Platform.isIOS ? 'ios' : 'android',
-  externalId: 'user-123',
+  userId: 'user-123', // 고객 서비스의 유저 id
   identityHash: '<서버계산 HMAC>',
 );
 ```
@@ -33,11 +33,13 @@ await notikit.registerDevice(
 | | 설명 |
 |---|---|
 | `registerDevice(...)` | FCM 토큰 등록 |
-| `identify(...)` | 유저 식별 |
+| `identify(userId: ...)` | 유저 식별 |
 | `subscribe(topic, token)` | 토픽 구독 |
 | `unsubscribe(topic, token)` | 토픽 구독 해지 |
 | `Notikit.customDataFromPayload(message.data)` | 받은 푸시에서 커스텀 필드(템플릿 필드 포함)만 꺼내기 |
 | `Notikit.deepLinkFromPayload(message.data)` | 받은 푸시의 딥링크 |
+
+> `externalId` 파라미터(서버 필드 `external_id`)도 계속 동작하지만 deprecated 다 — `userId` 를 쓴다. SDK 는 항상 `user_id` 로 전송한다.
 
 ## 라이선스
 Apache-2.0
