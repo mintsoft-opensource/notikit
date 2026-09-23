@@ -1,5 +1,14 @@
-# Notikit — self-host 번들 (Small 프로파일: 한 박스 전부).
-# 프로덕션은 DATABASE_URL / REDIS_URL 을 관리형으로 지정하고 postgres/redis 서비스 제거.
+# Notikit — **개발 / 로컬 평가용** compose.
+#
+# 실제 설치(고객사·VPS)는 `docker-compose.prod.yml` 을 쓴다. 이 파일은 소스에서 빌드하고,
+# postgres/redis 를 같은 박스에 띄우며, 편의를 위해 5432/6379 를 호스트에 노출한다.
+# 노출 주소는 모두 **127.0.0.1 고정**이다 — 0.0.0.0 으로 열면 VPS 에서 DB 가 인터넷에
+# 그대로 노출되고, 거기엔 프로젝트 api_secret 과 디바이스 토큰이 들어 있다.
+#
+#   전체 기동:      docker compose up -d --build
+#   의존성만:       docker compose up -d postgres redis      (웹은 수동으로 3001 에서)
+#   로그:           docker compose logs -f web worker
+#   중지:           docker compose down                      (볼륨은 남는다)
 services:
   # DB 마이그레이션 1회 실행(멱등) — full deps 가 있는 build 스테이지에서 실행해
   # standalone 트레이싱 누락 위험을 제거. web 은 이 서비스 성공 후 시작.
@@ -11,7 +20,7 @@ services:
     command: ["node", "apps/web/migrate.mjs"]
     env_file: .env
     environment:
-      DATABASE_URL: postgres://notikit:notikit@postgres:5432/notikit
+      DATABASE_URL: postgres://${POSTGRES_USER:-notikit}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}@postgres:5432/${POSTGRES_DB:-notikit}
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,17 +32,35 @@ services:
       dockerfile: apps/web/Dockerfile
     env_file: .env
     environment:
-      DATABASE_URL: postgres://notikit:notikit@postgres:5432/notikit
+      DATABASE_URL: postgres://${POSTGRES_USER:-notikit}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}@postgres:5432/${POSTGRES_DB:-notikit}
+      # 공유 발송 한도(고정 창). .env 의 localhost 값을 컨테이너 네트워크 이름으로 덮는다.
       REDIS_URL: redis://redis:6379
+      # CSRF 기준 오리진. 비워 두면 Host 헤더 추정으로 내려앉고 부팅 시 경고가 남는다.
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
     ports:
+      # 콘솔은 항상 호스트 3000. 개발자가 손으로 띄우는 `next start -p 3001` 과
+      # e2e 의 3100 은 이 포트와 겹치지 않는다.
       - "3000:3000"
+    # liveness(/api/health)가 아니라 readiness 를 본다 — DB 에 붙고 스키마가 맞는
+    # 인스턴스만 "healthy" 다. worker 의 depends_on 이 이 신호를 기다린다.
+    # (이미지에 curl/wget 을 넣지 않으려고 node 내장 fetch 를 쓴다. 비루트로도 동작.)
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
     restart: unless-stopped
 
   worker:
@@ -44,34 +71,53 @@ services:
     env_file: .env
     environment:
       WORKER_BASE_URL: http://web:3000
-      # ADMIN_TOKEN 은 .env 에서 주입 (web 과 동일해야 함)
+      WORKER_INTERVAL_MS: ${WORKER_INTERVAL_MS:-10000}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+      WORKER_REQUEST_TIMEOUT_MS: ${WORKER_REQUEST_TIMEOUT_MS:-120000}
+      WORKER_WEBHOOK_SWEEP_MS: ${WORKER_WEBHOOK_SWEEP_MS:-60000}
+      WORKER_SHUTDOWN_TIMEOUT_MS: ${WORKER_SHUTDOWN_TIMEOUT_MS:-30000}
+      # ADMIN_TOKEN 은 .env 에서 주입 (web 과 동일해야 함 — 내부 sweep 라우트도 이걸 쓴다)
     depends_on:
       web:
-        condition: service_started
+        condition: service_healthy
+    # worker 는 SIGTERM 뒤 진행 중 tick 을 WORKER_SHUTDOWN_TIMEOUT_MS 까지 기다린다.
+    # compose 기본 유예는 10초라 그 대기가 SIGKILL 로 잘렸다 — 상한보다 넉넉히 준다.
+    stop_grace_period: 45s
     restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: notikit
-      POSTGRES_PASSWORD: notikit
-      POSTGRES_DB: notikit
+      POSTGRES_USER: ${POSTGRES_USER:-notikit}
+      # 기본값을 두지 않는다. compose 파일에 박힌 비밀번호는 곧 "아무도 안 바꾸는 비밀번호"다.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+      POSTGRES_DB: ${POSTGRES_DB:-notikit}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U notikit"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-notikit}"]
       interval: 5s
       timeout: 3s
       retries: 10
     ports:
-      - "5432:5432"
+      # 호스트에서 돌리는 e2e(notikit_e2e DB)와 수동 next start 가 이 포트를 쓴다.
+      # 루프백에만 묶는다 — 밖에서 붙을 일이 없고, 열어 두면 VPS 에서 그대로 인터넷이다.
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     ports:
-      - "6379:6379"
+      # redis 는 비밀번호가 없다. 루프백 밖으로 내보내면 그 순간 무인증 공개 Redis 다.
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
 
 volumes:
   pgdata:

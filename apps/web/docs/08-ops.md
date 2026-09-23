@@ -4,6 +4,74 @@ title: 운영
 
 # 운영
 
+## 어느 compose 파일을 쓰는가
+
+| 파일 | 용도 | 특징 |
+|---|---|---|
+| `docker-compose.yml` | **개발·로컬 평가 전용** | 소스에서 빌드. postgres/redis 를 같이 띄우고 5432·6379 를 `127.0.0.1` 에만 노출 |
+| `docker-compose.prod.yml` | **실제 설치(고객사·VPS)** | 레지스트리 이미지 사용. DB 포트를 열지 않고, 콘솔도 기본은 루프백(`NOTIKIT_BIND`) |
+
+실제 서버에 `docker-compose.yml` 을 그대로 올리지 마세요. 개발 편의를 위해 DB 포트를 호스트에
+내보내고 소스 빌드를 전제합니다.
+
+두 파일 모두 `POSTGRES_PASSWORD` 에 **기본값이 없습니다**. 비어 있으면 compose 가 기동을
+거부합니다 — compose 파일에 박힌 비밀번호는 아무도 바꾸지 않기 때문입니다.
+
+## 명령어
+
+```bash
+cp .env.example .env         # NOTIKIT_ENCRYPTION_KEY, ADMIN_TOKEN, POSTGRES_PASSWORD 채우기
+
+docker compose up -d --build # 기동 (migrate → web → worker 순서로 게이트됨)
+docker compose ps            # 상태 — web/postgres/redis 는 healthy 가 떠야 정상
+docker compose logs -f web worker
+docker compose logs worker   # 워커만
+docker compose down          # 중지 (볼륨=데이터는 남는다)
+docker compose restart worker
+```
+
+콘솔은 <http://localhost:3000> 입니다.
+
+### 마이그레이션
+
+`migrate` 서비스가 기동 때마다 먼저 돌고(멱등), **성공해야** web 이 뜹니다. 손으로 다시 돌리려면:
+
+```bash
+docker compose run --rm migrate          # 스키마만 적용
+docker compose up -d --force-recreate web  # 적용 후 web 교체
+```
+
+### 의존성만 띄우고 웹은 손으로 (개발)
+
+콘솔을 직접 고쳐 가며 볼 때는 DB/Redis 만 컨테이너로 두고 웹은 호스트에서 띄웁니다.
+compose 의 콘솔(3000)과 포트가 겹치지 않게 3001 을 씁니다.
+
+```bash
+docker compose up -d postgres redis      # 의존성만
+docker compose stop web worker           # 컨테이너 웹이 떠 있었다면 내린다
+
+cd apps/web
+npm run build && npx next start -p 3001  # 또는 npm run dev
+```
+
+`.env` 의 `DATABASE_URL`·`REDIS_URL` 은 `localhost` 를 가리키므로 그대로 붙습니다
+(컨테이너 안에서만 `postgres`·`redis` 호스트명으로 덮입니다).
+
+포트 정리 — **3000** compose 콘솔 / **3001** 수동 실행 / **3100** e2e(`playwright.config.ts`,
+`notikit_e2e` DB). 셋은 겹치지 않으므로 동시에 띄워도 됩니다.
+
+### 헬스체크
+
+- `GET /api/health` — liveness. 프로세스가 살아 있는가. DB 가 죽어도 200
+- `GET /api/ready` — readiness. DB 에 붙고 스키마가 맞는가. **compose 의 healthcheck 는 이쪽**
+
+`web` 이 healthy 가 되어야 `worker` 가 시작합니다. 워커가 DB 도 못 붙은 웹을 폴링하며
+기동 로그를 실패 경고로 채우지 않게 하려는 것입니다.
+
+> Next standalone 의 `server.js` 는 `HOSTNAME` 에 바인드합니다. Docker 가 그 값을 컨테이너
+> ID 로 채우면 eth0 에만 붙고 루프백이 열리지 않아, 컨테이너 안에서 도는 healthcheck 가
+> 전부 실패합니다. Dockerfile 에서 `HOSTNAME=0.0.0.0` 으로 고정해 두었습니다.
+
 발송은 큐를 거칩니다. **발송 큐** 화면에서 대기·처리 중·예약 건과 최장 대기 시간을 볼 수 있습니다.
 
 - 대기가 계속 쌓이고 최장 대기 시간이 자란다 → 워커가 멈췄거나 Firebase 설정이 없습니다
@@ -62,7 +130,13 @@ REDIS_URL=redis://cache.example.com:6379    # rediss:// (TLS), redis://user:pass
 ```bash
 WORKER_WEBHOOK_SWEEP_MS=60000      # 스윕 주기(기본 60초, 최소 5초)
 WORKER_SHUTDOWN_TIMEOUT_MS=30000   # 종료 신호 뒤 진행 중 작업을 기다리는 상한(기본 30초)
+WORKER_REQUEST_TIMEOUT_MS=120000   # 요청 1건의 마감(기본 120초). 서버가 매달리면 tick 전체가 선다
+WORKER_CONCURRENCY=4               # 한 tick 에서 동시에 처리하는 프로젝트 수(기본 4, 최대 64)
 ```
+
+compose 의 `worker` 는 `stop_grace_period: 45s` 입니다. `WORKER_SHUTDOWN_TIMEOUT_MS` 보다
+커야 합니다 — 작으면 Docker 가 대기 중인 워커를 SIGKILL 로 끊어, 이 설정이 지키려던
+발송 결과 기록이 그대로 유실됩니다.
 
 워커는 `SIGTERM`·`SIGINT` 를 받으면 새 작업을 시작하지 않고 진행 중인 것만 마친 뒤 내려갑니다. 배포 때 발송 기록이 유실되지 않게 하려는 것입니다. 상한을 넘기면 그대로 종료하고, 남은 일은 다음 기동이 이어받습니다.
 

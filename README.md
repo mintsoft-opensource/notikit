@@ -26,13 +26,25 @@ mcp/                        # 독립 실행 MCP 서버 (stdio; AI 개발 가속)
 docs/plan/                  # 기획 문서 세트
 ```
 
-## 빠른 시작 (self-host)
+## 빠른 시작 (로컬 평가)
 ```bash
-cp .env.example .env      # 최소: NOTIKIT_ENCRYPTION_KEY(32자+), ADMIN_TOKEN 채우기
-docker compose up -d      # web + worker + postgres + redis
+cp .env.example .env      # 최소: NOTIKIT_ENCRYPTION_KEY(32자+), ADMIN_TOKEN, POSTGRES_PASSWORD
+docker compose up -d --build   # migrate + web + worker + postgres + redis
+docker compose ps              # web/postgres/redis 가 healthy 여야 한다
 open http://localhost:3000
 ```
-- **migrate** 서비스가 먼저 DB 마이그레이션을 적용(`migrate.mjs`, 멱등)하고, **web** 은 그 성공 후 시작한다.
+```bash
+docker compose logs -f web worker   # 로그
+docker compose run --rm migrate     # 마이그레이션만 다시
+docker compose down                 # 중지 (데이터 볼륨은 남는다)
+```
+
+> ⚠️ **`docker-compose.yml` 은 개발·로컬 평가용이다.** 소스에서 빌드하고, 편의를 위해
+> Postgres·Redis 포트를 호스트(`127.0.0.1` 한정)에 내보낸다.
+> **실제 설치(고객사·VPS)는 `docker-compose.prod.yml`** — 레지스트리 이미지를 쓰고 DB 포트를
+> 열지 않으며 콘솔도 기본이 루프백이다(`NOTIKIT_BIND`). 자세한 내용은 `apps/web/docs/08-ops.md`.
+
+- **migrate** 서비스가 먼저 DB 마이그레이션을 적용(`migrate.mjs`, 멱등)하고, **web** 은 그 성공 후 시작한다. `web` 은 `/api/ready`(DB 연결까지 확인) 헬스체크가 통과해야 healthy 가 되고, **worker** 는 그 뒤에 뜬다.
 - **worker** 컨테이너가 주기적으로 각 프로젝트의 큐 발송(`process-queue`)·저니 진행(`journeys/process`)·웹훅 재시도(`webhooks/retry`)를 처리한다. worker 없이도 해당 admin 엔드포인트를 직접(cron 등) 호출하면 발송된다. 다만 worker 가 없으면 큐잉만 되고 자동 발송은 되지 않는다.
 - Firebase 자격증명이 없으면 **log-only 모드**로 동작(실제 발송 대신 로그만 기록, `status="logged"`).
 
@@ -43,6 +55,12 @@ pnpm install
 export DATABASE_URL=postgres://notikit:notikit@localhost:5432/notikit
 pnpm --filter @notikit/web db:migrate
 pnpm --filter @notikit/web dev      # apps/web (Next.js, :3000)
+
+# 또는 DB/Redis 만 컨테이너로 두고 웹은 손으로 (compose 콘솔 3000 과 겹치지 않게 3001):
+docker compose up -d postgres redis
+cd apps/web && npx next start -p 3001
+
+# 포트: 3000 compose 콘솔 / 3001 수동 실행 / 3100 e2e(notikit_e2e DB) — 동시에 띄워도 된다
 # 별도 터미널에서 worker(선택):
 ADMIN_TOKEN=... WORKER_BASE_URL=http://localhost:3000 pnpm --filter @notikit/web worker
 ```

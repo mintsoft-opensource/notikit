@@ -22,6 +22,12 @@ RUN pnpm --filter @notikit/core build && pnpm --filter @notikit/web build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Next standalone 의 server.js 는 `process.env.HOSTNAME` 에 바인드한다. Docker 는 그 값을
+# 컨테이너 ID 로 채우므로, 그대로 두면 eth0 주소에만 붙고 **루프백이 열리지 않는다**.
+# 포트 매핑은 그래도 동작해 겉보기엔 멀쩡하지만, 컨테이너 안에서 도는 HEALTHCHECK 는
+# 127.0.0.1 로 붙지 못해 전부 실패한다. 모든 인터페이스에 바인드시킨다.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 # 런타임은 root 가 아닌 node(이미지 기본 유저)로 — 파일도 node 소유로 복사한다.
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
