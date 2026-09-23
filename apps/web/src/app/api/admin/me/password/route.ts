@@ -5,7 +5,7 @@ import { adminUsers } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { checkOrigin, requireAuth } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitShared } from "@/lib/rate-limit";
 import {
   SESSION_COOKIE,
   createSessionToken,
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   if (auth.ctx.superadmin || !auth.ctx.userId) return fail("세션 계정이 아닙니다", 400);
 
   // 현재 비밀번호 추측 시도 차단 (scrypt 검증 자체도 비싸다)
-  if (!rateLimit(`me:password:${auth.ctx.userId}`, 5, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
+  if (!await rateLimitShared(`me:password:${auth.ctx.userId}`, 5, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
 
   let payload: unknown;
   try {

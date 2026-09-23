@@ -3,7 +3,7 @@ import { getDb } from "@/db/client";
 import { devices } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { clientKey, rateLimitShared } from "@/lib/rate-limit";
 import { recordAccess } from "@/lib/device-activity";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
@@ -21,7 +21,7 @@ const schema = z.object({ token: z.string().min(1).max(4096) });
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id, "ping"), 20_000)) return fail("Rate limit exceeded", 429);
+  if (!await rateLimitShared(clientKey(project.id, "ping"), 20_000)) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {

@@ -1,6 +1,6 @@
 import { resolveProjectPrivileged } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { clientKey, rateLimitShared } from "@/lib/rate-limit";
 import {
   messageSchema,
   enqueuePush,
@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const project = await resolveProjectPrivileged(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id, "send"))) return fail("Rate limit exceeded", 429);
+  if (!await rateLimitShared(clientKey(project.id, "send"))) return fail("Rate limit exceeded", 429);
 
   const idem = parseIdempotencyKey(req);
   if ("error" in idem) return fail(idem.error, 400);

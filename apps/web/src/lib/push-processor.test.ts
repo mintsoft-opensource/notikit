@@ -1,4 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
+import type { PushLog, Project } from "@/db/schema";
+
+const { emitted } = vi.hoisted(() => ({ emitted: [] as unknown[][] }));
+vi.mock("@/lib/webhooks", () => ({
+  emitWebhook: (...args: unknown[]) => {
+    emitted.push(args);
+    return Promise.resolve();
+  },
+  assertSafeWebhookUrl: () => Promise.resolve(),
+  MAX_ATTEMPTS: 5,
+}));
+
 import {
   applyFrequencyCap,
   buildItems,
@@ -11,7 +25,15 @@ import {
   parseResumeState,
   tallyResults,
   variantIndex,
+  claimableLog,
+  parseAttempts,
+  reserveCapped,
+  runFollowUps,
+  saveProgress,
+  settleFailure,
+  MAX_SEND_ATTEMPTS,
   type ResumeState,
+  type SendContext,
 } from "./push-processor";
 
 const DEV = "11111111-1111-1111-1111-111111111111";
@@ -186,5 +208,291 @@ describe("parseResumeState follow-ups", () => {
 
   it("leaves sending-phase state without follow-ups", () => {
     expect(parseResumeState(JSON.stringify(base))).not.toHaveProperty("followUps");
+  });
+});
+
+// ─── 재시도·클레임 조건 ──────────────────────────────────────────────────────
+
+describe("claimableLog", () => {
+  const sqlOf = (q: SQL) => new PgDialect().sqlToQuery(q).sql;
+
+  it("lockedAt 이 비어 있는 processing 행도 재클레임 대상에 넣는다", () => {
+    const q = sqlOf(claimableLog(new Date(), new Date())!);
+    expect(q).toContain('"locked_at" is null');
+    expect(q).toContain('"status" = $');
+  });
+
+  it("클레임과 큐 스캔이 같은 조건을 공유한다 — 한쪽만 고치면 행이 스캔에서 사라진다", () => {
+    const now = new Date("2026-01-01T00:00:00Z");
+    const stale = new Date("2025-12-31T23:55:00Z");
+    expect(sqlOf(claimableLog(now, stale)!)).toBe(sqlOf(claimableLog(now, stale)!));
+  });
+});
+
+describe("parseAttempts", () => {
+  it("상태가 깨졌거나 없어도 시도 횟수는 살린다", () => {
+    expect(parseAttempts(null)).toBe(0);
+    expect(parseAttempts("not json")).toBe(0);
+    expect(parseAttempts(JSON.stringify({ attempts: 2 }))).toBe(2);
+    expect(parseAttempts(JSON.stringify({ cursor: "x' or 1=1", attempts: 2 }))).toBe(2);
+    expect(parseAttempts(JSON.stringify({ attempts: -1 }))).toBe(0);
+    expect(parseAttempts(JSON.stringify({ attempts: "3" }))).toBe(0);
+  });
+
+  it("정상 상태는 진행 상태와 함께 읽힌다", () => {
+    const s: ResumeState = { ...initialState({ users: 1, devices: 1 }, null), attempts: 1 };
+    expect(parseResumeState(JSON.stringify(s))?.attempts).toBe(1);
+    expect(parseAttempts(JSON.stringify(s))).toBe(1);
+  });
+});
+
+type Row = { id: string };
+
+/** update().set().where()[.returning()] 만 쓰는 호출용 — set 페이로드를 그대로 모은다 */
+function updateSpy(result: Row[] | ((call: number) => Row[])) {
+  const sets: Record<string, unknown>[] = [];
+  let call = 0;
+  const db = {
+    update: () => ({
+      set: (v: Record<string, unknown>) => {
+        sets.push(v);
+        const out = typeof result === "function" ? result(call++) : result;
+        // where() 는 그대로 await 하기도(설정 갱신), .returning() 을 붙이기도(소유권 확인) 한다
+        return { where: () => Object.assign(Promise.resolve(out), { returning: async () => out }) };
+      },
+    }),
+  };
+  return { db: db as unknown as Parameters<typeof saveProgress>[0], sets };
+}
+
+describe("settleFailure", () => {
+  const LOG = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+  const TOKEN = "lock-1";
+
+  function db(resumeCursor: string | null) {
+    const spy = updateSpy([{ id: LOG }]);
+    const withSelect = {
+      ...(spy.db as unknown as Record<string, unknown>),
+      select: () => ({ from: () => ({ where: () => ({ limit: async () => [{ resumeCursor }] }) }) }),
+    };
+    return { db: withSelect as unknown as Parameters<typeof settleFailure>[0], sets: spy.sets };
+  }
+
+  it("일시적 실패는 failed 로 닫지 않고 시도 횟수만 올린다 — stale 재클레임이 이어 간다", async () => {
+    const state = { ...initialState({ users: 9, devices: 9 }, null), cursor: DEV, total: 5, success: 5 };
+    const t = db(JSON.stringify(state));
+    expect(await settleFailure(t.db, LOG, TOKEN, new Error("db down"))).toBe(true);
+    expect(t.sets).toHaveLength(1);
+    expect(t.sets[0].status).toBeUndefined();
+    const saved = parseResumeState(t.sets[0].resumeCursor as string)!;
+    expect(saved.attempts).toBe(1);
+    // 커서와 누적이 그대로여야 남은 대상만 이어 보낸다
+    expect(saved.cursor).toBe(DEV);
+    expect(saved.success).toBe(5);
+  });
+
+  it("진행 상태가 아직 없어도 횟수를 남긴다(첫 페이지 전에 죽은 경우)", async () => {
+    const t = db(null);
+    expect(await settleFailure(t.db, LOG, TOKEN, new Error("boom"))).toBe(true);
+    expect(parseAttempts(t.sets[0].resumeCursor as string)).toBe(1);
+  });
+
+  it("한도를 소진하면 사유와 함께 failed 로 닫는다", async () => {
+    const state = { ...initialState({ users: 1, devices: 1 }, null), attempts: MAX_SEND_ATTEMPTS - 1 };
+    const t = db(JSON.stringify(state));
+    expect(await settleFailure(t.db, LOG, TOKEN, new Error("still down"))).toBe(false);
+    expect(t.sets[0].status).toBe("failed");
+    expect(t.sets[0].failureReason).toBe(`attempt ${MAX_SEND_ATTEMPTS}/${MAX_SEND_ATTEMPTS}: still down`);
+    expect(parseAttempts(t.sets[0].resumeCursor as string)).toBe(MAX_SEND_ATTEMPTS);
+  });
+
+  it("사유는 길이를 잘라 로그 행이 비대해지지 않게 한다", async () => {
+    const state = { ...initialState({ users: 1, devices: 1 }, null), attempts: MAX_SEND_ATTEMPTS - 1 };
+    const t = db(JSON.stringify(state));
+    await settleFailure(t.db, LOG, TOKEN, new Error("x".repeat(5000)));
+    expect((t.sets[0].failureReason as string).length).toBe(300);
+  });
+});
+
+describe("saveProgress", () => {
+  const LOG = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+  it("소유권을 잃으면 false — 호출부는 즉시 멈춰야 중복 발송이 없다", async () => {
+    const t = updateSpy([]);
+    const state = initialState({ users: 1, devices: 1 }, null);
+    expect(await saveProgress(t.db, LOG, "stolen", state)).toBe(false);
+  });
+
+  it("소유 중이면 하트비트와 진행 상태를 함께 남긴다", async () => {
+    const t = updateSpy([{ id: LOG }]);
+    const state = { ...initialState({ users: 2, devices: 3 }, null), cursor: DEV, total: 7 };
+    expect(await saveProgress(t.db, LOG, "mine", state)).toBe(true);
+    expect(t.sets[0].lockedAt).toBeInstanceOf(Date);
+    expect(parseResumeState(t.sets[0].resumeCursor as string)).toEqual(state);
+  });
+});
+
+// ─── 후속 단계 이어 돌기 ─────────────────────────────────────────────────────
+
+const LOG_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const PROJ = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+
+/** 후속 단계는 broadcast 에서 받는 사람 조회 없이 돈다 — db 는 진행 상태 저장에만 쓰인다 */
+const broadcastLog = { id: LOG_ID, projectId: PROJ, type: "broadcast", title: "T", body: "B" } as unknown as PushLog;
+const ctx = {
+  project: { id: PROJ, name: "P", kakaoConfigEnc: null } as unknown as Project,
+  sa: null,
+  cap: null,
+  renderCtx: { appName: "P", now: new Date() },
+  personalized: false,
+} satisfies SendContext;
+
+describe("runFollowUps", () => {
+  const savedSteps = (sets: Record<string, unknown>[]) =>
+    sets.map((s) => Object.keys(parseResumeState(s.resumeCursor as string)?.followUps ?? {}).sort());
+
+  it("단계마다 완료 표시를 남긴다 — 중간에 죽어도 끝난 단계는 다시 돌지 않는다", async () => {
+    emitted.length = 0;
+    const t = updateSpy([{ id: LOG_ID }]);
+    const sent = initialState({ users: 1, devices: 1 }, null);
+    expect(await runFollowUps(t.db, broadcastLog, ctx, "mine", sent, "completed")).toBe(true);
+    expect(savedSteps(t.sets)).toEqual([[], ["inbox"], ["inbox", "kakao"], ["inbox", "kakao", "webhook"]]);
+    expect(emitted).toHaveLength(1);
+  });
+
+  it("재클레임하면 남은 단계만 돈다 — 끝난 표시는 그대로 들고 간다", async () => {
+    emitted.length = 0;
+    const t = updateSpy([{ id: LOG_ID }]);
+    const sent: ResumeState = { ...initialState({ users: 1, devices: 1 }, null), followUps: { inbox: true, kakao: true } };
+    expect(await runFollowUps(t.db, broadcastLog, ctx, "mine", sent, "completed")).toBe(true);
+    expect(savedSteps(t.sets)).toEqual([
+      ["inbox", "kakao"],
+      ["inbox", "kakao", "webhook"],
+    ]);
+    expect(emitted).toHaveLength(1);
+  });
+
+  it("중간에 소유권을 잃으면 남은 단계를 돌지 않고 false", async () => {
+    emitted.length = 0;
+    // 첫 저장(진입)만 성공, 인박스 직후 저장에서 소유권 상실
+    const t = updateSpy((call) => (call === 0 ? [{ id: LOG_ID }] : []));
+    const sent = initialState({ users: 1, devices: 1 }, null);
+    expect(await runFollowUps(t.db, broadcastLog, ctx, "stolen", sent, "completed")).toBe(false);
+    expect(emitted).toHaveLength(0);
+    expect(t.sets).toHaveLength(2);
+  });
+
+  it("진입 시점에 이미 남의 것이면 아무 단계도 돌지 않는다", async () => {
+    emitted.length = 0;
+    const t = updateSpy([]);
+    expect(await runFollowUps(t.db, broadcastLog, ctx, "stolen", initialState({ users: 1, devices: 1 }, null), "completed")).toBe(
+      false
+    );
+    expect(emitted).toHaveLength(0);
+    expect(t.sets).toHaveLength(1);
+  });
+});
+
+// ─── 빈도 상한 예약의 동시성 ─────────────────────────────────────────────────
+
+type Send = { logId: string; userId: string };
+
+/** 같은 프로젝트 DB 흉내. advisory lock 을 잡은 트랜잭션이 끝날 때까지 다음 트랜잭션을 세운다. */
+function makeStore() {
+  const sends: Send[] = [];
+  let chain = Promise.resolve();
+  const acquire = (): Promise<() => void> => {
+    const prev = chain;
+    let release!: () => void;
+    chain = new Promise<void>((r) => (release = r));
+    return prev.then(() => release);
+  };
+  return { sends, acquire };
+}
+
+function makeDb(store: ReturnType<typeof makeStore>, logId: string, beforeInsert?: () => Promise<void>) {
+  const counts = () => {
+    const m = new Map<string, number>();
+    for (const s of store.sends) if (s.logId !== logId) m.set(s.userId, (m.get(s.userId) ?? 0) + 1);
+    return [...m].map(([userId, n]) => ({ userId, n }));
+  };
+  const db = {
+    transaction: async (cb: (t: unknown) => Promise<unknown>) => {
+      const held: { release: (() => void) | null } = { release: null };
+      const tx = {
+        // reserveCapped 가 advisory lock 을 잡지 않으면 직렬화도 없다 — 그 회귀를 이 테스트가 잡는다
+        execute: async () => {
+          held.release = await store.acquire();
+          return [];
+        },
+        select: () => ({ from: () => ({ where: () => ({ groupBy: async () => counts() }) }) }),
+        insert: () => ({
+          values: (rows: Array<{ userId: string }>) => ({
+            onConflictDoNothing: () => ({
+              returning: async () => {
+                if (beforeInsert) await beforeInsert();
+                const added: Array<{ userId: string }> = [];
+                for (const r of rows) {
+                  if (store.sends.some((s) => s.logId === logId && s.userId === r.userId)) continue;
+                  store.sends.push({ logId, userId: r.userId });
+                  added.push({ userId: r.userId });
+                }
+                return added;
+              },
+            }),
+          }),
+        }),
+      };
+      try {
+        return await cb(tx);
+      } finally {
+        held.release?.();
+      }
+    },
+  };
+  return db as unknown as Parameters<typeof reserveCapped>[0];
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const page = [{ id: "d1", token: "t1", userId: "u1", platform: "android" }];
+const logOf = (id: string) => ({ id, projectId: PROJ } as unknown as PushLog);
+
+describe("reserveCapped 동시성", () => {
+  it("동시에 도는 두 발송이 같은 사람을 상한 너머로 통과시키지 않는다", async () => {
+    const store = makeStore();
+    let open!: () => void;
+    const barrier = new Promise<void>((r) => (open = r));
+
+    const a = reserveCapped(makeDb(store, "log-a", () => barrier), logOf("log-a"), page, 1);
+    await tick(); // A 가 lock 을 잡고 판정까지 끝낸 뒤 insert 직전에 멈춘다
+    const b = reserveCapped(makeDb(store, "log-b"), logOf("log-b"), page, 1);
+    await tick();
+    open();
+
+    const [ra, rb] = await Promise.all([a, b]);
+    expect(ra.reserved).toEqual(["u1"]);
+    expect(ra.allowed).toHaveLength(1);
+    // B 는 A 의 예약을 보고 상한에 걸러야 한다
+    expect(rb.allowed).toEqual([]);
+    expect(rb.reserved).toEqual([]);
+    expect(store.sends).toHaveLength(1);
+  });
+
+  it("같은 발송의 다른 페이지는 자기 예약에 걸리지 않는다", async () => {
+    const store = makeStore();
+    const first = await reserveCapped(makeDb(store, "log-a"), logOf("log-a"), page, 1);
+    expect(first.reserved).toEqual(["u1"]);
+    // 같은 로그가 같은 사람을 또 만나도(다중 기기) 상한에서 빠지지 않는다
+    const second = await reserveCapped(makeDb(store, "log-a"), logOf("log-a"), page, 1);
+    expect(second.allowed).toHaveLength(1);
+    expect(second.reserved).toEqual([]); // 이미 있는 기록은 새로 예약하지 않는다
+  });
+
+  it("상한이 남아 있으면 그대로 통과시킨다", async () => {
+    const store = makeStore();
+    await reserveCapped(makeDb(store, "log-a"), logOf("log-a"), page, 3);
+    const r = await reserveCapped(makeDb(store, "log-b"), logOf("log-b"), page, 3);
+    expect(r.allowed).toHaveLength(1);
+    expect(r.reserved).toEqual(["u1"]);
   });
 });

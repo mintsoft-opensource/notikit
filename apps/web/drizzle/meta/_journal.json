@@ -176,6 +176,13 @@
       "when": 1789090886492,
       "tag": "0024_webhook_retry",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789090887492,
+      "tag": "0025_quiet_tz_conversion_scope",
+      "breakpoints": true
     }
   ]
 }

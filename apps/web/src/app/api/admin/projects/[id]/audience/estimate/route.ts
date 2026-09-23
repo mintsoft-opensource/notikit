@@ -2,7 +2,7 @@ import { getDb } from "@/db/client";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject, checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitShared } from "@/lib/rate-limit";
 import { messageSchema, targetError, MESSAGE_BODY_LIMIT } from "@/lib/messages";
 import { countAudience } from "@/lib/audience-count";
 
@@ -23,7 +23,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   const authz = await requireProject(req, id);
   if (!authz.ok) return fail(authz.error, authz.status);
-  if (!rateLimit(`admin:estimate:${id}`)) return fail("Rate limit exceeded", 429);
+  if (!await rateLimitShared(`admin:estimate:${id}`)) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {

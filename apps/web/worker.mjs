@@ -131,9 +131,31 @@ async function sweepWebhooks(now) {
     console.warn("[worker] webhook sweep failed; will retry next window");
     return;
   }
-  const { retried = 0, skipped = 0, candidates = 0 } = res.data ?? {};
+  const { retried = 0, skipped = 0, dead = 0, candidates = 0 } = res.data ?? {};
   if (retried > 0 || skipped > 0) {
     console.log(`[worker] webhook sweep: retried ${retried}, skipped ${skipped} of ${candidates} candidates`);
+  }
+  // 시도를 다 쓴 배달은 그냥 멈춘다 — 여기서 찍지 않으면 아무도 모른 채 이벤트가 사라진다
+  if (dead > 0) {
+    const total = res.data?.webhooks?.deadLetters;
+    console.error(`[worker] ${dead} webhook deliveries exhausted all attempts and were dropped${total ? ` (${total} since this server started)` : ""}`);
+  }
+  reportLimiterHealth(res.data?.rateLimit);
+}
+
+let lastFallbacks = 0;
+
+/**
+ * 공유 rate limit 이 인메모리로 떨어지고 있으면 알린다.
+ * 폴백은 요청을 막지 않으므로 증상이 없다 — 한도만 replica 배수로 느슨해진다.
+ */
+function reportLimiterHealth(rl) {
+  if (!rl?.shared) return;
+  const fallbacks = rl.fallbacks ?? 0;
+  const delta = fallbacks - lastFallbacks;
+  lastFallbacks = fallbacks;
+  if (delta > 0) {
+    console.warn(`[worker] shared rate limit fell back to per-instance counting ${delta} times since the last sweep (${fallbacks} total)`);
   }
 }
 

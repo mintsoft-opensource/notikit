@@ -230,7 +230,17 @@ export function targetError(b: Pick<MessageInput, "type" | "target" | "targets">
   return null;
 }
 
-export type EnqueueProject = { id: string; quietStartHour: number | null; quietEndHour: number | null };
+/**
+ * 큐잉에 필요한 프로젝트 값. `timezone` 은 방해금지 시간대를 재는 기준이다 —
+ * 선택값으로 둔 건 호출부가 프로젝트 행 전체를 읽지 않고 필요한 칼럼만 고르기 때문이고,
+ * 주지 않으면 UTC 로 본다(칼럼이 생기기 전과 같은 동작).
+ */
+export type EnqueueProject = {
+  id: string;
+  quietStartHour: number | null;
+  quietEndHour: number | null;
+  timezone?: string | null;
+};
 
 export type EnqueueOptions = {
   /** 발송자 — 콘솔 멤버 이메일 · "admin-token" · "api" · "journey" */
@@ -287,7 +297,7 @@ export async function enqueuePush(
 
   // 테스트 발송은 방해금지 시간대를 적용하지 않는다 — 운영자가 지금 받아 보려고 보내는 것이다
   if (!b.scheduled_at && !b.test) {
-    const quietEnd = nextAllowedTime(project.quietStartHour, project.quietEndHour);
+    const quietEnd = nextAllowedTime(project.quietStartHour, project.quietEndHour, new Date(), project.timezone);
     if (quietEnd) {
       scheduledAt = quietEnd;
       isScheduled = true;

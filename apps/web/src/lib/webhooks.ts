@@ -15,6 +15,15 @@ const RETRY_STATUSES = ["failed", "retrying"];
 /** 한 번의 스윕이 붙잡고 있을 시간 상한 (워커 요청 타임아웃보다 충분히 짧게) */
 const SWEEP_BUDGET_MS = 30_000;
 const SWEEP_CONCURRENCY = 8;
+/**
+ * 이만큼 지난 `pending` 은 "전송 직후 죽어서 아무도 손대지 않은 행"으로 본다.
+ *
+ * emitWebhook 은 행을 넣고 **같은 요청 안에서** 한 번 쏜다(타임아웃 10초). 그 사이에 프로세스가
+ * 죽으면 행은 영원히 `pending` 으로 남고, 재시도 후보 질의는 failed/retrying 만 보므로 아무도
+ * 집어 가지 않는다. 전송 타임아웃보다 넉넉히 길게 잡아, 지금 정상적으로 날아가는 중인 건을
+ * 두 번 보내지 않는다.
+ */
+const PENDING_STALE_MS = 120_000;
 
 /** SSRF 검증(관리자 등록 시점) — 실패 시 throw. 실제 전송은 safeFetch 가 IP 핀닝으로 재보장. */
 export async function assertSafeWebhookUrl(raw: string): Promise<void> {
@@ -39,7 +48,16 @@ export function isRetryEligible(nextAttemptAt: Date | null, attempts: number, no
   return attempts < MAX_ATTEMPTS && (nextAttemptAt === null || now >= nextAttemptAt.getTime());
 }
 
-/** isRetryEligible 의 SQL 판 — 부분 인덱스(next_attempt_at, attempts)를 그대로 탄다. */
+/**
+ * isRetryEligible 의 SQL 판.
+ *
+ * 부분 인덱스 `webhook_deliveries_sweep_idx` 는 (next_attempt_at, attempts) 에 걸려 있고
+ * 조건자가 `status in ('failed','retrying')` 이다(마이그레이션 0025 가 0024 의
+ * `webhook_deliveries_retry_idx`(status = 'failed')를 이걸로 갈아 끼웠다). 재시도 후보 질의는
+ * **그 조건자와 정확히 같은 status 집합**을 쓰므로 인덱스를 탄다.
+ * 아래 stale `pending` 질의는 이 인덱스 밖이다 — 대신 created_at 컷오프로 범위를 좁히고,
+ * pending 은 평소 거의 비어 있으므로(정상 경로에서 즉시 delivered/failed 로 넘어간다) 비용이 작다.
+ */
 const eligibleSql = sql.raw(`(webhook_deliveries.next_attempt_at is null or webhook_deliveries.next_attempt_at <= now())`);
 
 async function attempt(
@@ -105,7 +123,7 @@ type Candidate = {
   secret: string;
 };
 
-function candidates(db: Db, where: ReturnType<typeof and>, limit: number): Promise<Candidate[]> {
+function selectCandidates(db: Db, filter: ReturnType<typeof and>, limit: number): Promise<Candidate[]> {
   return db
     .select({
       id: webhookDeliveries.id,
@@ -119,9 +137,54 @@ function candidates(db: Db, where: ReturnType<typeof and>, limit: number): Promi
     })
     .from(webhookDeliveries)
     .innerJoin(webhooks, eq(webhookDeliveries.webhookId, webhooks.id))
-    .where(and(eq(webhooks.isActive, true), inArray(webhookDeliveries.status, RETRY_STATUSES), lt(webhookDeliveries.attempts, MAX_ATTEMPTS), eligibleSql, where))
+    .where(filter)
     .orderBy(asc(webhookDeliveries.createdAt))
     .limit(limit);
+}
+
+/**
+ * 백오프가 찬 재시도 후보.
+ * status 집합은 부분 인덱스 `webhook_deliveries_sweep_idx` 의 조건자와 **정확히 같아야** 한다
+ * (마이그레이션 0025: `status in ('failed','retrying')`). 어긋나면 인덱스를 놓치고 풀스캔이 된다.
+ */
+export function retryFilter(where?: ReturnType<typeof and>) {
+  return and(
+    eq(webhooks.isActive, true),
+    inArray(webhookDeliveries.status, RETRY_STATUSES),
+    lt(webhookDeliveries.attempts, MAX_ATTEMPTS),
+    eligibleSql,
+    where
+  );
+}
+
+/**
+ * 삽입 직후 프로세스가 죽어 아무도 손대지 않은 `pending`.
+ * 재시도 후보 질의가 failed/retrying 만 보기 때문에, 이 질의가 없으면 이 행들은 영원히 남는다.
+ */
+export function stalePendingFilter(now: Date, where?: ReturnType<typeof and>) {
+  return and(
+    eq(webhooks.isActive, true),
+    eq(webhookDeliveries.status, "pending"),
+    lt(webhookDeliveries.attempts, MAX_ATTEMPTS),
+    lt(webhookDeliveries.createdAt, new Date(now.getTime() - PENDING_STALE_MS)),
+    where
+  );
+}
+
+/**
+ * 스윕 후보 = 백오프가 찬 재시도 + **버려진 pending**.
+ *
+ * 둘을 한 질의로 OR 하지 않는다. 그러면 재시도 쪽이 부분 인덱스를 놓치고 매번 테이블을 훑는다.
+ * 각자 자기 인덱스로 뽑아 합친 뒤, 오래된 것부터 limit 만큼 자른다.
+ */
+async function candidates(db: Db, where: ReturnType<typeof and>, limit: number, now = new Date()): Promise<Candidate[]> {
+  const [retries, orphans] = await Promise.all([
+    selectCandidates(db, retryFilter(where), limit),
+    selectCandidates(db, stalePendingFilter(now, where), limit),
+  ]);
+
+  if (orphans.length === 0) return retries;
+  return [...retries, ...orphans].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(0, limit);
 }
 
 /**
@@ -131,21 +194,69 @@ function candidates(db: Db, where: ReturnType<typeof and>, limit: number): Promi
  * 이게 리스 역할을 한다 — 전송 도중 프로세스가 죽어 `retrying` 으로 남은 행도 그 창이 지나면
  * 회수되고, 그 전에는 다른 워커가 같은 건을 다시 쏘지 않는다.
  */
-async function claimAndDeliver(db: Db, row: Candidate): Promise<boolean> {
+async function claimAndDeliver(db: Db, row: Candidate): Promise<{ claimed: boolean; dead: boolean }> {
   const next = row.attempts + 1;
   const claimed = await db
     .update(webhookDeliveries)
     .set({ status: "retrying", attempts: next, nextAttemptAt: retryEligibleAt(new Date(), next) })
     .where(and(eq(webhookDeliveries.id, row.id), eq(webhookDeliveries.status, row.status), eq(webhookDeliveries.attempts, row.attempts)))
     .returning({ id: webhookDeliveries.id });
-  if (claimed.length === 0) return false;
+  if (claimed.length === 0) return { claimed: false, dead: false };
 
   const envelope = JSON.stringify({ id: row.id, type: row.event, created_at: new Date().toISOString(), data: row.payload });
-  await attempt(db, row.id, row.url, row.secret, row.event, envelope, next);
-  return true;
+  const delivered = await attempt(db, row.id, row.url, row.secret, row.event, envelope, next);
+  // 시도를 다 쓴 실패는 여기서 조용히 멈춘다 — 세고 남기지 않으면 아무도 모른다
+  if (!delivered && next >= MAX_ATTEMPTS) {
+    recordDeadLetter(row);
+    return { claimed: true, dead: true };
+  }
+  return { claimed: true, dead: false };
 }
 
-/** 동시성 제한 실행 — 느린 엔드포인트 하나가 스윕 전체를 붙잡지 않게 */
+// ── 데드레터 관측 ──
+const deadLetter = { total: 0, lastAt: null as number | null, lastId: null as string | null, lastEvent: null as string | null };
+
+/**
+ * MAX_ATTEMPTS 를 소진한 배달. 상태는 `failed` 로 남으므로 콘솔의 배달 이력에서
+ * attempts = MAX_ATTEMPTS 로 그대로 보이고, 운영은 아래 카운터로 총량을 본다.
+ */
+function recordDeadLetter(row: Candidate): void {
+  deadLetter.total += 1;
+  deadLetter.lastAt = Date.now();
+  deadLetter.lastId = row.id;
+  deadLetter.lastEvent = row.event;
+  console.warn(`[webhooks] delivery ${row.id} (${row.event}) exhausted ${MAX_ATTEMPTS} attempts — giving up`);
+}
+
+export type WebhookHealth = {
+  /** 이 프로세스가 포기한 배달 수(누적) */
+  deadLetters: number;
+  lastDeadLetterAt: string | null;
+  lastDeadLetterId: string | null;
+  lastDeadLetterEvent: string | null;
+};
+
+export function getWebhookHealth(): WebhookHealth {
+  return {
+    deadLetters: deadLetter.total,
+    lastDeadLetterAt: deadLetter.lastAt === null ? null : new Date(deadLetter.lastAt).toISOString(),
+    lastDeadLetterId: deadLetter.lastId,
+    lastDeadLetterEvent: deadLetter.lastEvent,
+  };
+}
+
+export function resetWebhookHealth(): void {
+  deadLetter.total = 0;
+  deadLetter.lastAt = null;
+  deadLetter.lastId = null;
+  deadLetter.lastEvent = null;
+}
+
+/**
+ * 동시성 제한 실행 — 느린 엔드포인트 하나가 스윕 전체를 붙잡지 않게.
+ * push-processor 의 `mapLimit` 과 같은 패턴이지만 그쪽은 결과 배열을 모으고 이쪽은 모으지 않는다.
+ * 합치려면 두 파일을 함께 고쳐야 해서(소유자가 다름) 여기서는 그대로 둔다.
+ */
 async function runLimited<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
   let i = 0;
   const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -154,9 +265,12 @@ async function runLimited<T>(items: T[], limit: number, fn: (item: T) => Promise
   await Promise.all(lanes);
 }
 
-async function deliverAll(db: Db, rows: Candidate[], deadline: number): Promise<{ retried: number; skipped: number }> {
+export type SweepResult = { retried: number; skipped: number; dead: number };
+
+async function deliverAll(db: Db, rows: Candidate[], deadline: number): Promise<SweepResult> {
   let retried = 0;
   let skipped = 0;
+  let dead = 0;
   await runLimited(rows, SWEEP_CONCURRENCY, async (row) => {
     // 예산을 넘겼으면 **클레임하지 않는다** — 클레임만 하고 못 보내면 시도 하나가 헛돈다
     if (Date.now() >= deadline) {
@@ -164,18 +278,20 @@ async function deliverAll(db: Db, rows: Candidate[], deadline: number): Promise<
       return;
     }
     try {
-      if (await claimAndDeliver(db, row)) retried += 1;
+      const r = await claimAndDeliver(db, row);
+      if (r.claimed) retried += 1;
       else skipped += 1;
+      if (r.dead) dead += 1;
     } catch (e) {
       skipped += 1;
       console.warn(`[webhooks] delivery ${row.id} failed to retry: ${e instanceof Error ? e.message : String(e)}`);
     }
   });
-  return { retried, skipped };
+  return { retried, skipped, dead };
 }
 
 /** 실패 웹훅 재시도 — **프로젝트 스코프** + 원자적 클레임(중복 재전송 방지). */
-export async function retryWebhooks(projectId: string, limit = 100): Promise<{ retried: number; skipped: number }> {
+export async function retryWebhooks(projectId: string, limit = 100): Promise<SweepResult> {
   const db = getDb();
   const rows = await candidates(db, and(eq(webhooks.projectId, projectId)), limit);
   return deliverAll(db, rows, Date.now() + SWEEP_BUDGET_MS);
@@ -184,10 +300,13 @@ export async function retryWebhooks(projectId: string, limit = 100): Promise<{ r
 /**
  * 전 프로젝트 재시도 스윕 — 워커가 주기적으로 한 번만 부른다(프로젝트 수만큼 호출하지 않게).
  * 여러 워커가 동시에 돌아도 안전하다: 행 단위 CAS 클레임으로 한 명만 가져간다.
+ *
+ * 백오프가 찬 실패분과 함께 **버려진 `pending`**(삽입 직후 프로세스가 죽어 아무도 손대지 않은 행)도
+ * 회수한다. `dead` 는 이번 스윕에서 시도를 다 쓰고 포기한 건수다.
  */
 export async function sweepWebhookRetries(
   opts: { limit?: number; budgetMs?: number } = {}
-): Promise<{ retried: number; skipped: number; candidates: number }> {
+): Promise<SweepResult & { candidates: number }> {
   const db = getDb();
   const limit = Math.min(Math.max(opts.limit ?? 200, 1), 1000);
   const deadline = Date.now() + Math.min(Math.max(opts.budgetMs ?? SWEEP_BUDGET_MS, 1_000), 120_000);

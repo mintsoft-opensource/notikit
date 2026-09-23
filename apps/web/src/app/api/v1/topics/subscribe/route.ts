@@ -1,7 +1,7 @@
 import { getDb } from "@/db/client";
 import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { clientKey, rateLimitShared } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
 import {
   targetSchema,
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id, "subscribe"))) return fail("Rate limit exceeded", 429);
+  if (!await rateLimitShared(clientKey(project.id, "subscribe"))) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {

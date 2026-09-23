@@ -5,7 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { hashPassword, createSessionToken, SESSION_COOKIE, sessionCookieAttributes, ScryptOverloadError } from "@/lib/session";
 import { checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitShared } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   }
 
   // rate limit 을 DB 조회 이전에 (비싼 count/해싱 남용 방어)
-  if (!rateLimit("auth:register", 20, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
+  if (!await rateLimitShared("auth:register", 20, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
 
   let payload: unknown;
   try {

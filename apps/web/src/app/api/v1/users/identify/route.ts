@@ -3,7 +3,7 @@ import { pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { verifyIdentity } from "@/lib/keys";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { clientKey, rateLimitShared } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -27,7 +27,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id, "identify"))) return fail("Rate limit exceeded", 429);
+  if (!await rateLimitShared(clientKey(project.id, "identify"))) return fail("Rate limit exceeded", 429);
 
   let payload: unknown;
   try {

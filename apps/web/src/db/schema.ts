@@ -51,9 +51,12 @@ export const projects = pgTable("projects", {
   apiSecretEnc: text("api_secret_enc").notNull(),
   // external_id 바인딩에 identity 검증(HMAC) 요구 여부
   requireIdentityVerification: boolean("require_identity_verification").notNull().default(true),
-  // 방해금지 시간대 (UTC 시각 0-23). 이 구간 발송은 종료 시각으로 자동 예약.
+  // 방해금지 시간대 (아래 timezone 기준 0-23시). 이 구간 발송은 종료 시각으로 자동 예약.
   quietStartHour: integer("quiet_start_hour"),
   quietEndHour: integer("quiet_end_hour"),
+  // 프로젝트 기준 타임존(IANA, 예: "Asia/Seoul"). 방해금지 시간대를 이 시각으로 잰다.
+  // null 이면 UTC — 칼럼이 없던 때와 같은 동작이라 기존 프로젝트의 판정이 바뀌지 않는다.
+  timezone: text("timezone"),
   // Firebase service account JSON — AES-256-GCM 암호문
   firebaseCredentialsEnc: text("firebase_credentials_enc"),
   // 카카오 알림톡 설정(provider_url/api_key/sender_key) — AES-256-GCM 암호문
@@ -217,7 +220,10 @@ export const pushLogs = pgTable("push_logs", {
   imageUrl: text("image_url"),
   // 콘솔에서 보낸 테스트 발송 — 로그에 "테스트" 로 표시
   isTest: boolean("is_test").notNull().default(false),
-  status: text("status").notNull().default("queued"), // queued | processing | completed | failed
+  status: text("status").notNull().default("queued"), // queued | scheduled | processing | completed | logged | failed
+  // failed 로 닫힌 이유(마지막 예외 + 소진한 시도 횟수). 일시적 실패는 한도까지 되살리므로
+  // 여기 값이 있다는 건 "한도를 다 쓰고 포기했다"는 뜻이다 — 없으면 운영자가 원인을 볼 방법이 없다.
+  failureReason: text("failure_reason"),
   totalCount: integer("total_count").notNull().default(0),
   successCount: integer("success_count").notNull().default(0),
   failureCount: integer("failure_count").notNull().default(0),
@@ -375,6 +381,12 @@ export const pushConversions = pgTable("push_conversions", {
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
   userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
+  /**
+   * 귀속된 클릭의 기기. 익명(user_id null) 전환을 **기기 단위로** 갈라 세기 위한 값이다.
+   * FK 를 걸지 않는다: 기기가 지워져도 과거 성과는 그대로여야 하고(이 테이블의 귀속은 기록 시점에 끝난다),
+   * set null 이면 서로 다른 익명 전환이 같은 키로 뭉쳐 유니크 인덱스가 깨진다.
+   */
+  deviceId: uuid("device_id"),
   name: text("name").notNull(),
   /** 금액(최소 화폐 단위). 금액 없는 전환은 null. */
   valueCents: integer("value_cents"),
@@ -382,13 +394,15 @@ export const pushConversions = pgTable("push_conversions", {
 }, (t) => ({
   logIdx: index("push_conversions_log_idx").on(t.logId, t.name),
   projIdx: index("push_conversions_project_idx").on(t.projectId, t.createdAt),
-  // 같은 (발송, 사람, 이름)은 하루 1건. 익명 기기(user_id null)도 한 사람으로 묶이도록 coalesce 한다 —
-  // NULL 끼리는 서로 다른 값이라 그대로 두면 유니크가 익명 기기에 걸리지 않는다.
+  // 같은 (발송, 주체, 이름)은 하루 1건. 주체는 사람이 있으면 사람, 없으면 **그 기기**다 —
+  // 예전처럼 익명을 상수 하나로 뭉치면 서로 다른 익명 기기의 전환이 하루 1건으로 합쳐져
+  // 익명 사용자가 많은 앱의 매출이 통째로 사라진다. NULL 끼리는 서로 다른 값이라 coalesce 는 남는다.
+  // 날짜는 UTC 로 고정한다: created_at::date 는 세션 TimeZone 에 따라 달라져 인덱스에 쓸 수 없다.
   uniqDay: uniqueIndex("push_conversions_uniq_idx").on(
     t.logId,
-    sql`coalesce(${t.userId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
     t.name,
-    sql`(${t.createdAt} at time zone 'utc')::date`
+    sql`(${t.createdAt} at time zone 'utc')::date`,
+    sql`coalesce('u:' || ${t.userId}::text, 'd:' || ${t.deviceId}::text, 'anon')`
   ),
 }));
 
@@ -413,7 +427,7 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   webhookId: uuid("webhook_id").notNull().references(() => webhooks.id, { onDelete: "cascade" }),
   event: text("event").notNull(),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-  status: text("status").notNull().default("pending"), // pending | delivered | failed
+  status: text("status").notNull().default("pending"), // pending | delivered | failed | retrying
   attempts: integer("attempts").notNull().default(0),
   lastStatusCode: integer("last_status_code"),
   // 재시도 스윕이 다음에 집어 갈 시각(지수 백오프). null 이면 아직 예약되지 않은 실패다.
@@ -421,8 +435,12 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   whIdx: index("webhook_deliveries_wh_idx").on(t.webhookId, t.status),
-  // 스윕은 실패 행만 본다 — 부분 인덱스라 배달 이력이 쌓여도 훑는 범위가 늘지 않는다
-  retryIdx: index("webhook_deliveries_retry_idx").on(t.nextAttemptAt, t.attempts).where(sql`${t.status} = 'failed'`),
+  // 스윕은 재시도 후보(failed + 전송 중 죽어 retrying 으로 남은 행)만 본다.
+  // 부분 인덱스의 조건이 스윕 질의와 **정확히** 같아야 플래너가 탄다 — 'failed' 만 담으면
+  // retrying 행 때문에 조건이 인덱스로 덮이지 않아 배달 이력 전체를 훑는다(0024 → 0025 교체).
+  sweepIdx: index("webhook_deliveries_sweep_idx")
+    .on(t.nextAttemptAt, t.attempts)
+    .where(sql`${t.status} in ('failed','retrying')`),
 }));
 
 /** 저니(워크플로우) — 다단계 자동 발송 정의 */

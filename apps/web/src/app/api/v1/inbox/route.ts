@@ -4,7 +4,7 @@ import { notifications, pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
 import { verifyIdentity } from "@/lib/keys";
 import { userIdParam } from "@/lib/user-id-alias";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { clientKey, rateLimitShared } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id, "inbox"))) return fail("Rate limit exceeded", 429);
+  if (!await rateLimitShared(clientKey(project.id, "inbox"))) return fail("Rate limit exceeded", 429);
 
   const params = new URL(req.url).searchParams;
   const externalId = userIdParam(params);

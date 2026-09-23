@@ -7,7 +7,7 @@ import { requireAuth, checkOrigin } from "@/lib/authz";
 import { ROLES, canAssignRole } from "@/lib/user-roles";
 import { hashPassword, ScryptOverloadError } from "@/lib/session";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitShared } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   if (!auth.ok) return fail(auth.error, auth.status);
 
   // scrypt 는 의도적으로 비싼 연산 — 생성 요청은 반드시 제한
-  if (!rateLimit(`admin:users:create:${auth.ctx.userId ?? "superadmin"}`, 10, 60_000)) {
+  if (!await rateLimitShared(`admin:users:create:${auth.ctx.userId ?? "superadmin"}`, 10, 60_000)) {
     return fail("Rate limit exceeded", 429);
   }
 

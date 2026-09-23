@@ -1,6 +1,6 @@
 import { ok, fail } from "@/lib/api-response";
 import { requireProject, checkOrigin } from "@/lib/authz";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitShared } from "@/lib/rate-limit";
 import { checkProjectTokens } from "@/lib/token-health";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   // partial 스윕은 완주까지 연속 호출되므로 이어받기를 막지 않을 만큼 여유를 둔다.
   // 실제 중복 방지는 레이트리밋이 아니라 DB CAS 클레임이 담당한다.
-  if (!rateLimit(`tokens:check:${id}`, 30, 60_000)) return fail("Rate limit exceeded", 429);
+  if (!await rateLimitShared(`tokens:check:${id}`, 30, 60_000)) return fail("Rate limit exceeded", 429);
 
   try {
     return ok(await checkProjectTokens(id, { minIntervalHours: parsed }));

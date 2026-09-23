@@ -20,6 +20,8 @@ const DRAIN_CONCURRENCY = 4; // 한 프로젝트에서 동시에 처리하는 �
 const FIRST_CURSOR = "00000000-0000-0000-0000-000000000000";
 const CAP_WINDOW_MS = 24 * 60 * 60 * 1000; // 빈도 상한 창
 const CAP_RETENTION_MS = 25 * 60 * 60 * 1000; // 수신 기록 보존(창 + 여유)
+/** 예외로 끝난 발송을 몇 번까지 되살릴지. 소진하면 사유와 함께 failed 로 닫는다. */
+export const MAX_SEND_ATTEMPTS = 3;
 
 export function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -59,6 +61,11 @@ export type ResumeState = {
   failure: number;
   variantStats: VariantStats | null;
   audience: { users: number; devices: number };
+  /**
+   * 지금까지 예외로 끝난 시도 횟수. 일시적 실패(DB 순단·FCM 5xx)를 재시도하되 무한히 돌지 않게 하는 한도다.
+   * 진행 상태와 같은 칼럼에 두는 이유: 재클레임한 워커가 커서와 시도 횟수를 **한 번에** 읽어야 한다.
+   */
+  attempts: number;
   /** 있으면 발송 페이지는 끝났고 후속 단계 중이다 — 재클레임한 워커는 페이지를 건너뛰고 남은 단계만 돈다 */
   followUps?: FollowUps;
 };
@@ -74,11 +81,23 @@ function parseFollowUps(v: unknown): FollowUps | undefined {
   return Object.fromEntries(FOLLOW_UP_KEYS.filter((k) => o[k] === true).map((k) => [k, true]));
 }
 
-export function initialState(audience: { users: number; devices: number }, variantCount: number | null): ResumeState {
+export function initialState(
+  audience: { users: number; devices: number },
+  variantCount: number | null,
+  attempts = 0
+): ResumeState {
   const variantStats: VariantStats | null = variantCount
     ? Object.fromEntries(Array.from({ length: variantCount }, (_, i) => [String(i), { sent: 0, success: 0 }]))
     : null;
-  return { cursor: FIRST_CURSOR, total: 0, success: 0, failure: 0, variantStats, audience: { users: audience.users, devices: audience.devices } };
+  return {
+    cursor: FIRST_CURSOR,
+    total: 0,
+    success: 0,
+    failure: 0,
+    variantStats,
+    audience: { users: audience.users, devices: audience.devices },
+    attempts,
+  };
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -114,8 +133,23 @@ export function parseResumeState(raw: string | null | undefined): ResumeState | 
     failure: s.failure,
     variantStats: (stats as VariantStats | null) ?? null,
     audience: { users: aud.users, devices: aud.devices },
+    attempts: isCount(s.attempts) ? s.attempts : 0,
     ...(s.followUps !== undefined ? { followUps: parseFollowUps(s.followUps) ?? {} } : {}),
   };
+}
+
+/**
+ * 시도 횟수만 읽는다. 진행 상태가 아직 없거나(첫 페이지 전에 죽음) 모양이 깨졌어도
+ * 횟수는 살아 있어야 한다 — 그러지 않으면 같은 실패를 영원히 재시도한다.
+ */
+export function parseAttempts(raw: string | null | undefined): number {
+  if (!raw) return 0;
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    return isCount(v?.attempts) ? v.attempts : 0;
+  } catch {
+    return 0;
+  }
 }
 
 // ─── 빈도 상한 ───────────────────────────────────────────────────────────────
@@ -159,7 +193,7 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
  * 프로젝트 단위 advisory lock 으로 같은 프로젝트의 예약을 줄 세운다.
  * `reserved` 는 이번에 새로 넣은 사람만 — 같은 발송의 앞 페이지가 넣은 기록은 되돌리지 않는다.
  */
-async function reserveCapped(db: Db, log: PushLog, page: ScopedDevice[], cap: number): Promise<Admission> {
+export async function reserveCapped(db: Db, log: PushLog, page: ScopedDevice[], cap: number): Promise<Admission> {
   const userIds = distinctUserIds(page);
   if (userIds.length === 0) return { allowed: page, reserved: [] };
   return db.transaction(async (tx) => {
@@ -283,7 +317,7 @@ export function tallyResults(state: ResumeState, items: SendItem[], results: Fcm
 
 // ─── 발송 단계 ───────────────────────────────────────────────────────────────
 
-type SendContext = {
+export type SendContext = {
   project: Project;
   sa: ServiceAccount | null;
   /** 테스트 발송은 null — 상한을 적용하지도, 수신 기록을 남기지도 않는다 */
@@ -316,22 +350,26 @@ async function loadRecipients(db: Db, projectId: string, tokens: string[]): Prom
   );
 }
 
+/**
+ * 워커가 지금 집어도 되는 로그 조건. **클레임과 큐 스캔이 같은 조건을 써야 한다** —
+ * 한쪽만 `locked_at IS NULL` 을 빠뜨리면(SQL 비교는 NULL 을 참으로 만들지 않는다)
+ * 클레임 직후 죽어 lockedAt 이 비어 있는 'processing' 행이 스캔에 영영 안 잡혀 발송이 멈춘다.
+ * 일시적 실패로 되돌려 둔 로그도 이 조건의 stale 재클레임으로 이어진다.
+ */
+export function claimableLog(now: Date, staleBefore: Date) {
+  return or(
+    eq(pushLogs.status, "queued"),
+    and(eq(pushLogs.status, "scheduled"), lte(pushLogs.scheduledAt, now)),
+    and(eq(pushLogs.status, "processing"), or(isNull(pushLogs.lockedAt), lt(pushLogs.lockedAt, staleBefore)))
+  );
+}
+
 async function claimLog(db: Db, logId: string, lockToken: string): Promise<PushLog | undefined> {
   const now = new Date();
-  const staleBefore = new Date(now.getTime() - STALE_MS);
   const claimed = await db
     .update(pushLogs)
     .set({ status: "processing", lockedAt: now, lockToken })
-    .where(
-      and(
-        eq(pushLogs.id, logId),
-        or(
-          eq(pushLogs.status, "queued"),
-          and(eq(pushLogs.status, "scheduled"), lte(pushLogs.scheduledAt, now)),
-          and(eq(pushLogs.status, "processing"), or(isNull(pushLogs.lockedAt), lt(pushLogs.lockedAt, staleBefore)))
-        )
-      )
-    )
+    .where(and(eq(pushLogs.id, logId), claimableLog(now, new Date(now.getTime() - STALE_MS))))
     .returning();
   return claimed[0];
 }
@@ -352,7 +390,7 @@ async function loadSendContext(db: Db, log: PushLog): Promise<SendContext | null
 }
 
 /** 소유권 확인(하트비트) + 진행 상태 저장. 잃었으면 false — 즉시 중단해야 중복 발송이 없다. */
-async function saveProgress(db: Db, logId: string, lockToken: string, state: ResumeState): Promise<boolean> {
+export async function saveProgress(db: Db, logId: string, lockToken: string, state: ResumeState): Promise<boolean> {
   const hb = await db
     .update(pushLogs)
     .set({ lockedAt: new Date(), resumeCursor: JSON.stringify(state) })
@@ -431,7 +469,9 @@ async function runPages(db: Db, log: PushLog, ctx: SendContext, lockToken: strin
   // 재클레임이면 저장된 상태(커서·누적·분모)에서 이어 간다.
   const resumed = parseResumeState(log.resumeCursor);
   if (resumed?.followUps) return resumed; // 발송은 이미 끝났다 — 남은 후속 단계만 돈다
-  let state = resumed ?? initialState(await countAudience(db, log), log.variants?.length ?? null);
+  // 상태가 깨졌어도 시도 횟수는 이어받는다 — 아니면 같은 실패를 한도 없이 반복한다
+  let state =
+    resumed ?? initialState(await countAudience(db, log), log.variants?.length ?? null, parseAttempts(log.resumeCursor));
   const scope = await resolveScope(db, log);
   if (ctx.cap !== null) await purgeOldSends(db, log.projectId);
   if (!(await saveProgress(db, log.id, lockToken, state))) return null;
@@ -537,7 +577,14 @@ async function notifySent(log: PushLog, status: string, state: ResumeState): Pro
  * 후속 단계(인박스 → 알림톡 → 웹훅)를 **완료 표시 전에** 돈다. 완료 뒤에 돌면 그 사이에 죽었을 때 영영 유실된다.
  * 단계마다 끝났다는 표시를 resume_cursor 에 남겨, 재클레임한 워커는 남은 단계만 이어 간다.
  */
-async function runFollowUps(db: Db, log: PushLog, ctx: SendContext, lockToken: string, sent: ResumeState, status: string): Promise<boolean> {
+export async function runFollowUps(
+  db: Db,
+  log: PushLog,
+  ctx: SendContext,
+  lockToken: string,
+  sent: ResumeState,
+  status: string
+): Promise<boolean> {
   let state: ResumeState = { ...sent, followUps: { ...sent.followUps } };
   if (!(await saveProgress(db, log.id, lockToken, state))) return false;
   const users = await loadFollowUpUsers(db, log);
@@ -555,9 +602,52 @@ async function runFollowUps(db: Db, log: PushLog, ctx: SendContext, lockToken: s
   return true;
 }
 
-async function failOwned(db: Db, logId: string, lockToken: string): Promise<void> {
+/** 남길 사유 길이 상한 — 스택이 통째로 들어와 로그 행이 비대해지는 걸 막는다 */
+const FAILURE_REASON_MAX = 300;
+
+function reasonOf(err: unknown, attempts: number): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `attempt ${attempts}/${MAX_SEND_ATTEMPTS}: ${msg}`.slice(0, FAILURE_REASON_MAX);
+}
+
+/** 시도 횟수만 갈아 끼운 진행 상태. 상태가 없거나 깨졌으면 횟수만 남긴다(다음 클레임이 처음부터 보낸다). */
+function withAttempts(raw: string | null, attempts: number): string {
+  const state = parseResumeState(raw);
+  return JSON.stringify(state ? { ...state, attempts } : { attempts });
+}
+
+/** 다시 시도하지 않을 실패(대상이 사라진 경우 등) — 사유를 남기고 닫는다 */
+async function failPermanently(db: Db, logId: string, lockToken: string, reason: string): Promise<void> {
   // 우리 소유일 때만 실패 표시 (새 워커의 클레임을 덮지 않음)
-  await db.update(pushLogs).set({ status: "failed" }).where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
+  await db
+    .update(pushLogs)
+    .set({ status: "failed", failureReason: reason.slice(0, FAILURE_REASON_MAX) })
+    .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
+}
+
+/**
+ * 발송 중 터진 예외의 처리. 예전에는 무조건 `failed` 로 닫았는데, `failed` 는 클레임 대상도
+ * 스캔 대상도 아니라 **DB 순단 한 번에 남은 대상 전체가 영영 발송되지 않았다** — resume_cursor 는
+ * 멀쩡한 채로.
+ *
+ * 그래서 한도까지는 되살린다: 시도 횟수를 진행 상태에 적고 `processing` 그대로 둔다.
+ * `locked_at` 은 마지막 하트비트 그대로 두어 stale 창(5분)이 지나면 다른 워커가 이어 간다 —
+ * 이게 그대로 재시도 간격이 된다. 소유권 조건(lock_token)을 그대로 쓰므로 이미 남에게 넘어간
+ * 로그는 건드리지 않는다. 한도를 소진하면 사유와 함께 `failed` 로 닫는다.
+ */
+export async function settleFailure(db: Db, logId: string, lockToken: string, err: unknown): Promise<boolean> {
+  const raw = (await reload(db, logId))?.resumeCursor ?? null;
+  const attempts = parseAttempts(raw) + 1;
+  const retryable = attempts < MAX_SEND_ATTEMPTS;
+  await db
+    .update(pushLogs)
+    .set(
+      retryable
+        ? { resumeCursor: withAttempts(raw, attempts) }
+        : { status: "failed", resumeCursor: withAttempts(raw, attempts), failureReason: reasonOf(err, attempts) }
+    )
+    .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
+  return retryable;
 }
 
 async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
@@ -578,8 +668,8 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
   try {
     const ctx = await loadSendContext(db, log);
     if (!ctx) {
-      // 프로젝트가 사라졌다(삭제 경합) — 보낼 곳이 없으니 실패로 닫는다
-      await failOwned(db, logId, lockToken);
+      // 프로젝트가 사라졌다(삭제 경합) — 다시 해도 결과가 같으니 재시도 없이 닫는다
+      await failPermanently(db, logId, lockToken, "project not found");
       return reload(db, logId);
     }
     const state = await runPages(db, log, ctx, lockToken);
@@ -589,7 +679,8 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
     if (!(await runFollowUps(db, log, ctx, lockToken, state, finalStatus))) return reload(db, logId);
     await finalizeLog(db, log, lockToken, state, finalStatus);
   } catch (e) {
-    await failOwned(db, logId, lockToken);
+    // 한도 안이면 'processing' 으로 남아 stale 재클레임으로 이어진다
+    await settleFailure(db, logId, lockToken, e);
     throw e;
   }
 
@@ -599,20 +690,12 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
 /** 큐잉 + stale 로그를 동시성 제한으로 처리 (worker/cron 진입점) */
 export async function drainQueue(projectId: string, limit = 50): Promise<{ processed: number; failed: number }> {
   const db = getDb();
-  const staleBefore = new Date(Date.now() - STALE_MS);
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - STALE_MS);
   const pending = await db
     .select({ id: pushLogs.id })
     .from(pushLogs)
-    .where(
-      and(
-        eq(pushLogs.projectId, projectId),
-        or(
-          eq(pushLogs.status, "queued"),
-          and(eq(pushLogs.status, "scheduled"), lte(pushLogs.scheduledAt, new Date())),
-          and(eq(pushLogs.status, "processing"), lt(pushLogs.lockedAt, staleBefore))
-        )
-      )
-    )
+    .where(and(eq(pushLogs.projectId, projectId), claimableLog(now, staleBefore)))
     .limit(limit);
 
   const results = await mapLimit(pending, DRAIN_CONCURRENCY, async ({ id }) => {

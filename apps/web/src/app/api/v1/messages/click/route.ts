@@ -3,13 +3,22 @@ import { getDb } from "@/db/client";
 import { devices, pushClicks, pushLogs } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { rateLimitShared, clientKey, principalKey } from "@/lib/rate-limit";
 import { isPlausibleRecipient } from "@/lib/click-eligibility";
 import { variantForToken } from "@/lib/push-variant";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
+
+/** 테넌트 전체 상한 — 대형 발송 직후의 정상 클릭 폭주를 담을 수 있어야 한다 */
+const PROJECT_LIMIT_PER_MIN = 20_000;
+/**
+ * 기기 하나가 분당 보고할 수 있는 클릭 수.
+ * 재클릭은 유니크로 무시되므로 정상 앱은 발송당 1건이다 — 이 한도에 닿는 건 남용뿐이고,
+ * 걸려도 **그 기기만** 걸린다(예전에는 한 기기가 테넌트 버킷을 비워 모두를 429 로 만들 수 있었다).
+ */
+const DEVICE_LIMIT_PER_MIN = 60;
 
 const schema = z.object({
   log_id: z.string().uuid(),
@@ -31,7 +40,9 @@ const schema = z.object({
 export async function POST(req: Request) {
   const project = await resolveProjectPublic(req);
   if (!project) return fail("Unauthorized", 401);
-  if (!rateLimit(clientKey(project.id, "click"), 20_000)) return fail("Rate limit exceeded", 429);
+  if (!(await rateLimitShared(clientKey(project.id, "click"), PROJECT_LIMIT_PER_MIN))) {
+    return fail("Rate limit exceeded", 429);
+  }
 
   let payload: unknown;
   try {
@@ -42,6 +53,12 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
+
+  // 기기 차원 한도는 조회 전에 — 남용이 pushLogs/devices 조회까지 내려가지 않게.
+  // 토큰은 아직 검증 전이지만 해시 키라 위조해도 자기 버킷만 갈아탄다.
+  if (!(await rateLimitShared(principalKey(project.id, "click", b.token), DEVICE_LIMIT_PER_MIN))) {
+    return fail("Rate limit exceeded", 429);
+  }
 
   const db = getDb();
 

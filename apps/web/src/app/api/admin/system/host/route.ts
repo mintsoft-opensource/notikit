@@ -3,7 +3,7 @@ import { getDb } from "@/db/client";
 import { projects, pushLogs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireAuth } from "@/lib/authz";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimitShared } from "@/lib/rate-limit";
 import { collectHostMetrics } from "@/lib/system-metrics";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   if (!auth.ok) return fail(auth.error, auth.status);
 
   // 폴링 주기 5s 기준 넉넉히 — 스크립트성 남용만 차단
-  if (!rateLimit(`sys:host:${auth.ctx.userId ?? "superadmin"}`, 60, 60_000)) {
+  if (!await rateLimitShared(`sys:host:${auth.ctx.userId ?? "superadmin"}`, 60, 60_000)) {
     return fail("Rate limit exceeded", 429);
   }
 

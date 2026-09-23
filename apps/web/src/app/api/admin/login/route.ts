@@ -5,7 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { verifyPassword, dummyVerify, createSessionToken, SESSION_COOKIE, sessionCookieAttributes, ScryptOverloadError } from "@/lib/session";
 import { checkOrigin } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
-import { rateLimit, acquireInflight, releaseInflight } from "@/lib/rate-limit";
+import { acquireInflight, rateLimitShared, releaseInflight } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   // 동시 처리 admission 을 가장 먼저 — 거부되면 per-email 버킷조차 만들지 않음(리미터 포화 방지)
   if (!acquireInflight("auth", 25)) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
   try {
-    if (!rateLimit(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
+    if (!await rateLimitShared(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
     const db = getDb();
     const user = (await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1))[0];
 
