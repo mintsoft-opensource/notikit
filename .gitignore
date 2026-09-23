@@ -51,3 +51,7 @@ license-public.pem
 /bundles/
 /backups/
 .notikit-image.env
+
+# 에이전트 메모리·작업 계획(저장소 밖 도구 상태)
+apps/web/.claude/
+push-oss-plan/

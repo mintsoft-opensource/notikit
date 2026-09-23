@@ -15,7 +15,77 @@ env:
   UPDATER_IMAGE: ${{ vars.REGISTRY_SERVER }}/notikit-updater
 
 jobs:
+  # 깨진 코드가 서명된 이미지로 고객에게 가지 않도록, 배포 전에 전부 돌린다.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: notikit
+          POSTGRES_PASSWORD: notikit
+          POSTGRES_DB: notikit_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U notikit -d notikit_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CI: "true"
+      DATABASE_URL: postgres://notikit:notikit@localhost:5432/notikit_e2e
+      ADMIN_TOKEN: e2e-admin-token
+      NOTIKIT_ENCRYPTION_KEY: e2e-encryption-key-32bytes-minimum
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+
+      # SDK 는 dist 로 서로를 참조한다(react → web-sdk → core). web e2e 도 core 를 import 한다.
+      - name: SDK 빌드
+        run: pnpm -r --filter "./packages/*" build
+
+      - name: SDK 테스트
+        run: pnpm -r --filter "./packages/*" test
+
+      - name: web 타입 검사
+        working-directory: apps/web
+        run: pnpm exec tsc --noEmit
+
+      - name: web 단위 테스트
+        working-directory: apps/web
+        run: pnpm exec vitest run
+
+      - name: web 빌드
+        working-directory: apps/web
+        run: pnpm build
+
+      - name: Playwright 브라우저
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      # globalSetup 이 DATABASE_URL 로 마이그레이션을 적용하고, webServer 가 같은 DB 로 뜬다
+      - name: e2e
+        working-directory: apps/web
+        run: pnpm exec playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/test-results
+          retention-days: 14
+
   release:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read

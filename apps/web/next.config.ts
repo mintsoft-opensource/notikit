@@ -15,6 +15,8 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  // 이미지 최적화 서버(sharp)를 쓰지 않는다 — 공격면과 이미지 크기를 줄인다.
+  images: { unoptimized: true },
   // 모노레포 — 트레이싱 루트를 notikit 루트로 고정(중복 lockfile 경고 방지)
   outputFileTracingRoot: path.join(dirname, "..", ".."),
   env: { NOTIKIT_VERSION: version },
