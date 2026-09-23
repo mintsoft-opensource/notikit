@@ -11,12 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
-import { adminApi } from "@/lib/admin-client";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { TemplateFormDialog, type MessageTemplate } from "./template-form";
 
 /** 메시지 템플릿 목록 — 만들고, 고치고, 바로 그 템플릿으로 발송하러 간다 */
 export function TemplatesConsole({ projectId }: { projectId: string }) {
   const t = useTranslations("templates");
+  const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const locale = useLocale();
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
@@ -49,7 +50,7 @@ export function TemplatesConsole({ projectId }: { projectId: string }) {
       toast.success(t("deleted"));
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     }
   }
 

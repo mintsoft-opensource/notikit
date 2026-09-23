@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { listDocs } from "@/lib/docs";
@@ -11,7 +10,16 @@ import { DocNav } from "@/components/console/doc-nav";
 export default async function GuideLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("guide");
   const docs = await listDocs();
-  if (docs.length === 0) notFound();
+
+  // 문서가 하나도 없으면 목차 없이 본문(안내)만 — 404 로 막으면 메뉴를 눌렀는데 "없는 페이지"가 된다
+  if (docs.length === 0) {
+    return (
+      <div className="w-full space-y-4">
+        <PageHeader title={t("title")} description={t("subtitle")} />
+        <div className="border border-border bg-surface shadow-card">{children}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-4">

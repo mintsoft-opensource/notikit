@@ -78,7 +78,7 @@ export function Tabs<T extends string>({
             onClick={() => onChange(tab.value)}
             className={cn(
               // 밑줄이 경계선을 덮도록 -mb-px — 안 그러면 활성 탭 아래 선이 두 겹으로 보인다
-              "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"

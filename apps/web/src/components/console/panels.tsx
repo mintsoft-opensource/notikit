@@ -44,7 +44,7 @@ export function BarList({ rows, className }: { rows: Array<{ label: string; valu
               style={{ width: `${(r.value / max) * 100}%`, background: r.color ?? "var(--chart-1)", minWidth: r.value > 0 ? "4px" : 0 }}
             />
           </span>
-          <span className="w-12 shrink-0 text-right text-xs font-bold tabular-nums">{nf.format(r.value)}</span>
+          <span className="w-12 shrink-0 text-end text-xs font-bold tabular-nums">{nf.format(r.value)}</span>
         </div>
       ))}
     </div>

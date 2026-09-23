@@ -9,10 +9,12 @@ import { LogoMark } from "@/components/brand/logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { useAdminErrorText } from "@/lib/admin-client";
 
 export default function LoginPage() {
   const router = useRouter();
   const t = useTranslations("login");
+  const errorText = useAdminErrorText();
   const ta = useTranslations("app");
   const [mode, setMode] = React.useState<"loading" | "login" | "register">("loading");
   const [email, setEmail] = React.useState("");
@@ -53,7 +55,7 @@ export default function LoginPage() {
       toast.success(mode === "register" ? t("created") : t("loggedIn"));
       router.replace("/dashboard");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("failed"));
+      toast.error(errorText(err, t("failed")));
     } finally {
       setBusy(false);
     }

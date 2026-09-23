@@ -24,16 +24,20 @@ export function DocFrame({ slug, title }: { slug: string; title: string }) {
     if (!el) return;
 
     let observer: ResizeObserver | null = null;
+    let observed: HTMLElement | null = null;
 
     const measure = () => {
       const body = el.contentDocument?.body;
       if (!body) return;
       setHeight(body.scrollHeight);
 
-      if (!observer) {
-        observer = new ResizeObserver(() => setHeight(body.scrollHeight));
-        observer.observe(body);
-      }
+      // iframe 이 다시 로드되면(문서 안 링크 이동 등) body 가 새 요소다.
+      // 옛 body 만 관찰하면 새 문서의 높이 변화를 못 따라가 잘린다.
+      if (observed === body) return;
+      observer?.disconnect();
+      observer = new ResizeObserver(() => setHeight(body.scrollHeight));
+      observer.observe(body);
+      observed = body;
     };
 
     // 이미 로드가 끝났을 수 있다(하이드레이션 이전 완료). load 만 기다리면 놓친다.

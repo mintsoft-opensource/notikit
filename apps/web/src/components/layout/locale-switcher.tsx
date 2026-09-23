@@ -19,13 +19,13 @@ export function LocaleSwitcher() {
 
   return (
     <label className="relative flex items-center" aria-label={t("language")}>
-      <Globe aria-hidden="true" className="pointer-events-none absolute left-2 h-4 w-4 text-muted-foreground" />
+      <Globe aria-hidden="true" className="pointer-events-none absolute start-2 h-4 w-4 text-muted-foreground" />
       <select
         value={locale}
         onChange={(e) => change(e.target.value)}
         disabled={pending}
         aria-label={t("language")}
-        className="h-9 appearance-none rounded-md border border-border bg-surface pl-7 pr-2 text-sm text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="h-9 appearance-none rounded-lg border border-border bg-surface ps-7 pe-2 shadow-sm text-sm text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {LOCALES.map((l) => (
           <option key={l.code} value={l.code}>

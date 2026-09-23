@@ -4,22 +4,24 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-tile text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
         secondary: "bg-accent-soft text-primary hover:bg-accent-soft/70",
         outline:
-          "border border-border-strong bg-surface hover:bg-surface-muted text-foreground",
+          "border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted",
         ghost: "hover:bg-surface-muted text-foreground",
-        destructive: "bg-error text-white hover:opacity-90",
+        destructive: "bg-error text-error-foreground hover:opacity-90",
         kakao: "bg-kakao text-[#191919] hover:opacity-90",
       },
+      // 컨트롤 높이는 하나(36px)로 통일한다 — 입력칸·선택 상자·날짜 선택과 한 줄에 놓여도 어긋나지 않게.
+      // sm 은 좌우 여백만 줄인다(표 안의 행 동작처럼 폭이 좁은 곳).
       size: {
-        default: "h-9 px-3",
-        sm: "h-7 rounded-md px-2.5 text-xs",
-        lg: "h-10 rounded-card px-4 text-base",
+        default: "h-9 px-3.5",
+        sm: "h-9 px-3",
+        lg: "h-10 px-4 text-base",
         icon: "h-9 w-9",
       },
     },

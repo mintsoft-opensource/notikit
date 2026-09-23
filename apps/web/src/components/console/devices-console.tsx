@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile } from "@/components/console/panels";
-import { adminApi } from "@/lib/admin-client";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Device = {
   id: string;
@@ -33,11 +33,6 @@ type Device = {
 /** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
 type Cursor = { ts: string; id: string } | null;
 
-/** 커서를 쿼리스트링으로 */
-function cursorQuery(c: Cursor): string {
-  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
-}
-
 type Summary = { total: number; active: number; anonymous: number; unverified: number };
 type CheckResult = { checked: number; invalid: number; deactivated: number; skipped: boolean };
 
@@ -47,6 +42,7 @@ const PLATFORMS = ["android", "ios", "web", "webview", "electron", "flutter", "r
 export function DevicesConsole({ projectId }: { projectId: string }) {
   const t = useTranslations("audience");
   const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const locale = useLocale();
 
   const [platform, setPlatform] = React.useState("");
@@ -55,6 +51,8 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
   const [summary, setSummary] = React.useState<Summary | null>(null);
   const [next, setNext] = React.useState<Cursor>(null);
   const [checking, setChecking] = React.useState(false);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  // 요청 세대 — 초기 로드가 올리고 "더 보기"는 같은 세대인지만 본다
   const reqRef = React.useRef(0);
 
   const query = React.useCallback(
@@ -71,6 +69,8 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
   const load = React.useCallback(async () => {
     const my = ++reqRef.current;
     setDevices(null);
+    setNext(null);
+    setLoadingMore(false);
     try {
       const d = await adminApi<{ devices: Device[]; summary: Summary; next: Cursor }>(
         `/api/admin/projects/${projectId}/audience/devices?${query()}`
@@ -82,9 +82,9 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
     } catch (e) {
       if (my !== reqRef.current) return;
       setDevices([]);
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     }
-  }, [projectId, query, tc]);
+  }, [projectId, query, tc, errorText]);
 
   React.useEffect(() => { void load(); }, [load]);
 
@@ -101,22 +101,29 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
       else toast.success(t("checkDone", { checked: r.checked, deactivated: r.deactivated }));
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     } finally {
       setChecking(false);
     }
   }
 
   async function loadMore() {
-    if (!next) return;
+    if (!next || loadingMore) return;
+    // 세대를 올리지 않고 붙잡아 둔다 — 그사이 필터가 바뀌면 옛 필터의 다음 페이지를 새 목록에 붙이지 않는다
+    const my = reqRef.current;
+    setLoadingMore(true);
     try {
       const d = await adminApi<{ devices: Device[]; next: Cursor }>(
         `/api/admin/projects/${projectId}/audience/devices?${query(next)}`
       );
+      if (my !== reqRef.current) return;
       setDevices((cur) => [...(cur ?? []), ...d.devices]);
       setNext(d.next);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      if (my !== reqRef.current) return;
+      toast.error(errorText(e, tc("loadFailed")));
+    } finally {
+      if (my === reqRef.current) setLoadingMore(false);
     }
   }
 
@@ -136,7 +143,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatTile icon={Smartphone} label={t("statTotal")} value={num(summary?.total)} loading={!summary} />
         <StatTile icon={ShieldCheck} label={t("statActive")} value={num(summary?.active)} accent="success" loading={!summary} />
         <StatTile
@@ -156,7 +163,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
         />
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <Select value={platform} onChange={(e) => setPlatform(e.target.value)} aria-label={t("filterPlatform")} className="w-auto">
           <option value="">{t("allPlatforms")}</option>
           {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -168,7 +175,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
         </Select>
       </div>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {!devices && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {devices && devices.length === 0 && <EmptyState icon={Smartphone} title={t("noDevices")} />}
@@ -208,7 +215,9 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
               </TableBody>
               {next && (
                 <div className="flex justify-center border-t border-border p-3">
-                  <Button variant="outline" size="sm" onClick={loadMore}>{tc("loadMore")}</Button>
+                  <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? tc("loading") : tc("loadMore")}
+                  </Button>
                 </div>
               )}
               </DataTable>

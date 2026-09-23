@@ -7,7 +7,8 @@ import { Plus, X } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Field } from "@/components/ui/input";
-import { adminApi } from "@/lib/admin-client";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { newRowId } from "@/lib/row-id";
 import type { TemplateField } from "@/lib/templates";
 
 export type MessageTemplate = {
@@ -20,12 +21,17 @@ export type MessageTemplate = {
   updatedAt: string;
 };
 
-type Draft = { name: string; title: string; body: string; deepLink: string; fields: TemplateField[] };
+/** 편집 중인 필드 행 — rowId 는 화면 key 용이고 저장할 때 빠진다 */
+type FieldDraft = TemplateField & { rowId: string };
+
+type Draft = { name: string; title: string; body: string; deepLink: string; fields: FieldDraft[] };
 
 const EMPTY: Draft = { name: "", title: "", body: "", deepLink: "", fields: [] };
 
 function toDraft(t: MessageTemplate | null): Draft {
-  return t ? { name: t.name, title: t.title, body: t.body, deepLink: t.deepLink ?? "", fields: t.fields } : EMPTY;
+  if (!t) return EMPTY;
+  const fields = t.fields.map((f) => ({ ...f, rowId: newRowId() }));
+  return { name: t.name, title: t.title, body: t.body, deepLink: t.deepLink ?? "", fields };
 }
 
 /** 템플릿 생성·수정 팝업. editing 이 null 이면 새로 만든다. */
@@ -43,6 +49,7 @@ export function TemplateFormDialog({
   onSaved: () => void;
 }) {
   const t = useTranslations("templates");
+  const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const [draft, setDraft] = React.useState<Draft>(EMPTY);
   const [busy, setBusy] = React.useState(false);
@@ -54,8 +61,14 @@ export function TemplateFormDialog({
   const renamed = Boolean(editing && draft.name.trim() && draft.name.trim() !== editing.name);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => ({ ...d, [k]: v }));
-  const setField = (i: number, patch: Partial<TemplateField>) =>
-    set("fields", draft.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  const setField = (rowId: string, patch: Partial<TemplateField>) =>
+    set("fields", draft.fields.map((f) => (f.rowId === rowId ? { ...f, ...patch } : f)));
+
+  // 저장 중에는 닫지 않는다 — 닫고 다른 템플릿을 열면 늦게 끝난 저장이 그 화면을 새로고침·토스트로 흔든다
+  function requestClose() {
+    if (busy) return;
+    onClose();
+  }
 
   async function save() {
     if (busy || !draft.name.trim()) return;
@@ -79,7 +92,7 @@ export function TemplateFormDialog({
       toast.success(t("saved"));
       onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     } finally {
       setBusy(false);
     }
@@ -88,18 +101,19 @@ export function TemplateFormDialog({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       size="lg"
       title={editing ? t("editTitle") : t("newTitle")}
       description={t("formHint")}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>{tc("cancel")}</Button>
+          <Button variant="ghost" onClick={requestClose} disabled={busy}>{tc("cancel")}</Button>
           <Button onClick={save} disabled={busy || !draft.name.trim()}>{busy ? tc("loading") : tc("save")}</Button>
         </>
       }
     >
-      <div className="space-y-4">
+      {/* 저장 중 편집을 막는다 — fieldset disabled 가 안의 입력·버튼을 한꺼번에 잠근다 */}
+      <fieldset disabled={busy} className="min-w-0 space-y-4">
         <Field label={t("name")} hint={renamed ? undefined : t("nameHint")}>
           <Input value={draft.name} onChange={(e) => set("name", e.target.value)} maxLength={120} placeholder={t("namePlaceholder")} />
         </Field>
@@ -131,25 +145,26 @@ export function TemplateFormDialog({
               <span className="w-8" />
             </div>
           )}
-          {draft.fields.map((f, i) => (
-            <div key={i} className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
-              <Input aria-label={t("fieldKey")} className="font-mono" spellCheck={false} value={f.key} onChange={(e) => setField(i, { key: e.target.value })} placeholder="order_id" />
-              <Input aria-label={t("fieldLabel")} value={f.label ?? ""} onChange={(e) => setField(i, { label: e.target.value })} placeholder={t("fieldLabelPlaceholder")} />
-              <Input aria-label={t("fieldDefault")} value={f.default ?? ""} onChange={(e) => setField(i, { default: e.target.value })} />
-              <label className="flex items-center gap-1.5 text-xs">
-                <input type="checkbox" className="h-4 w-4 accent-primary" checked={Boolean(f.required)} onChange={(e) => setField(i, { required: e.target.checked })} />
+          {draft.fields.map((f) => (
+            <div key={f.rowId} className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
+              <Input aria-label={t("fieldKey")} className="font-mono" spellCheck={false} value={f.key} onChange={(e) => setField(f.rowId, { key: e.target.value })} placeholder="order_id" />
+              <Input aria-label={t("fieldLabel")} value={f.label ?? ""} onChange={(e) => setField(f.rowId, { label: e.target.value })} placeholder={t("fieldLabelPlaceholder")} />
+              <Input aria-label={t("fieldDefault")} value={f.default ?? ""} onChange={(e) => setField(f.rowId, { default: e.target.value })} />
+              {/* 체크박스 자체는 16px — 라벨을 36px 칸으로 키워 누를 수 있는 면적을 24px 이상으로 */}
+              <label className="flex h-9 min-w-9 cursor-pointer items-center justify-center gap-1.5 text-xs">
+                <input type="checkbox" className="h-4 w-4 accent-primary" checked={Boolean(f.required)} onChange={(e) => setField(f.rowId, { required: e.target.checked })} />
                 <span className="sm:sr-only">{t("fieldRequired")}</span>
               </label>
-              <Button type="button" variant="ghost" size="icon" aria-label={t("removeField")} onClick={() => set("fields", draft.fields.filter((_, j) => j !== i))}>
+              <Button type="button" variant="ghost" size="icon" aria-label={t("removeField")} onClick={() => set("fields", draft.fields.filter((x) => x.rowId !== f.rowId))}>
                 <X aria-hidden="true" className="h-4 w-4" />
               </Button>
             </div>
           ))}
-          <Button type="button" variant="outline" size="sm" onClick={() => set("fields", [...draft.fields, { key: "" }])}>
+          <Button type="button" variant="outline" size="sm" onClick={() => set("fields", [...draft.fields, { key: "", rowId: newRowId() }])}>
             <Plus aria-hidden="true" className="h-4 w-4" /> {t("addField")}
           </Button>
         </fieldset>
-      </div>
+      </fieldset>
     </Dialog>
   );
 }

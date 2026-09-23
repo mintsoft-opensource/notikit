@@ -18,8 +18,9 @@ export function EmptyState({
   return (
     <div className={cn("flex flex-col items-center justify-center px-4 py-8 text-center", className)}>
       {Icon && (
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-surface-muted">
-          <Icon aria-hidden="true" className="h-5 w-5 text-muted-foreground/70" strokeWidth={1.75} />
+        // 아이콘 컨테이너 규칙(28px 보조 / 36px 조작) 중 큰 쪽 — 빈 화면의 시선 기준점이라
+        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-surface-muted">
+          <Icon aria-hidden="true" className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
         </div>
       )}
       <h3 className="text-base font-bold text-foreground">{title}</h3>

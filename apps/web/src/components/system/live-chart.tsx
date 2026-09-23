@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export type LiveSeries = { key: string; label: string; color: string; values: Array<number | null> };
@@ -34,6 +35,7 @@ export function LiveChart({
   /** 카운트처럼 정수만 의미 있는 축 — 소수 눈금이 같은 라벨로 중복되는 것을 막는다 */
   integerY?: boolean;
 }) {
+  const tc = useTranslations("common");
   const data = React.useMemo(
     () => times.map((t, i) => Object.fromEntries([["t", t], ...series.map((s) => [s.key, s.values[i]])])),
     [times, series]
@@ -120,7 +122,7 @@ export function LiveChart({
         <caption>{label}</caption>
         <thead>
           <tr>
-            <th scope="col">time</th>
+            <th scope="col">{tc("chartTime")}</th>
             {series.map((s) => (
               <th key={s.key} scope="col">
                 {s.label}

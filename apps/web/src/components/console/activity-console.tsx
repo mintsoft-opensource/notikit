@@ -3,13 +3,14 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Activity, Users, Smartphone, Repeat, LineChart } from "lucide-react";
+import { Activity, Users, Smartphone, Repeat, LineChart, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, BarList, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
-import { adminApi } from "@/lib/admin-client";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Counts = { devices: number; users: number };
 type Stats = {
@@ -38,22 +39,28 @@ const RANGE_KEYS: RangeKey[] = ["7d", "30d", "90d"];
 export function ActivityConsole({ projectId }: { projectId: string }) {
   const t = useTranslations("activity");
   const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const locale = useLocale();
 
   const [range, setRange] = React.useState<RangeKey>("30d");
   const [stats, setStats] = React.useState<Stats | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [ret, setRet] = React.useState<Retention | null>(null);
+  // 리텐션 실패는 로딩과 다르다 — 구분하지 않으면 "불러오는 중"이 영원히 남는다
+  const [retFailed, setRetFailed] = React.useState(false);
+  const [retAttempt, setRetAttempt] = React.useState(0);
   const reqRef = React.useRef(0);
 
   // 리텐션은 기간 선택과 무관하다 — 코호트 창이 고정이므로 한 번만 받는다
   React.useEffect(() => {
     let alive = true;
+    setRet(null);
+    setRetFailed(false);
     adminApi<Retention>(`/api/admin/projects/${projectId}/retention`)
       .then((d) => alive && setRet(d))
-      .catch(() => alive && setRet(null));
+      .catch(() => alive && setRetFailed(true));
     return () => { alive = false; };
-  }, [projectId]);
+  }, [projectId, retAttempt]);
 
   React.useEffect(() => {
     const my = ++reqRef.current;
@@ -64,12 +71,13 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
       .catch((e) => {
         if (my !== reqRef.current) return;
         setFailed(true);
-        toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+        toast.error(errorText(e, tc("loadFailed")));
       });
-  }, [projectId, range, tc]);
+  }, [projectId, range, tc, errorText]);
 
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }), [locale]);
+  // 버킷은 UTC 자정으로 찍힌 날짜다 — 로컬로 포맷하면 UTC 보다 뒤처진 지역에서 하루 앞 날짜로 보인다
+  const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }), [locale]);
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
   const busy = !stats && !failed;
   const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(1)}%` : "—");
@@ -88,7 +96,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatTile
           icon={Activity}
           label={t("dau")}
@@ -152,7 +160,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardHeader>
           <div>
             <CardTitle className="flex items-center gap-1.5">
@@ -164,24 +172,24 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
         <CardContent className="p-0">
           {ret && ret.cohorts.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[34rem] text-left">
+              <table className="w-full min-w-[34rem] text-start">
                 <thead className="border-b border-border">
                   <tr className="text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
                     <th scope="col" className="px-5 py-2.5">{t("cohortDay")}</th>
-                    <th scope="col" className="px-3 py-2.5 text-right">{t("cohortSize")}</th>
+                    <th scope="col" className="px-3 py-2.5 text-end">{t("cohortSize")}</th>
                     {ret.offsets.map((n) => (
-                      <th key={n} scope="col" className="px-3 py-2.5 text-right">D{n}</th>
+                      <th key={n} scope="col" className="px-3 py-2.5 text-end">D{n}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   <tr className="bg-surface-muted/40">
                     <th scope="row" className="px-5 py-2.5 text-xs font-bold">{t("cohortAverage")}</th>
-                    <td className="px-3 py-2.5 text-right text-xs tabular-nums text-muted-foreground">
+                    <td className="px-3 py-2.5 text-end text-xs tabular-nums text-muted-foreground">
                       {nf.format(ret.summary[0]?.base ?? 0)}
                     </td>
                     {ret.summary.map((sm) => (
-                      <td key={sm.offset} className="px-3 py-2.5 text-right text-xs font-bold tabular-nums">
+                      <td key={sm.offset} className="px-3 py-2.5 text-end text-xs font-bold tabular-nums">
                         {pct(sm.rate)}
                       </td>
                     ))}
@@ -189,11 +197,11 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
                   {ret.cohorts.map((c) => (
                     <tr key={c.day}>
                       <th scope="row" className="px-5 py-2.5 text-xs font-medium tabular-nums">{c.day}</th>
-                      <td className="px-3 py-2.5 text-right text-xs tabular-nums text-muted-foreground">{nf.format(c.size)}</td>
+                      <td className="px-3 py-2.5 text-end text-xs tabular-nums text-muted-foreground">{nf.format(c.size)}</td>
                       {c.points.map((p) => (
                         <td
                           key={p.offset}
-                          className="px-3 py-2.5 text-right text-xs tabular-nums"
+                          className="px-3 py-2.5 text-end text-xs tabular-nums"
                           // 아직 관측 기간이 오지 않은 칸은 값이 아니라 공백이다
                           style={p.rate === null ? undefined : { background: `color-mix(in oklab, var(--chart-1) ${Math.round(p.rate * 60)}%, transparent)` }}
                         >
@@ -206,12 +214,22 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
               </table>
             </div>
           ) : (
-            <EmptyState icon={LineChart} title={ret ? t("empty") : tc("loading")} />
+            <EmptyState
+              icon={LineChart}
+              title={ret ? t("empty") : retFailed ? tc("loadFailed") : tc("loading")}
+              action={
+                retFailed ? (
+                  <Button variant="outline" onClick={() => setRetAttempt((n) => n + 1)}>
+                    <RefreshCw aria-hidden="true" className="h-4 w-4" /> {tc("retry")}
+                  </Button>
+                ) : undefined
+              }
+            />
           )}
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <Card className="min-w-0">
           <CardHeader>
             <div>

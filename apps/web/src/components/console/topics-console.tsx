@@ -14,8 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { adminApi } from "@/lib/admin-client";
-import { TopicRuleFields, EMPTY_RULES, cleanRules, type Rule } from "./topic-rules-form";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { TopicRuleFields, emptyRules, cleanRules, type Rule, type RuleDraft } from "./topic-rules-form";
 
 type Topic = {
   id: string;
@@ -34,13 +34,14 @@ type Topic = {
  */
 export function TopicsConsole({ projectId }: { projectId: string }) {
   const t = useTranslations("audience");
+  const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const locale = useLocale();
 
   const [topics, setTopics] = React.useState<Topic[] | null>(null);
   const [name, setName] = React.useState("");
   const [mode, setMode] = React.useState<"subscribe" | "rules">("subscribe");
-  const [rules, setRules] = React.useState<Rule[]>(EMPTY_RULES);
+  const [rules, setRules] = React.useState<RuleDraft[]>(emptyRules);
   const [busy, setBusy] = React.useState(false);
 
   const load = React.useCallback(async () => {
@@ -49,21 +50,27 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
       setTopics(d.topics);
     } catch (e) {
       setTopics([]);
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     }
   }, [projectId, tc]);
 
   const [open, setOpen] = React.useState(false);
-  // 비동기 완료 시점의 최신 입력을 읽기 위한 거울
-  const nameRef = React.useRef(name);
-  nameRef.current = name;
+  /**
+   * 드래프트(이름·방식·조건)가 바뀔 때마다 올린다. 생성 응답을 기다리는 사이 무엇이든 고쳤다면
+   * 완료 시 그 드래프트를 지우면 안 된다 — 이름만 비교하면 조건만 고친 경우를 놓친다.
+   */
+  const revisionRef = React.useRef(0);
+  const editName = (v: string) => { revisionRef.current++; setName(v); };
+  const editMode = (v: "subscribe" | "rules") => { revisionRef.current++; setMode(v); };
+  const editRules = (v: RuleDraft[]) => { revisionRef.current++; setRules(v); };
 
   React.useEffect(() => { void load(); }, [load]);
 
   function reset() {
+    revisionRef.current++;
     setName("");
     setMode("subscribe");
-    setRules(EMPTY_RULES);
+    setRules(emptyRules());
   }
 
   function closeDialog() {
@@ -89,9 +96,8 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
       payloadRules = cleaned;
     }
 
-    // 제출한 값을 기억한다 — 응답이 늦는 사이 사용자가 새 드래프트를 치기 시작했다면
-    // 완료 시 그걸 지워서는 안 된다
-    const submitted = name;
+    // 제출 시점의 리비전을 기억한다 — 응답이 늦는 사이 드래프트를 고쳤다면 완료 시 지우지 않는다
+    const submitted = revisionRef.current;
     setBusy(true);
     try {
       await adminApi(`/api/admin/projects/${projectId}/audience/topics`, {
@@ -99,13 +105,13 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
         body: JSON.stringify({ name: name.trim(), ...(payloadRules ? { rules: payloadRules } : {}) }),
       });
       toast.success(t("topicCreated"));
-      if (nameRef.current === submitted) {
+      if (revisionRef.current === submitted) {
         reset();
         setOpen(false);
       }
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : tc("loadFailed"));
+      toast.error(errorText(err, tc("loadFailed")));
     } finally {
       setBusy(false);
     }
@@ -128,7 +134,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
       toast.success(t("topicDeleted"));
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     }
   }
 
@@ -162,7 +168,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
       >
         <form onSubmit={create} className="space-y-4">
           <Field label={t("topicName")}>
-            <Input id="new-topic-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="news" maxLength={120} spellCheck={false} />
+            <Input id="new-topic-name" value={name} onChange={(e) => editName(e.target.value)} placeholder="news" maxLength={120} spellCheck={false} />
           </Field>
 
           <fieldset className="space-y-2">
@@ -177,7 +183,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                   name="fill-mode"
                   className="mt-1"
                   checked={mode === m}
-                  onChange={() => setMode(m)}
+                  onChange={() => editMode(m)}
                 />
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold">{t(m === "subscribe" ? "fillSubscribe" : "fillRules")}</span>
@@ -189,13 +195,13 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
             ))}
           </fieldset>
 
-          {mode === "rules" && <TopicRuleFields rules={rules} onRules={setRules} idPrefix="new-topic" />}
+          {mode === "rules" && <TopicRuleFields rules={rules} onRules={editRules} idPrefix="new-topic" />}
 
           <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
         </form>
       </Dialog>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {!topics && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {topics && topics.length === 0 && <EmptyState icon={Radio} title={t("noTopics")} />}

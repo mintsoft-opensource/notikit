@@ -5,19 +5,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Trash2, AlertTriangle, RotateCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataRow } from "@/components/ui/data-row";
+import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { JourneyFields, EMPTY_STEPS, cleanSteps, type Step } from "@/components/console/journey-form";
-import { adminApi } from "@/lib/admin-client";
+import { JourneyFields, cleanSteps, sameSteps, toStepDrafts, type Step, type StepDraft } from "@/components/console/journey-form";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Journey = { id: string; name: string; steps: Step[]; createdAt: string };
 
 export function JourneyDetail({ projectId, journeyId }: { projectId: string; journeyId: string }) {
   const t = useTranslations("journeys");
+  const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const router = useRouter();
 
@@ -25,36 +27,50 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
   const [activeRuns, setActiveRuns] = React.useState(0);
   const [totalRuns, setTotalRuns] = React.useState(0);
   const [missing, setMissing] = React.useState(false);
+  /** 404 가 아닌 실패 — 스켈레톤을 영원히 돌리지 않고 오류와 재시도를 보인다 */
+  const [failed, setFailed] = React.useState(false);
   const [name, setName] = React.useState("");
-  const [steps, setSteps] = React.useState<Step[]>(EMPTY_STEPS);
+  const [steps, setSteps] = React.useState<StepDraft[]>(() => toStepDrafts([]));
+  /** 서버에 저장된 스텝을 드래프트로 — dirty 비교 기준. 렌더마다 rowId 를 새로 만들지 않게 불러올 때 한 번 만든다 */
+  const [savedSteps, setSavedSteps] = React.useState<StepDraft[]>([]);
   const [saving, setSaving] = React.useState(false);
+  const reqRef = React.useRef(0);
+
+  const apply = React.useCallback((journey: Journey) => {
+    setLoaded(journey);
+    setName(journey.name);
+    const drafts = toStepDrafts(journey.steps);
+    setSteps(drafts);
+    setSavedSteps(drafts);
+  }, []);
+
+  const load = React.useCallback(async () => {
+    const my = ++reqRef.current;
+    setFailed(false);
+    try {
+      const d = await adminApi<{ journey: Journey; activeRuns: number; totalRuns: number }>(
+        `/api/admin/projects/${projectId}/journeys/${journeyId}`
+      );
+      if (my !== reqRef.current) return;
+      apply(d.journey);
+      setActiveRuns(d.activeRuns);
+      setTotalRuns(d.totalRuns);
+    } catch (e) {
+      if (my !== reqRef.current) return;
+      // 404 는 "없음"으로, 나머지는 오류로 구분한다 — 지워진 것과 장애는 대응이 다르다
+      if (e instanceof Error && /not found/i.test(e.message)) setMissing(true);
+      else setFailed(true);
+    }
+  }, [projectId, journeyId, apply]);
 
   React.useEffect(() => {
-    let stale = false;
-    (async () => {
-      try {
-        const d = await adminApi<{ journey: Journey; activeRuns: number; totalRuns: number }>(
-          `/api/admin/projects/${projectId}/journeys/${journeyId}`
-        );
-        if (stale) return;
-        setLoaded(d.journey);
-        setActiveRuns(d.activeRuns);
-        setTotalRuns(d.totalRuns);
-        setName(d.journey.name);
-        setSteps(d.journey.steps.length ? d.journey.steps : EMPTY_STEPS);
-      } catch (e) {
-        if (stale) return;
-        // 404 는 "없음"으로, 나머지는 오류로 구분한다 — 지워진 것과 장애는 대응이 다르다
-        if (e instanceof Error && /not found/i.test(e.message)) setMissing(true);
-        else toast.error(e instanceof Error ? e.message : tc("loadFailed"));
-      }
-    })();
-    return () => { stale = true; };
-  }, [projectId, journeyId, tc]);
+    load();
+    // 언마운트·대상 변경 후 도착한 응답은 버린다
+    return () => { reqRef.current++; };
+  }, [load]);
 
   // 이름은 잠겨 있으므로 스텝 변경만 본다
-  const dirty =
-    !!loaded && JSON.stringify(cleanSteps(steps)) !== JSON.stringify(cleanSteps(loaded.steps));
+  const dirty = !!loaded && !sameSteps(steps, savedSteps);
 
   async function save() {
     if (saving) return;
@@ -64,19 +80,18 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
         method: "PATCH",
         body: JSON.stringify({ steps: cleanSteps(steps) }),
       });
-      setLoaded(d.journey);
       // 서버가 돌려준 값으로 되맞춘다 — 안 하면 dirty 가 영구히 true 로 남는다
-      setName(d.journey.name);
-      setSteps(d.journey.steps.length ? d.journey.steps : EMPTY_STEPS);
+      apply(d.journey);
       toast.success(tc("saved"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("saveFailed"));
+      toast.error(errorText(e, tc("saveFailed")));
     } finally {
       setSaving(false);
     }
   }
 
   async function remove() {
+    if (saving) return;
     // 삭제는 진행 중 실행만이 아니라 **완료된 이력까지** cascade 로 지운다
     if (!confirm(totalRuns > 0 ? t("confirmRemoveRuns", { active: activeRuns, total: totalRuns }) : tc("confirmRemove"))) return;
     setSaving(true);
@@ -85,7 +100,7 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
       toast.success(tc("removed"));
       router.push(`/projects/${projectId}/journeys`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("removeFailed"));
+      toast.error(errorText(e, tc("removeFailed")));
       setSaving(false);
     }
   }
@@ -94,7 +109,7 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
 
   if (missing) {
     return (
-      <div className="space-y-3">
+      <div className="w-full space-y-4">
         <PageHeader title={tc("notFound")} />
         <Button asChild variant="outline">
           <Link href={backHref}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
@@ -103,9 +118,25 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
     );
   }
 
+  if (failed && !loaded) {
+    return (
+      <div className="w-full space-y-4">
+        <EmptyState
+          icon={AlertTriangle}
+          title={tc("loadFailed")}
+          action={
+            <Button variant="outline" onClick={load}>
+              <RotateCw aria-hidden="true" className="h-4 w-4" /> {tc("retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
   if (!loaded) {
     return (
-      <div className="space-y-3">
+      <div className="w-full space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -113,7 +144,7 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
   }
 
   return (
-    <div className="space-y-3">
+    <div className="w-full space-y-4">
       <PageHeader
         title={loaded.name}
         description={t("subtitle")}
@@ -140,7 +171,7 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
       <Card>
         <CardHeader><CardTitle>{tc("edit")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <JourneyFields idPrefix="journey" name={name} steps={steps} onName={setName} onSteps={setSteps} nameLocked />
+          <JourneyFields idPrefix="journey" name={name} steps={steps} onName={setName} onSteps={setSteps} nameLocked disabled={saving} />
           <div className="flex justify-end">
             {/* 바뀐 게 없으면 비활성 — 누르면 저장된 것처럼 보이지만 아무 일도 안 일어난다 */}
             <Button onClick={save} disabled={saving || !dirty}>{tc("save")}</Button>

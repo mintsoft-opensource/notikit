@@ -13,11 +13,11 @@ import { cn } from "@/lib/utils";
  * 그래서 ARIA 표 역할을 명시한다. 역할은 **전부 갖추거나 하나도 안 붙이거나**여야
  * 한다 — 일부만 붙이면 표 구조가 깨진 것으로 읽혀 안 붙인 것보다 나쁘다.
  *
- * 헤더는 좁은 화면에서 숨는데(행이 세로로 쌓이면 열 개념이 사라진다), 그때도
- * 각 셀이 `aria-label` 로 자기 열 이름을 지니므로 의미는 유지된다.
+ * 셀에 `aria-label` 을 붙이지 않는다 — 스크린리더가 값 대신 열 이름("성공")만 읽어
+ * 정작 숫자를 들을 수 없게 된다. 열 이름은 `columnheader` 가 제공하고, 셀의 이름은 값이다.
  */
 export type Column = {
-  /** 헤더에 보일 이름. 셀의 접근 가능한 이름으로도 쓰인다. */
+  /** 헤더에 보일 이름 */
   label: string;
   /** 우측 정렬(숫자·시각 열) */
   align?: "end";
@@ -44,12 +44,12 @@ export function TableHeader({
   const at = { sm: "sm:grid", lg: "lg:grid", xl: "xl:grid" }[show];
   return (
     <div role="rowgroup">
-      <div role="row" className={cn(HEADER, grid, at, className)}>
+      <div role="row" data-header-show={show} className={cn(HEADER, grid, at, className)}>
         {columns.map((c, i) =>
           c.blank ? (
             <span key={i} role="columnheader" aria-label="" />
           ) : (
-            <span key={i} role="columnheader" className={c.align === "end" ? "text-right" : undefined}>
+            <span key={i} role="columnheader" className={c.align === "end" ? "text-end" : undefined}>
               {c.label}
             </span>
           )
@@ -77,9 +77,9 @@ export function TableRow({ children, className }: { children: React.ReactNode; c
 }
 
 /**
- * 셀. `label` 은 열 이름이며 **접근 가능한 이름**이 된다.
- *
- * 헤더가 숨는 좁은 화면에서도 이 라벨 덕에 값의 의미가 유지된다.
+ * 셀. `label` 은 열 이름이다. 접근 가능한 이름으로 쓰지 않고(값이 이름이어야 한다)
+ * `data-label` 로만 남긴다. 헤더가 숨는 좁은 화면에서는 globals.css 가 이 값을 셀 위에 보이는
+ * 라벨로 그린다(가상 요소라 접근 가능한 이름에 섞이지 않는다).
  */
 export function TableCell({
   label,
@@ -91,7 +91,7 @@ export function TableCell({
   className?: string;
 }) {
   return (
-    <div role="cell" aria-label={label} className={className}>
+    <div role="cell" data-label={label} className={className}>
       {children}
     </div>
   );

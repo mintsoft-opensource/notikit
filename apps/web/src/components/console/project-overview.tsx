@@ -5,13 +5,16 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Copy, ArrowRight, Send, Percent, Inbox, Smartphone, Activity, MousePointerClick, PackageMinus } from "lucide-react";
+import { Copy, ArrowRight, Send, Percent, Inbox, Smartphone, Activity, MousePointerClick, PackageMinus, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatTile, EmptyState, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
+import { ChartEmpty } from "@/components/ui/chart-empty";
+import type { StatDelta } from "@/components/ui/stat-tile";
+import { pctChange, ptChange, ratio } from "@/lib/stat-delta";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
 type RecentLog = { id: string; title: string; type: string; status: string; totalCount: number; successCount: number; createdAt: string };
@@ -36,6 +39,10 @@ type Stats = {
     uninstalled: number; reinstalled: number; net: number;
     buckets: Array<{ ts: string; count: number }>;
   };
+  /** 클릭에 귀속된 전환 — 없으면(구버전 응답) 타일을 비워 둔다 */
+  conversions?: { count: number; value_cents: number };
+  /** 직전 같은 길이 구간 — 없으면(구버전 응답) 증감을 표시하지 않는다 */
+  previous?: { sends: number; recipients: number; success: number; conversions?: number };
 };
 
 type RangeKey = "24h" | "7d" | "30d";
@@ -103,6 +110,19 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
     stats && stats.messages.recipients > 0
       ? `${((stats.messages.success / stats.messages.recipients) * 100).toFixed(1)}%`
       : "—";
+  const deltaLabel = t("deltaVsPrevious");
+  const prev = stats?.previous;
+  const toDelta = (value: number | null, unit: StatDelta["unit"]): StatDelta | null =>
+    value === null ? null : { value, unit, label: deltaLabel };
+  const sendsDelta = stats && prev ? toDelta(pctChange(stats.messages.sends, prev.sends), "%") : null;
+  const successDelta =
+    stats && prev
+      ? toDelta(ptChange(ratio(stats.messages.success, stats.messages.recipients), ratio(prev.success, prev.recipients)), "pt")
+      : null;
+  const conversionsDelta =
+    stats && prev && typeof prev.conversions === "number" && stats.conversions
+      ? toDelta(pctChange(stats.conversions.count, prev.conversions), "%")
+      : null;
 
   return (
     <div className="w-full space-y-4">
@@ -127,17 +147,18 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             <p className="text-2xs font-semibold text-muted-foreground">api-key</p>
             <div className="flex min-w-0 items-center gap-2">
               <p className="truncate font-mono text-sm">{project.apiKey}</p>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
                 onClick={async () => { try { await navigator.clipboard.writeText(project.apiKey); toast.success(t("apiKeyCopied")); } catch { toast.error(tc("copyFailed")); } }}
-                className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                <Copy aria-hidden="true" className="h-3.5 w-3.5" /> {tc("copy")}
-              </button>
+                <Copy aria-hidden="true" /> {tc("copy")}
+              </Button>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {project.hasFirebase ? <Badge variant="success">{t("firebaseConfigured")}</Badge> : <Badge variant="neutral">log-only</Badge>}
+            {project.hasFirebase ? <Badge variant="success">{t("firebaseConfigured")}</Badge> : <Badge variant="neutral">{tc("logOnly")}</Badge>}
             {project.hasKakao && <Badge variant="success">{t("kakaoConfigured")}</Badge>}
           </div>
         </div>
@@ -159,16 +180,24 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           <button
             type="button"
             onClick={() => setStatsRetry((n) => n + 1)}
-            className="rounded-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="rounded-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {tc("retry")}
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile icon={Send} label={t("statSends")} value={num(stats?.messages.sends)} loading={busy} />
-        <StatTile icon={Percent} label={t("successRate")} value={successRate} accent="success" loading={busy} />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <StatTile icon={Send} label={t("statSends")} value={num(stats?.messages.sends)} loading={busy} delta={sendsDelta} />
+        <StatTile icon={Percent} label={t("successRate")} value={successRate} accent="success" loading={busy} delta={successDelta} />
+        <StatTile
+          icon={Target}
+          label={t("statConversions")}
+          value={num(stats?.conversions?.count)}
+          loading={busy}
+          delta={conversionsDelta}
+          hint={stats?.conversions ? t("statConversionValue", { value: nf.format(stats.conversions.value_cents) }) : null}
+        />
         <StatTile icon={Inbox} label={ts("statQueued")} value={num(stats?.messages.queued)} loading={busy} />
         <StatTile
           icon={Smartphone}
@@ -200,10 +229,10 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
               series={[{ key: "sends", label: t("statSends"), color: "var(--chart-1)", values: stats.buckets.map((h) => h.count) }]}
             />
           ) : (
-            <EmptyState icon={Send} title={ts("empty")} />
+            <ChartEmpty icon={Send} title={ts("empty")} className="h-44" />
           )
         ) : (
-          <EmptyState icon={Send} title={statsError ? t("statsLoadFailed") : tc("loading")} />
+          <ChartEmpty icon={Send} title={statsError ? t("statsLoadFailed") : tc("loading")} className="h-44" />
         )}
       </CardContent>
         </Card>
@@ -224,7 +253,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                       {l.type} · {df.format(new Date(l.createdAt))}
                     </p>
                   </div>
-                  <div className="grid grid-cols-[3rem_6rem] items-center gap-3 text-right">
+                  <div className="grid grid-cols-[3rem_6rem] items-center gap-3 text-end">
                     <span className="text-xs tabular-nums text-muted-foreground">
                       {l.successCount}/{l.totalCount}
                     </span>
@@ -235,7 +264,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             </ul>
             <Link
               href={`/projects/${projectId}/logs`}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {t("viewAll")} <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
             </Link>
@@ -252,13 +281,11 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           ["activity", tn("statsActivity"), Activity],
           ["installs", tn("statsInstalls"), PackageMinus],
         ] as const).map(([path, label, Icon]) => (
-          <Link
-            key={path}
-            href={`/projects/${projectId}/${path}`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          >
-            <Icon aria-hidden="true" className="h-3.5 w-3.5" /> {label} <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
-          </Link>
+          <Button key={path} variant="outline" asChild>
+            <Link href={`/projects/${projectId}/${path}`}>
+              <Icon aria-hidden="true" /> {label} <ArrowRight aria-hidden="true" className="text-muted-foreground" />
+            </Link>
+          </Button>
         ))}
       </nav>
     </div>

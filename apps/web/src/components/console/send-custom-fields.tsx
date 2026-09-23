@@ -7,10 +7,12 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { adminApi } from "@/lib/admin-client";
+import { newRowId } from "@/lib/row-id";
 import type { TemplateField } from "@/lib/templates";
 import type { MessageTemplate } from "./template-form";
 
-export type ExtraField = { key: string; value: string };
+/** rowId 는 화면 key 용 — 가운데 행을 지워도 아래 행 입력이 밀리지 않게 */
+export type ExtraField = { rowId: string; key: string; value: string };
 
 /**
  * 템플릿 고르기. 목록을 받아 오면 initialId(링크로 넘어온 템플릿)를 한 번 적용한다.
@@ -54,7 +56,7 @@ export function SendTemplatePicker({
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2">
+    <div className="flex flex-wrap items-end gap-3">
       <div className="min-w-48 flex-1">
         <Field label={t("template")}>
           <Select value={selected} onChange={(e) => change(e.target.value)} disabled={!items}>
@@ -63,9 +65,9 @@ export function SendTemplatePicker({
           </Select>
         </Field>
       </div>
-      <Link href={`/projects/${projectId}/templates`} className="pb-2 text-xs font-semibold text-primary hover:underline">
-        {t("manageTemplates")}
-      </Link>
+      <Button variant="outline" asChild>
+        <Link href={`/projects/${projectId}/templates`}>{t("manageTemplates")}</Link>
+      </Button>
     </div>
   );
 }
@@ -85,7 +87,8 @@ export function SendCustomFields({
   onExtras: (e: ExtraField[]) => void;
 }) {
   const t = useTranslations("send");
-  const setExtra = (i: number, patch: Partial<ExtraField>) => onExtras(extras.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const setExtra = (rowId: string, patch: Partial<ExtraField>) =>
+    onExtras(extras.map((x) => (x.rowId === rowId ? { ...x, ...patch } : x)));
 
   return (
     <div className="space-y-3">
@@ -104,18 +107,25 @@ export function SendCustomFields({
         </div>
       )}
 
-      {extras.map((x, i) => (
-        <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] items-center gap-2">
-          <Input aria-label={t("extraKey")} className="font-mono" spellCheck={false} value={x.key} onChange={(e) => setExtra(i, { key: e.target.value })} placeholder="key" />
-          <Input aria-label={t("extraValue")} spellCheck={false} value={x.value} onChange={(e) => setExtra(i, { value: e.target.value })} placeholder="value" />
-          <Button type="button" variant="ghost" size="icon" aria-label={t("removeExtra")} onClick={() => onExtras(extras.filter((_, j) => j !== i))}>
+      {extras.map((x) => (
+        <div key={x.rowId} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] items-center gap-2">
+          <Input aria-label={t("extraKey")} className="font-mono" spellCheck={false} value={x.key} onChange={(e) => setExtra(x.rowId, { key: e.target.value })} placeholder={t("extraKeyPlaceholder")} />
+          <Input aria-label={t("extraValue")} spellCheck={false} value={x.value} onChange={(e) => setExtra(x.rowId, { value: e.target.value })} placeholder={t("extraValuePlaceholder")} />
+          {/* 삭제 버튼이 여러 개라 어느 행인지 이름에 키를 넣는다 — 스크린리더에선 전부 "필드 삭제"로만 들린다 */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={x.key.trim() ? t("removeExtraNamed", { key: x.key.trim() }) : t("removeExtra")}
+            onClick={() => onExtras(extras.filter((y) => y.rowId !== x.rowId))}
+          >
             <X aria-hidden="true" className="h-4 w-4" />
           </Button>
         </div>
       ))}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" size="sm" onClick={() => onExtras([...extras, { key: "", value: "" }])}>
+        <Button type="button" variant="outline" size="sm" onClick={() => onExtras([...extras, { rowId: newRowId(), key: "", value: "" }])}>
           <Plus aria-hidden="true" className="h-4 w-4" /> {t("addExtra")}
         </Button>
         <span className="text-xs text-muted-foreground">{t("customFieldsHint")}</span>

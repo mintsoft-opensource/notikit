@@ -1,40 +1,65 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Send, Info, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Send, Clock, FlaskConical, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Field } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
-import { DataRow } from "@/components/ui/data-row";
-import { useProjects, adminApi } from "@/lib/admin-client";
+import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { SendTarget, type SendType } from "@/components/console/send-target";
 import { SendPreview } from "@/components/console/send-preview";
 import { SendVariables, useAttributeKeys } from "@/components/console/send-variables";
-import type { PickedUser } from "@/components/console/send-user-picker";
+import { UserSearchDialog, type PickedUser } from "@/components/console/send-user-picker";
 import { renderTemplate } from "@/lib/personalize";
 import { buildCustomData, fieldKeyError, type TemplateField } from "@/lib/templates";
 import { SendTemplatePicker, SendCustomFields, type ExtraField } from "@/components/console/send-custom-fields";
 import type { MessageTemplate } from "@/components/console/template-form";
+import { StepCard } from "@/components/console/send-step-card";
+import { CountedLabel, SendImageField } from "@/components/console/send-content-fields";
+import { SendSummary } from "@/components/console/send-summary";
+import { SendReviewDialog } from "@/components/console/send-review-dialog";
+import { useAudienceEstimate } from "@/components/console/send-estimate";
+import { SendResultCard, type SendResult } from "@/components/console/send-result";
+import { SendVariantFields, type VariantDraft } from "@/components/console/send-variants";
+import {
+  SendOptions,
+  buildSendOptions,
+  emptySendOptions,
+  hasSendOptionErrors,
+  type PushOptionsPayload,
+  type SendOptionsDraft,
+} from "@/components/console/send-options";
+import {
+  BODY_RECOMMENDED,
+  TITLE_RECOMMENDED,
+  collectWarnings,
+  estimateRequest,
+  imageUrlState,
+} from "@/components/console/send-rules";
 
 const TITLE_KEY = { single: "titleSingle", multi: "titleMulti", broadcast: "titleBroadcast", topic: "titleTopic" } as const;
 const SUBTITLE_KEY = { single: "subtitleSingle", multi: "subtitleMulti", broadcast: "subtitleBroadcast", topic: "subtitleTopic" } as const;
 const TARGET_ERROR_KEY = { single: "errTargetUser", multi: "errTargetUsers", topic: "errTargetTopic", broadcast: "errTargetUser" } as const;
+const REVIEW_NAMES_SHOWN = 3;
 
-/** 발송 뒤 하단에 남기는 결과 — 토스트는 사라지므로 확인할 수 있게 화면에 붙여둔다 */
-type SendResult = {
-  status: "queued" | "scheduled" | "processed" | "processFailed" | "failed";
-  messageId?: string;
-  scheduledAt?: string | null;
-  error?: string;
+type Content = {
+  title: string;
+  body: string;
+  deep_link?: string;
+  data?: Record<string, string>;
+  image_url?: string;
+  variants?: Array<{ title: string; body: string }>;
+  options?: PushOptionsPayload;
 };
 
 /**
  * 발송 콘솔 — 발송 방식(개별·전체·토픽)마다 화면이 따로 있다. 방식을 폼 안의 선택지로 두면
  * 전체 발송이 드롭다운 한 칸 차이로 나가 버린다. admin 세션으로 발송(api-secret 불필요).
+ * 왼쪽은 ① 받는 사람 ② 내용 ③ 옵션 단계 카드, 오른쪽은 요약·미리보기 고정 열,
+ * 실제 발송은 항상 검토 다이얼로그를 거친다.
  */
 export function SendConsole({
   projectId,
@@ -48,8 +73,11 @@ export function SendConsole({
   initialTemplateId?: string;
 }) {
   const t = useTranslations("send");
+  const uiLocale = useLocale();
+  const errorText = useAdminErrorText();
   const { projects } = useProjects();
-  const appName = projects.find((p) => p.id === projectId)?.name ?? "Notikit";
+  const project = projects.find((p) => p.id === projectId);
+  const appName = project?.name ?? "Notikit";
   const [target, setTarget] = React.useState(initialTarget);
   const [users, setUsers] = React.useState<PickedUser[]>([]);
   const [templateFields, setTemplateFields] = React.useState<TemplateField[]>([]);
@@ -62,32 +90,85 @@ export function SendConsole({
   const lastFieldRef = React.useRef<"title" | "body">("body");
   const [title, setTitle] = React.useState("");
   const [body, setBody] = React.useState("");
+  const [variants, setVariants] = React.useState<VariantDraft[]>([]);
   const [deepLink, setDeepLink] = React.useState("");
-  const [processNow, setProcessNow] = React.useState(true);
+  const [imageUrl, setImageUrl] = React.useState("");
+  const [sendOptions, setSendOptions] = React.useState<SendOptionsDraft>(emptySendOptions);
+  const builtOptions = React.useMemo(() => buildSendOptions(sendOptions), [sendOptions]);
+  const optionsInvalid = hasSendOptionErrors(builtOptions.errors);
+  const [optionsReveal, setOptionsReveal] = React.useState(0);
+  /** 무음 푸시는 알림을 그리지 않으므로 제목·본문 없이도 성립한다 — 서버 finalizeMessage 와 같은 규칙 */
+  const silent = sendOptions.silent;
   /**
    * 예약 발송은 날짜와 시각을 따로 받는다. DatePicker 는 `YYYY-MM-DD` 만 다루고,
    * 네이티브 datetime-local 은 브라우저마다 생김새가 달라 콘솔 톤과 어긋난다.
-   * 아래 scheduleAt 은 둘을 합친 파생값이라 이후 로직은 그대로 쓴다.
    */
   const [scheduleDate, setScheduleDate] = React.useState("");
   const [scheduleTime, setScheduleTime] = React.useState("09:00");
   const scheduleAt = scheduleDate ? `${scheduleDate}T${scheduleTime}` : "";
-  /** 과거 날짜는 고르지 못하게. 렌더마다 새로 만들되 날짜 단위라 변동이 없다. */
   const todayStr = React.useMemo(() => {
     const d = new Date();
     const p2 = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
   }, []);
   const [sending, setSending] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+  const [reviewOpen, setReviewOpen] = React.useState(false);
+  const [testPickerOpen, setTestPickerOpen] = React.useState(false);
   const [result, setResult] = React.useState<SendResult | null>(null);
+  /** 발송 응답이 온 시점의 최신 제목·본문 — 응답을 기다리는 사이 바뀐 내용을 지우지 않으려고 본다 */
+  const latestContentRef = React.useRef({ title, body });
+  React.useEffect(() => {
+    latestContentRef.current = { title, body };
+  }, [title, body]);
+  const scheduleDateId = React.useId();
+  const scheduleTimeId = React.useId();
+  const titleId = React.useId();
+  const bodyId = React.useId();
 
   const picksUsers = type === "single" || type === "multi";
   const hasTarget = picksUsers ? users.length > 0 : type === "broadcast" || Boolean(target);
-  // 예약이면 지금 큐를 돌릴 이유가 없다 — 예약 시각에 워커가 처리한다
   const isScheduled = scheduleAt.trim().length > 0;
+  const busy = sending || testing;
+
+  const estimateReq = React.useMemo(
+    () => estimateRequest(type, target, users.map((u) => u.externalId)),
+    [type, target, users]
+  );
+  const audience = useAudienceEstimate(projectId, estimateReq);
 
   /** 미리보기는 고른 첫 사용자 기준으로 치환한다. 토픽·전체는 누가 받을지 모르니 기본값으로 보여 준다. */
   const previewAs = picksUsers && users[0] ? users[0] : null;
+  const previewCtx = { appName, now: new Date() };
+  const previewRecipient = previewAs ?? {
+    externalId: "",
+    name: null,
+    attributes: null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    locale: uiLocale,
+  };
+  const renderedTitle = renderTemplate(title, previewRecipient, previewCtx);
+  const renderedBody = renderTemplate(body, previewRecipient, previewCtx);
+  const renderPreview = (tpl: string) => renderTemplate(tpl, previewRecipient, previewCtx);
+  const renderedVariants =
+    variants.length > 0
+      ? [{ title: renderedTitle, body: renderedBody }, ...variants.map((v) => ({ title: renderPreview(v.title), body: renderPreview(v.body) }))]
+      : undefined;
+  const imageState = imageUrlState(imageUrl);
+  const validImage = imageState === "valid" ? imageUrl.trim() : null;
+
+  const warnings = collectWarnings({
+    type,
+    title: renderedTitle,
+    body: renderedBody,
+    imageUrl,
+    devices: audience.shown?.devices ?? null,
+    hasFirebase: project?.hasFirebase,
+  });
+
+  const df = React.useMemo(() => new Intl.DateTimeFormat(uiLocale, { dateStyle: "medium", timeStyle: "short" }), [uiLocale]);
+  const scheduledDate = isScheduled ? new Date(scheduleAt) : null;
+  const timeLabel = scheduledDate && !Number.isNaN(scheduledDate.getTime()) ? df.format(scheduledDate) : t("summaryNow");
 
   function insertVariable(token: string) {
     const field = lastFieldRef.current;
@@ -97,7 +178,6 @@ export function SendConsole({
     const end = el?.selectionEnd ?? current.length;
     const next = current.slice(0, start) + token + current.slice(end);
     (field === "title" ? setTitle : setBody)(next);
-    // 넣은 뒤 커서를 변수 뒤로 — 이어서 타이핑할 수 있게
     requestAnimationFrame(() => {
       el?.focus();
       el?.setSelectionRange(start + token.length, start + token.length);
@@ -111,10 +191,11 @@ export function SendConsole({
       setFieldValues({});
       return true;
     }
-    const dirty = Boolean(title || body || deepLink);
-    if (!initial && dirty && !confirm(t("confirmApplyTemplate", { name: tpl.name }))) return false;
-    if (tpl.title) setTitle(tpl.title);
-    if (tpl.body) setBody(tpl.body);
+    const overwrites = Boolean(title || body || deepLink) || Object.values(fieldValues).some((v) => v !== "");
+    const needsConfirm = initial ? overwrites || extras.length > 0 : overwrites;
+    if (needsConfirm && !confirm(t("confirmApplyTemplate", { name: tpl.name }))) return false;
+    setTitle(tpl.title);
+    setBody(tpl.body);
     setDeepLink(tpl.deepLink ?? "");
     setTemplateFields(tpl.fields);
     setFieldValues({});
@@ -136,58 +217,117 @@ export function SendConsole({
     }
     return Object.keys(data).length ? { data } : {};
   }
-  const previewData = collectData().data;
+  const custom = collectData();
 
-  async function submit() {
-    if (!title || !body) return toast.error(t("errTitleBody"));
+  /** 내용 검사 + 발송 본문. 테스트 발송과 실제 발송이 같은 내용을 보낸다. */
+  function buildContent(): Content | null {
+    if (!silent && (!title || !body)) {
+      toast.error(t("errTitleBody"));
+      return null;
+    }
+    if (optionsInvalid) {
+      // 옵션 칸을 접어 뒀을 수 있다 — 토스트만 띄우면 어디가 틀렸는지 찾을 방법이 없다
+      setOptionsReveal((n) => n + 1);
+      toast.error(t("errOptionsInvalid"));
+      return null;
+    }
+    if (custom.error) {
+      toast.error(custom.error);
+      return null;
+    }
+    if (imageState === "notHttps" || imageState === "invalid") {
+      toast.error(imageState === "notHttps" ? t("imageNotHttps") : t("imageInvalid"));
+      return null;
+    }
+    if (variants.some((v) => !v.title.trim() || !v.body.trim())) {
+      toast.error(t("errVariantEmpty"));
+      return null;
+    }
+    const content: Content = { title, body };
+    if (variants.length > 0) {
+      content.variants = [{ title, body }, ...variants.map((v) => ({ title: v.title, body: v.body }))];
+    }
+    if (deepLink) content.deep_link = deepLink;
+    if (custom.data) content.data = custom.data;
+    if (validImage) content.image_url = validImage;
+    if (builtOptions.options) content.options = builtOptions.options;
+    return content;
+  }
+
+  /** datetime-local 은 타임존 없는 로컬 시각 — Date 로 통과시켜 오프셋 붙은 ISO 로 바꾼다 */
+  function scheduledIso(): string | null | false {
+    if (!isScheduled) return null;
+    const d = new Date(scheduleAt);
+    if (Number.isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+      toast.error(t("errSchedulePast"));
+      return false;
+    }
+    return d.toISOString();
+  }
+
+  function openReview() {
+    if (busy) return;
+    if (!buildContent()) return;
     if (!hasTarget) return toast.error(t(TARGET_ERROR_KEY[type]));
-    const custom = collectData();
-    if (custom.error) return toast.error(custom.error);
-    if (sending) return;
-    if (type === "broadcast" && !confirm(t("confirmBroadcast"))) return;
+    if (scheduledIso() === false) return;
+    setReviewOpen(true);
+  }
 
-    // datetime-local 은 타임존 없는 로컬 시각이라 그대로 보내면 서버가 UTC 로 읽는다.
-    // Date 로 한 번 통과시켜 오프셋을 붙인 ISO 로 바꾼다.
-    let scheduledIso: string | null = null;
-    if (isScheduled) {
-      const d = new Date(scheduleAt);
-      if (Number.isNaN(d.getTime()) || d.getTime() <= Date.now()) return toast.error(t("errSchedulePast"));
-      scheduledIso = d.toISOString();
+  async function send(processNow: boolean) {
+    const content = buildContent();
+    const scheduled = scheduledIso();
+    if (!content || scheduled === false || sending) return;
+    if (!hasTarget) {
+      toast.error(t(TARGET_ERROR_KEY[type]));
+      setReviewOpen(false);
+      return;
     }
 
     setSending(true);
     setResult(null);
+    const submitted = { title, body };
 
     let messageId: string | undefined;
     try {
-      const payload: Record<string, unknown> = { title, body, type };
+      const payload: Record<string, unknown> = { ...content, type };
       if (type === "single") payload.target = users[0].externalId;
       else if (type === "multi") payload.targets = users.map((u) => u.externalId);
       else if (type === "topic") payload.target = target;
-      if (deepLink) payload.deep_link = deepLink;
-      if (custom.data) payload.data = custom.data;
-      if (scheduledIso) payload.scheduled_at = scheduledIso;
+      if (scheduled) payload.scheduled_at = scheduled;
 
-      const res = await adminApi<{ message?: { id?: string } }>(
+      const res = await adminApi<{ message?: { id?: string }; id?: string }>(
         `/api/admin/projects/${projectId}/messages`,
         { method: "POST", body: JSON.stringify(payload) }
       );
-      messageId = res?.message?.id;
+      messageId = res?.message?.id ?? res?.id;
     } catch (e) {
-      const error = e instanceof Error ? e.message : t("sendFailed");
+      const error = errorText(e, t("sendFailed"));
       toast.error(error);
       setResult({ status: "failed", error });
       setSending(false);
+      setReviewOpen(false);
       return;
     }
 
-    toast.success(isScheduled ? t("resultScheduled") : t("queued"));
-    setTitle("");
-    setBody("");
+    setReviewOpen(false);
+    toast.success(scheduled ? t("resultScheduled") : t("queued"));
+    const latest = latestContentRef.current;
+    if (latest.title === submitted.title && latest.body === submitted.body) {
+      setTitle("");
+      setBody("");
+      setVariants([]);
+      setImageUrl("");
+      setDeepLink("");
+      setScheduleDate("");
+      setScheduleTime("09:00");
+      setFieldValues({});
+      setExtras([]);
+      setSendOptions(emptySendOptions());
+    }
 
     // 예약 건은 지금 처리하지 않는다. 즉시 처리하면 예약 시각을 무시하고 나간다.
-    if (!processNow || isScheduled) {
-      setResult({ status: isScheduled ? "scheduled" : "queued", messageId, scheduledAt: scheduledIso });
+    if (!processNow || scheduled) {
+      setResult({ status: scheduled ? "scheduled" : "queued", messageId, scheduledAt: scheduled });
       setSending(false);
       return;
     }
@@ -198,165 +338,238 @@ export function SendConsole({
       toast.success(t("processed"));
       setResult({ status: "processed", messageId });
     } catch (e) {
-      const error = e instanceof Error ? e.message : t("checkLogs");
+      const error = errorText(e, t("checkLogs"));
       toast.error(t("queuedProcessFailed", { error }));
       setResult({ status: "processFailed", messageId, error });
     }
     setSending(false);
   }
 
+  function openTestPicker() {
+    if (busy || !buildContent()) return;
+    setTestPickerOpen(true);
+  }
+
+  /** 테스트 발송 — 고른 한 명에게만, 로그에는 테스트로 남는다. 작성 중인 내용은 지우지 않는다. */
+  async function sendTest(user: PickedUser) {
+    setTestPickerOpen(false);
+    const content = buildContent();
+    if (!content) return;
+    setTesting(true);
+    try {
+      await adminApi(`/api/admin/projects/${projectId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ ...withoutVariants(content), type: "single", target: user.externalId, test: true }),
+      });
+    } catch (e) {
+      toast.error(errorText(e, t("testSendFailed")));
+      setTesting(false);
+      return;
+    }
+    try {
+      await adminApi(`/api/admin/projects/${projectId}/process-queue`, { method: "POST", body: "{}" });
+      toast.success(t("testSent", { id: user.name || user.externalId }));
+    } catch (e) {
+      toast.error(t("queuedProcessFailed", { error: errorText(e, t("checkLogs")) }));
+    }
+    setTesting(false);
+  }
+
+  const targetLabel =
+    type === "broadcast" ? t("reviewTargetBroadcast")
+      : type === "topic" ? t("reviewTargetTopic", { name: target })
+      : users.length <= REVIEW_NAMES_SHOWN ? users.map((u) => u.name || u.externalId).join(", ")
+      : t("reviewTargetMore", {
+          names: users.slice(0, REVIEW_NAMES_SHOWN).map((u) => u.name || u.externalId).join(", "),
+          count: users.length - REVIEW_NAMES_SHOWN,
+        });
+
+  const variantsDone = variants.every((v) => v.title.trim() && v.body.trim());
+  const contentDone =
+    (silent || Boolean(title && body)) && variantsDone && !custom.error && imageState !== "notHttps" && imageState !== "invalid";
+  const optionsDone = !optionsInvalid;
+  const shown = audience.shown;
+
   return (
-    // 화면 높이를 채운다 — 남는 세로 공간을 본문 입력으로 돌린다
-    <div className="flex w-full flex-1 flex-col space-y-4">
+    <div className="flex w-full flex-1 flex-col gap-4">
       <PageHeader title={t(TITLE_KEY[type])} description={t(SUBTITLE_KEY[type])} />
 
-      {/* 작성은 넓게, 미리보기·안내는 오른쪽 좁은 열. 좁은 화면에서는 아래로 떨어진다. */}
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <Card className="flex min-h-0 flex-col">
-          <CardContent className="flex min-h-0 flex-1 flex-col divide-y divide-border">
-            <Section title={t("sectionTarget")}>
-              <SendTarget projectId={projectId} type={type} target={target} onTarget={setTarget} users={users} onUsers={setUsers} />
-            </Section>
+      <div className="grid flex-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <StepCard step={1} title={t("sectionTarget")} done={hasTarget}>
+            <SendTarget projectId={projectId} type={type} target={target} onTarget={setTarget} users={users} onUsers={setUsers} />
+          </StepCard>
 
-            <Section title={t("sectionContent")} className="flex min-h-0 flex-1 flex-col">
-              <SendTemplatePicker projectId={projectId} initialId={initialTemplateId} onApply={applyTemplate} />
-              <Field label={t("titleLabel")}>
-                <Input ref={titleRef} value={title} onFocus={() => (lastFieldRef.current = "title")} onChange={(e) => setTitle(e.target.value)} maxLength={255} placeholder={t("titlePlaceholder")} />
-              </Field>
-              {/* 본문은 남는 세로를 가져간다 */}
-              <Field label={t("bodyLabel")} className="flex min-h-0 flex-1 flex-col">
-                <Textarea ref={bodyRef} className="min-h-28 flex-1" value={body} onFocus={() => (lastFieldRef.current = "body")} onChange={(e) => setBody(e.target.value)} maxLength={4000} placeholder={t("bodyPlaceholder")} />
-              </Field>
-              <SendVariables keys={attributeKeys} onInsert={insertVariable} />
-              <Field label={t("deepLink")}>
-                <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
-              </Field>
-            </Section>
+          <StepCard step={2} title={t("sectionContent")} done={contentDone}>
+            <SendTemplatePicker projectId={projectId} initialId={initialTemplateId} onApply={applyTemplate} />
+            <div className="space-y-1">
+              <CountedLabel htmlFor={titleId} label={t("titleLabel")} counterId={`${titleId}-count`} value={renderedTitle} max={TITLE_RECOMMENDED} />
+              <Input
+                id={titleId}
+                ref={titleRef}
+                aria-describedby={`${titleId}-count`}
+                value={title}
+                disabled={sending}
+                onFocus={() => (lastFieldRef.current = "title")}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={255}
+                placeholder={t("titlePlaceholder")}
+              />
+            </div>
+            <div className="space-y-1">
+              <CountedLabel htmlFor={bodyId} label={t("bodyLabel")} counterId={`${bodyId}-count`} value={renderedBody} max={BODY_RECOMMENDED} />
+              <Textarea
+                id={bodyId}
+                ref={bodyRef}
+                aria-describedby={`${bodyId}-count`}
+                className="min-h-32"
+                value={body}
+                disabled={sending}
+                onFocus={() => (lastFieldRef.current = "body")}
+                onChange={(e) => setBody(e.target.value)}
+                maxLength={4000}
+                placeholder={t("bodyPlaceholder")}
+              />
+            </div>
+            <SendVariables
+              keys={attributeKeys}
+              onInsert={insertVariable}
+              render={renderPreview}
+              basis={previewAs ? previewAs.name || previewAs.externalId : null}
+              disabled={sending}
+            />
+            <SendVariantFields variants={variants} onVariants={setVariants} render={renderPreview} disabled={sending} />
+            <SendImageField value={imageUrl} onChange={setImageUrl} disabled={sending} />
+            <Field label={t("deepLink")} hint={t("helpDeepLink")}>
+              <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
+            </Field>
+          </StepCard>
 
-            <Section title={t("sectionCustomFields")}>
-              <SendCustomFields fields={templateFields} values={fieldValues} onValues={setFieldValues} extras={extras} onExtras={setExtras} />
-            </Section>
-
-            <Section title={t("sectionOptions")}>
-              <Field label={t("scheduleLabel")} hint={t("scheduleHint")}>
-                <div className="flex gap-2 sm:max-w-md">
+          <StepCard step={3} title={t("sectionOptions")} done={hasTarget && contentDone && optionsDone}>
+            {/* 날짜·시각 두 컨트롤을 한 묶음으로 읽히게 fieldset/legend 로 묶고, 각각에 라벨을 단다 */}
+            <fieldset className="space-y-1">
+              <legend className="text-xs font-semibold text-foreground">{t("scheduleLabel")}</legend>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex min-w-48 flex-1 flex-col gap-1 sm:max-w-xs">
+                  <label htmlFor={scheduleDateId} className="text-2xs text-muted-foreground">{t("scheduleDateLabel")}</label>
                   <DatePicker
-                    className="flex-1"
+                    id={scheduleDateId}
+                    className="w-full"
                     value={scheduleDate}
                     onChange={setScheduleDate}
                     min={todayStr}
                     placeholder={t("scheduleDatePlaceholder")}
                     clearLabel={t("scheduleClear")}
                   />
-                  {/* 날짜가 없으면 시각만 골라도 의미가 없다 */}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor={scheduleTimeId} className="text-2xs text-muted-foreground">{t("scheduleTimeLabel")}</label>
                   <Input
+                    id={scheduleTimeId}
                     type="time"
-                    aria-label={t("scheduleTimeLabel")}
                     className="w-32"
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
                     disabled={!scheduleDate}
                   />
                 </div>
-              </Field>
-              <label className="flex items-start gap-2 text-sm leading-relaxed">
-                <input
-                  type="checkbox"
-                  checked={processNow && !isScheduled}
-                  disabled={isScheduled}
-                  onChange={(e) => setProcessNow(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
-                />
-                <span className={isScheduled ? "text-muted-foreground" : undefined}>
-                  {isScheduled ? t("processNowDisabled") : t("processNow")}
+              </div>
+              <p className="text-xs text-muted-foreground">{t("scheduleHint")}</p>
+            </fieldset>
+            <SendOptions
+              value={sendOptions}
+              onChange={setSendOptions}
+              errors={builtOptions.errors}
+              revealAt={optionsReveal}
+              disabled={sending}
+            />
+            <div className="space-y-2 border-t border-border pt-4">
+              <p className="text-xs font-semibold text-foreground">{t("sectionCustomFields")}</p>
+              <SendCustomFields fields={templateFields} values={fieldValues} onValues={setFieldValues} extras={extras} onExtras={setExtras} />
+            </div>
+          </StepCard>
+
+          {result && <SendResultCard projectId={projectId} result={result} />}
+
+          {/* 발송 바 — 작성 카드들 맨 아래. 화면에 고정하지 않는다(내용을 가려서 사용자가 원치 않음). */}
+          <div>
+            <div className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-surface px-3.5 py-2.5 shadow-sm">
+              <p className="flex min-w-0 items-center gap-2 text-sm" aria-live="polite">
+                <Users aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate font-semibold tabular-nums">
+                  {shown ? t("actionAudience", { users: shown.users, devices: shown.devices }) : t("actionAudienceUnknown")}
                 </span>
-              </label>
-            </Section>
-          </CardContent>
-          <CardFooter className="flex justify-end pt-3">
-            <Button onClick={submit} disabled={sending}>
-              {isScheduled ? <Clock aria-hidden="true" className="h-4 w-4" /> : <Send aria-hidden="true" className="h-4 w-4" />}
-              {sending ? t("sending") : isScheduled ? t("submitScheduled") : t("submit")}
-            </Button>
-          </CardFooter>
-        </Card>
+              </p>
+              <div className="ms-auto flex items-center gap-2">
+                <Button variant="outline" onClick={openTestPicker} disabled={busy}>
+                  <FlaskConical aria-hidden="true" /> {testing ? t("sending") : t("testSend")}
+                </Button>
+                <Button onClick={openReview} disabled={busy}>
+                  {isScheduled ? <Clock aria-hidden="true" /> : <Send aria-hidden="true" />}
+                  {isScheduled ? t("reviewSubmitScheduled") : t("reviewSubmit")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <aside className="space-y-4">
+          <SendSummary
+            estimate={shown}
+            loading={audience.loading}
+            failed={audience.failed}
+            hasRequest={audience.hasRequest}
+            timeLabel={timeLabel}
+            warnings={warnings}
+          />
           <SendPreview
             appName={appName}
-            title={renderTemplate(title, previewAs)}
-            body={renderTemplate(body, previewAs)}
+            title={renderedTitle}
+            body={renderedBody}
+            imageUrl={validImage}
             deepLink={deepLink}
-            data={previewData}
-            note={previewAs ? t("previewAs", { id: previewAs.externalId }) : t("previewDefault")}
+            data={custom.data}
+            variants={renderedVariants}
+            silent={silent}
+            actions={builtOptions.options?.actions}
+            note={previewAs ? t("previewAs", { id: previewAs.name || previewAs.externalId }) : t("previewDefault")}
           />
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-1.5">
-                <Info aria-hidden="true" className="h-4 w-4 text-muted-foreground" /> {t("helpTitle")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-xs leading-relaxed text-muted-foreground">
-                <li>{t("helpDeepLink")}</li>
-                <li>{t("helpSuppression")}</li>
-                <li>{t("helpLogOnly")}</li>
-              </ul>
-            </CardContent>
-          </Card>
         </aside>
       </div>
 
-      {result && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-1.5">
-              {result.status === "failed" || result.status === "processFailed" ? (
-                <AlertTriangle aria-hidden="true" className={`h-4 w-4 ${result.status === "failed" ? "text-danger" : "text-warning"}`} />
-              ) : result.status === "scheduled" ? (
-                <Clock aria-hidden="true" className="h-4 w-4 text-primary" />
-              ) : (
-                <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" />
-              )}
-              {t("resultTitle")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* 토스트는 사라지지만 메시지 ID 는 로그 대조에 필요하다 — 화면에 남긴다 */}
-            <dl className="space-y-2 [&_dd]:min-w-0 [&_dd]:break-all">
-              <DataRow
-                label={t("resultStatus")}
-                value={
-                  result.status === "failed" ? t("resultFailed")
-                    : result.status === "processFailed" ? t("resultProcessFailed")
-                    : result.status === "processed" ? t("resultProcessed")
-                    : result.status === "scheduled" ? t("resultScheduled")
-                    : t("resultQueued")
-                }
-                tone={
-                  result.status === "failed" ? "danger"
-                    : result.status === "processFailed" ? "warning"
-                    : "default"
-                }
-              />
-              {result.messageId && <DataRow label={t("resultMessageId")} value={result.messageId} mono />}
-              {result.scheduledAt && (
-                <DataRow label={t("resultScheduledAt")} value={new Date(result.scheduledAt).toLocaleString()} />
-              )}
-              {result.error && <DataRow label={t("sendFailed")} value={result.error} />}
-            </dl>
-          </CardContent>
-        </Card>
-      )}
+      <SendReviewDialog
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        onConfirm={send}
+        sending={sending}
+        targetLabel={targetLabel}
+        estimate={audience.fresh}
+        isScheduled={isScheduled}
+        timeLabel={timeLabel}
+        title={renderedTitle}
+        body={renderedBody}
+        imageUrl={validImage}
+        warnings={warnings}
+        variants={renderedVariants}
+        silent={silent}
+        actions={builtOptions.options?.actions}
+      />
+      <UserSearchDialog
+        open={testPickerOpen}
+        projectId={projectId}
+        multiple={false}
+        initial={[]}
+        title={t("testSendTitle")}
+        description={t("testSendHint")}
+        onClose={() => setTestPickerOpen(false)}
+        onDone={(picked) => picked[0] && sendTest(picked[0])}
+      />
     </div>
   );
 }
 
-function Section({ title, className, children }: { title: string; className?: string; children: React.ReactNode }) {
-  return (
-    <section className={`space-y-3 py-4 first:pt-3 ${className ?? ""}`}>
-      <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{title}</h2>
-      {children}
-    </section>
-  );
+/** 테스트 발송은 한 사람에게 가므로 변형 배정 없이 기본 내용(A)을 보낸다 */
+function withoutVariants(content: Content): Omit<Content, "variants"> {
+  const { variants: _variants, ...rest } = content;
+  return rest;
 }

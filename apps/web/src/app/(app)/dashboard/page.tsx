@@ -60,7 +60,8 @@ export default function DashboardPage() {
   }, []);
 
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }), [locale]);
+  // 일별 버킷은 UTC 자정으로 찍힌 날짜다 — 로컬로 포맷하면 UTC 보다 뒤처진 지역에서 하루 앞 날짜로 보인다
+  const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }), [locale]);
   const hourFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { hour: "numeric" }), [locale]);
   const busy = !stats && !failed;
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
@@ -75,7 +76,7 @@ export default function DashboardPage() {
     <div className="w-full space-y-4">
       <PageHeader title={t("title")} description={t("subtitle")} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         <StatTile
           icon={Activity}
           label={ta("dau")}
@@ -110,7 +111,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -160,7 +161,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-3">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -210,7 +211,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <StatTile icon={PackageMinus} label={to("statUninstalled")} value={num(stats?.lifecycle.uninstalled)} accent="danger" loading={busy} />
               <StatTile icon={Rocket} label={to("statReinstalled")} value={num(stats?.lifecycle.reinstalled)} accent="success" loading={busy} />
             </div>

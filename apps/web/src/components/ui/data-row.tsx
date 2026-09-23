@@ -27,7 +27,7 @@ export function DataRow({
   return (
     <div className={cn("flex items-start justify-between gap-3", compact ? "text-xs" : "text-sm", className)}>
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className={cn("text-right font-semibold", valueColor, mono && "font-mono tabular-nums")}>{value}</dd>
+      <dd className={cn("text-end font-semibold", valueColor, mono && "font-mono tabular-nums")}>{value}</dd>
     </div>
   );
 }

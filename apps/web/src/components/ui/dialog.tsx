@@ -3,7 +3,42 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** 본문의 첫 입력 → 본문의 첫 버튼 → 패널 순. 헤더의 닫기(X)가 DOM 상 먼저라 본문으로 범위를 좁힌다. */
+function initialFocusTarget(body: HTMLElement | null, panel: HTMLElement | null): HTMLElement | null {
+  return (
+    body?.querySelector<HTMLElement>(
+      "input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])"
+    ) ??
+    body?.querySelector<HTMLElement>("button:not([disabled])") ??
+    panel
+  );
+}
+
+/**
+ * 모달 뒤 화면을 `inert` 로 만든다 — Tab 트랩만으로는 스크린리더 가상 커서·마우스 포커스가
+ * 배경으로 샌다. 알림(aria-live) 영역인 형제는 건드리지 않는다: inert 안의 live region 은
+ * 읽히지 않아 모달에서 저장해도 "저장됨" 토스트가 조용해진다.
+ * 이미 inert 인 것(바깥 모달이 잠근 것)은 건드리지 않고, 내가 잠근 것만 되돌린다.
+ */
+export function lockBackground(container: HTMLElement): () => void {
+  const locked: HTMLElement[] = [];
+  for (const el of Array.from(document.body.children)) {
+    if (!(el instanceof HTMLElement) || el === container || el.inert) continue;
+    if (el.tagName === "SCRIPT" || el.tagName === "STYLE" || el.tagName === "NEXT-ROUTE-ANNOUNCER") continue;
+    // 요소 **자체**가 알림 영역일 때만 건너뛴다(토스트 섹션). 후손까지 보면 앱 셸 전체가
+    // body 의 한 자식이라, 셸 안 어딘가에 live region 이 있는 페이지는 배경이 통째로 안 잠긴다.
+    if (el.matches("[aria-live]")) continue;
+    el.inert = true;
+    locked.push(el);
+  }
+  return () => locked.forEach((el) => (el.inert = false));
+}
 
 /**
  * 모달 다이얼로그 — 생성 폼의 공통 껍데기.
@@ -32,6 +67,8 @@ export function Dialog({
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg";
 }) {
+  const tc = useTranslations("common");
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const titleId = React.useId();
@@ -52,31 +89,63 @@ export function Dialog({
     return () => {
       document.body.style.overflow = overflow;
       document.body.style.paddingRight = paddingRight;
+    };
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    initialFocusTarget(bodyRef.current, panelRef.current)?.focus();
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const container = containerRef.current;
+    const panel = panelRef.current;
+    if (!container || !panel) return;
+    const unlock = lockBackground(container);
+
+    /** 위에 다른 모달이 떠 있으면(그 모달이 나를 inert 로 잠갔으면) 손대지 않는다 */
+    const isTopmost = () => !container.inert;
+
+    // 포커스가 잠근 배경으로 나가면 패널로 되돌린다(프로그램적 focus() 등 Tab 이 아닌 경로).
+    function onFocusIn(e: FocusEvent) {
+      if (!isTopmost()) return;
+      const target = e.target as Node | null;
+      if (!target || container!.contains(target)) return;
+      if (target instanceof Element && target.closest("[inert]")) {
+        initialFocusTarget(bodyRef.current, panel)?.focus();
+      }
+    }
+
+    /**
+     * 포커스된 요소가 DOM 에서 사라지면(예: 생성 폼 → 발급 키 화면) 포커스가 body 로 떨어져
+     * 키보드 사용자는 모달 안에서 위치를 잃는다. 그 경우에만 첫 포커스 대상으로 옮긴다 —
+     * 입력·검색 결과 갱신처럼 포커스가 살아 있는 변경에서는 움직이지 않는다.
+     */
+    const observer = new MutationObserver(() => {
+      if (!isTopmost()) return;
+      const active = document.activeElement;
+      if (active && active !== document.body && document.contains(active)) return;
+      initialFocusTarget(bodyRef.current, panel)?.focus();
+    });
+    observer.observe(panel, { childList: true, subtree: true });
+
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("focusin", onFocusIn);
+      unlock();
+      // 배경 inert 를 푼 **뒤에** 돌려준다 — inert 인 동안엔 focus() 가 무시된다
       restoreRef.current?.focus?.();
     };
   }, [open]);
 
   React.useEffect(() => {
     if (!open) return;
-    /**
-     * 본문의 첫 입력으로 포커스를 준다.
-     *
-     * 패널 전체에서 찾으면 헤더의 닫기(X) 버튼이 DOM 상 먼저라 거기에 포커스가 간다 —
-     * 생성 폼을 열자마자 커서가 "닫기"에 있는 꼴이 된다. 그래서 본문으로 범위를 좁힌다.
-     */
-    const target =
-      bodyRef.current?.querySelector<HTMLElement>(
-        "input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])"
-      ) ??
-      bodyRef.current?.querySelector<HTMLElement>("button:not([disabled])") ??
-      panelRef.current;
-    target?.focus();
-  }, [open]);
-
-  React.useEffect(() => {
-    if (!open) return;
 
     function onKeyDown(e: KeyboardEvent) {
+      // 겹친 모달이면 맨 위 것만 반응한다 — 아래 모달까지 Esc 로 함께 닫히지 않게
+      if (containerRef.current?.inert) return;
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
@@ -85,9 +154,7 @@ export function Dialog({
       if (e.key !== "Tab") return;
 
       // 포커스 트랩 — 모달 밖으로 나가면 뒤 화면을 조작할 수 있게 되어 모달의 의미가 없다.
-      const nodes = panelRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
+      const nodes = panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE);
       if (!nodes || nodes.length === 0) return;
       const list = Array.from(nodes).filter((n) => n.offsetParent !== null);
       if (list.length === 0) return;
@@ -96,10 +163,11 @@ export function Dialog({
       const last = list[list.length - 1];
       const active = document.activeElement;
 
-      if (e.shiftKey && active === first) {
+      const outside = !panelRef.current?.contains(active);
+      if (e.shiftKey && (active === first || outside)) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && active === last) {
+      } else if (!e.shiftKey && (active === last || outside)) {
         e.preventDefault();
         first.focus();
       }
@@ -114,11 +182,11 @@ export function Dialog({
   const width = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl" }[size];
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
+    <div ref={containerRef} className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
       {/* 배경 클릭으로 닫기. 폼 내용이 날아가므로 저장되지 않은 변경이 있으면 호출측이 막는다. */}
       <button
         type="button"
-        aria-label="close"
+        aria-label={tc("close")}
         tabIndex={-1}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-foreground/40 backdrop-blur-[2px]"
@@ -150,8 +218,9 @@ export function Dialog({
           <button
             type="button"
             onClick={onClose}
-            aria-label="close"
-            className="-m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={tc("close")}
+            // 칸 밖에 따로 서 있는 버튼이므로 다른 단독 컨트롤과 같은 36px(D3)
+            className="-my-1.5 -me-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X aria-hidden="true" className="h-4 w-4" />
           </button>

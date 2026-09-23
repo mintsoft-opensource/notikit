@@ -22,7 +22,7 @@ function NavLink({ item, label, pathname }: { item: NavItem; label: string; path
         active ? "bg-accent-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       )}
     >
-      <Icon className={cn("h-[17px] w-[17px]", active ? "text-primary" : "text-muted-foreground")} strokeWidth={2} />
+      <Icon aria-hidden="true" className={cn("h-4 w-4", active ? "text-primary" : "text-muted-foreground")} strokeWidth={2} />
       <span>{label}</span>
     </Link>
   );
@@ -39,7 +39,7 @@ export function SidebarNav({ pathname }: { pathname: string }) {
           href="/projects"
           className="flex items-center gap-1.5 px-2.5 text-md font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ChevronLeft className="h-4 w-4" /> {t("projectList")}
+          <ChevronLeft aria-hidden="true" className="h-4 w-4 rtl:rotate-180" /> {t("projectList")}
         </Link>
       )}
       {groups.map((group) => (
@@ -73,7 +73,7 @@ export function SidebarBrand() {
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-surface md:flex">
       <SidebarBrand />
       <SidebarNav pathname={pathname} />
     </aside>

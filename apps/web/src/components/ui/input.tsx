@@ -15,7 +15,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       type={type}
       aria-label={fallbackAriaLabel(props)}
       className={cn(
-        "flex h-9 w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-9 w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors file:me-3 file:h-7 file:rounded-md file:border-0 file:bg-surface-muted file:px-2.5 file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -30,7 +30,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
       ref={ref}
       aria-label={fallbackAriaLabel(props)}
       className={cn(
-        "flex min-h-16 w-full resize-y rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex min-h-16 w-full resize-y rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -43,7 +43,11 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
   return <label className={cn("text-xs font-semibold text-foreground", className)} {...props} />;
 }
 
-/** 라벨↔컨트롤을 htmlFor/id 로 연결 (useId). children 에 자동으로 id 주입. */
+/**
+ * 라벨↔컨트롤을 htmlFor/id 로 연결 (useId). children 에 자동으로 id 주입.
+ * hint 가 있으면 컨트롤의 `aria-describedby` 로 이어 준다 — 안 이으면 스크린리더는
+ * 입력칸에서 "형식: …" 같은 안내를 듣지 못한다. 자식이 이미 가진 describedby 는 보존한다.
+ */
 export function Field({
   label,
   hint,
@@ -52,17 +56,21 @@ export function Field({
 }: {
   label: React.ReactNode;
   hint?: string;
-  children: React.ReactElement<{ id?: string }>;
+  children: React.ReactElement<{ id?: string; "aria-describedby"?: string }>;
   /** 남는 세로 공간을 컨트롤이 가져가야 할 때 사용 (예: 발송 본문) */
   className?: string;
 }) {
   const generated = React.useId();
   const id = children.props.id ?? generated; // 라벨과 컨트롤이 동일 id 사용
+  const hintId = `${id}-hint`;
+  const describedBy = hint
+    ? [children.props["aria-describedby"], hintId].filter(Boolean).join(" ")
+    : children.props["aria-describedby"];
   return (
     <div className={cn("space-y-1", className)}>
       <Label htmlFor={id}>{label}</Label>
-      {React.cloneElement(children, { id })}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {React.cloneElement(children, { id, "aria-describedby": describedBy })}
+      {hint && <p id={hintId} className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -72,14 +80,14 @@ export function Select({ className, children, ...props }: React.SelectHTMLAttrib
     <div className="relative">
       <select
         className={cn(
-          "flex h-9 w-full appearance-none rounded-md border border-border bg-surface px-2.5 pr-8 text-sm text-foreground shadow-sm transition-colors focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full appearance-none rounded-lg border border-border bg-surface px-2.5 pe-8 text-sm text-foreground shadow-sm transition-colors focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         {...props}
       >
         {children}
       </select>
-      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute end-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
     </div>
   );
 }

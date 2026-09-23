@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
-import { adminApi } from "@/lib/admin-client";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Lifecycle = {
   devices_lifecycle: {
@@ -27,11 +27,6 @@ type Lifecycle = {
 
 /** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
 type Cursor = { ts: string; id: string } | null;
-
-/** 커서를 쿼리스트링으로 */
-function cursorQuery(c: Cursor): string {
-  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
-}
 
 type DeviceEvent = {
   id: string;
@@ -51,6 +46,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
   const to = useTranslations("overview");
   const ts = useTranslations("system");
   const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const locale = useLocale();
 
   const [range, setRange] = React.useState<RangeKey>("7d");
@@ -61,6 +57,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
   const [next, setNext] = React.useState<Cursor>(null);
   const [more, setMore] = React.useState(false);
   const reqRef = React.useRef(0);
+  // 이벤트 목록 요청 세대 — 필터가 바뀌면 올라가고, "더 보기"는 같은 세대인지만 본다
   const evtRef = React.useRef(0);
 
   React.useEffect(() => {
@@ -72,14 +69,16 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
       .catch((e) => {
         if (my !== reqRef.current) return;
         setFailed(true);
-        toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+        toast.error(errorText(e, tc("loadFailed")));
       });
-  }, [projectId, range, tc]);
+  }, [projectId, range, tc, errorText]);
 
   React.useEffect(() => {
     const my = ++evtRef.current;
     setEvents(null);
-    const q = event ? `?event=${event}` : "";
+    setNext(null);
+    setMore(false);
+    const q = event ? `?${new URLSearchParams({ event })}` : "";
     adminApi<{ events: DeviceEvent[]; next: Cursor }>(`/api/admin/projects/${projectId}/device-events${q}`)
       .then((d) => {
         if (my !== evtRef.current) return;
@@ -91,6 +90,8 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
 
   async function loadMore() {
     if (!next || more) return;
+    // 세대를 올리지 않고 붙잡아 둔다 — 그사이 필터가 바뀌면 옛 필터의 다음 페이지를 새 목록에 붙이지 않는다
+    const my = evtRef.current;
     setMore(true);
     try {
       const q = new URLSearchParams();
@@ -100,12 +101,14 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
       const d = await adminApi<{ events: DeviceEvent[]; next: Cursor }>(
         `/api/admin/projects/${projectId}/device-events?${q}`
       );
+      if (my !== evtRef.current) return;
       setEvents((cur) => [...(cur ?? []), ...d.events]);
       setNext(d.next);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      if (my !== evtRef.current) return;
+      toast.error(errorText(e, tc("loadFailed")));
     } finally {
-      setMore(false);
+      if (my === evtRef.current) setMore(false);
     }
   }
 
@@ -136,7 +139,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4">
         <StatTile icon={PackageMinus} label={to("statUninstalled")} value={busy ? "—" : nf.format(lc?.uninstalled ?? 0)} accent="danger" loading={busy} />
         <StatTile icon={PackagePlus} label={to("statReinstalled")} value={busy ? "—" : nf.format(lc?.reinstalled ?? 0)} accent="success" loading={busy} />
         <StatTile
@@ -186,7 +189,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
         </Select>
       </div>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {!events && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {events && events.length === 0 && <EmptyState icon={PackageMinus} title={to("noUninstalls")} />}
@@ -217,7 +220,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
                     </TableCell>
                     <TableCell label={t("colPlatform")} className="text-xs text-muted-foreground">{e.platform ?? "—"}</TableCell>
                     <TableCell label={t("colSource")} className="truncate text-xs text-muted-foreground">{to(`source_${e.source}` as "source_send")}</TableCell>
-                    <TableCell label={t("colAt")} className="text-xs tabular-nums text-muted-foreground sm:text-right">
+                    <TableCell label={t("colAt")} className="text-xs tabular-nums text-muted-foreground sm:text-end">
                       {df.format(new Date(e.at))}
                     </TableCell>
                   </TableRow>

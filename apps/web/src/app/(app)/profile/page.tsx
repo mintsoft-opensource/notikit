@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { LogOut, UserCircle, KeyRound } from "lucide-react";
+import { LogOut, UserCircle, KeyRound, Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
@@ -12,13 +12,36 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { DataRow } from "@/components/ui/data-row";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSession, adminApi, logout } from "@/lib/admin-client";
+import { useSession, adminApi, logout, useAdminErrorText } from "@/lib/admin-client";
+
+/** 역할이 실제로 할 수 있는 일 — 화면에 역할 이름만 있으면 "내가 뭘 할 수 있는지"를 알 수 없다 */
+const ROLE_DESC = { owner: "roleOwnerDesc", admin: "roleAdminDesc", viewer: "roleViewerDesc" } as const;
+
+/** 소속 조직 — `/api/admin/org` 이 이미 주는 값(이름·멤버 수·프로젝트 수·개설일) */
+type Org = { id: string; name: string; createdAt: string; members: number; projects: number };
 
 /** 프로필 — 내 계정 정보와 비밀번호 변경 */
 export default function ProfilePage() {
   const t = useTranslations("profile");
+  const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const th = useTranslations("header");
+  const locale = useLocale();
   const { user } = useSession();
+  const [org, setOrg] = React.useState<Org | null>(null);
+  const [orgFailed, setOrgFailed] = React.useState(false);
+  const [orgReady, setOrgReady] = React.useState(false);
+  const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }), [locale]);
+
+  React.useEffect(() => {
+    adminApi<{ org: Org | null }>("/api/admin/org")
+      // superadmin 은 org 컨텍스트가 없어 null 이 온다 — 그때는 카드를 숨긴다
+      .then((d) => setOrg(d.org))
+      .catch(() => setOrgFailed(true))
+      .finally(() => setOrgReady(true));
+  }, []);
+
+  const roleDescKey = user ? ROLE_DESC[user.role as keyof typeof ROLE_DESC] : undefined;
 
   const [current, setCurrent] = React.useState("");
   const [next, setNext] = React.useState("");
@@ -41,7 +64,7 @@ export default function ProfilePage() {
       setNext("");
       setConfirm("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("passwordChangeFailed"));
+      toast.error(errorText(err, t("passwordChangeFailed")));
     } finally {
       setBusy(false);
     }
@@ -64,6 +87,7 @@ export default function ProfilePage() {
 
       {tab === "account" && (
         <TabPanel idPrefix="profile" value="account">
+          <div className="grid gap-4 lg:grid-cols-2">
           <Card className="min-w-0">
             <CardHeader>
               <div>
@@ -77,7 +101,7 @@ export default function ProfilePage() {
                   try {
                     await logout();
                   } catch (e) {
-                    toast.error(e instanceof Error ? e.message : th("logoutFailed"));
+                    toast.error(errorText(e, th("logoutFailed")));
                   }
                 }}
               >
@@ -98,8 +122,36 @@ export default function ProfilePage() {
                 <DataRow label={t("emailLabel")} value={user ? user.email : <Skeleton className="h-4 w-40" />} mono />
                 <DataRow label={t("roleLabel")} value={user ? user.role : <Skeleton className="h-4 w-16" />} />
               </dl>
+              {/* 역할 이름만으로는 권한을 알 수 없다 — 할 수 있는 일을 한 줄로 적는다 */}
+              {roleDescKey && <p className="text-xs text-muted-foreground">{t(roleDescKey)}</p>}
             </CardContent>
           </Card>
+
+          {(org || !orgReady || orgFailed) && (
+            <Card className="min-w-0">
+              <CardHeader>
+                <div>
+                  <CardTitle className="flex items-center gap-1.5">
+                    <Building2 aria-hidden="true" className="h-4 w-4" /> {t("organization")}
+                  </CardTitle>
+                  <CardDescription>{t("organizationDesc")}</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {orgFailed ? (
+                  <p className="text-sm text-muted-foreground">{tc("loadFailed")}</p>
+                ) : (
+                  <dl className="space-y-3 [&_dd]:min-w-0">
+                    <DataRow label={t("orgNameLabel")} value={org ? org.name : <Skeleton className="h-4 w-32" />} />
+                    <DataRow label={t("orgMembersLabel")} value={org ? org.members.toLocaleString(locale) : <Skeleton className="h-4 w-10" />} mono />
+                    <DataRow label={t("orgProjectsLabel")} value={org ? org.projects.toLocaleString(locale) : <Skeleton className="h-4 w-10" />} mono />
+                    <DataRow label={tc("createdAt")} value={org ? df.format(new Date(org.createdAt)) : <Skeleton className="h-4 w-24" />} />
+                  </dl>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          </div>
         </TabPanel>
       )}
 
@@ -128,7 +180,7 @@ export default function ProfilePage() {
                   <Input type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
                 </Field>
                 <div className="border-t border-border pt-3 sm:col-span-2 sm:flex sm:justify-end">
-                  <Button type="submit" size="sm" disabled={busy || mismatch || next.length < 8 || !current}>
+                  <Button type="submit" disabled={busy || mismatch || next.length < 8 || !current}>
                     {busy ? t("changing") : t("changePassword")}
                   </Button>
                 </div>

@@ -11,20 +11,21 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
-import { JourneyFields, EMPTY_STEPS, cleanSteps, type Step } from "@/components/console/journey-form";
-import { useProjects, adminApi } from "@/lib/admin-client";
+import { JourneyFields, EMPTY_STEPS, cleanSteps, sameSteps, toStepDrafts, type Step, type StepDraft } from "@/components/console/journey-form";
+import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Journey = { id: string; name: string; steps: Step[] };
 
 export function JourneysConsole({ projectId }: { projectId?: string }) {
   const t = useTranslations("journeys");
+  const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const { projects } = useProjects();
   const [picked, setPicked] = React.useState("");
   const sel = projectId ?? picked;
   const [journeys, setJourneys] = React.useState<Journey[]>([]);
   const [name, setName] = React.useState("");
-  const [steps, setSteps] = React.useState<Step[]>(EMPTY_STEPS);
+  const [steps, setSteps] = React.useState<StepDraft[]>(() => toStepDrafts(EMPTY_STEPS));
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const reqRef = React.useRef(0);
@@ -40,7 +41,7 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
         if (my !== reqRef.current || id !== selRef.current) return;
         setJourneys(d.journeys);
       } catch (e) {
-        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+        if (my === reqRef.current && id === selRef.current) toast.error(errorText(e, tc("loadFailed")));
       }
     },
     [tc]
@@ -52,11 +53,13 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
   }, [sel, load]);
 
   function close() {
-    const dirty = name.trim() !== "" || JSON.stringify(steps) !== JSON.stringify(EMPTY_STEPS);
+    // 저장 중에 닫으면 결과가 어디에도 안 보인다 — 끝날 때까지 막는다
+    if (saving) return;
+    const dirty = name.trim() !== "" || !sameSteps(steps, toStepDrafts(EMPTY_STEPS));
     if (dirty && !confirm(tc("unsavedConfirm"))) return;
     setOpen(false);
     setName("");
-    setSteps(EMPTY_STEPS);
+    setSteps(toStepDrafts(EMPTY_STEPS));
   }
 
   async function create() {
@@ -72,12 +75,12 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
       // 완료 시점에 다른 프로젝트로 전환됐으면 B 의 드래프트를 지우지 않음
       if (selRef.current === target) {
         setName("");
-        setSteps(EMPTY_STEPS);
+        setSteps(toStepDrafts(EMPTY_STEPS));
         setOpen(false);
         load(target);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("createFailed"));
+      toast.error(errorText(e, t("createFailed")));
     } finally {
       setSaving(false);
     }
@@ -89,12 +92,12 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
       const d = await adminApi<{ processed: number }>(`/api/admin/projects/${sel}/journeys/process`, { method: "POST", body: "{}" });
       toast.success(t("processed", { count: d.processed }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("processFailed"));
+      toast.error(errorText(e, t("processFailed")));
     }
   }
 
   return (
-    <div className="space-y-3">
+    <div className="w-full space-y-4">
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
@@ -123,12 +126,12 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
             size="lg"
             footer={
               <>
-                <Button variant="ghost" onClick={close}>{tc("cancel")}</Button>
+                <Button variant="ghost" onClick={close} disabled={saving}>{tc("cancel")}</Button>
                 <Button onClick={create} disabled={saving || !name.trim()}>{t("create")}</Button>
               </>
             }
           >
-            <JourneyFields idPrefix="new-journey" name={name} steps={steps} onName={setName} onSteps={setSteps} />
+            <JourneyFields idPrefix="new-journey" name={name} steps={steps} onName={setName} onSteps={setSteps} disabled={saving} />
           </Dialog>
 
           <Card>
@@ -145,9 +148,10 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
                   <span className="truncate text-sm font-semibold">{j.name}</span>
                   <div className="flex shrink-0 items-center gap-2">
                     <div className="hidden flex-wrap justify-end gap-1 sm:flex">
+                      {/* 읽기 전용 목록이라 순서가 곧 정체성 — 인덱스 key 로 충분하다 */}
                       {j.steps.map((s, i) => (
                         <Badge key={i} variant={s.type === "send" ? "primary" : "neutral"}>
-                          {s.type === "send" ? "send" : `wait ${s.hours ?? 0}h`}
+                          {s.type === "send" ? t("stepTypeSend") : t("stepWaitBadge", { hours: s.hours ?? 0 })}
                         </Badge>
                       ))}
                     </div>

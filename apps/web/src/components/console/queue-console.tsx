@@ -14,7 +14,7 @@ import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/compon
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
 import { formatDuration } from "@/components/console/panels";
-import { useProjects, adminApi } from "@/lib/admin-client";
+import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type QueueItem = {
   id: string;
@@ -40,6 +40,7 @@ const statusVariant = (s: string) =>
 /** 발송 큐 — 아직 나가지 않은 건과 대기 시간. 워커 정지·예약 적체가 여기서 드러난다. */
 export function QueueConsole({ projectId }: { projectId?: string }) {
   const t = useTranslations("queue");
+  const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const locale = useLocale();
   const { projects } = useProjects();
@@ -63,7 +64,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
         if (my !== reqRef.current || id !== selRef.current) return;
         setData(d);
       } catch (e) {
-        if (my === reqRef.current) toast.error(e instanceof Error ? e.message : t("loadFailed"));
+        if (my === reqRef.current) toast.error(errorText(e, t("loadFailed")));
       } finally {
         if (my === reqRef.current) setLoading(false);
       }
@@ -84,7 +85,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
       await adminApi(`/api/admin/projects/${sel}/process-queue`, { method: "POST", body: "{}" });
       await load(sel);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("loadFailed"));
+      toast.error(errorText(e, t("loadFailed")));
     } finally {
       setBusy(false);
     }
@@ -120,14 +121,14 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
       {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
       {!sel ? (
-        <Card className="rounded-none">
+        <Card className="overflow-hidden">
           <CardContent className="p-0">
             <EmptyState icon={Layers} title={tc("selectProjectFirst")} />
           </CardContent>
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <StatTile loading={busyLoad} icon={Hourglass} label={t("statQueued")} value={num(s?.queued)} />
             <StatTile loading={busyLoad} icon={Timer} label={t("statProcessing")} value={num(s?.processing)} />
             <StatTile loading={busyLoad} icon={Clock} label={t("statScheduled")} value={num(s?.scheduled)} />
@@ -141,7 +142,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
             />
           </div>
 
-          <Card className="rounded-none">
+          <Card className="overflow-hidden">
             <CardContent className="p-0">
               {busyLoad && (
                 <div className="space-y-3 p-3.5">
@@ -177,10 +178,10 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
                           <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">{it.title}</TableCell>
                           <TableCell label={t("colType")} className="text-xs text-muted-foreground">{it.type}</TableCell>
                           <TableCell label={t("colTarget")} className="truncate font-mono text-xs text-muted-foreground">{it.target ?? "—"}</TableCell>
-                          <TableCell label={t("colAudience")} className="text-xs tabular-nums text-muted-foreground xl:text-right">
+                          <TableCell label={t("colAudience")} className="text-xs tabular-nums text-muted-foreground xl:text-end">
                             {nf.format(it.totalCount)}
                           </TableCell>
-                          <TableCell label={t("colWhen")} className="text-xs tabular-nums text-muted-foreground xl:text-right">
+                          <TableCell label={t("colWhen")} className="text-xs tabular-nums text-muted-foreground xl:text-end">
                             {it.scheduledAt ? (
                               <span title={df.format(new Date(it.scheduledAt))}>
                                 {due > 0 ? t("scheduledFor", { d: formatDuration(due) }) : df.format(new Date(it.scheduledAt))}

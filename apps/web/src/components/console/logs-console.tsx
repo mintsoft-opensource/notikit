@@ -2,21 +2,22 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { RefreshCw, Play, ScrollText, ChevronDown, ChevronRight, MousePointerClick, Search } from "lucide-react";
-import { LiveChart } from "@/components/system/live-chart";
+import { RefreshCw, Play, ScrollText, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { Label } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
-import { useProjects, adminApi } from "@/lib/admin-client";
+import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { localDayBoundaryIso } from "@/lib/local-day";
+import { RateBar, StatusChip, TestChip } from "./log-status";
 
 type Log = {
   id: string;
@@ -31,164 +32,32 @@ type Log = {
   clickCount: number;
   clickUserCount: number;
   createdAt: string;
-};
-
-type Reader = {
-  id: string;
-  externalId: string | null;
-  platform: string | null;
-  destination: string | null;
-  clickedAt: string;
+  isTest?: boolean;
+  imageUrl?: string | null;
 };
 
 /** 발송 타입 필터 — 없으면 전체 */
 export type LogFilter = "single" | "topic" | undefined;
 
-function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" {
-  if (s === "completed") return "success";
-  if (s === "failed") return "danger";
-  if (s === "scheduled") return "primary";
-  return "neutral";
-}
-
 /** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
 type Cursor = { ts: string; id: string } | null;
+type LogsResponse = { logs: Log[]; next: Cursor };
 
-/** 커서를 쿼리스트링으로 */
-function cursorQuery(c: Cursor): string {
-  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
-}
-
-type ReadPoint = { ts: string; count: number; cumulative: number };
-type ReadersResponse = { readers: Reader[]; series: ReadPoint[]; bucket: "hour" | "day" | "week"; next: Cursor };
-
-/**
- * 이 발송을 읽은(알림을 누른) 사람 — 시간순 추이 + 전체 표.
- * 펼칠 때 처음 한 번만 불러온다. 목록 50건의 수신자를 미리 다 받으면 로그 화면이 느려진다.
- */
-function ReaderDetail({ projectId, logId }: { projectId: string; logId: string }) {
-  const t = useTranslations("logs");
-  const tc = useTranslations("common");
-  const locale = useLocale();
-  const [data, setData] = React.useState<ReadersResponse | null>(null);
-  const [failed, setFailed] = React.useState(false);
-  const [more, setMore] = React.useState(false);
-
-  React.useEffect(() => {
-    let alive = true;
-    adminApi<ReadersResponse>(`/api/admin/projects/${projectId}/logs/${logId}/readers`)
-      .then((d) => alive && setData(d))
-      .catch(() => alive && setFailed(true));
-    return () => { alive = false; };
-  }, [projectId, logId]);
-
-  async function loadMore() {
-    if (!data?.next || more) return;
-    setMore(true);
-    try {
-      const d = await adminApi<ReadersResponse>(
-        `/api/admin/projects/${projectId}/logs/${logId}/readers?${cursorQuery(data.next)}`
-      );
-      setData((cur) => (cur ? { ...cur, readers: [...cur.readers, ...d.readers], next: d.next } : cur));
-    } catch {
-      /* 다음 시도에서 재요청 */
-    } finally {
-      setMore(false);
-    }
-  }
-
-  const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const bucketFmt = React.useMemo(
-    () =>
-      data?.bucket === "day"
-        ? new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" })
-        : new Intl.DateTimeFormat(locale, { hour: "numeric" }),
-    [locale, data?.bucket]
-  );
-
-  if (failed) return <p className="border-t border-border px-3.5 py-2.5 text-sm text-muted-foreground">{t("loadFailed")}</p>;
-  if (!data) {
-    return (
-      <div className="space-y-2 border-t border-border px-3.5 py-2.5">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-8 w-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3 border-t border-border bg-surface-muted/20 px-3.5 py-2.5">
-      <section>
-        <h4 className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("readTrend")}</h4>
-        {data.series.some((p) => p.count > 0) ? (
-          <LiveChart
-            label={t("readTrend")}
-            integerY
-            area
-            height={140}
-            times={data.series.map((p) => new Date(p.ts).getTime())}
-            formatY={(v) => nf.format(Math.round(v))}
-            formatTime={(ms) => bucketFmt.format(ms)}
-            series={[
-              { key: "reads", label: t("readsPerBucket"), color: "var(--chart-2)", values: data.series.map((p) => p.count) },
-              { key: "cumulative", label: t("readsCumulative"), color: "var(--chart-1)", values: data.series.map((p) => p.cumulative) },
-            ]}
-          />
-        ) : (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t("noReaders")}</p>
-        )}
-      </section>
-
-      <section>
-        <h4 className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
-          {t("readerTable", { count: nf.format(data.readers.length) })}
-        </h4>
-        {data.readers.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">{t("noReaders")}</p>
-        ) : (
-          <div className="overflow-x-auto border border-border bg-surface">
-            <table className="w-full min-w-[36rem] text-left">
-              <thead className="border-b border-border">
-                <tr className="text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
-                  <th scope="col" className="px-3 py-2">{t("colUser")}</th>
-                  <th scope="col" className="px-3 py-2">{t("colPlatform")}</th>
-                  <th scope="col" className="px-3 py-2">{t("colDestination")}</th>
-                  <th scope="col" className="px-3 py-2 text-right">{t("colReadAt")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {data.readers.map((r) => (
-                  <tr key={r.id}>
-                    <td className="max-w-0 truncate px-3 py-2 font-mono text-xs font-semibold">
-                      {r.externalId ?? <span className="font-sans font-normal text-muted-foreground">{t("anonymousReader")}</span>}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{r.platform ?? "—"}</td>
-                    <td className="max-w-0 truncate px-3 py-2 text-xs text-muted-foreground">{r.destination ?? "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-muted-foreground">
-                      <time dateTime={r.clickedAt}>{df.format(new Date(r.clickedAt))}</time>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {data.next && (
-              <div className="flex justify-center border-t border-border p-2">
-                <Button variant="outline" size="sm" onClick={loadMore} disabled={more}>
-                  {more ? tc("loading") : tc("loadMore")}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+// 읽은 사람 상세는 차트까지 싣고 있어 무겁다 — 행을 펼칠 때만 불러온다
+const ReaderDetail = dynamic(() => import("./log-readers").then((m) => m.ReaderDetail), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-2 border-t border-border px-3.5 py-2.5">
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-8 w-full" />
     </div>
-  );
-}
+  ),
+});
 
 export function LogsConsole({ projectId, filter }: { projectId?: string; filter?: LogFilter }) {
   const t = useTranslations("logs");
   const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const locale = useLocale();
   const { projects } = useProjects();
   const [picked, setPicked] = React.useState("");
@@ -196,6 +65,9 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
   const [logs, setLogs] = React.useState<Log[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [open, setOpen] = React.useState<string | null>(null);
+  const [next, setNext] = React.useState<Cursor>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  // 요청 세대 — 초기 로드가 올리고 "더 보기"는 같은 세대인지만 본다
   const reqRef = React.useRef(0);
   const selRef = React.useRef(sel);
   // 입력 중인 값과 실제 조회에 쓰는 값을 나눈다 — 타이핑마다 조회하면 부분 입력된
@@ -204,32 +76,65 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
   const [toInput, setToInput] = React.useState("");
   const [range, setRange] = React.useState<{ from: string; to: string }>({ from: "", to: "" });
 
+  /** 조회 조건 쿼리 — 초기 로드와 "더 보기"가 같은 조건을 쓴다 */
+  const buildQuery = React.useCallback(
+    (cursor?: Cursor) => {
+      const qs = new URLSearchParams();
+      if (filter) qs.set("type", filter);
+      // 날짜마다 그날의 로컬 자정을 따로 환산한다 — 오늘 오프셋을 재사용하면 서머타임 경계에서 한 시간 어긋난다
+      const from = range.from ? localDayBoundaryIso(range.from) : null;
+      const to = range.to ? localDayBoundaryIso(range.to, true) : null;
+      if (from) qs.set("from", from);
+      if (to) qs.set("to", to);
+      if (cursor) {
+        qs.set("before", cursor.ts);
+        qs.set("before_id", cursor.id);
+      }
+      return qs.size > 0 ? `?${qs}` : "";
+    },
+    [filter, range]
+  );
+
   const load = React.useCallback(
     async (id: string) => {
       if (!id || id !== selRef.current) return;
       const my = ++reqRef.current;
       setLoading(true);
       setLogs([]);
+      setNext(null);
+      setLoadingMore(false);
       setOpen(null);
       try {
-        const qs = new URLSearchParams();
-        if (filter) qs.set("type", filter);
-        if (range.from) qs.set("from", range.from);
-        if (range.to) qs.set("to", range.to);
-        // 날짜는 "사용자가 보는 하루"여야 한다 — 서버 로컬로 해석하면 경계가 어긋난다
-        if (range.from || range.to) qs.set("tz_offset", String(new Date().getTimezoneOffset()));
-        const q = qs.size > 0 ? `?${qs}` : "";
-        const d = await adminApi<{ logs: Log[] }>(`/api/admin/projects/${id}/logs${q}`);
+        const d = await adminApi<LogsResponse>(`/api/admin/projects/${id}/logs${buildQuery()}`);
         if (my !== reqRef.current || id !== selRef.current) return;
         setLogs(d.logs);
+        setNext(d.next);
       } catch (e) {
-        if (my === reqRef.current && id === selRef.current) toast.error(e instanceof Error ? e.message : t("loadFailed"));
+        if (my === reqRef.current && id === selRef.current) toast.error(errorText(e, t("loadFailed")));
       } finally {
         if (my === reqRef.current) setLoading(false);
       }
     },
-    [t, filter, range]
+    [t, buildQuery, errorText]
   );
+
+  async function loadMore() {
+    if (!sel || !next || loadingMore) return;
+    // 세대를 올리지 않고 붙잡아 둔다 — 그사이 필터·프로젝트가 바뀌면 옛 조건의 다음 페이지를 새 목록에 붙이지 않는다
+    const my = reqRef.current;
+    setLoadingMore(true);
+    try {
+      const d = await adminApi<LogsResponse>(`/api/admin/projects/${sel}/logs${buildQuery(next)}`);
+      if (my !== reqRef.current) return;
+      setLogs((cur) => [...cur, ...d.logs]);
+      setNext(d.next);
+    } catch (e) {
+      if (my !== reqRef.current) return;
+      toast.error(errorText(e, t("loadFailed")));
+    } finally {
+      if (my === reqRef.current) setLoadingMore(false);
+    }
+  }
 
   React.useEffect(() => {
     selRef.current = sel;
@@ -244,14 +149,12 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
       toast.success(t("processResult", { processed: d.processed, failed: d.failed }));
       load(sel);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("processFailed"));
+      toast.error(errorText(e, t("processFailed")));
     }
   }
 
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" }), [locale]);
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  /** 분모가 0이면 비율은 정의되지 않는다 — 0% 는 "아무도 안 읽었다"로 오독된다 */
-  const rate = (num: number, den: number) => (den > 0 ? `${((num / den) * 100).toFixed(1)}%` : "—");
 
   const title = filter === "single" ? t("titleSingle") : filter === "topic" ? t("titleTopic") : t("title");
   const subtitle = filter === "single" ? t("subtitleSingle") : filter === "topic" ? t("subtitleTopic") : t("subtitle");
@@ -277,7 +180,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
 
       {!projectId && <ProjectPicker projects={projects} value={picked} onChange={setPicked} />}
 
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor="log-from">{t("rangeFrom")}</Label>
           <DatePicker id="log-from" value={fromInput} max={toInput || undefined} onChange={setFromInput} placeholder={t("rangeFrom")} clearLabel={t("rangeClear")} />
@@ -287,8 +190,6 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
           <DatePicker id="log-to" value={toInput} min={fromInput || undefined} onChange={setToInput} placeholder={t("rangeTo")} clearLabel={t("rangeClear")} />
         </div>
         <Button
-          size="sm"
-          variant="outline"
           disabled={!sel}
           onClick={() => {
             // 뒤집힌 범위는 조용히 0건이 나와 "데이터가 없다"로 오독된다
@@ -296,7 +197,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
             setRange({ from: fromInput, to: toInput });
           }}
         >
-          <Search aria-hidden="true" className="h-3.5 w-3.5" /> {t("rangeApply")}
+          <Search aria-hidden="true" /> {t("rangeApply")}
         </Button>
         {(range.from || range.to) && (
           <Button
@@ -313,7 +214,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
         )}
       </div>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {!sel && <EmptyState icon={ScrollText} title={tc("selectProjectFirst")} />}
           {sel && loading && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
@@ -322,7 +223,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
             <>
             <DataTable label={title} rowCount={logs.length + 1}>
             <TableHeader
-              grid="xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem]"
+              grid="xl:grid-cols-[auto_minmax(0,1fr)_9rem_11rem_10rem_7rem_7.5rem]"
               columns={[
                 { label: "", blank: true },
                 { label: t("colTitle") },
@@ -340,53 +241,59 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                   // 펼침 상세를 담으려면 한 겹이 더 필요하다. presentation 을 주지 않으면
                   // 이 요소가 rowgroup 과 row 사이에 끼어 표 구조가 끊긴다.
                   <div key={l.id} role="presentation">
-                    <TableRow className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_13rem_5rem_6rem_7rem]">
+                    <TableRow className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_11rem_10rem_7rem_7.5rem]">
                       <TableCell label={t("readers")}>
                       {expandable ? (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setOpen(isOpen ? null : l.id)}
                           aria-expanded={isOpen}
                           aria-label={`${t("readers")} — ${l.title}`}
-                          className="col-start-1 row-start-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                          className="col-start-1 row-start-1 text-muted-foreground hover:text-foreground"
                         >
-                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
+                          {isOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+                        </Button>
                       ) : (
                         <span className="hidden xl:block" />
                       )}
                       </TableCell>
-                      <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">
+                      <TableCell label={t("colTitle")} className="flex min-w-0 items-center gap-2 text-sm font-semibold">
                         <Link
                           href={`/projects/${sel}/logs/${l.id}`}
-                          className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="truncate hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {l.title}
                         </Link>
+                        {l.isTest && <TestChip />}
                       </TableCell>
                       <TableCell label={t("colTargetName")} className="truncate text-xs text-muted-foreground">
                         {l.target ? <span className="font-mono">{l.target}</span> : l.type}
                       </TableCell>
-                      <TableCell label={t("colSentAt")} className="text-xs tabular-nums text-muted-foreground xl:text-right">
+                      <TableCell label={t("colSentAt")} className="text-xs tabular-nums text-muted-foreground xl:text-end">
                         {df.format(new Date(l.createdAt))}
                       </TableCell>
-                      <TableCell label={t("colDelivered")} className="text-right text-xs font-semibold tabular-nums text-muted-foreground">
-                        {nf.format(l.successCount)}/{nf.format(l.totalCount)}
+                      <TableCell label={t("colDelivered")} className="flex items-center justify-end gap-2 text-xs font-semibold tabular-nums">
+                        <span className="text-muted-foreground">{nf.format(l.successCount)}/{nf.format(l.totalCount)}</span>
+                        <RateBar num={l.successCount} den={l.totalCount} tone="success" />
                       </TableCell>
-                      <TableCell
-                        label={t("colReadRate")}
-                        className="flex items-center justify-end gap-1 text-xs font-semibold tabular-nums"
-                      >
-                        <MousePointerClick aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
-                        {rate(l.clickUserCount, l.audienceUserCount)}
+                      <TableCell label={t("colReadRate")} className="flex items-center justify-end text-xs font-semibold">
+                        <RateBar num={l.clickUserCount} den={l.audienceUserCount} tone="primary" />
                       </TableCell>
-                      <TableCell label={t("colStatus")} className="justify-self-end"><Badge variant={statusVariant(l.status)}>{l.status}</Badge></TableCell>
+                      <TableCell label={t("colStatus")} className="justify-self-end"><StatusChip status={l.status} /></TableCell>
                     </TableRow>
                     {expandable && isOpen && <ReaderDetail projectId={sel} logId={l.id} />}
                   </div>
                 );
               })}
             </TableBody>
+            {next && (
+              <div className="flex justify-center border-t border-border p-3">
+                <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? tc("loading") : tc("loadMore")}
+                </Button>
+              </div>
+            )}
             </DataTable>
             </>
           )}

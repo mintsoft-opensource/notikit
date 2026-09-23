@@ -52,7 +52,8 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    labelKey: "settings",
+    // 그룹 이름을 "settings" 로 두면 안의 "설정" 항목과 이름이 겹쳐 스크린리더·헤더 경로가 "설정 › 설정" 이 된다
+    labelKey: "organization",
     items: [
       { labelKey: "profile", href: "/profile", icon: UserRound, exact: true },
       { labelKey: "account", href: "/account", icon: UserCog, exact: true },
@@ -77,8 +78,10 @@ export function projectNavGroups(id: string): NavGroup[] {
   return [
     {
       labelKey: "project",
+      // 설정은 프로젝트 그룹 안에 둔다 — 따로 "설정" 그룹을 만들면 그룹·항목 이름이 겹친다
       items: [
         { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
+        { labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings },
       ],
     },
     {
@@ -122,10 +125,6 @@ export function projectNavGroups(id: string): NavGroup[] {
         { labelKey: "journeys", href: `/projects/${id}/journeys`, icon: GitBranch },
         { labelKey: "webhooks", href: `/projects/${id}/webhooks`, icon: Webhook },
       ],
-    },
-    {
-      labelKey: "settings",
-      items: [{ labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings }],
     },
   ];
 }

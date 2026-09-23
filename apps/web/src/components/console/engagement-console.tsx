@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { MousePointerClick, Percent, Send, Users, CalendarClock, Timer } from "lucide-react";
+import { MousePointerClick, Percent, Send, Users, CalendarClock, Timer, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -11,7 +11,10 @@ import { StatTile, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
 import { Heatmap } from "@/components/system/heatmap";
 import { BarList } from "@/components/console/panels";
-import { adminApi } from "@/lib/admin-client";
+import { ChartEmpty } from "@/components/ui/chart-empty";
+import type { StatDelta } from "@/components/ui/stat-tile";
+import { pctChange, ptChange } from "@/lib/stat-delta";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Stats = {
   clicks: {
@@ -25,6 +28,10 @@ type Stats = {
     buckets: Array<{ ts: string; count: number }>;
   };
   messages: { sends: number };
+  /** 클릭에 귀속된 전환 — 없으면(구버전 응답) 타일을 비워 둔다 */
+  conversions?: { count: number; value_cents: number };
+  /** 직전 같은 길이 구간 — 없으면(구버전 응답) 증감을 표시하지 않는다 */
+  previous?: { sends: number; clicks: number; user_rate: number | null; device_rate: number | null; conversions?: number };
 };
 
 type Log = {
@@ -54,6 +61,21 @@ const RANGE_KEYS: RangeKey[] = ["24h", "7d", "30d"];
 /** 심화 통계는 24h 구간이 너무 얕아 최소 7d 로 조회한다 */
 const DEEP_RANGE: Record<RangeKey, "7d" | "30d" | "90d"> = { "24h": "7d", "7d": "7d", "30d": "30d" };
 const LATENCY_KEYS = ["lt1m", "lt5m", "lt30m", "lt2h", "lt1d", "gte1d"] as const;
+const HOUR_MS = 3_600_000;
+const RANGE_MS: Record<RangeKey, number> = { "24h": 24 * HOUR_MS, "7d": 7 * 24 * HOUR_MS, "30d": 30 * 24 * HOUR_MS };
+const RANKED_LIMIT = 20;
+
+/** 발송 순위 조회 경로 — 선택한 기간 안 발송을 서버가 읽음률 순으로 잘라 준다 */
+function rankedLogsPath(projectId: string, range: RangeKey): string {
+  const now = Date.now();
+  const q = new URLSearchParams({
+    sort: "readRate",
+    limit: String(RANKED_LIMIT),
+    from: new Date(now - RANGE_MS[range]).toISOString(),
+    to: new Date(now).toISOString(),
+  });
+  return `/api/admin/projects/${projectId}/logs?${q}`;
+}
 
 /** 참여 통계 — 클릭 퍼널과 발송별 읽음률. 개요의 요약보다 깊게 본다. */
 export function EngagementConsole({ projectId }: { projectId: string }) {
@@ -61,6 +83,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
   const to = useTranslations("overview");
   const ts = useTranslations("system");
   const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const locale = useLocale();
 
   const [range, setRange] = React.useState<RangeKey>("7d");
@@ -78,28 +101,21 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
     setFailed(false);
     Promise.all([
       adminApi<Stats>(`/api/admin/projects/${projectId}/stats?range=${range}`),
-      adminApi<{ logs: Log[] }>(`/api/admin/projects/${projectId}/logs`),
+      adminApi<{ logs: Log[] }>(rankedLogsPath(projectId, range)),
       adminApi<Deep>(`/api/admin/projects/${projectId}/engagement?range=${DEEP_RANGE[range]}`),
     ])
       .then(([s, l, d]) => {
         if (my !== reqRef.current) return;
         setStats(s);
         setDeep(d);
-        // 읽음률 높은 순 — 대상이 0인 발송은 비율이 정의되지 않으므로 뒤로 민다
-        setLogs(
-          [...l.logs].sort(
-            (a, b) =>
-              (b.audienceUserCount > 0 ? b.clickUserCount / b.audienceUserCount : -1) -
-              (a.audienceUserCount > 0 ? a.clickUserCount / a.audienceUserCount : -1)
-          )
-        );
+        setLogs(l.logs);
       })
       .catch((e) => {
         if (my !== reqRef.current) return;
         setFailed(true);
-        toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+        toast.error(errorText(e, tc("loadFailed")));
       });
-  }, [projectId, range, tc]);
+  }, [projectId, range, tc, errorText]);
 
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
@@ -111,6 +127,22 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
     [locale, range]
   );
   const busy = !stats && !failed;
+  const deltaLabel = to("deltaVsPrevious");
+  const prev = stats?.previous;
+  const toDelta = (value: number | null, unit: StatDelta["unit"]): StatDelta | null =>
+    value === null ? null : { value, unit, label: deltaLabel };
+  const deltas = stats && prev
+    ? {
+        sends: toDelta(pctChange(stats.messages.sends, prev.sends), "%"),
+        clicks: toDelta(pctChange(stats.clicks.clicks, prev.clicks), "%"),
+        userRate: toDelta(ptChange(stats.clicks.user_rate, prev.user_rate), "pt"),
+        deviceRate: toDelta(ptChange(stats.clicks.device_rate, prev.device_rate), "pt"),
+        conversions:
+          typeof prev.conversions === "number" && stats.conversions
+            ? toDelta(pctChange(stats.conversions.count, prev.conversions), "%")
+            : null,
+      }
+    : null;
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
   const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(1)}%` : "—");
   const rangeLabelOf = (r: RangeKey) => (r === "24h" ? ts("range24h") : r === "7d" ? ts("range7d") : ts("range30d"));
@@ -143,15 +175,16 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile icon={Send} label={to("statSends")} value={num(stats?.messages.sends)} loading={busy} />
-        <StatTile icon={MousePointerClick} label={to("statClicks")} value={num(stats?.clicks.clicks)} loading={busy} />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <StatTile icon={Send} label={to("statSends")} value={num(stats?.messages.sends)} loading={busy} delta={deltas?.sends} />
+        <StatTile icon={MousePointerClick} label={to("statClicks")} value={num(stats?.clicks.clicks)} loading={busy} delta={deltas?.clicks} />
         <StatTile
           icon={Percent}
           label={to("clickUserRate")}
           value={stats ? pct(stats.clicks.user_rate) : "—"}
           accent="success"
           loading={busy}
+          delta={deltas?.userRate}
           hint={stats ? `${nf.format(stats.clicks.click_users)} / ${nf.format(stats.clicks.audience_users)}` : null}
         />
         <StatTile
@@ -159,7 +192,16 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
           label={to("clickDeviceRate")}
           value={stats ? pct(stats.clicks.device_rate) : "—"}
           loading={busy}
+          delta={deltas?.deviceRate}
           hint={stats ? `${nf.format(stats.clicks.clicks)} / ${nf.format(stats.clicks.audience_devices)}` : null}
+        />
+        <StatTile
+          icon={Target}
+          label={to("statConversions")}
+          value={num(stats?.conversions?.count)}
+          loading={busy}
+          delta={deltas?.conversions}
+          hint={stats?.conversions ? to("statConversionValue", { value: nf.format(stats.conversions.value_cents) }) : null}
         />
       </div>
 
@@ -184,15 +226,15 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
                 series={[{ key: "clicks", label: to("statClicks"), color: "var(--chart-2)", values: stats.clicks.buckets.map((b) => b.count) }]}
               />
             ) : (
-              <EmptyState icon={MousePointerClick} title={to("noClicks")} />
+              <ChartEmpty icon={MousePointerClick} title={to("noClicks")} className="h-52" />
             )
           ) : (
-            <EmptyState icon={MousePointerClick} title={failed ? tc("loadFailed") : tc("loading")} />
+            <ChartEmpty icon={MousePointerClick} title={failed ? tc("loadFailed") : tc("loading")} className="h-52" />
           )}
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="min-w-0">
           <CardHeader>
             <div>
@@ -225,7 +267,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
           </CardContent>
         </Card>
 
-        <div className="grid min-w-0 gap-3">
+        <div className="grid min-w-0 gap-4">
           <Card className="min-w-0">
             <CardHeader>
               <div>
@@ -243,7 +285,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
               {deep && deep.total > 0 ? (
                 <BarList rows={LATENCY_KEYS.map((k) => ({ label: t(`latency_${k}` as "latency_lt1m"), value: deep.latency[k] ?? 0 }))} />
               ) : (
-                <EmptyState icon={Timer} title={deep ? to("noClicks") : failed ? tc("loadFailed") : tc("loading")} />
+                <ChartEmpty kind="bar" icon={Timer} title={deep ? to("noClicks") : failed ? tc("loadFailed") : tc("loading")} className="h-40" />
               )}
             </CardContent>
           </Card>
@@ -256,47 +298,47 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
               {deep && deep.platforms.length > 0 ? (
                 <BarList rows={deep.platforms.map((p) => ({ label: p.platform, value: p.count }))} />
               ) : (
-                <EmptyState icon={Users} title={deep ? to("noClicks") : failed ? tc("loadFailed") : tc("loading")} />
+                <ChartEmpty kind="bar" icon={Users} title={deep ? to("noClicks") : failed ? tc("loadFailed") : tc("loading")} className="h-40" />
               )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardHeader>
           <div>
             <CardTitle>{t("byMessage")}</CardTitle>
-            <CardDescription>{t("byMessageHint")}</CardDescription>
+            <CardDescription>{t("byMessageRankedHint", { count: RANKED_LIMIT })}</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {logs && logs.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[42rem] text-left">
-                <thead className="border-b border-border">
-                  <tr className="text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
-                    <th scope="col" className="px-5 py-2.5">{t("colMessage")}</th>
-                    <th scope="col" className="px-3 py-2.5">{t("colType")}</th>
-                    <th scope="col" className="px-3 py-2.5 text-right">{t("colAudience")}</th>
-                    <th scope="col" className="px-3 py-2.5 text-right">{t("colReaders")}</th>
-                    <th scope="col" className="px-3 py-2.5 text-right">{t("colRate")}</th>
-                    <th scope="col" className="px-5 py-2.5 text-right">{t("colSentAt")}</th>
+              <table className="w-full min-w-[42rem] text-start">
+                <thead className="border-b border-border bg-surface-muted/50">
+                  <tr className="text-xs font-semibold text-muted-foreground">
+                    <th scope="col" className="px-3.5 py-2 text-start">{t("colMessage")}</th>
+                    <th scope="col" className="px-3.5 py-2 text-start">{t("colType")}</th>
+                    <th scope="col" className="px-3.5 py-2 text-end">{t("colAudience")}</th>
+                    <th scope="col" className="px-3.5 py-2 text-end">{t("colReaders")}</th>
+                    <th scope="col" className="px-3.5 py-2 text-end">{t("colRate")}</th>
+                    <th scope="col" className="px-3.5 py-2 text-end">{t("colSentAt")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {logs.map((l) => (
                     <tr key={l.id} className="transition-colors hover:bg-surface-muted/30">
                       <td className="max-w-0 truncate px-3.5 py-2 text-sm font-medium">{l.title}</td>
-                      <td className="px-3 py-3 text-xs text-muted-foreground">
+                      <td className="px-3.5 py-2 text-xs text-muted-foreground">
                         {l.target ? <span className="font-mono">{l.target}</span> : l.type}
                       </td>
-                      <td className="px-3 py-3 text-right text-xs tabular-nums text-muted-foreground">{nf.format(l.audienceUserCount)}</td>
-                      <td className="px-3 py-3 text-right text-xs tabular-nums text-muted-foreground">{nf.format(l.clickUserCount)}</td>
-                      <td className="px-3 py-3 text-right text-xs font-bold tabular-nums">
+                      <td className="px-3.5 py-2 text-end text-xs tabular-nums text-muted-foreground">{nf.format(l.audienceUserCount)}</td>
+                      <td className="px-3.5 py-2 text-end text-xs tabular-nums text-muted-foreground">{nf.format(l.clickUserCount)}</td>
+                      <td className="px-3.5 py-2 text-end text-xs font-bold tabular-nums">
                         {l.audienceUserCount > 0 ? `${((l.clickUserCount / l.audienceUserCount) * 100).toFixed(1)}%` : "—"}
                       </td>
-                      <td className="whitespace-nowrap px-3.5 py-2 text-right text-xs tabular-nums text-muted-foreground">
+                      <td className="whitespace-nowrap px-3.5 py-2 text-end text-xs tabular-nums text-muted-foreground">
                         <time dateTime={l.createdAt}>{df.format(new Date(l.createdAt))}</time>
                       </td>
                     </tr>

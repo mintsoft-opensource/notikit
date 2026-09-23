@@ -12,7 +12,7 @@ import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/compon
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
-import { adminApi } from "@/lib/admin-client";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 /** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
 type Cursor = { ts: string; id: string } | null;
@@ -25,6 +25,7 @@ function cursorQuery(c: Cursor): string {
 type PushUser = {
   id: string;
   externalId: string;
+  name: string | null;
   attributes: Record<string, unknown> | null;
   phone: string | null;
   locale: string | null;
@@ -39,18 +40,25 @@ type PushUser = {
 export function UsersConsole({ projectId }: { projectId: string }) {
   const t = useTranslations("audience");
   const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const locale = useLocale();
 
   const [q, setQ] = React.useState("");
   const [users, setUsers] = React.useState<PushUser[] | null>(null);
   const [next, setNext] = React.useState<Cursor>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
+  // 요청 세대 — 초기 로드가 올리고 "더 보기"는 같은 세대인지만 본다
   const reqRef = React.useRef(0);
+  // 지금 목록을 만든 검색어 — 입력창의 q 는 디바운스 중이라 목록과 다를 수 있다
+  const loadedQueryRef = React.useRef("");
 
   const load = React.useCallback(
     async (search: string) => {
       const my = ++reqRef.current;
+      loadedQueryRef.current = search;
       setUsers(null);
+      setNext(null);
+      setLoadingMore(false);
       try {
         const d = await adminApi<{ users: PushUser[]; next: Cursor }>(
           `/api/admin/projects/${projectId}/audience/users?q=${encodeURIComponent(search)}`
@@ -61,10 +69,10 @@ export function UsersConsole({ projectId }: { projectId: string }) {
       } catch (e) {
         if (my !== reqRef.current) return;
         setUsers([]);
-        toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+        toast.error(errorText(e, tc("loadFailed")));
       }
     },
-    [projectId, tc]
+    [projectId, tc, errorText]
   );
 
   React.useEffect(() => {
@@ -75,17 +83,21 @@ export function UsersConsole({ projectId }: { projectId: string }) {
 
   async function loadMore() {
     if (!next || loadingMore) return;
+    // 세대를 올리지 않고 붙잡아 둔다 — 그사이 검색어가 바뀌면 옛 검색의 다음 페이지를 새 목록에 붙이지 않는다
+    const my = reqRef.current;
     setLoadingMore(true);
     try {
       const d = await adminApi<{ users: PushUser[]; next: Cursor }>(
-        `/api/admin/projects/${projectId}/audience/users?q=${encodeURIComponent(q)}&${cursorQuery(next)}`
+        `/api/admin/projects/${projectId}/audience/users?q=${encodeURIComponent(loadedQueryRef.current)}&${cursorQuery(next)}`
       );
+      if (my !== reqRef.current) return;
       setUsers((cur) => [...(cur ?? []), ...d.users]);
       setNext(d.next);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      if (my !== reqRef.current) return;
+      toast.error(errorText(e, tc("loadFailed")));
     } finally {
-      setLoadingMore(false);
+      if (my === reqRef.current) setLoadingMore(false);
     }
   }
 
@@ -97,17 +109,17 @@ export function UsersConsole({ projectId }: { projectId: string }) {
       <PageHeader title={t("usersTitle")} description={t("usersSubtitle")} />
 
       <div className="relative">
-        <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("userSearchPlaceholder")}
           aria-label={t("userSearchPlaceholder")}
-          className="pl-9"
+          className="ps-9"
         />
       </div>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {!users && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {users && users.length === 0 && <EmptyState icon={Users} title={q ? t("noMatches") : t("noUsers")} />}
@@ -119,8 +131,8 @@ export function UsersConsole({ projectId }: { projectId: string }) {
                 columns={[
                   { label: t("colUser") },
                   { label: t("colAttributes") },
-                  { label: t("colDevices") },
-                  { label: t("colClicks") },
+                  { label: t("colDevices"), align: "end" },
+                  { label: t("colClicks"), align: "end" },
                   { label: t("colLastActive"), align: "end" },
                 ]}
               />
@@ -130,7 +142,8 @@ export function UsersConsole({ projectId }: { projectId: string }) {
                   return (
                     <TableRow key={u.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_7rem_7rem_10rem] xl:items-center">
                       <TableCell label={t("colUser")} className="min-w-0">
-                        <p className="truncate font-mono text-sm font-semibold">{u.externalId}</p>
+                        {u.name && <p className="truncate text-sm font-semibold">{u.name}</p>}
+                        <p className={u.name ? "truncate font-mono text-xs text-muted-foreground" : "truncate font-mono text-sm font-semibold"}>{u.externalId}</p>
                         <p className="text-xs text-muted-foreground">
                           {[u.locale, u.timezone].filter(Boolean).join(" · ") || "—"}
                         </p>
@@ -142,15 +155,15 @@ export function UsersConsole({ projectId }: { projectId: string }) {
                             ))
                           : <span className="text-xs text-muted-foreground">{t("noAttributes")}</span>}
                       </TableCell>
-                      <TableCell label={t("colDevices")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                      <TableCell label={t("colDevices")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground xl:justify-end">
                         <Smartphone aria-hidden="true" className="h-3.5 w-3.5" /> {nf.format(u.deviceCount)}
                       </TableCell>
-                      <TableCell label={t("colClicks")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                      <TableCell label={t("colClicks")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground xl:justify-end">
                         <MousePointerClick aria-hidden="true" className="h-3.5 w-3.5" /> {nf.format(u.clickCount)}
                       </TableCell>
                       <TableCell
                         label={t("colLastActive")}
-                        className="text-xs tabular-nums text-muted-foreground xl:text-right"
+                        className="text-xs tabular-nums text-muted-foreground xl:text-end"
                       >
                         {u.lastActiveAt ? df.format(new Date(u.lastActiveAt)) : "—"}
                       </TableCell>

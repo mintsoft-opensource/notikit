@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Field } from "@/components/ui/input";
@@ -23,6 +24,7 @@ async function hmacHex(secret: string, msg: string): Promise<string> {
 type CreateResponse = { data?: { project?: { apiKey?: string; id?: string }; api_secret?: string } };
 
 export default function TesterPage() {
+  const t = useTranslations("tester");
   const [adminToken, setAdminToken] = React.useState("e2e-admin-token");
   const [externalId, setExternalId] = React.useState("tester-user-1");
   const [steps, setSteps] = React.useState<Step[]>([]);
@@ -54,7 +56,7 @@ export default function TesterPage() {
       const create = await call(
         "/api/admin/projects",
         { method: "POST", headers: admin, body: JSON.stringify({ name: `tester-${Date.now()}` }) },
-        "1. 프로젝트 생성 (admin)"
+        t("stepCreateProject")
       );
       const b = create.body as CreateResponse;
       const apiKey = b?.data?.project?.apiKey;
@@ -70,31 +72,36 @@ export default function TesterPage() {
 
       await call(
         "/api/v1/devices",
-        { method: "POST", headers: appAuth, body: JSON.stringify({ token, platform: "web", external_id: externalId, identity_hash: hash }) },
-        "2. 디바이스 등록 (App SDK)"
+        { method: "POST", headers: appAuth, body: JSON.stringify({ token, platform: "web", user_id: externalId, identity_hash: hash }) },
+        t("stepRegisterDevice")
       );
       await call(
         "/api/v1/users/identify",
-        { method: "POST", headers: appAuth, body: JSON.stringify({ external_id: externalId, identity_hash: hash, attributes: { plan: "pro" } }) },
-        "3. 유저 식별"
+        { method: "POST", headers: appAuth, body: JSON.stringify({ user_id: externalId, identity_hash: hash, attributes: { plan: "pro" } }) },
+        t("stepIdentify")
       );
       await call(
         "/api/v1/topics/subscribe",
         { method: "POST", headers: appAuth, body: JSON.stringify({ topic: "news", token }) },
-        "4. 토픽 구독"
+        t("stepSubscribe")
       );
+      /*
+       * 서버용 api-secret 을 브라우저에서 쓰는 곳은 여기뿐이다. 이 화면은 관리자 QA 전용
+       * (관리자 토큰으로 방금 만든 일회용 프로젝트의 키)이라 허용한다 — 실제 고객 앱은
+       * api-secret 을 절대 클라이언트에 두지 않고 서버에서만 발송 API 를 호출해야 한다.
+       */
       await call(
         "/api/v1/messages",
-        { method: "POST", headers: { "api-key": apiKey, "api-secret": apiSecret }, body: JSON.stringify({ title: "테스터", body: "안녕하세요", type: "single", target: externalId, deep_link: "https://app/orders/1" }) },
-        "5. 푸시 발송 (큐잉)"
+        { method: "POST", headers: { "api-key": apiKey, "api-secret": apiSecret }, body: JSON.stringify({ title: t("sampleTitle"), body: t("sampleBody"), type: "single", target: externalId, deep_link: "https://app/orders/1" }) },
+        t("stepSend")
       );
       await call(
         `/api/admin/projects/${projectId}/process-queue`,
         { method: "POST", headers: admin, body: "{}" },
-        "6. 큐 처리 (log-only 발송)"
+        t("stepProcessQueue")
       );
     } catch (e) {
-      push("오류", 0, false, e instanceof Error ? e.message : String(e));
+      push(t("stepError"), 0, false, e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
     }
@@ -103,22 +110,22 @@ export default function TesterPage() {
   return (
     <div className="w-full space-y-4">
       <PageHeader
-        title="API 테스터"
-        description="전체 플로우(프로젝트→디바이스 등록→식별→구독→발송→큐 처리)를 브라우저에서 실행·검증. Firebase 미설정 log-only 모드."
+        title={t("title")}
+        description={t("subtitle")}
       />
 
       <Card>
-        <CardHeader><CardTitle>설정</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("settings")}</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Field label="Admin Token">
+          <Field label={t("adminToken")}>
             <Input value={adminToken} onChange={(e) => setAdminToken(e.target.value)} />
           </Field>
-          <Field label="External User ID">
+          <Field label={t("externalId")}>
             <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
           </Field>
           <div className="sm:col-span-2">
-            <Button onClick={runFullFlow} disabled={running} size="lg">
-              {running ? "실행 중…" : "전체 플로우 실행"}
+            <Button onClick={runFullFlow} disabled={running}>
+              {running ? t("running") : t("run")}
             </Button>
           </div>
         </CardContent>
@@ -126,7 +133,7 @@ export default function TesterPage() {
 
       {keys.apiKey && (
         <p className="break-all text-xs text-muted-foreground">
-          발급된 api-key: <code>{keys.apiKey}</code>
+          {t("issuedApiKey")} <code>{keys.apiKey}</code>
         </p>
       )}
 

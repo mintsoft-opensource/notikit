@@ -9,27 +9,54 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
-import { useProjects, adminApi } from "@/lib/admin-client";
+import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
+
+type Policy = {
+  requireIdentityVerification?: boolean;
+  quietStartHour: number | null;
+  quietEndHour: number | null;
+  frequencyCapPerDay?: number | null;
+};
+
+const FREQ_CAP_MIN = 1;
+const FREQ_CAP_MAX = 100;
 
 /** 프로젝트 설정 — 발송 정책(identity/방해금지) + Firebase/카카오 자격증명. 프로젝트 상세 전용. */
 export function ProjectSettings({ projectId }: { projectId: string }) {
   const t = useTranslations("settings");
+  const tc = useTranslations("common");
+  const errorText = useAdminErrorText();
   const { projects, reload } = useProjects();
   const project = projects.find((p) => p.id === projectId);
 
   const [quietStart, setQuietStart] = React.useState("");
   const [quietEnd, setQuietEnd] = React.useState("");
   const [requireId, setRequireId] = React.useState(true);
+  const [freqCap, setFreqCap] = React.useState("");
+  const [policyLoaded, setPolicyLoaded] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const hydratedFor = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (!project || hydratedFor.current === project.id) return;
-    setRequireId(project.requireIdentityVerification ?? true);
-    setQuietStart(project.quietStartHour == null ? "" : String(project.quietStartHour));
-    setQuietEnd(project.quietEndHour == null ? "" : String(project.quietEndHour));
-    hydratedFor.current = project.id;
-  }, [project]);
+    let alive = true;
+    setPolicyLoaded(false);
+    adminApi<{ project: Policy }>(`/api/admin/projects/${projectId}`)
+      .then(({ project: p }) => {
+        if (!alive) return;
+        setRequireId(p.requireIdentityVerification ?? true);
+        setQuietStart(p.quietStartHour == null ? "" : String(p.quietStartHour));
+        setQuietEnd(p.quietEndHour == null ? "" : String(p.quietEndHour));
+        setFreqCap(p.frequencyCapPerDay == null ? "" : String(p.frequencyCapPerDay));
+        setPolicyLoaded(true);
+      })
+      .catch((e) => {
+        if (alive) toast.error(errorText(e, tc("loadFailed")));
+      });
+    return () => { alive = false; };
+  }, [projectId, errorText, tc]);
+
+  const freqCapNum = freqCap.trim() === "" ? null : Number(freqCap);
+  const freqCapInvalid =
+    freqCapNum !== null && (!Number.isInteger(freqCapNum) || freqCapNum < FREQ_CAP_MIN || freqCapNum > FREQ_CAP_MAX);
 
   const [firebase, setFirebase] = React.useState("");
   const [firebaseBusy, setFirebaseBusy] = React.useState(false);
@@ -38,6 +65,10 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
 
   async function savePolicy() {
     if (saving) return;
+    if (freqCapInvalid) {
+      toast.error(t("frequencyCapInvalid", { min: FREQ_CAP_MIN, max: FREQ_CAP_MAX }));
+      return;
+    }
     setSaving(true);
     try {
       await adminApi(`/api/admin/projects/${projectId}`, {
@@ -46,12 +77,13 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
           require_identity_verification: requireId,
           quiet_start_hour: quietStart === "" ? null : Number(quietStart),
           quiet_end_hour: quietEnd === "" ? null : Number(quietEnd),
+          frequency_cap_per_day: freqCapNum,
         }),
       });
       toast.success(t("policySaved"));
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("saveFailed"));
+      toast.error(errorText(e, t("saveFailed")));
     } finally {
       setSaving(false);
     }
@@ -76,7 +108,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       setFirebase("");
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("failed"));
+      toast.error(errorText(e, t("failed")));
     } finally {
       setFirebaseBusy(false);
     }
@@ -91,7 +123,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       setKakao({ provider_url: "", api_key: "", sender_key: "" });
       reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("failed"));
+      toast.error(errorText(e, t("failed")));
     } finally {
       setKakaoBusy(false);
     }
@@ -124,32 +156,58 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             <CardDescription>{t("policyDesc")}</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,24rem)_repeat(2,minmax(0,14rem))_auto]">
-          <label className="flex items-center gap-2 pb-2 text-sm sm:col-span-2 xl:col-span-1 xl:pb-2.5">
+        <CardContent className="space-y-4">
+          <label className="flex min-h-9 items-center gap-2 text-sm">
             <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="h-4 w-4 rounded-sm border-border accent-[var(--primary)]" />
             {t("requireIdentity")}
           </label>
-          <div className="space-y-1">
-            <Label htmlFor="qs">{t("quietStart")}</Label>
-            <Select id="qs" value={quietStart} onChange={(e) => setQuietStart(e.target.value)}>
-              <option value="">{t("none")}</option>
-              {Array.from({ length: 24 }, (_, i) => (
-                <option key={i} value={i}>{t("hour", { hour: i })}</option>
-              ))}
-            </Select>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-1">
+              <Label htmlFor="qs">{t("quietStart")}</Label>
+              <Select id="qs" value={quietStart} onChange={(e) => setQuietStart(e.target.value)}>
+                <option value="">{t("none")}</option>
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>{t("hour", { hour: i })}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="qe">{t("quietEnd")}</Label>
+              <Select id="qe" value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)}>
+                <option value="">{t("none")}</option>
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>{t("hour", { hour: i })}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Field label={t("frequencyCap")} hint={t("frequencyCapHint", { min: FREQ_CAP_MIN, max: FREQ_CAP_MAX })}>
+                <Input
+                  id="freq-cap"
+                  type="number"
+                  inputMode="numeric"
+                  min={FREQ_CAP_MIN}
+                  max={FREQ_CAP_MAX}
+                  step={1}
+                  value={freqCap}
+                  onChange={(e) => setFreqCap(e.target.value)}
+                  placeholder={t("none")}
+                  aria-invalid={freqCapInvalid || undefined}
+                  aria-describedby={freqCapInvalid ? "freq-cap-error" : undefined}
+                />
+              </Field>
+              {freqCapInvalid && (
+                <p id="freq-cap-error" className="text-xs text-error">
+                  {t("frequencyCapInvalid", { min: FREQ_CAP_MIN, max: FREQ_CAP_MAX })}
+                </p>
+              )}
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="qe">{t("quietEnd")}</Label>
-            <Select id="qe" value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)}>
-              <option value="">{t("none")}</option>
-              {Array.from({ length: 24 }, (_, i) => (
-                <option key={i} value={i}>{t("hour", { hour: i })}</option>
-              ))}
-            </Select>
+          <div className="flex justify-end">
+            <Button onClick={savePolicy} disabled={saving || !policyLoaded || freqCapInvalid}>
+              <Save aria-hidden="true" className="h-4 w-4" /> {saving ? t("saving") : t("savePolicy")}
+            </Button>
           </div>
-          <Button className="justify-self-start sm:col-span-2 xl:col-span-1" onClick={savePolicy} disabled={saving || !project}>
-            <Save aria-hidden="true" className="h-4 w-4" /> {saving ? t("saving") : t("savePolicy")}
-          </Button>
         </CardContent>
       </Card>
       </TabPanel>

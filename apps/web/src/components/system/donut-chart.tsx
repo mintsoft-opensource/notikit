@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 export type DonutSlice = { label: string; value: number; color: string };
@@ -23,6 +24,7 @@ export function DonutChart({
   height?: number;
   formatValue?: (v: number) => string;
 }) {
+  const tc = useTranslations("common");
   const total = slices.reduce((sum, s) => sum + s.value, 0);
   const fmt = formatValue ?? ((v: number) => String(v));
   // 분모가 0이면 비율은 정의되지 않는다 — 0% 로 위장하지 않는다
@@ -74,7 +76,7 @@ export function DonutChart({
             <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
             <span className="truncate text-muted-foreground">{s.label}</span>
             <span className="tabular-nums font-semibold">{fmt(s.value)}</span>
-            <span className="w-12 text-right tabular-nums text-muted-foreground">{pct(s.value)}</span>
+            <span className="w-12 text-end tabular-nums text-muted-foreground">{pct(s.value)}</span>
           </li>
         ))}
       </ul>
@@ -84,7 +86,7 @@ export function DonutChart({
         <thead>
           <tr>
             <th scope="col">{label}</th>
-            <th scope="col">value</th>
+            <th scope="col">{tc("chartValue")}</th>
           </tr>
         </thead>
         <tbody>

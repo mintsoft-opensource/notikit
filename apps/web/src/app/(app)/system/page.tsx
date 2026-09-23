@@ -89,6 +89,8 @@ function HostSection() {
 
   React.useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // 응답이 온 뒤에 다음 요청을 예약한다 — setInterval 은 느린 응답 위에 요청을 겹쳐 쌓고 순서가 뒤집힐 수 있다
     async function poll() {
       try {
         const d = await adminApi<HostStats>("/api/admin/system/host");
@@ -109,13 +111,14 @@ function HostSection() {
         );
       } catch {
         if (alive) setError(true);
+      } finally {
+        if (alive) timer = setTimeout(poll, POLL_MS);
       }
     }
-    poll();
-    const id = setInterval(poll, POLL_MS);
+    void poll();
     return () => {
       alive = false;
-      clearInterval(id);
+      clearTimeout(timer);
     };
   }, []);
 
@@ -156,7 +159,7 @@ function HostSection() {
   const chartEmpty = live ? t("collecting") : history == null ? t("collecting") : t("historyEmpty");
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <SectionTitle
         right={
           <div className="flex shrink-0 items-center gap-3">
@@ -179,7 +182,7 @@ function HostSection() {
         {t("host")}
       </SectionTitle>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         <StatTile
           icon={Cpu}
           loading={busy}
@@ -219,7 +222,7 @@ function HostSection() {
         />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="min-w-0">
           <PanelHead title={t("chartCpu")} sub={windowLabel} />
           <CardContent>
@@ -260,7 +263,7 @@ function HostSection() {
         </Card>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <Card className="min-w-0">
           <PanelHead title={t("chartNetwork")} sub={windowLabel} />
           <CardContent>
@@ -341,7 +344,7 @@ export default function SystemPage() {
 
       <HostSection />
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <SectionTitle>{t("delivery")}</SectionTitle>
 
         {error && (
@@ -361,7 +364,7 @@ export default function SystemPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
           <StatTile loading={statsBusy} icon={Send} label={t("statSends")} value={num(stats?.totals.sends24h)} />
           <StatTile loading={statsBusy} icon={Inbox} label={t("statRecipients")} value={num(stats?.totals.recipients24h)} />
           <StatTile loading={statsBusy} icon={Percent} label={t("statSuccessRate")} value={successRate} accent="success" />
@@ -370,7 +373,7 @@ export default function SystemPage() {
         </div>
 
         <SectionTitle>{ta("title")}</SectionTitle>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatTile loading={statsBusy} icon={Activity} label={ta("dau")} value={num(stats?.activity.dau.devices)}
             hint={stats ? ta("usersHint", { count: nf.format(stats.activity.dau.users) }) : null} />
           <StatTile loading={statsBusy} icon={Users} label={ta("mau")} value={num(stats?.activity.mau.devices)}
@@ -427,7 +430,7 @@ export default function SystemPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           <Card className="min-w-0">
             <PanelHead title={t("chartStatuses")} sub={t("range24h")} />
             <CardContent>

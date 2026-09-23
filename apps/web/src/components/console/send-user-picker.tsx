@@ -9,7 +9,13 @@ import { Input, Label } from "@/components/ui/input";
 import { adminApi } from "@/lib/admin-client";
 
 /** 고른 사용자 — 미리보기 치환에 속성이 필요해서 아이디만이 아니라 속성까지 들고 다닌다 */
-export type PickedUser = { externalId: string; attributes: Record<string, unknown> | null };
+export type PickedUser = {
+  externalId: string;
+  name: string | null;
+  attributes: Record<string, unknown> | null;
+  timezone: string | null;
+  locale: string | null;
+};
 
 type UserHit = PickedUser & { id: string; phone: string | null; deviceCount: number; lastActiveAt: string | null };
 
@@ -39,17 +45,18 @@ export function SendUserPicker({
     <div className="space-y-1">
       <Label id={labelId}>{multiple ? t("targetUsersCount", { count: value.length }) : t("targetUser")}</Label>
       {multiple ? (
-        <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border bg-surface p-1.5 shadow-sm">
+        <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface p-1 shadow-sm">
           {value.map((u) => (
-            <span key={u.externalId} className="inline-flex max-w-full items-center gap-1 rounded-md bg-accent-soft py-0.5 pl-2 pr-1 font-mono text-xs">
-              <span className="truncate">{u.externalId}</span>
+            // 칸 안의 조작 요소(칩 X·사용자 추가)는 D3 규칙 — h-7·rounded-md·14px 아이콘
+            <span key={u.externalId} className="inline-flex h-7 max-w-full items-center gap-0.5 rounded-md bg-accent-soft ps-2 font-mono text-xs">
+              <span className="truncate">{u.name ? `${u.name} · ${u.externalId}` : u.externalId}</span>
               <button
                 type="button"
                 aria-label={t("removeUser", { id: u.externalId })}
                 onClick={() => onChange(value.filter((v) => v.externalId !== u.externalId))}
-                className="grid h-4 w-4 place-items-center rounded-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <X aria-hidden="true" className="h-3 w-3" />
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
             </span>
           ))}
@@ -57,7 +64,7 @@ export function SendUserPicker({
             type="button"
             aria-haspopup="dialog"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold text-primary hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Plus aria-hidden="true" className="h-3.5 w-3.5" /> {t("addUsers")}
           </button>
@@ -69,7 +76,7 @@ export function SendUserPicker({
             aria-labelledby={labelId}
             aria-haspopup="dialog"
             onClick={() => setOpen(true)}
-            className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-surface px-2.5 pr-9 text-left text-sm shadow-sm hover:bg-surface-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-surface px-2.5 pe-9 text-start text-sm shadow-sm hover:bg-surface-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
             {value[0] ? (
@@ -83,7 +90,8 @@ export function SendUserPicker({
               type="button"
               aria-label={t("clearUser")}
               onClick={() => onChange([])}
-              className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              // 칸(36px) 안에 겹쳐 놓는 지우기 버튼 — 칸 안 요소 규칙(D3) 28px·14px 아이콘
+              className="absolute end-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
@@ -105,13 +113,15 @@ export function SendUserPicker({
   );
 }
 
-function UserSearchDialog({
+export function UserSearchDialog({
   open,
   projectId,
   multiple,
   initial,
   onClose,
   onDone,
+  title,
+  description,
 }: {
   open: boolean;
   projectId: string;
@@ -119,6 +129,8 @@ function UserSearchDialog({
   initial: PickedUser[];
   onClose: () => void;
   onDone: (users: PickedUser[]) => void;
+  title?: string;
+  description?: string;
 }) {
   const t = useTranslations("send");
   const tc = useTranslations("common");
@@ -129,6 +141,10 @@ function UserSearchDialog({
   const [failed, setFailed] = React.useState(false);
   // 다중 선택은 팝업 안에서 고르다가 "선택"을 눌러야 반영된다 — 닫으면 취소
   const [draft, setDraft] = React.useState<PickedUser[]>([]);
+  /** 방향키로 가리키는 결과 — 포커스는 입력칸에 두고 aria-activedescendant 로 알린다 */
+  const [active, setActive] = React.useState(-1);
+  const listId = React.useId();
+  const optionId = (i: number) => `${listId}-opt-${i}`;
   const reqRef = React.useRef(0);
   const initialRef = React.useRef(initial);
   initialRef.current = initial;
@@ -139,7 +155,11 @@ function UserSearchDialog({
     const timer = setTimeout(() => {
       setFailed(false);
       adminApi<{ users: UserHit[] }>(`/api/admin/projects/${projectId}/audience/users?q=${encodeURIComponent(q.trim())}`)
-        .then((d) => my === reqRef.current && setUsers(d.users))
+        .then((d) => {
+          if (my !== reqRef.current) return;
+          setUsers(d.users);
+          setActive(-1);
+        })
         .catch(() => my === reqRef.current && setFailed(true));
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -157,9 +177,30 @@ function UserSearchDialog({
 
   const chosen = new Set(draft.map((u) => u.externalId));
   const full = draft.length >= MAX_PICK;
+  const hasResults = Boolean(users && users.length > 0 && !failed);
+  const isDisabled = (u: UserHit) => multiple && !chosen.has(u.externalId) && full;
+
+  React.useEffect(() => {
+    if (active >= 0) document.getElementById(`${listId}-opt-${active}`)?.scrollIntoView({ block: "nearest" });
+  }, [active, listId]);
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!users || !hasResults) return;
+    const last = users.length - 1;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (i >= last ? 0 : i + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (i <= 0 ? last : i - 1));
+    } else if (e.key === "Enter" && active >= 0 && users[active]) {
+      e.preventDefault();
+      if (!isDisabled(users[active])) pick(users[active]);
+    }
+  }
 
   function pick(u: UserHit) {
-    const picked = { externalId: u.externalId, attributes: u.attributes };
+    const picked = { externalId: u.externalId, name: u.name, attributes: u.attributes, timezone: u.timezone, locale: u.locale };
     if (!multiple) return onDone([picked]);
     setDraft((d) =>
       d.some((x) => x.externalId === u.externalId)
@@ -174,8 +215,8 @@ function UserSearchDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={t("pickUser")}
-      description={multiple ? t("maxUsers", { max: MAX_PICK }) : t("pickUserHint")}
+      title={title ?? t("pickUser")}
+      description={description ?? (multiple ? t("maxUsers", { max: MAX_PICK }) : t("pickUserHint"))}
       footer={
         multiple ? (
           <>
@@ -187,10 +228,16 @@ function UserSearchDialog({
     >
       <div className="space-y-3">
         <div className="relative">
-          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            role="combobox"
             aria-label={t("pickUser")}
-            className="pl-9"
+            aria-expanded={hasResults}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={hasResults && active >= 0 ? optionId(active) : undefined}
+            onKeyDown={onSearchKeyDown}
+            className="ps-9"
             spellCheck={false}
             autoComplete="off"
             value={q}
@@ -207,30 +254,35 @@ function UserSearchDialog({
           ) : users.length === 0 ? (
             <p className="p-4 text-center text-sm text-muted-foreground">{t("noUsersFound")}</p>
           ) : (
-            <ul className="divide-y divide-border">
-              {users.map((u) => {
+            // 결과는 입력칸이 조종하는 listbox — 옵션에 포커스를 옮기지 않으므로 mousedown 으로 입력칸 포커스를 지킨다
+            <ul id={listId} role="listbox" aria-label={t("pickUser")} aria-multiselectable={multiple || undefined} className="divide-y divide-border">
+              {users.map((u, i) => {
                 const on = chosen.has(u.externalId);
+                const off = isDisabled(u);
                 return (
-                  <li key={u.id}>
-                    <button
-                      type="button"
-                      aria-pressed={multiple ? on : undefined}
-                      disabled={multiple && !on && full}
-                      onClick={() => pick(u)}
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-muted/50 focus-visible:bg-surface-muted/50 focus-visible:outline-none disabled:opacity-50"
-                    >
-                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${on ? "bg-primary text-primary-foreground" : "bg-accent-soft text-primary"}`}>
-                        {on ? <Check aria-hidden="true" className="h-4 w-4" /> : <UserRound aria-hidden="true" className="h-4 w-4" />}
+                  <li
+                    key={u.id}
+                    id={optionId(i)}
+                    role="option"
+                    aria-selected={multiple ? on : i === active}
+                    aria-disabled={off || undefined}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => !off && pick(u)}
+                    className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-start ${i === active ? "bg-surface-muted/50" : ""} ${off ? "cursor-not-allowed opacity-50" : ""}`}
+                  >
+                      <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${on ? "bg-primary text-primary-foreground" : "bg-accent-soft text-primary"}`}>
+                        {on ? <Check aria-hidden="true" className="h-3.5 w-3.5" /> : <UserRound aria-hidden="true" className="h-3.5 w-3.5" />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-mono text-sm font-semibold">{u.externalId}</span>
+                        {u.name && <span className="block truncate text-sm font-semibold">{u.name}</span>}
+                        <span className={u.name ? "block truncate font-mono text-xs text-muted-foreground" : "block truncate font-mono text-sm font-semibold"}>{u.externalId}</span>
                         <span className="block truncate text-xs text-muted-foreground">
                           {t("userDevices", { count: u.deviceCount })}
                           {u.phone ? ` · ${u.phone}` : ""}
                           {u.lastActiveAt ? ` · ${df.format(new Date(u.lastActiveAt))}` : ""}
                         </span>
                       </span>
-                    </button>
                   </li>
                 );
               })}

@@ -44,15 +44,23 @@
   --accent-soft: var(--mint50);
 
   --foreground: #1c1f1c;
-  --muted-foreground: var(--gy500);
+  /* WCAG 대비(텍스트 4.5:1) — surface #fff 5.81 · background-alt 5.55 · surface-muted 5.25.
+   * gy500 은 surface-muted 위에서 4.34 로 미달이라 한 단계 어둡게 따로 둔다. */
+  --muted-foreground: #62675d;
 
   --border: var(--gy200);
   --border-strong: var(--gy300);
+  /* 포커스 링은 불투명으로 쓴다(ring-ring). 인접색 대비(3:1) — surface 5.00 · background-alt 4.78 · surface-muted 4.53 */
   --ring: var(--mint500);
 
-  --error: #c93a2e;
-  --success: #1e7f4f;
-  --warning: #b25e09;
+  /* 상태색은 글자로도 쓴다(4.5:1). surface / background-alt / surface-muted / 10% 틴트 칩 순:
+   * error   #b8352a 5.86 / 5.61 / 5.31 / 5.04
+   * success #1a7347 5.85 / 5.60 / 5.30 / 5.08
+   * warning #9a5207 5.86 / 5.61 / 5.30 / 5.09 */
+  --error: #b8352a;
+  --error-foreground: #ffffff; /* bg-error 위 글자 5.86 */
+  --success: #1a7347;
+  --warning: #9a5207;
 
   /* 외부 브랜드 */
   --kakao-bg: #fee500;
@@ -79,11 +87,21 @@
   --surface-muted: var(--gy700);
   --accent-soft: rgba(143, 195, 174, 0.14);
   --foreground: var(--gy100);
-  --muted-foreground: var(--gy400);
+  /* surface gy800 6.57 · background gy900 8.04 · surface-muted gy700 4.97 (gy400 은 surface-muted 4.32 로 미달) */
+  --muted-foreground: #aeb2a8;
   /* 카드 경계가 보이도록 한 단계 밝게 (gy700 은 카드와 대비 1.3 로 사실상 안 보임) */
   --border: var(--gy600);
   --border-strong: var(--gy500);
+  /* 포커스 링 인접색 대비 — surface 7.14 · background 8.74 · surface-muted 5.40 */
   --ring: var(--mint300);
+  /* 라이트 상태색은 어두운 면에서 2.1~3.0 으로 읽히지 않는다. surface / background / surface-muted / 10% 칩 순:
+   * error   #f4948a 6.37 / 7.81 / 4.82 / 5.34
+   * success #5cc792 6.77 / 8.29 / 5.12 / 5.56
+   * warning #e8a24a 6.54 / 8.01 / 4.95 / 5.41 */
+  --error: #f4948a;
+  --error-foreground: var(--gy900); /* bg-error 위 글자 7.81 */
+  --success: #5cc792;
+  --warning: #e8a24a;
   --chart-1: #21a06f;
   --chart-2: #8a6ff0;
   /* 다크는 같은 색을 쓰면 밝기 밴드를 벗어난다 — 모드별로 따로 검증한 값 */
@@ -110,6 +128,7 @@
   --color-border-strong: var(--border-strong);
   --color-ring: var(--ring);
   --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-kakao: var(--kakao-bg);
@@ -156,6 +175,11 @@
   --text-3xl: 1.6875rem;    /* 27 — display */
 }
 
+/* 본문 바로가기 대상 — 포커스를 받아도 링을 그리지 않는다(스크롤 컨테이너 전체가 테두리로 덮인다) */
+#main-content:focus {
+  outline: none;
+}
+
 html,
 body {
   height: 100%;
@@ -168,6 +192,23 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * 동작 줄이기 — OS 에서 "동작 줄이기"를 켠 사용자에게는 장식용 애니메이션을 끈다.
+ * 스피너·펄스는 `motion-safe:` 로 이미 빠지지만, 라이브러리(react-day-picker·sonner)나
+ * 나중에 추가되는 코드까지 덮으려면 전역 규칙이 필요하다. 진행 표시는 애니메이션이 아니라
+ * 문구("설치 중…" 등)로도 읽히므로 정보가 사라지지는 않는다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* 얇은 라운드 스크롤바 (goji 계열) */
@@ -193,3 +234,32 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/*
+ * 표 셀의 열 이름 — 헤더 행이 숨는 너비에서만 셀 위에 보인다(data-table.tsx).
+ * 헤더가 보이기 시작하는 지점은 표마다 달라서 헤더의 data-header-show 를 :has() 로 읽는다.
+ * 가로로 늘어놓는 셀(flex/grid)은 라벨이 끼면 줄이 깨지므로 제외한다.
+ */
+[role="cell"][data-label]:not([data-label=""]):not(.flex):not(.grid)::before {
+  display: block;
+  margin-bottom: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+@media (max-width: 639px) {
+  [role="table"]:has([data-header-show="sm"]) [role="cell"][data-label]:not([data-label=""]):not(.flex):not(.grid)::before {
+    content: attr(data-label);
+  }
+}
+@media (max-width: 1023px) {
+  [role="table"]:has([data-header-show="lg"]) [role="cell"][data-label]:not([data-label=""]):not(.flex):not(.grid)::before {
+    content: attr(data-label);
+  }
+}
+@media (max-width: 1279px) {
+  [role="table"]:has([data-header-show="xl"]) [role="cell"][data-label]:not([data-label=""]):not(.flex):not(.grid)::before {
+    content: attr(data-label);
+  }
+}
+

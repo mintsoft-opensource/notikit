@@ -13,7 +13,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog } from "@/components/ui/dialog";
-import { adminApi } from "@/lib/admin-client";
+import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { SuppressionsImport } from "./suppressions-import";
 
 type Suppression = {
   id: string;
@@ -35,6 +36,7 @@ function reasonVariant(r: string): "danger" | "warning" | "neutral" {
 /** 억제 목록 — 절대 발송하지 않을 대상. 발송에서 제외되고 클릭률 분모에서도 빠진다. */
 export function SuppressionsConsole({ projectId }: { projectId: string }) {
   const t = useTranslations("audience");
+  const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const locale = useLocale();
 
@@ -49,14 +51,18 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
       setRows(d.suppressions);
     } catch (e) {
       setRows([]);
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     }
   }, [projectId, tc]);
 
   const [open, setOpen] = React.useState(false);
-  // 비동기 완료 시점의 최신 입력을 읽기 위한 거울
-  const idRef = React.useRef(externalId);
-  idRef.current = externalId;
+  /**
+   * 드래프트(대상·사유)가 바뀔 때마다 올린다. 응답을 기다리는 사이 무엇이든 고쳤다면
+   * 완료 시 지우지 않는다 — 대상만 비교하면 사유만 고친 경우를 놓친다.
+   */
+  const revisionRef = React.useRef(0);
+  const editExternalId = (v: string) => { revisionRef.current++; setExternalId(v); };
+  const editReason = (v: string) => { revisionRef.current++; setReason(v); };
 
   React.useEffect(() => { void load(); }, [load]);
 
@@ -72,23 +78,23 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
   async function add(e?: React.FormEvent) {
     e?.preventDefault();
     if (busy || !externalId.trim()) return;
-    // 응답이 늦는 사이 새 드래프트를 치기 시작했다면 완료 시 그걸 지워서는 안 된다
-    const submitted = externalId;
+    // 제출 시점의 리비전을 기억한다 — 응답이 늦는 사이 드래프트를 고쳤다면 완료 시 지우지 않는다
+    const submitted = revisionRef.current;
     setBusy(true);
     try {
       await adminApi(`/api/admin/projects/${projectId}/audience/suppressions`, {
         method: "POST",
-        body: JSON.stringify({ external_id: externalId.trim(), reason }),
+        body: JSON.stringify({ user_id: externalId.trim(), reason }),
       });
       toast.success(t("suppressionAdded"));
-      if (idRef.current === submitted) {
+      if (revisionRef.current === submitted) {
         setExternalId("");
         setReason("manual");
         setOpen(false);
       }
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : tc("loadFailed"));
+      toast.error(errorText(err, tc("loadFailed")));
     } finally {
       setBusy(false);
     }
@@ -105,7 +111,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
       toast.success(t("suppressionRemoved"));
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tc("loadFailed"));
+      toast.error(errorText(e, tc("loadFailed")));
     }
   }
 
@@ -117,9 +123,12 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
         title={t("suppressionsTitle")}
         description={t("suppressionsSubtitle")}
         actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus aria-hidden="true" className="h-4 w-4" /> {t("addSuppression")}
-          </Button>
+          <>
+            <SuppressionsImport projectId={projectId} onImported={() => void load()} />
+            <Button onClick={() => setOpen(true)}>
+              <Plus aria-hidden="true" className="h-4 w-4" /> {t("addSuppression")}
+            </Button>
+          </>
         }
       />
 
@@ -138,11 +147,11 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
         }
       >
         <form onSubmit={add} className="space-y-3">
-          <Field label="external_id">
-            <Input id="new-suppression-id" value={externalId} onChange={(e) => setExternalId(e.target.value)} placeholder="user-1" maxLength={255} spellCheck={false} />
+          <Field label={t("userIdLabel")}>
+            <Input id="new-suppression-id" value={externalId} onChange={(e) => editExternalId(e.target.value)} placeholder="user-1" maxLength={255} spellCheck={false} />
           </Field>
           <Field label={t("reason")}>
-            <Select value={reason} onChange={(e) => setReason(e.target.value)}>
+            <Select value={reason} onChange={(e) => editReason(e.target.value)}>
               {REASONS.map((r) => <option key={r} value={r}>{t(`reason_${r}` as "reason_manual")}</option>)}
             </Select>
           </Field>
@@ -150,7 +159,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
         </form>
       </Dialog>
 
-      <Card className="rounded-none">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {!rows && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {rows && rows.length === 0 && <EmptyState icon={BellOff} title={t("noSuppressions")} />}

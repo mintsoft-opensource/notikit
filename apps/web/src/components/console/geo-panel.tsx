@@ -58,7 +58,7 @@ export function GeoPanel() {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatTile loading={busy} icon={Globe} label={t("geoCountries")} value={cur ? nf.format(cur.countries) : "—"} />
         <StatTile loading={busy} icon={Globe} label={t("geoIpv4")} value={cur ? nf.format(cur.ipv4) : "—"} />
         <StatTile loading={busy} icon={Globe} label={t("geoIpv6")} value={cur ? nf.format(cur.ipv6) : "—"} />
@@ -66,13 +66,13 @@ export function GeoPanel() {
 
       {/* 데이터가 있어도 프록시를 신뢰하지 않으면 국가가 기록되지 않는다 — 그 상태를 드러낸다 */}
       {data?.trustedProxyHops === 0 && (
-        <div className="flex gap-2 border-l-2 border-warning bg-warning/5 px-3 py-2">
+        <div className="flex gap-2 border-s-2 border-warning bg-warning/5 px-3 py-2">
           <TriangleAlert aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
           <p className="text-sm leading-relaxed text-foreground/80">{t("geoProxyWarn")}</p>
         </div>
       )}
 
-      <Card className="min-w-0 rounded-none">
+      <Card className="min-w-0 overflow-hidden">
         <CardHeader>
           <div>
             <CardTitle>{t("geoTitle")}</CardTitle>
@@ -121,7 +121,7 @@ export function GeoPanel() {
                         {t("geoCountries")} {nf.format(r.countries)} · IPv4 {nf.format(r.ipv4)} · IPv6 {nf.format(r.ipv6)}
                         {r.error ? ` · ${r.error}` : ""}
                       </TableCell>
-                      <TableCell label={t("geoColTook")} className="text-xs tabular-nums text-muted-foreground lg:text-right">
+                      <TableCell label={t("geoColTook")} className="text-xs tabular-nums text-muted-foreground lg:text-end">
                         {took === null ? "—" : `${took.toFixed(1)}s`}
                       </TableCell>
                     </TableRow>

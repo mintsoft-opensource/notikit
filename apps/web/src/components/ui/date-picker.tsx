@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { DayPicker, type Matcher } from "react-day-picker";
-import { useLocale } from "next-intl";
+import { DayPicker, type Labels, type Matcher } from "react-day-picker";
+import { useLocale, useTranslations } from "next-intl";
 import { CalendarDays, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RTL_LOCALES } from "@/i18n/locales";
 import "react-day-picker/style.css";
 
 /** `YYYY-MM-DD` ↔ Date. 타임존 때문에 `new Date("2026-01-01")` 은 UTC 자정으로 해석돼
@@ -51,6 +52,7 @@ export function DatePicker({
   className?: string;
 }) {
   const locale = useLocale();
+  const tc = useTranslations("common");
   const [open, setOpen] = React.useState(false);
 
   const selected = parse(value);
@@ -63,6 +65,25 @@ export function DatePicker({
     [locale]
   );
   const weekdayFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "short" }), [locale]);
+
+  const fullDateFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "full" }), [locale]);
+  const weekdayLongFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "long" }), [locale]);
+
+  /** DayPicker 기본 aria-label 은 영어 고정("Go to next month" 등)이라 스크린리더가 언어를 섞어 읽는다 */
+  const labels = React.useMemo<Partial<Labels>>(
+    () => ({
+      labelNav: () => tc("calendarNav"),
+      labelPrevious: () => tc("prevMonth"),
+      labelNext: () => tc("nextMonth"),
+      labelGrid: (d) => monthFmt.format(d),
+      labelWeekday: (d) => weekdayLongFmt.format(d),
+      labelDayButton: (d, modifiers) =>
+        [fullDateFmt.format(d), modifiers.today && tc("today"), modifiers.selected && tc("selectedDate")]
+          .filter(Boolean)
+          .join(", "),
+    }),
+    [tc, monthFmt, weekdayLongFmt, fullDateFmt]
+  );
 
   const disabled = React.useMemo(() => {
     const rules: Matcher[] = [];
@@ -81,12 +102,12 @@ export function DatePicker({
             id={id}
             type="button"
             className={cn(
-              "flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-sm shadow-sm transition-colors",
-              "focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              "flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-sm shadow-sm transition-colors",
+              "focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               selected ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            <CalendarDays aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate">{selected ? df.format(selected) : placeholder}</span>
           </button>
         </Popover.Trigger>
@@ -95,7 +116,8 @@ export function DatePicker({
             type="button"
             aria-label={clearLabel}
             onClick={() => onChange("")}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            // 날짜 칸에 붙은 보조 조작 — 칸 안 요소 규칙(D3) 28px·14px 아이콘
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X aria-hidden="true" className="h-3.5 w-3.5" />
           </button>
@@ -119,6 +141,9 @@ export function DatePicker({
               setOpen(false);
             }}
             showOutsideDays
+            labels={labels}
+            // DayPicker 는 CSS 방향이 아니라 이 값으로 이전·다음 화살표와 방향키 이동을 뒤집는다
+            dir={RTL_LOCALES.has(locale) ? "rtl" : "ltr"}
             formatters={{
               formatCaption: (m) => monthFmt.format(m),
               formatWeekdayName: (d) => weekdayFmt.format(d),

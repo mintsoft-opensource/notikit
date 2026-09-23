@@ -38,7 +38,7 @@ export function DocNav({ docs, label }: { docs: DocMeta[]; label: string }) {
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "w-4 shrink-0 text-right font-mono text-2xs tabular-nums",
+                    "w-4 shrink-0 text-end font-mono text-2xs tabular-nums",
                     active ? "text-primary/70" : "text-muted-foreground/50"
                   )}
                 >
