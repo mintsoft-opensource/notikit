@@ -1,5 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { createHmac } from "node:crypto";
+import postgres from "postgres";
+import { E2E_DATABASE_URL } from "./env";
 
 const ADMIN = process.env.ADMIN_TOKEN ?? "e2e-admin-token";
 const TEST_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDnJCp2kQuUqKWD\nq7565oF9E4TEcbZyLpGr07/XHZ2IT9PFKJpE6qXh06r2U1cNaqnGnP3Ua1ZpZ9lz\nw/UXdLKzqou2J35+k5GCjQ6UfhXqjAkVMH9WB7SOwSW/GihtgogseoXRDeigc+wm\nwpGJLmPFALKreLTdScLlztHwI2fcYTCOIfVWdH/RlDa0cV3co9WmQBSy9wiCYMO+\nskCzZaBtiuhM/ni4213/ctoukGEIr7gap81TfgfKbgWKr24TWCuOK06BMQk/mPRd\nfKwO4plUCzNlFlQwt2xaz3FDYs56JI/YD4BC2W/NSIq86zKZGYTBrpjcGhXmN72A\nTuG9If7fAgMBAAECggEAM9+V+A4NP0up+abtlL9uiBd9UGkEvRNedeWLxEdNN25S\n5Ih8NsNCfy/1ylphyw0JFR3eiXGdbwJzdtufgagbAt9fg33Rka6klVv6zbCOUpki\n4LKFoVURXIhUZFMGh60nynOk3In2jyv0763y44qZsXi6oGjyjkcjilekHfSUNozc\nE/dREtZ7Lj5UVUzhWmjfJaADVLj2FSy5CphS+PxViLlzP+P+aiGrrskGyLWrA7cI\nXr6zoL8+AeNgo8Gd7w/2Kb9emk+gxG0YODcvJa8jLhSYaPCKLDJMvheBRsmGRkHI\noMR6umKsNmo9idKbkCI3uxgM6L5h5Hd77w/0zNdJ4QKBgQD5rZmhJcpn2VP6B1Jf\nW1SPmviDPDgoWInPz4hWbkwqwdjamrCKT8NHAEvz4Z7Rk9hDWqoegA+H48tNr+09\nOSUltOYwnQc1ngTighttQ2hAvxs+Pxb7oR/X000vNI6V2dHPx8lNIAJR354kogLG\nJWTbtHHeQHkx6Tfn213lVBCkiwKBgQDs/mkwk2VpRoyjGLxLK9hDNznENJmCakLC\nPGucaOWvyV9F/1HKPV65fIdeTHLIl4wfpBa0nTc9z1uXE+EBAp3fCh4xJbVde1LS\nng2j8MFqPpwotisDrczBShkR+pcBR9Ur7ufwvIqOoJ77TcyM/MKoH7Dbu/IGH4IF\nSoEbGY7VfQKBgQCydYX4q+VHYwxmCvOymroPRupYCyPsmpQuSB0gAghJC3MvlR+Y\nTLi8OBcRw3NcQztxsQ0lbc0sCQLYjWWZvA20LN/XYXW0ujStnedyqpqKpM4ZKMkJ\npDn5btudYQiFTUJtLFTS3o0p7hbAAljPPg0gCJLXE+hMZ3EBNUeg0fxvTwKBgAKq\nRcKPFcfeTDyVTaDGyHLRDyw+ry9BRKjshwVGRLb6W8Dswx20HPmXBeqwj2XkFmZQ\nsRSs4+8lAtGrHo+lWOMmOPqygtyfQ2os7thWH8azF4x5p/gtnyzZSXjjSYlxJluN\nHzyc0i4SbldDI7a+LO45FQMTlQAuoIawtMz6N5n9AoGBAJhbLoSHwNep2Su9BLNq\nn5DguFru9uS7bGO8+1gGrs6yHPca+RRp6inp2eez5LaJLuLuPFUHYMVYEqpIW315\ny2THQXdj4ZzKGC+viC2cvWAm5+BvYbqTTO6eMQfOWGJFuIcCxltQdcPQCgkf23kg\nPJO7Oa/jCDNIw71z/MkDZqNI\n-----END PRIVATE KEY-----";
@@ -607,6 +609,117 @@ test.describe("App SDK API 전체 플로우", () => {
     });
   });
 
+  test("이름 치환: identify 의 name 이 {{name}} 이 되고, 이름으로 검색된다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `이름앱-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const appName = cj.data.project.name as string;
+
+    const users = [
+      { ext: "nm-a", body: { name: "김민지", timezone: "Asia/Seoul", locale: "ko" } },
+      // 예전 방식(attributes.name)도 계속 쓰인다
+      { ext: "nm-b", body: { attributes: { name: "도윤" } } },
+      { ext: "nm-c", body: {} },
+    ];
+    for (const u of users) {
+      const h = idHash(u.ext, apiSecret);
+      await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `nm-${u.ext}-${Date.now()}`, platform: "web", external_id: u.ext, identity_hash: h } });
+      const r = await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: u.ext, identity_hash: h, ...u.body } });
+      expect(r.ok()).toBeTruthy();
+    }
+
+    await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { type: "multi", targets: ["nm-a", "nm-b", "nm-c"], title: "{{name|고객}}님", body: "[{{app_name}}] {{weekday}}" },
+    });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    const first = async (ext: string) =>
+      (await (await request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${idHash(ext, apiSecret)}`, { headers: { "api-key": apiKey } })).json()).data.notifications[0];
+    expect((await first("nm-a")).title).toBe("김민지님");
+    expect((await first("nm-b")).title).toBe("도윤님");
+    expect((await first("nm-c")).title).toBe("고객님");
+    expect((await first("nm-a")).body).toMatch(new RegExp(`^\\[${appName}\\] .+요일$`));
+
+    // 콘솔 사용자 검색은 이름으로도 찾는다
+    const found = await request.get(`/api/admin/projects/${pid}/audience/users?q=${encodeURIComponent("민지")}`, { headers: { "x-admin-token": ADMIN } });
+    const fu = (await found.json()).data.users;
+    expect(fu.map((u: { externalId: string }) => u.externalId)).toEqual(["nm-a"]);
+    expect(fu[0].name).toBe("김민지");
+
+    // name: null 이면 지운다
+    await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: "nm-a", identity_hash: idHash("nm-a", apiSecret), name: null } });
+    const after = await request.get(`/api/admin/projects/${pid}/audience/users?q=nm-a`, { headers: { "x-admin-token": ADMIN } });
+    expect((await after.json()).data.users[0].name).toBeNull();
+  });
+
+  test("user_id: 새 이름으로 모든 API 가 동작하고, 예전 external_id 와 같은 사람을 가리킨다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `uid-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const uid = "uid-1";
+    const h = idHash(uid, apiSecret);
+
+    // 등록·식별은 user_id 로
+    expect((await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `uid-tok-${Date.now()}`, platform: "web", user_id: uid, identity_hash: h } })).status()).toBe(201);
+    expect((await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { user_id: uid, identity_hash: h, name: "민지" } })).ok()).toBeTruthy();
+    // 구독은 예전 이름 external_id 로 — 같은 사람이어야 한다
+    const sub = await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", external_id: uid, identity_hash: h } });
+    expect((await sub.json()).data.added).toBe(1);
+
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { type: "topic", target: "news", title: "{{name}} {{user_id}}", body: "b" } });
+    await request.post("/api/v1/messages", { headers: { "api-key": apiKey, "api-secret": apiSecret }, data: { type: "single", target: uid, title: "t", body: "{{external_id}}" } });
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: { "x-admin-token": ADMIN }, data: {} });
+
+    // 인박스는 쿼리스트링 user_id 로
+    const inbox = await request.get(`/api/v1/inbox?user_id=${uid}&identity_hash=${h}`, { headers: { "api-key": apiKey } });
+    const bodies = (await inbox.json()).data.notifications.map((n: { title: string; body: string }) => `${n.title}|${n.body}`).sort();
+    expect(bodies).toEqual(["t|uid-1"]);
+
+    // 둘 다 보내면 user_id 가 이긴다
+    const both = await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { user_id: uid, external_id: "someone-else", identity_hash: h } });
+    expect((await both.json()).data.user.externalId).toBe(uid);
+
+    // 오류 메시지도 새 이름으로
+    const bad = await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", user_id: uid } });
+    expect(bad.status()).toBe(403);
+    expect((await bad.json()).error).toContain("user_id");
+  });
+
+  test("리뷰 수정: attributes.name 갱신·테스트 발송 방해금지 예외·순위에서 테스트 제외", async ({ request }) => {
+    const admin = { "x-admin-token": ADMIN };
+    const created = await request.post("/api/admin/projects", { headers: admin, data: { name: `rv-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const uid = "rv-1";
+    const h = idHash(uid, apiSecret);
+    await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `rv-${Date.now()}`, platform: "web", user_id: uid, identity_hash: h } });
+
+    // 예전 방식(attributes.name)으로만 보내도 이름 칸이 따라온다
+    await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { user_id: uid, identity_hash: h, attributes: { name: "옛이름" } } });
+    await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { user_id: uid, identity_hash: h, attributes: { name: "새이름" } } });
+    const users = await request.get(`/api/admin/projects/${pid}/audience/users?q=${uid}`, { headers: admin });
+    expect((await users.json()).data.users[0].name).toBe("새이름");
+
+    // 하루 종일 방해금지로 설정해도 테스트 발송은 바로 나간다(예약되지 않는다)
+    await request.patch(`/api/admin/projects/${pid}`, { headers: admin, data: { quiet_start_hour: 0, quiet_end_hour: 23 } });
+    const test = await request.post(`/api/admin/projects/${pid}/messages`, { headers: admin, data: { type: "single", target: uid, title: "t", body: "b", test: true } });
+    const tj = await test.json();
+    expect(tj.meta?.scheduled ?? false).toBe(false);
+    expect(tj.data.message.status).toBe("queued");
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: admin, data: {} });
+
+    // 발송 순위에는 테스트 발송이 나오지 않는다
+    const ranked = await request.get(`/api/admin/projects/${pid}/logs?sort=readRate&limit=20`, { headers: admin });
+    expect((await ranked.json()).data.logs.some((l: { isTest: boolean }) => l.isTest)).toBe(false);
+  });
+
   test("방해금지 시간대: quiet 구간 발송은 자동 예약", async ({ request }) => {
     const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `quiet-${Date.now()}` } });
     const cj = await created.json();
@@ -1101,5 +1214,320 @@ test.describe("App SDK API 전체 플로우", () => {
     const logs = await request.get(`/api/admin/projects/${pid}/logs`, { headers: { "x-admin-token": ADMIN } });
     const row = (await logs.json()).data.logs.find((l: { id: string }) => l.id === logId);
     expect(row.clickCount).toBe(1);
+  });
+});
+
+test.describe("발송 data 예약 키 · 참여 순위 기간", () => {
+  test("data 에 예약 키가 오면 422 — 직접·콘솔·템플릿 경유 모두", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `reserved-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const sdk = { "api-key": apiKey, "api-secret": apiSecret };
+    const admin = { "x-admin-token": ADMIN };
+
+    await request.post(`/api/admin/projects/${pid}/templates`, {
+      headers: admin,
+      data: { name: "예약키", title: "t", body: "b", fields: [{ key: "order_id" }] },
+    });
+
+    for (const data of [{ notikit_log_id: "x" }, { deep_link: "x" }, { "google.x": "1" }]) {
+      const direct = await request.post("/api/v1/messages", { headers: sdk, data: { type: "broadcast", title: "t", body: "b", data } });
+      expect(direct.status()).toBe(422);
+      expect((await direct.json()).error).toBe(`data key is reserved: ${Object.keys(data)[0]}`);
+
+      const viaConsole = await request.post(`/api/admin/projects/${pid}/messages`, { headers: admin, data: { type: "broadcast", title: "t", body: "b", data } });
+      expect(viaConsole.status()).toBe(422);
+
+      const viaTemplate = await request.post("/api/v1/messages", {
+        headers: sdk,
+        data: { type: "broadcast", template: "예약키", fields: { order_id: "1" }, data },
+      });
+      expect(viaTemplate.status()).toBe(422);
+    }
+
+    expect((await request.post("/api/v1/messages", { headers: sdk, data: { type: "broadcast", title: "t", body: "b", data: { order_id: "1" } } })).status()).toBe(202);
+  });
+
+  test("참여 순위(sort=readRate)는 기간 안 발송만 읽음률 순으로 준다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `ranked-${Date.now()}` } });
+    const pid = (await created.json()).data.project.id as string;
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const insert = (title: string, hoursAgo: number, audience: number, clicks: number) =>
+        sql`insert into push_logs (project_id, type, title, body, status, audience_user_count, click_user_count, created_at)
+            values (${pid}, 'broadcast', ${title}, 'b', 'completed', ${audience}, ${clicks}, now() - make_interval(hours => ${hoursAgo}))`;
+      await insert("in-low", 1, 10, 2);
+      await insert("in-high", 2, 10, 8);
+      await insert("in-no-audience", 3, 0, 0);
+      await insert("out-of-range", 24 * 10, 10, 10);
+    } finally {
+      await sql.end();
+    }
+
+    const rank = async (hours: number) => {
+      const now = Date.now();
+      const q = new URLSearchParams({
+        sort: "readRate",
+        limit: "20",
+        from: new Date(now - hours * 3_600_000).toISOString(),
+        to: new Date(now + 60_000).toISOString(),
+      });
+      const res = await request.get(`/api/admin/projects/${pid}/logs?${q}`, { headers: { "x-admin-token": ADMIN } });
+      expect(res.status()).toBe(200);
+      return ((await res.json()).data.logs as Array<{ title: string }>).map((l) => l.title);
+    };
+
+    expect(await rank(24)).toEqual(["in-high", "in-low"]);
+    expect(await rank(24 * 30)).toEqual(["out-of-range", "in-high", "in-low"]);
+  });
+
+  test("도달 인원 추정: 실제 발송의 대상 수와 같다(single·multi·topic·broadcast)", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `est-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const admin = { "x-admin-token": ADMIN };
+    const stamp = Date.now();
+
+    // e-a: iOS + Android, e-b: 웹, 익명 Android 1대. news 토픽 = e-a 의 iOS + 익명
+    const reg = async (token: string, platform: string, ext?: string) =>
+      request.post("/api/v1/devices", {
+        headers: { "api-key": apiKey },
+        data: ext ? { token, platform, external_id: ext, identity_hash: idHash(ext, apiSecret) } : { token, platform },
+      });
+    const aIos = `est-a-ios-${stamp}`;
+    const anon = `est-anon-${stamp}`;
+    await reg(aIos, "ios", "e-a");
+    await reg(`est-a-and-${stamp}`, "android", "e-a");
+    await reg(`est-b-web-${stamp}`, "web", "e-b");
+    await reg(anon, "android");
+    for (const token of [aIos, anon]) {
+      await request.post("/api/v1/topics/subscribe", { headers: { "api-key": apiKey }, data: { topic: "news", token } });
+    }
+
+    const estimate = async (data: Record<string, unknown>) => {
+      const res = await request.post(`/api/admin/projects/${pid}/audience/estimate`, { headers: admin, data });
+      expect(res.status()).toBe(200);
+      return (await res.json()).data as { users: number; devices: number; platforms: Record<string, number> };
+    };
+    const sendAndLog = async (data: Record<string, unknown>) => {
+      const send = await request.post(`/api/admin/projects/${pid}/messages`, { headers: admin, data: { title: "t", body: "b", ...data } });
+      expect(send.status()).toBe(202);
+      const id = (await send.json()).data.message.id as string;
+      await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: admin, data: {} });
+      return (await (await request.get(`/api/admin/projects/${pid}/logs/${id}`, { headers: admin })).json()).data.log;
+    };
+
+    const cases: Array<[Record<string, unknown>, { users: number; devices: number; platforms: Record<string, number> }]> = [
+      [{ type: "single", target: "e-a" }, { users: 1, devices: 2, platforms: { ios: 1, android: 1, web: 0, other: 0 } }],
+      [{ type: "multi", targets: ["e-a", "e-b", "nobody"] }, { users: 2, devices: 3, platforms: { ios: 1, android: 1, web: 1, other: 0 } }],
+      [{ type: "topic", target: "news" }, { users: 1, devices: 2, platforms: { ios: 1, android: 1, web: 0, other: 0 } }],
+      [{ type: "broadcast" }, { users: 2, devices: 4, platforms: { ios: 1, android: 2, web: 1, other: 0 } }],
+    ];
+    for (const [target, expected] of cases) {
+      const est = await estimate(target);
+      expect(est).toEqual(expected);
+      const log = await sendAndLog(target);
+      expect(log.totalCount).toBe(est.devices);
+      expect(log.audienceUserCount).toBe(est.users);
+      expect(log.audienceDeviceCount).toBe(est.devices);
+    }
+
+    // 없는 토픽·사용자는 0, 대상 필드 누락은 422
+    expect((await estimate({ type: "topic", target: "no-such-topic" })).devices).toBe(0);
+    expect((await estimate({ type: "single", target: "nobody" })).users).toBe(0);
+    const bad = await request.post(`/api/admin/projects/${pid}/audience/estimate`, { headers: admin, data: { type: "multi" } });
+    expect(bad.status()).toBe(422);
+  });
+
+  test("테스트 발송: 콘솔 라우트만 isTest 를 남기고 v1 은 무시한다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `testsend-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const admin = { "x-admin-token": ADMIN };
+    const detail = async (id: string) =>
+      (await (await request.get(`/api/admin/projects/${pid}/logs/${id}`, { headers: admin })).json()).data.log;
+
+    const viaAdmin = await request.post(`/api/admin/projects/${pid}/messages`, {
+      headers: admin,
+      data: { title: "t", body: "b", type: "single", target: "tester", test: true },
+    });
+    expect(viaAdmin.status()).toBe(202);
+    const adminId = (await viaAdmin.json()).data.message.id as string;
+    expect((await detail(adminId)).isTest).toBe(true);
+
+    const viaV1 = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "t", body: "b", type: "single", target: "tester", test: true },
+    });
+    expect(viaV1.status()).toBe(202);
+    const v1Id = (await viaV1.json()).data.message.id as string;
+    expect((await detail(v1Id)).isTest).toBe(false);
+
+    const list = (await (await request.get(`/api/admin/projects/${pid}/logs`, { headers: admin })).json()).data.logs as Array<{ id: string; isTest: boolean }>;
+    expect(list.find((l) => l.id === adminId)?.isTest).toBe(true);
+    expect(list.find((l) => l.id === v1Id)?.isTest).toBe(false);
+  });
+
+  test("이미지: http 는 422, https 는 로그 상세에 남는다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `img-${Date.now()}` } });
+    const cj = await created.json();
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const pid = cj.data.project.id as string;
+    const admin = { "x-admin-token": ADMIN };
+
+    const http = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "t", body: "b", type: "broadcast", image_url: "http://cdn.example.com/a.png" },
+    });
+    expect(http.status()).toBe(422);
+    const httpAdmin = await request.post(`/api/admin/projects/${pid}/messages`, {
+      headers: admin,
+      data: { title: "t", body: "b", type: "broadcast", image_url: "http://cdn.example.com/a.png" },
+    });
+    expect(httpAdmin.status()).toBe(422);
+
+    const url = "https://cdn.example.com/a.png";
+    const ok = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { title: "t", body: "b", type: "broadcast", image_url: url },
+    });
+    expect(ok.status()).toBe(202);
+    const id = (await ok.json()).data.message.id as string;
+    const log = (await (await request.get(`/api/admin/projects/${pid}/logs/${id}`, { headers: admin })).json()).data.log;
+    expect(log.imageUrl).toBe(url);
+    expect(log.isTest).toBe(false);
+  });
+
+  test("멱등 키: 같은 Idempotency-Key 재요청은 처음 발송을 200 으로 돌려준다(v1·admin)", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `idem-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const sdk = { "api-key": cj.data.project.apiKey as string, "api-secret": cj.data.api_secret as string };
+    const admin = { "x-admin-token": ADMIN };
+    const key = `order-${Date.now()}`;
+
+    const first = await request.post("/api/v1/messages", { headers: { ...sdk, "Idempotency-Key": key }, data: { type: "broadcast", title: "t", body: "b" } });
+    expect(first.status()).toBe(202);
+    const fj = await first.json();
+    // v1 응답은 DTO 만 — 내부 값(lock_token 등)이 나가지 않는다
+    expect(Object.keys(fj.data.message).sort()).toEqual(["id", "scheduled_at", "status"]);
+
+    const again = await request.post("/api/v1/messages", { headers: { ...sdk, "Idempotency-Key": key }, data: { type: "broadcast", title: "다른 본문", body: "b" } });
+    expect(again.status()).toBe(200);
+    const aj = await again.json();
+    expect(aj.data.message.id).toBe(fj.data.message.id);
+    expect(aj.meta.idempotent_replay).toBe(true);
+
+    const bad = await request.post("/api/v1/messages", { headers: { ...sdk, "Idempotency-Key": "has space" }, data: { type: "broadcast", title: "t", body: "b" } });
+    expect(bad.status()).toBe(400);
+
+    const a1 = await request.post(`/api/admin/projects/${pid}/messages`, { headers: { ...admin, "Idempotency-Key": key }, data: { type: "broadcast", title: "t", body: "b" } });
+    // 같은 프로젝트에서 키는 발송 경로와 무관하게 하나 — v1 에서 쓴 키는 콘솔에서도 재생으로 본다
+    expect(a1.status()).toBe(200);
+    expect((await a1.json()).data.message.id).toBe(fj.data.message.id);
+
+    const logs = (await (await request.get(`/api/admin/projects/${pid}/logs`, { headers: admin })).json()).data.logs as unknown[];
+    expect(logs.length).toBe(1);
+  });
+
+  test("발송자: v1 은 api, admin 토큰은 admin-token 으로 로그 상세 sentBy 에 남는다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `sentby-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const sdk = { "api-key": cj.data.project.apiKey as string, "api-secret": cj.data.api_secret as string };
+    const admin = { "x-admin-token": ADMIN };
+
+    const v1 = (await (await request.post("/api/v1/messages", { headers: sdk, data: { type: "broadcast", title: "t", body: "b" } })).json()).data.message.id;
+    const ad = (await (await request.post(`/api/admin/projects/${pid}/messages`, { headers: admin, data: { type: "broadcast", title: "t", body: "b" } })).json()).data.message.id;
+    const detail = async (id: string) => (await (await request.get(`/api/admin/projects/${pid}/logs/${id}`, { headers: admin })).json()).data.log;
+    expect((await detail(v1)).sentBy).toBe("api");
+    expect((await detail(ad)).sentBy).toBe("admin-token");
+  });
+
+  test("FCM 페이로드: 직렬화 크기가 4KB 를 넘으면 422", async ({ request }) => {
+    const { apiKey, apiSecret } = await createProject(request);
+    const res = await request.post("/api/v1/messages", {
+      headers: { "api-key": apiKey, "api-secret": apiSecret },
+      data: { type: "broadcast", title: "t", body: "x".repeat(3900), data: { note: "y".repeat(600) } },
+    });
+    expect(res.status()).toBe(422);
+    expect((await res.json()).error).toMatch(/payload too large for FCM/);
+  });
+
+  test("빈도 상한: 24시간 상한에 걸린 사용자는 건너뛰고 테스트 발송은 예외", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `cap-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const apiSecret = cj.data.api_secret as string;
+    const admin = { "x-admin-token": ADMIN };
+    const reg = await request.post("/api/v1/devices", {
+      headers: { "api-key": apiKey },
+      data: { token: `cap-tok-${Date.now()}`, platform: "android", external_id: "capped", identity_hash: idHash("capped", apiSecret) },
+    });
+    expect(reg.status()).toBe(201);
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    await sql`update projects set frequency_cap_per_day = 1 where id = ${pid}`;
+
+    const sendAndProcess = async (test = false) => {
+      const res = await request.post(`/api/admin/projects/${pid}/messages`, { headers: admin, data: { type: "single", target: "capped", title: "t", body: "b", test } });
+      const id = (await res.json()).data.message.id as string;
+      await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: admin, data: {} });
+      return (await (await request.get(`/api/admin/projects/${pid}/logs/${id}`, { headers: admin })).json()).data.log;
+    };
+    try {
+      // Firebase 없는 로그 전용 발송은 수신 기록을 남기지 않는다 — 실제로 받은 것이 아니므로
+      const first = await sendAndProcess();
+      expect(first.totalCount).toBe(1);
+      expect((await sendAndProcess()).totalCount).toBe(1);
+
+      // 24시간 안에 실제로 한 번 받은 사용자로 만든다
+      const [user] = await sql`select id from push_users where project_id = ${pid} and external_id = 'capped'`;
+      await sql`insert into push_user_sends (project_id, user_id, log_id) values (${pid}, ${user.id}, ${first.id})`;
+      expect((await sendAndProcess()).totalCount).toBe(0); // 상한 1 — 건너뛴다
+      expect((await sendAndProcess(true)).totalCount).toBe(1); // 테스트 발송은 상한을 보지 않는다
+    } finally {
+      await sql.end();
+    }
+  });
+
+  test("재클레임: 저장된 커서 뒤의 기기부터 이어 보내고 누적 수를 잇는다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `resume-${Date.now()}` } });
+    const cj = await created.json();
+    const pid = cj.data.project.id as string;
+    const apiKey = cj.data.project.apiKey as string;
+    const admin = { "x-admin-token": ADMIN };
+    for (let i = 0; i < 3; i++) {
+      const r = await request.post("/api/v1/devices", { headers: { "api-key": apiKey }, data: { token: `resume-${Date.now()}-${i}`, platform: "android" } });
+      expect(r.status()).toBe(201);
+    }
+
+    const res = await request.post(`/api/admin/projects/${pid}/messages`, { headers: admin, data: { type: "broadcast", title: "t", body: "b" } });
+    const id = (await res.json()).data.message.id as string;
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const ids = (await sql`select id from devices where project_id = ${pid} and is_active order by id`).map((r) => r.id as string);
+      // 첫 기기까지 보낸 뒤 워커가 죽은 상태 — 앞서 7건을 보냈다고 기록돼 있다
+      const state = { cursor: ids[0], total: 7, success: 0, failure: 0, variantStats: null, audience: { users: 0, devices: 3 } };
+      await sql`update push_logs set status = 'processing', locked_at = now() - interval '10 minutes', resume_cursor = ${JSON.stringify(state)} where id = ${id}`;
+    } finally {
+      await sql.end();
+    }
+
+    await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: admin, data: {} });
+    const log = (await (await request.get(`/api/admin/projects/${pid}/logs/${id}`, { headers: admin })).json()).data.log;
+    expect(log.status).toBe("logged");
+    expect(log.totalCount).toBe(7 + 2); // 남은 두 기기만 더해진다
+    expect(log.audienceDeviceCount).toBe(3);
   });
 });

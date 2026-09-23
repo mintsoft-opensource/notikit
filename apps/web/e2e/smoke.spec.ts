@@ -162,20 +162,20 @@ test.describe("smoke", () => {
     const cj = (await created.json()).data;
     const ext = `picker-${Date.now()}`;
     const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
-    const ident = await page.request.post("/api/v1/users/identify", { headers: { "api-key": cj.project.apiKey }, data: { external_id: ext, identity_hash: hash } });
+    const ident = await page.request.post("/api/v1/users/identify", { headers: { "api-key": cj.project.apiKey }, data: { user_id: ext, identity_hash: hash } });
     expect(ident.ok()).toBeTruthy();
 
     await page.goto(`/projects/${cj.project.id}/send/single`);
     await page.getByRole("button", { name: "사용자 아이디" }).click();
     const dlg = page.getByRole("dialog", { name: "사용자 검색" });
-    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill("picker-");
-    await dlg.getByRole("button", { name: new RegExp(ext) }).click();
+    await dlg.getByRole("combobox", { name: "사용자 검색" }).fill("picker-");
+    await dlg.getByRole("option", { name: new RegExp(ext) }).click();
     await expect(dlg).toBeHidden();
     await expect(page.getByRole("button", { name: "사용자 아이디" })).toContainText(ext);
 
     // 없는 사람을 찾으면 목록 대신 안내가 나온다
     await page.getByRole("button", { name: "사용자 아이디" }).click();
-    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill("nobody-here-xyz");
+    await dlg.getByRole("combobox", { name: "사용자 검색" }).fill("nobody-here-xyz");
     await expect(dlg.getByText("일치하는 사용자가 없습니다")).toBeVisible();
   });
 
@@ -187,16 +187,16 @@ test.describe("smoke", () => {
     const exts = [`mu-a-${stamp}`, `mu-b-${stamp}`];
     for (const [i, ext] of exts.entries()) {
       const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
-      await page.request.post("/api/v1/users/identify", { headers: { "api-key": cj.project.apiKey }, data: { external_id: ext, identity_hash: hash, attributes: { name: i === 0 ? "민지" : "도윤" } } });
+      await page.request.post("/api/v1/users/identify", { headers: { "api-key": cj.project.apiKey }, data: { user_id: ext, identity_hash: hash, attributes: { name: i === 0 ? "민지" : "도윤" } } });
     }
 
     await page.goto(`/projects/${cj.project.id}/send/multi`);
     await expect(page.getByRole("main").getByRole("heading", { name: "다중 발송", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "사용자 추가" }).click();
     const dlg = page.getByRole("dialog", { name: "사용자 검색" });
-    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill(`mu-`);
-    await dlg.getByRole("button", { name: new RegExp(exts[0]) }).click();
-    await dlg.getByRole("button", { name: new RegExp(exts[1]) }).click();
+    await dlg.getByRole("combobox", { name: "사용자 검색" }).fill(`mu-`);
+    await dlg.getByRole("option", { name: new RegExp(exts[0]) }).click();
+    await dlg.getByRole("option", { name: new RegExp(exts[1]) }).click();
     await dlg.getByRole("button", { name: "2명 선택" }).click();
     await expect(dlg).toBeHidden();
     await expect(page.getByText("사용자 아이디 (2명)")).toBeVisible();
@@ -218,7 +218,7 @@ test.describe("smoke", () => {
     const pid = cj.project.id as string;
     const ext = `tpl-user-${Date.now()}`;
     const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
-    await page.request.post("/api/v1/devices", { headers: { "api-key": cj.project.apiKey }, data: { token: `tpl-tok-${Date.now()}`, platform: "web", external_id: ext, identity_hash: hash } });
+    await page.request.post("/api/v1/devices", { headers: { "api-key": cj.project.apiKey }, data: { token: `tpl-tok-${Date.now()}`, platform: "web", user_id: ext, identity_hash: hash } });
     const tpl = await page.request.post(`/api/admin/projects/${pid}/templates`, {
       headers,
       data: { name: "주문 도착", title: "주문이 도착했어요", body: "지금 확인해 보세요", fields: [{ key: "order_id", label: "주문 번호", required: true }, { key: "screen", default: "order" }] },
@@ -234,19 +234,147 @@ test.describe("smoke", () => {
 
     await page.getByRole("button", { name: "사용자 아이디" }).click();
     const dlg = page.getByRole("dialog", { name: "사용자 검색" });
-    await dlg.getByRole("textbox", { name: "사용자 검색" }).fill(ext);
-    await dlg.getByRole("button", { name: new RegExp(ext) }).click();
+    await dlg.getByRole("combobox", { name: "사용자 검색" }).fill(ext);
+    await dlg.getByRole("option", { name: new RegExp(ext) }).click();
 
-    // 필수 필드를 비우면 보내지 않는다
-    await page.getByRole("button", { name: "발송", exact: true }).click();
+    // 필수 필드를 비우면 검토 창도 열지 않는다
+    await page.getByRole("button", { name: "검토 후 발송" }).click();
     await expect(page.getByText("필수 필드를 채우세요: order_id")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "발송 검토" })).toHaveCount(0);
 
     await page.getByLabel("주문 번호 *").fill("A-100");
-    await page.getByRole("button", { name: "발송", exact: true }).click();
+    await expect(page.getByText("대상 1명 · 기기 1대")).toBeVisible();
+    await page.getByRole("button", { name: "검토 후 발송" }).click();
+    await page.getByRole("dialog", { name: "발송 검토" }).getByRole("button", { name: "1명에게 발송" }).click();
     await expect(page.getByText("큐 처리 완료", { exact: true })).toBeVisible();
 
-    const inbox = await page.request.get(`/api/v1/inbox?external_id=${ext}&identity_hash=${hash}`, { headers: { "api-key": cj.project.apiKey } });
+    const inbox = await page.request.get(`/api/v1/inbox?user_id=${ext}&identity_hash=${hash}`, { headers: { "api-key": cj.project.apiKey } });
     expect((await inbox.json()).data.notifications[0].data).toEqual({ order_id: "A-100", screen: "order" });
+  });
+
+  test("발송 요약: 사용자를 고르면 도달 인원이 뜨고, 실제 발송 로그의 대상 수와 같다", async ({ page }) => {
+    await ensureLogin(page);
+    const headers = { origin: ORIGIN };
+    const cj = (await (await page.request.post("/api/admin/projects", { data: { name: `est-${Date.now()}` }, headers })).json()).data;
+    const pid = cj.project.id as string;
+    const ext = `est-user-${Date.now()}`;
+    const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
+    await page.request.post("/api/v1/devices", { headers: { "api-key": cj.project.apiKey }, data: { token: `est-tok-${Date.now()}`, platform: "web", user_id: ext, identity_hash: hash } });
+
+    await page.goto(`/projects/${pid}/send/single`);
+    const summary = page.getByRole("region", { name: "요약" });
+    await expect(summary.getByText("받는 사람을 고르면 도달 인원이 계산됩니다")).toBeVisible();
+
+    await page.getByRole("button", { name: "사용자 아이디" }).click();
+    const dlg = page.getByRole("dialog", { name: "사용자 검색" });
+    await dlg.getByRole("combobox", { name: "사용자 검색" }).fill(ext);
+    await dlg.getByRole("option", { name: new RegExp(ext) }).click();
+
+    await expect(page.getByText("대상 1명 · 기기 1대")).toBeVisible({ timeout: 1500 });
+    await expect(summary.getByRole("listitem").filter({ hasText: "Web" })).toContainText("1");
+
+    await page.getByLabel("제목").fill("요약 확인");
+    await page.getByLabel("본문").fill("도달 인원 비교");
+    await page.getByRole("button", { name: "검토 후 발송" }).click();
+    const review = page.getByRole("dialog", { name: "발송 검토" });
+    await expect(review.getByText("대상 1명 · 기기 1대")).toBeVisible();
+    await review.getByRole("button", { name: "1명에게 발송" }).click();
+    await expect(page.getByText("큐 처리 완료", { exact: true })).toBeVisible();
+
+    const logs = (await (await page.request.get(`/api/admin/projects/${pid}/logs`)).json()).data.logs;
+    expect(logs[0].audienceUserCount).toBe(1);
+    expect(logs[0].audienceDeviceCount).toBe(1);
+  });
+
+  test("전체 발송: 검토 다이얼로그의 최종 버튼을 눌러야만 나간다", async ({ page }) => {
+    await ensureLogin(page);
+    const headers = { origin: ORIGIN };
+    const cj = (await (await page.request.post("/api/admin/projects", { data: { name: `bc-${Date.now()}` }, headers })).json()).data;
+    const pid = cj.project.id as string;
+    await page.request.post("/api/v1/devices", { headers: { "api-key": cj.project.apiKey }, data: { token: `bc-tok-${Date.now()}`, platform: "web" } });
+
+    await page.goto(`/projects/${pid}/send/broadcast`);
+    await page.getByLabel("제목").fill("전체 공지");
+    await page.getByLabel("본문").fill("모두에게");
+    await expect(page.getByText(/^대상 \d+명 · 기기 1대$/)).toBeVisible();
+
+    await page.getByRole("button", { name: "검토 후 발송" }).click();
+    const review = page.getByRole("dialog", { name: "발송 검토" });
+    await expect(review.getByText("전체 활성 기기")).toBeVisible();
+    await expect(review.getByText("프로젝트의 모든 활성 기기에 나갑니다")).toBeVisible();
+    await expect(review.getByRole("checkbox", { name: "발송 즉시 큐 처리 (로그 생성)" })).toBeChecked();
+
+    // 돌아가면 아무것도 나가지 않는다
+    await review.getByRole("button", { name: "돌아가기" }).click();
+    await expect(review).toBeHidden();
+    const before = (await (await page.request.get(`/api/admin/projects/${pid}/logs`)).json()).data.logs;
+    expect(before).toHaveLength(0);
+
+    await page.getByRole("button", { name: "검토 후 발송" }).click();
+    await review.getByRole("button", { name: /명에게 발송$/ }).click();
+    await expect(page.getByText("큐 처리 완료", { exact: true })).toBeVisible();
+    const after = (await (await page.request.get(`/api/admin/projects/${pid}/logs`)).json()).data.logs;
+    expect(after).toHaveLength(1);
+  });
+
+  test("미리보기: iOS/Android 탭마다 잘리는 줄 수가 다르다", async ({ page }) => {
+    await ensureLogin(page);
+    const projectId = await firstProjectId(page);
+    await page.goto(`/projects/${projectId}/send/single`);
+    await page.getByLabel("본문").fill(Array.from({ length: 10 }, (_, i) => `줄 ${i + 1}`).join("\n"));
+
+    const tabs = page.getByRole("tablist", { name: "미리보기 플랫폼" });
+    await expect(tabs.getByRole("tab", { name: "iOS" })).toHaveAttribute("aria-selected", "true");
+    const iosBody = page.locator('[data-platform="ios"] p', { hasText: "줄 1" });
+    await expect(iosBody).toHaveClass(/line-clamp-4/);
+
+    await tabs.getByRole("tab", { name: "Android" }).click();
+    await expect(page.locator('[data-platform="ios"]')).toHaveCount(0);
+    const androidBody = page.locator('[data-platform="android"] p', { hasText: "줄 1" });
+    await expect(androidBody).toHaveClass(/line-clamp-1/);
+    await page.getByRole("button", { name: "펼치기" }).click();
+    await expect(androidBody).toHaveClass(/line-clamp-7/);
+  });
+
+  test("글자 수: 제목이 50자를 넘으면 잘림 경고가 보인다", async ({ page }) => {
+    await ensureLogin(page);
+    const projectId = await firstProjectId(page);
+    await page.goto(`/projects/${projectId}/send/single`);
+    await page.getByLabel("제목").fill("가".repeat(50));
+    await expect(page.getByText("제목이 50자를 넘어 iOS 에서 잘릴 수 있습니다")).toHaveCount(0);
+    await page.getByLabel("제목").fill("가".repeat(51));
+    await expect(page.getByText("제목이 50자를 넘어 iOS 에서 잘릴 수 있습니다")).toBeVisible();
+    await expect(page.getByText("· iOS 에서 잘릴 수 있음")).toBeVisible();
+  });
+
+  test("테스트 발송: 고른 한 명에게만 가고 로그에 테스트 칩이 붙는다", async ({ page }) => {
+    await ensureLogin(page);
+    const headers = { origin: ORIGIN };
+    const cj = (await (await page.request.post("/api/admin/projects", { data: { name: `test-send-${Date.now()}` }, headers })).json()).data;
+    const pid = cj.project.id as string;
+    const ext = `tester-${Date.now()}`;
+    const hash = createHmac("sha256", cj.api_secret).update(ext).digest("hex");
+    await page.request.post("/api/v1/devices", { headers: { "api-key": cj.project.apiKey }, data: { token: `ts-tok-${Date.now()}`, platform: "web", user_id: ext, identity_hash: hash } });
+
+    await page.goto(`/projects/${pid}/send/broadcast`);
+    const title = `테스트 알림 ${Date.now()}`;
+    await page.getByLabel("제목").fill(title);
+    await page.getByLabel("본문").fill("나에게만");
+    await page.getByRole("button", { name: "테스트 발송" }).click();
+    const dlg = page.getByRole("dialog", { name: "테스트 받을 사용자" });
+    await dlg.getByRole("combobox", { name: "사용자 검색" }).fill(ext);
+    await dlg.getByRole("option", { name: new RegExp(ext) }).click();
+    await expect(page.getByText(`${ext} 에게 테스트 발송했습니다`)).toBeVisible();
+    // 작성 중인 내용은 그대로 남는다
+    await expect(page.getByLabel("제목")).toHaveValue(title);
+
+    const logs = (await (await page.request.get(`/api/admin/projects/${pid}/logs`)).json()).data.logs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ type: "single", target: ext, isTest: true });
+
+    await page.goto(`/projects/${pid}/logs/single`);
+    const row = page.getByRole("row").filter({ hasText: title });
+    await expect(row.getByText("테스트", { exact: true })).toBeVisible();
   });
 
   test("tenant isolation: 세션 유저는 타 org 프로젝트에 접근 불가", async ({ page }) => {
@@ -516,7 +644,7 @@ test.describe("smoke", () => {
     const del = await request.delete(`/api/admin/projects/${pid}/audience/topics?name=news`, { headers: admin });
     expect(del.status()).toBe(200);
 
-    const sup = await request.post(`/api/admin/projects/${pid}/audience/suppressions`, { headers: admin, data: { external_id: "user-9", reason: "opt_out" } });
+    const sup = await request.post(`/api/admin/projects/${pid}/audience/suppressions`, { headers: admin, data: { user_id: "user-9", reason: "opt_out" } });
     expect(sup.status()).toBe(201);
     const sid = (await sup.json()).data.suppression.id as string;
 
@@ -665,6 +793,56 @@ test.describe("smoke", () => {
       { headers: { origin: ORIGIN } }
     );
     expect(anon.status()).toBe(401);
+  });
+
+  test("기간 선택(Segmented): Tab 은 선택된 칸에만 멈추고 방향키로 선택이 옮겨간다", async ({ page }) => {
+    await ensureLogin(page);
+    const pid = await firstProjectId(page);
+    await page.goto(`/projects/${pid}`);
+    const group = page.getByRole("main").getByRole("radiogroup").first();
+    const radios = group.getByRole("radio");
+    await expect(radios.first()).toBeVisible();
+
+    const checked = group.locator('[role="radio"][aria-checked="true"]');
+    await expect(checked).toHaveAttribute("tabindex", "0");
+    await expect(group.locator('[role="radio"][tabindex="0"]')).toHaveCount(1);
+
+    const count = await radios.count();
+    const before = await radios.evaluateAll((els) => els.findIndex((el) => el.getAttribute("aria-checked") === "true"));
+    await checked.focus();
+    await page.keyboard.press("ArrowRight");
+    const next = (before + 1) % count;
+    await expect(radios.nth(next)).toHaveAttribute("aria-checked", "true");
+    await expect(radios.nth(next)).toBeFocused();
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(radios.nth(before)).toHaveAttribute("aria-checked", "true");
+    await expect(radios.nth(before)).toBeFocused();
+  });
+
+  test("다이얼로그: Tab 순환이 배경으로 새지 않고 배경은 inert 다", async ({ page }) => {
+    await ensureLogin(page);
+    await page.goto("/projects");
+    await page.getByRole("main").getByRole("button", { name: "새 프로젝트" }).first().click();
+    const dlg = page.getByRole("dialog", { name: "새 프로젝트" });
+    await expect(dlg).toBeVisible();
+    // 첫 포커스는 본문의 첫 입력(닫기 X 가 아니라)
+    await expect(dlg.getByLabel("이름")).toBeFocused();
+
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press("Tab");
+      expect(await dlg.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    }
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press("Shift+Tab");
+      expect(await dlg.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    }
+    // 앱 셸(사이드바·헤더)이 든 배경은 열린 동안 inert
+    expect(await page.evaluate(() => Array.from(document.body.children).some((el) => (el as HTMLElement).inert))).toBe(true);
+
+    await page.keyboard.press("Escape");
+    await expect(dlg).toHaveCount(0);
+    expect(await page.evaluate(() => Array.from(document.body.children).some((el) => (el as HTMLElement).inert))).toBe(false);
   });
 
 });
