@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 const schema = z.object({
   external_id: z.string().min(1).max(255),
   identity_hash: z.string().max(128).optional(),
+  /** 표시·치환용 이름. null 이면 지운다. */
+  name: z.string().trim().max(100).nullable().optional(),
   phone: z.string().max(32).optional(),
   attributes: z
     .record(z.unknown())
@@ -43,12 +45,18 @@ export async function POST(req: Request) {
     }
   }
 
+  // 이름을 `name` 대신 예전 방식(attributes.name)으로만 보내는 앱도 이름 칸을 최신으로 맞춘다.
+  // 안 맞추면 마이그레이션 때 옮긴 옛 이름이 {{name}}·콘솔 목록에 계속 남는다.
+  const attrName = typeof b.attributes?.name === "string" ? b.attributes.name.trim().slice(0, 100) : undefined;
+  const name = b.name !== undefined ? b.name || null : attrName !== undefined ? attrName || null : undefined;
+
   const db = getDb();
   const rows = await db
     .insert(pushUsers)
     .values({
       projectId: project.id,
       externalId: b.external_id,
+      name: name ?? null,
       attributes: b.attributes ?? {},
       phone: b.phone,
       locale: b.locale,
@@ -59,6 +67,7 @@ export async function POST(req: Request) {
       // externalId 항상 포함(빈 set 방지) + attributes 미제공 시 기존 값 유지
       set: {
         externalId: b.external_id,
+        ...(name !== undefined ? { name } : {}),
         ...(b.attributes !== undefined ? { attributes: b.attributes } : {}),
         ...(b.phone !== undefined ? { phone: b.phone } : {}),
         locale: b.locale,

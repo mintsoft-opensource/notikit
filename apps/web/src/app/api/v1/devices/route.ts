@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   // external_id 바인딩 시 identity 검증(HMAC) — 타 유저 사칭 방지
   if (b.external_id && project.requireIdentityVerification) {
     if (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc)) {
-      return fail("identity_hash invalid or missing for external_id binding", 403);
+      return fail("identity_hash invalid or missing for user_id binding", 403);
     }
   }
 

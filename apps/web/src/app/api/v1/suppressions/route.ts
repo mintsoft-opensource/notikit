@@ -31,14 +31,14 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
-  if (!b.external_id && !b.token) return fail("external_id or token required", 422);
+  if (!b.external_id && !b.token) return fail("user_id or token required", 422);
 
   // external_id 수신거부는 **타 유저의 수신을 영구히 끊는** 동작이다. 공개 api-key 는
   // SDK 에 실려 나가므로 비밀이 아니고, external_id 가 순번·이메일이면 열거가 가능하다.
   // 그래서 inbox·journeys/enroll 과 같이 프로젝트 플래그와 무관하게 항상 증명을 요구한다.
   // token 변형은 공격자가 실제 디바이스 토큰을 알아야 하므로 그대로 둔다.
   if (b.external_id && (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc))) {
-    return fail("identity_hash invalid or missing for external_id suppression", 403);
+    return fail("identity_hash invalid or missing for user_id suppression", 403);
   }
 
   const db = getDb();

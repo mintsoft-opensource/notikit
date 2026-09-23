@@ -134,6 +134,48 @@
       "when": 1789090880492,
       "tag": "0018_message_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789090881492,
+      "tag": "0019_push_user_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789090882492,
+      "tag": "0020_push_log_image_test",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789090883492,
+      "tag": "0021_delivery_reliability",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789090884492,
+      "tag": "0022_suppression_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789090885492,
+      "tag": "0023_notification_options",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789090886492,
+      "tag": "0024_webhook_retry",
+      "breakpoints": true
     }
   ]
 }

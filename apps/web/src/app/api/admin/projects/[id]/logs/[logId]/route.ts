@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs } from "@/db/schema";
+import { pushClicks, pushConversions, pushLogs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject } from "@/lib/authz";
 
@@ -23,6 +23,8 @@ const columns = {
   body: pushLogs.body,
   data: pushLogs.data,
   deepLink: pushLogs.deepLink,
+  imageUrl: pushLogs.imageUrl,
+  isTest: pushLogs.isTest,
   status: pushLogs.status,
   totalCount: pushLogs.totalCount,
   successCount: pushLogs.successCount,
@@ -37,8 +39,13 @@ const columns = {
   audienceDeviceCount: pushLogs.audienceDeviceCount,
   clickCount: pushLogs.clickCount,
   clickUserCount: pushLogs.clickUserCount,
+  sentBy: pushLogs.sentBy,
+  options: pushLogs.options,
   createdAt: pushLogs.createdAt,
 };
+
+/** 전환 이름별 상위 몇 개까지 보여 줄지 — 표가 아니라 요약 카드라 길어지면 읽히지 않는다 */
+const CONVERSION_NAMES_SHOWN = 5;
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string; logId: string }> }) {
   const { id, logId } = await ctx.params;
@@ -55,5 +62,41 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
   )[0];
   if (!row) return fail("Not found", 404);
 
-  return ok({ log: row });
+  // 로그가 이 프로젝트의 것임을 위에서 확인한 뒤에만 집계한다 — 없는 id 로 통계를 긁게 두지 않는다.
+  const [variantClicks, conversionTotal, conversionNames] = await Promise.all([
+    db
+      .select({ variant: pushClicks.variant, clicks: sql<number>`count(*)::int` })
+      .from(pushClicks)
+      .where(and(eq(pushClicks.logId, logId), eq(pushClicks.projectId, id)))
+      .groupBy(pushClicks.variant),
+    db
+      .select({
+        count: sql<number>`count(*)::int`,
+        valueCents: sql<number>`coalesce(sum(${pushConversions.valueCents}), 0)::int`,
+      })
+      .from(pushConversions)
+      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id))),
+    db
+      .select({
+        name: pushConversions.name,
+        count: sql<number>`count(*)::int`,
+        valueCents: sql<number>`coalesce(sum(${pushConversions.valueCents}), 0)::int`,
+      })
+      .from(pushConversions)
+      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id)))
+      .groupBy(pushConversions.name)
+      .orderBy(desc(sql`count(*)`), pushConversions.name)
+      .limit(CONVERSION_NAMES_SHOWN),
+  ]);
+
+  return ok({
+    log: row,
+    // 변형이 없던 발송의 클릭은 variant 가 null 이다 — 0번으로 접어 넣지 않는다
+    clicks: { byVariant: variantClicks },
+    conversions: {
+      count: conversionTotal[0]?.count ?? 0,
+      valueCents: conversionTotal[0]?.valueCents ?? 0,
+      byName: conversionNames,
+    },
+  });
 }

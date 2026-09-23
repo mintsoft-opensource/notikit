@@ -1,36 +1,36 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, or, lt, lte, gt, isNull, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, or, lt, lte, gt, ne, isNull, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs, projects, devices, pushUsers, topics, subscriptions, suppressions, notifications, type PushLog } from "@/db/schema";
+import { pushLogs, projects, devices, pushUsers, pushUserSends, notifications, type PushLog, type Project } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
-import { parseServiceAccount } from "@/lib/firebase-credentials";
-import { sendToTokens } from "@/lib/fcm";
+import { parseServiceAccount, type ServiceAccount } from "@/lib/firebase-credentials";
+import { sendToTokens, sendEachToTokens, SEND_EACH_LIMIT, type FcmMessage, type FcmResult } from "@/lib/fcm";
 import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
 import { recordUninstalls, markVerified } from "@/lib/device-events";
-import { attrConds, isRuleFilled, type TopicRule } from "@/lib/topic-membership";
-import { hasPlaceholders, renderTemplate, type Recipient } from "@/lib/personalize";
+import { countAudience, resolveScope, scopedDevicePage, userNotSuppressed, type Db, type ScopedDevice } from "@/lib/audience-count";
+import { hasPlaceholders, renderTemplate, type Recipient, type RenderContext } from "@/lib/personalize";
+import { variantIndex } from "@/lib/push-variant";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const BATCH = 500; // FCM 멀티캐스트 한도
 const CONCURRENCY = 5; // 동시 FCM 호출 수
 const STALE_MS = 5 * 60 * 1000; // 'processing' 에 멈춘 로그 재클레임 임계
+const DRAIN_CONCURRENCY = 4; // 한 프로젝트에서 동시에 처리하는 로그 수
+const FIRST_CURSOR = "00000000-0000-0000-0000-000000000000";
+const CAP_WINDOW_MS = 24 * 60 * 60 * 1000; // 빈도 상한 창
+const CAP_RETENTION_MS = 25 * 60 * 60 * 1000; // 수신 기록 보존(창 + 여유)
 
-function chunk<T>(arr: T[], size: number): T[][] {
+export function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
 }
 
-/** A/B 변형 배정 — 토큰 해시로 결정적 분배 */
-function variantIndex(token: string, n: number): number {
-  let h = 0;
-  for (let i = 0; i < token.length; i++) h = (h * 31 + token.charCodeAt(i)) | 0;
-  return Math.abs(h) % n;
-}
+export { variantIndex };
 
 /** 동시성 제한 map */
-async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const results: R[] = [];
   let i = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -43,238 +43,285 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R
   return results;
 }
 
-type Db = ReturnType<typeof getDb>;
+// ─── 이어 보내기 상태 ────────────────────────────────────────────────────────
 
-/** 억제 토큰 집합 (token 직접 + external_id 유저의 디바이스 토큰) */
-async function loadSuppression(db: Db, projectId: string): Promise<Set<string>> {
-  const sup = await db.select().from(suppressions).where(eq(suppressions.projectId, projectId));
-  const blocked = new Set(sup.map((s) => s.token).filter(Boolean) as string[]);
-  const extIds = sup.map((s) => s.externalId).filter(Boolean) as string[];
-  if (extIds.length) {
-    const rows = await db
-      .select({ token: devices.token })
-      .from(devices)
-      .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
-      .where(and(eq(devices.projectId, projectId), inArray(pushUsers.externalId, extIds)));
-    for (const r of rows) blocked.add(r.token);
-  }
-  return blocked;
-}
+export type VariantStats = Record<string, { sent: number; success: number }>;
 
 /**
- * 토픽 해석 — 토픽 하나가 두 방식 중 하나로 명단을 갖는다.
- *
- * `rules` 가 비어 있으면 구독식으로 본다. 규칙 0개를 규칙식으로 받으면
- * "조건 없음 = 전원"이 되어 실수로 전체 발송이 된다. 빈 배열은 API 에서도 막지만,
- * 과거 데이터나 직접 UPDATE 로 들어올 수 있어 여기서도 한 번 더 막는다.
+ * push_logs.resume_cursor 에 페이지마다 남기는 진행 상태.
+ * 커서만 두면 재클레임한 워커가 앞쪽 페이지의 성공·실패 수를 잃어 최종 집계가 줄어든다.
+ * 분모(audience)도 처음 확정한 값을 들고 간다 — 이어 보낼 때 다시 세면 발송 중 변화가 섞인다.
  */
-type Group =
-  | { kind: "rules"; rules: TopicRule[] }
-  | { kind: "subs"; topicId: string };
+export type ResumeState = {
+  cursor: string;
+  total: number;
+  success: number;
+  failure: number;
+  variantStats: VariantStats | null;
+  audience: { users: number; devices: number };
+  /** 있으면 발송 페이지는 끝났고 후속 단계 중이다 — 재클레임한 워커는 페이지를 건너뛰고 남은 단계만 돈다 */
+  followUps?: FollowUps;
+};
 
-async function resolveGroup(db: Db, projectId: string, name: string): Promise<Group | null> {
-  const t = (
-    await db.select({ id: topics.id, rules: topics.rules }).from(topics)
-      .where(and(eq(topics.projectId, projectId), eq(topics.name, name))).limit(1)
-  )[0];
-  if (!t) return null;
-  return isRuleFilled(t.rules) ? { kind: "rules", rules: t.rules } : { kind: "subs", topicId: t.id };
+/** 후속 단계 완료 표시. 끝난 단계는 재클레임 때 다시 돌지 않는다. */
+export type FollowUps = { inbox?: boolean; kakao?: boolean; webhook?: boolean };
+
+const FOLLOW_UP_KEYS = ["inbox", "kakao", "webhook"] as const;
+
+function parseFollowUps(v: unknown): FollowUps | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  return Object.fromEntries(FOLLOW_UP_KEYS.filter((k) => o[k] === true).map((k) => [k, true]));
 }
 
-/** multi 발송의 받는 사람 → 존재하는 유저 id. 없는 아이디는 조용히 빠진다(분모에도 안 잡힌다). */
-async function resolveMultiUsers(db: Db, log: PushLog): Promise<string[]> {
-  const ids = log.targets ?? [];
-  if (ids.length === 0) return [];
+export function initialState(audience: { users: number; devices: number }, variantCount: number | null): ResumeState {
+  const variantStats: VariantStats | null = variantCount
+    ? Object.fromEntries(Array.from({ length: variantCount }, (_, i) => [String(i), { sent: 0, success: 0 }]))
+    : null;
+  return { cursor: FIRST_CURSOR, total: 0, success: 0, failure: 0, variantStats, audience: { users: audience.users, devices: audience.devices } };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isCount = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
+
+/** 저장된 진행 상태 해석. 모양이 틀리면 null — 처음부터 다시 보내는 편이 틀린 커서로 건너뛰는 것보다 낫다. */
+export function parseResumeState(raw: string | null | undefined): ResumeState | null {
+  if (!raw) return null;
+  let v: unknown;
+  try {
+    v = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!v || typeof v !== "object") return null;
+  const s = v as Record<string, unknown>;
+  const aud = s.audience as Record<string, unknown> | undefined;
+  if (typeof s.cursor !== "string" || !UUID_RE.test(s.cursor)) return null;
+  if (!isCount(s.total) || !isCount(s.success) || !isCount(s.failure)) return null;
+  if (!aud || !isCount(aud.users) || !isCount(aud.devices)) return null;
+  const stats = s.variantStats;
+  if (stats !== null && (typeof stats !== "object" || Array.isArray(stats))) return null;
+  if (stats) {
+    for (const x of Object.values(stats as Record<string, unknown>)) {
+      const e = x as Record<string, unknown> | null;
+      if (!e || !isCount(e.sent) || !isCount(e.success)) return null;
+    }
+  }
+  return {
+    cursor: s.cursor,
+    total: s.total,
+    success: s.success,
+    failure: s.failure,
+    variantStats: (stats as VariantStats | null) ?? null,
+    audience: { users: aud.users, devices: aud.devices },
+    ...(s.followUps !== undefined ? { followUps: parseFollowUps(s.followUps) ?? {} } : {}),
+  };
+}
+
+// ─── 빈도 상한 ───────────────────────────────────────────────────────────────
+
+/**
+ * 최근 24시간 수신 수가 상한 이상인 사용자의 기기를 뺀다(순수 함수).
+ * 익명 기기(userId null)는 사람 단위로 셀 수 없어 상한을 적용하지 않는다.
+ */
+export function applyFrequencyCap<T extends { userId: string | null }>(
+  rows: T[],
+  recentCounts: Map<string, number>,
+  cap: number | null
+): { allowed: T[]; capped: number } {
+  if (cap === null) return { allowed: rows, capped: 0 };
+  const allowed = rows.filter((r) => !r.userId || (recentCounts.get(r.userId) ?? 0) < cap);
+  return { allowed, capped: rows.length - allowed.length };
+}
+
+/** 이 발송을 뺀 최근 24시간 수신 수. 같은 발송의 다른 페이지(한 사람의 여러 기기)가 상한에 걸리지 않게 한다. */
+async function recentSendCounts(db: Db | Tx, logId: string, userIds: string[]): Promise<Map<string, number>> {
+  if (userIds.length === 0) return new Map();
   const rows = await db
-    .select({ id: pushUsers.id }).from(pushUsers)
-    .where(and(eq(pushUsers.projectId, log.projectId), inArray(pushUsers.externalId, ids)));
-  return rows.map((r) => r.id);
+    .select({ userId: pushUserSends.userId, n: sql<number>`count(*)::int` })
+    .from(pushUserSends)
+    .where(
+      and(
+        inArray(pushUserSends.userId, userIds),
+        gt(pushUserSends.sentAt, new Date(Date.now() - CAP_WINDOW_MS)),
+        ne(pushUserSends.logId, logId)
+      )
+    )
+    .groupBy(pushUserSends.userId);
+  return new Map(rows.map((r) => [r.userId, Number(r.n)]));
 }
+
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/**
+ * 상한 판정과 수신 기록을 한 트랜잭션에서 — 보내기 **전에** 예약한다.
+ * 판정과 기록이 떨어져 있으면 동시에 도는 다른 발송이 같은 사람을 함께 통과시킨다.
+ * 프로젝트 단위 advisory lock 으로 같은 프로젝트의 예약을 줄 세운다.
+ * `reserved` 는 이번에 새로 넣은 사람만 — 같은 발송의 앞 페이지가 넣은 기록은 되돌리지 않는다.
+ */
+async function reserveCapped(db: Db, log: PushLog, page: ScopedDevice[], cap: number): Promise<Admission> {
+  const userIds = distinctUserIds(page);
+  if (userIds.length === 0) return { allowed: page, reserved: [] };
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${log.projectId}))`);
+    const { allowed } = applyFrequencyCap(page, await recentSendCounts(tx, log.id, userIds), cap);
+    const admitted = distinctUserIds(allowed);
+    if (admitted.length === 0) return { allowed, reserved: [] };
+    const rows = await tx
+      .insert(pushUserSends)
+      .values(admitted.map((userId) => ({ projectId: log.projectId, userId, logId: log.id })))
+      .onConflictDoNothing()
+      .returning({ userId: pushUserSends.userId });
+    return { allowed, reserved: rows.map((r) => r.userId) };
+  });
+}
+
+type Admission = { allowed: ScopedDevice[]; reserved: string[] };
+
+/** 페이지에서 보낼 기기. 로그 전용 모드(서비스 계정 없음)는 실제로 받는 사람이 없으니 걸러내기만 하고 예약하지 않는다. */
+async function admitPage(db: Db, log: PushLog, ctx: SendContext, page: ScopedDevice[]): Promise<Admission> {
+  if (ctx.cap === null) return { allowed: page, reserved: [] };
+  if (ctx.sa) return reserveCapped(db, log, page, ctx.cap);
+  const counts = await recentSendCounts(db, log.id, distinctUserIds(page));
+  return { allowed: applyFrequencyCap(page, counts, ctx.cap).allowed, reserved: [] };
+}
+
+/** 예약했지만 한 기기에도 배달되지 않은 사람 — 받은 게 없으니 상한에서 되돌린다(순수 함수). */
+export function releasableUsers(
+  reserved: string[],
+  allowed: Array<{ token: string; userId: string | null }>,
+  deliveredTokens: string[]
+): string[] {
+  const delivered = new Set(distinctUserIds(deliveredRows(allowed, deliveredTokens)));
+  return reserved.filter((u) => !delivered.has(u));
+}
+
+async function releaseReservations(db: Db, logId: string, userIds: string[]): Promise<void> {
+  if (userIds.length === 0) return;
+  await db.delete(pushUserSends).where(and(eq(pushUserSends.logId, logId), inArray(pushUserSends.userId, userIds)));
+}
+
+async function purgeOldSends(db: Db, projectId: string): Promise<void> {
+  await db
+    .delete(pushUserSends)
+    .where(and(eq(pushUserSends.projectId, projectId), lt(pushUserSends.sentAt, new Date(Date.now() - CAP_RETENTION_MS))));
+}
+
+/** 실제로 배달된 기기만(순수 함수) */
+export function deliveredRows<T extends { token: string }>(rows: T[], deliveredTokens: string[]): T[] {
+  const ok = new Set(deliveredTokens);
+  return rows.filter((r) => ok.has(r.token));
+}
+
+function distinctUserIds(rows: Array<{ userId: string | null }>): string[] {
+  return [...new Set(rows.map((r) => r.userId).filter((u): u is string => Boolean(u)))];
+}
+
+// ─── 보낼 내용 만들기 ────────────────────────────────────────────────────────
+
+export type SendItem = { token: string; vi: number | null; title: string; body: string; dataOnly: boolean };
+
+/**
+ * 기기마다 보낼 내용: A/B 변형 배정 → 치환. 웹은 data-only(사유는 fcm.ts 의 dataOnly 참조).
+ * `render` 가 없으면 치환하지 않는다(순수 함수).
+ */
+export function buildItems(
+  rows: Array<Pick<ScopedDevice, "token" | "platform">>,
+  base: { title: string; body: string },
+  variants: { title: string; body: string }[] | null,
+  render: ((text: string, token: string) => string) | null
+): SendItem[] {
+  return rows.map((r) => {
+    const vi = variants ? variantIndex(r.token, variants.length) : null;
+    const content = vi === null ? base : variants![vi];
+    return {
+      token: r.token,
+      vi,
+      title: render ? render(content.title, r.token) : content.title,
+      body: render ? render(content.body, r.token) : content.body,
+      dataOnly: r.platform === "web",
+    };
+  });
+}
+
+/** 같은 내용·같은 페이로드 모양끼리 묶어 멀티캐스트 배치로(최대 500) */
+export function multicastGroups(items: SendItem[]): Array<Omit<SendItem, "token"> & { tokens: string[] }> {
+  const groups = new Map<string, Omit<SendItem, "token"> & { tokens: string[] }>();
+  for (const it of items) {
+    const key = `${it.vi}\u0000${it.dataOnly}\u0000${it.title}\u0000${it.body}`;
+    const g = groups.get(key) ?? { vi: it.vi, title: it.title, body: it.body, dataOnly: it.dataOnly, tokens: [] };
+    g.tokens.push(it.token);
+    groups.set(key, g);
+  }
+  return [...groups.values()].flatMap((g) => chunk(g.tokens, BATCH).map((tokens) => ({ ...g, tokens })));
+}
+
+function addVariantSent(stats: VariantStats | null, items: SendItem[]): VariantStats | null {
+  if (!stats) return null;
+  const next: VariantStats = Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, { ...v }]));
+  for (const it of items) if (it.vi !== null && next[String(it.vi)]) next[String(it.vi)].sent++;
+  return next;
+}
+
+/** FCM 결과를 상태에 더한다(순수 함수). 변형별 성공은 성공 토큰의 변형으로 센다. */
+export function tallyResults(state: ResumeState, items: SendItem[], results: FcmResult[]): ResumeState {
+  const viOf = new Map(items.map((it) => [it.token, it.vi]));
+  const stats = state.variantStats ? Object.fromEntries(Object.entries(state.variantStats).map(([k, v]) => [k, { ...v }])) : null;
+  let success = state.success;
+  let failure = state.failure;
+  for (const r of results) {
+    success += r.success;
+    failure += r.failure;
+    if (!stats) continue;
+    for (const t of r.validTokens) {
+      const vi = viOf.get(t);
+      if (vi !== null && vi !== undefined && stats[String(vi)]) stats[String(vi)].success++;
+    }
+  }
+  return { ...state, success, failure, variantStats: stats };
+}
+
+// ─── 발송 단계 ───────────────────────────────────────────────────────────────
+
+type SendContext = {
+  project: Project;
+  sa: ServiceAccount | null;
+  /** 테스트 발송은 null — 상한을 적용하지도, 수신 기록을 남기지도 않는다 */
+  cap: number | null;
+  renderCtx: RenderContext;
+  personalized: boolean;
+};
 
 /** 치환용 — 토큰마다 받는 사람의 아이디·속성. 익명 기기는 null(기본값으로 채워진다). */
 async function loadRecipients(db: Db, projectId: string, tokens: string[]): Promise<Map<string, Recipient>> {
   const rows = await db
-    .select({ token: devices.token, externalId: pushUsers.externalId, attributes: pushUsers.attributes })
+    .select({
+      token: devices.token,
+      externalId: pushUsers.externalId,
+      name: pushUsers.name,
+      attributes: pushUsers.attributes,
+      timezone: pushUsers.timezone,
+      locale: pushUsers.locale,
+    })
     .from(devices)
     .leftJoin(pushUsers, eq(devices.userId, pushUsers.id))
     .where(and(eq(devices.projectId, projectId), inArray(devices.token, tokens)));
   return new Map(
-    rows.map((r) => [r.token, r.externalId ? { externalId: r.externalId, attributes: r.attributes } : null])
+    rows.map((r) => [
+      r.token,
+      r.externalId
+        ? { externalId: r.externalId, name: r.name, attributes: r.attributes, timezone: r.timezone, locale: r.locale }
+        : null,
+    ])
   );
 }
 
-/** 대상 토큰을 페이지 단위로 스트리밍 (broadcast/topic 대량 대응) */
-async function* tokenPages(db: Db, log: PushLog): AsyncGenerator<string[]> {
-  if (log.type === "single" && log.target) {
-    const user = (
-      await db.select({ id: pushUsers.id }).from(pushUsers)
-        .where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.externalId, log.target))).limit(1)
-    )[0];
-    if (!user) return;
-    const rows = await db
-      .select({ token: devices.token }).from(devices)
-      .where(and(eq(devices.projectId, log.projectId), eq(devices.userId, user.id), eq(devices.isActive, true)));
-    if (rows.length) yield rows.map((r) => r.token);
-    return;
-  }
-
-  if (log.type === "multi") {
-    const userIds = await resolveMultiUsers(db, log);
-    for (const ids of chunk(userIds, PAGE)) {
-      const rows = await db
-        .select({ token: devices.token }).from(devices)
-        .where(and(eq(devices.projectId, log.projectId), inArray(devices.userId, ids), eq(devices.isActive, true)));
-      if (rows.length) yield rows.map((r) => r.token);
-    }
-    return;
-  }
-
-  // 토픽: 구독식이면 subscriptions 를, 규칙식이면 유저 속성을 탄다.
-  // 'segment' 는 통합 이전에 쌓인 로그 — 같은 이름의 토픽으로 흡수됐으므로 같은 경로로 처리한다.
-  let topicId: string | null = null;
-  if (log.type === "topic" || log.type === "segment") {
-    if (!log.target) return;
-    const group = await resolveGroup(db, log.projectId, log.target);
-    if (!group) return;
-
-    if (group.kind === "rules") {
-      const conds: SQL[] = [
-        eq(devices.projectId, log.projectId),
-        eq(devices.isActive, true),
-        ...attrConds(group.rules),
-      ];
-      let cur = "00000000-0000-0000-0000-000000000000";
-      for (;;) {
-        const rows = await db
-          .select({ id: devices.id, token: devices.token }).from(devices)
-          .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
-          .where(and(...conds, gt(devices.id, cur)))
-          .orderBy(devices.id).limit(PAGE);
-        if (rows.length === 0) break;
-        yield rows.map((r) => r.token);
-        cur = rows[rows.length - 1].id;
-        if (rows.length < PAGE) break;
-      }
-      return;
-    }
-    topicId = group.topicId;
-  }
-
-  // keyset 페이지네이션 (devices.id 커서) — 결정적·deep-page 성능 안정
-  let cursor = "00000000-0000-0000-0000-000000000000";
-  for (;;) {
-    let rows: { id: string; token: string }[];
-    if (topicId) {
-      rows = await db
-        .select({ id: devices.id, token: devices.token }).from(subscriptions)
-        .innerJoin(devices, eq(subscriptions.deviceId, devices.id))
-        .where(and(eq(subscriptions.topicId, topicId), eq(devices.projectId, log.projectId), eq(devices.isActive, true), gt(devices.id, cursor)))
-        .orderBy(devices.id).limit(PAGE);
-    } else {
-      rows = await db
-        .select({ id: devices.id, token: devices.token }).from(devices)
-        .where(and(eq(devices.projectId, log.projectId), eq(devices.isActive, true), gt(devices.id, cursor)))
-        .orderBy(devices.id).limit(PAGE);
-    }
-    if (rows.length === 0) break;
-    yield rows.map((r) => r.token);
-    cursor = rows[rows.length - 1].id;
-    if (rows.length < PAGE) break;
-  }
-}
-
-async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
-  return (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
-}
-
-/**
- * 클릭률 분모 — 이 발송이 도달할 수 있었던 **고유 유저 수**와 **디바이스 수**를
- * 발송 시작 전에 확정한다. 구독·디바이스는 계속 변하므로 나중에 세면 과거 발송의 비율이 흔들린다.
- *
- * 두 값을 모두 남기는 이유: 익명 디바이스(userId null)는 유저 분모에 0으로 잡히는데
- * 그 디바이스의 클릭은 clickCount 를 올린다. 짝이 맞는 분모가 없으면 100% 를 넘는 비율이 나온다.
- * → clickUserCount/audienceUserCount, clickCount/audienceDeviceCount 로 짝지어 쓴다.
- *
- * 억제(suppression) 대상은 발송에서 제외되므로 분모에서도 뺀다.
- */
-async function countAudience(db: Db, log: PushLog): Promise<{ users: number; devices: number }> {
-  const suppressed = await loadSuppression(db, log.projectId);
-  const base = [eq(devices.projectId, log.projectId), eq(devices.isActive, true)];
-
-  // 억제 토큰은 목록이 크지 않다고 보고 애플리케이션에서 뺀다(발송 경로와 동일한 기준).
-  const tally = (rows: { userId: string | null; token: string }[]) => {
-    const users = new Set<string>();
-    let deviceCount = 0;
-    for (const r of rows) {
-      if (suppressed.has(r.token)) continue;
-      deviceCount++;
-      if (r.userId) users.add(r.userId);
-    }
-    return { users: users.size, devices: deviceCount };
-  };
-
-  if (log.type === "single") {
-    if (!log.target) return { users: 0, devices: 0 };
-    const u = (
-      await db.select({ id: pushUsers.id }).from(pushUsers)
-        .where(and(eq(pushUsers.projectId, log.projectId), eq(pushUsers.externalId, log.target))).limit(1)
-    )[0];
-    // 없는 external_id 로 보내면 수신자가 0인데 분모만 1이 되어 클릭률이 영원히 0% 로 남는다
-    if (!u) return { users: 0, devices: 0 };
-    const rows = await db
-      .select({ userId: devices.userId, token: devices.token }).from(devices)
-      .where(and(...base, eq(devices.userId, u.id)));
-    return tally(rows);
-  }
-
-  if (log.type === "multi") {
-    const userIds = await resolveMultiUsers(db, log);
-    if (userIds.length === 0) return { users: 0, devices: 0 };
-    const rows = await db
-      .select({ userId: devices.userId, token: devices.token }).from(devices)
-      .where(and(...base, inArray(devices.userId, userIds)));
-    return tally(rows);
-  }
-
-  if (log.type === "topic" || log.type === "segment") {
-    if (!log.target) return { users: 0, devices: 0 };
-    const group = await resolveGroup(db, log.projectId, log.target);
-    if (!group) return { users: 0, devices: 0 };
-
-    if (group.kind === "rules") {
-      const rows = await db
-        .select({ userId: devices.userId, token: devices.token })
-        .from(devices)
-        .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
-        .where(and(...base, ...attrConds(group.rules)));
-      return tally(rows);
-    }
-
-    const rows = await db
-      .select({ userId: devices.userId, token: devices.token })
-      .from(subscriptions)
-      .innerJoin(devices, eq(subscriptions.deviceId, devices.id))
-      .where(and(eq(subscriptions.topicId, group.topicId), ...base));
-    return tally(rows);
-  }
-
-  const rows = await db.select({ userId: devices.userId, token: devices.token }).from(devices).where(and(...base));
-  return tally(rows);
-}
-
-/**
- * 큐잉 로그 1건 처리. 원자적 클레임(+stale 'processing' 재클레임)으로 중복/유실 방지.
- * 대상은 페이지 스트리밍, FCM 배치는 동시성 제한 병렬. 크레덴셜 없으면 log-only.
- */
-export async function processPushLog(logId: string): Promise<PushLog | undefined> {
-  const db = getDb();
-  const staleBefore = new Date(Date.now() - STALE_MS);
-
+async function claimLog(db: Db, logId: string, lockToken: string): Promise<PushLog | undefined> {
   const now = new Date();
-  const myToken = randomUUID();
+  const staleBefore = new Date(now.getTime() - STALE_MS);
   const claimed = await db
     .update(pushLogs)
-    .set({ status: "processing", lockedAt: now, lockToken: myToken })
+    .set({ status: "processing", lockedAt: now, lockToken })
     .where(
       and(
         eq(pushLogs.id, logId),
@@ -286,154 +333,263 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       )
     )
     .returning();
-  if (claimed.length === 0) return reload(db, logId); // 다른 워커가 이미 처리
-  const log = claimed[0];
+  return claimed[0];
+}
 
+async function loadSendContext(db: Db, log: PushLog): Promise<SendContext | null> {
+  const project = (await db.select().from(projects).where(eq(projects.id, log.projectId)).limit(1))[0];
+  if (!project) return null;
+  const sa = project.firebaseCredentialsEnc ? parseServiceAccount(decryptSecret(project.firebaseCredentialsEnc)) : null;
+  const variants = log.variants ?? [];
+  return {
+    project,
+    sa,
+    cap: log.isTest ? null : project.frequencyCapPerDay,
+    // 발송 한 건에 공통인 치환 값. 시각을 한 번 고정해야 페이지마다 {{time}} 이 달라지지 않는다.
+    renderCtx: { appName: project.name, now: new Date() },
+    personalized: hasPlaceholders(log.title, log.body, ...variants.flatMap((v) => [v.title, v.body])),
+  };
+}
+
+/** 소유권 확인(하트비트) + 진행 상태 저장. 잃었으면 false — 즉시 중단해야 중복 발송이 없다. */
+async function saveProgress(db: Db, logId: string, lockToken: string, state: ResumeState): Promise<boolean> {
+  const hb = await db
+    .update(pushLogs)
+    .set({ lockedAt: new Date(), resumeCursor: JSON.stringify(state) })
+    .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)))
+    .returning({ id: pushLogs.id });
+  return hb.length > 0;
+}
+
+async function sendItems(ctx: SendContext, log: PushLog, items: SendItem[]): Promise<FcmResult[]> {
+  const msgOf = (c: { title: string; body: string }): FcmMessage => ({
+    title: c.title,
+    body: c.body,
+    imageUrl: log.imageUrl ?? undefined,
+    deepLink: log.deepLink ?? undefined,
+    logId: log.id,
+    data: log.data ?? undefined,
+    options: log.options ?? undefined,
+  });
+  const pid = ctx.project.id;
+  const sa = ctx.sa!;
+  // 치환이 있으면 사람마다 내용이 달라 묶이지 않는다 — 메시지 배열 한 번(sendEach)으로 보낸다
+  const jobs: Array<() => Promise<FcmResult>> = ctx.personalized
+    ? chunk(items, SEND_EACH_LIMIT).map((batch) => () =>
+        sendEachToTokens(pid, sa, batch.map((it) => ({ token: it.token, msg: msgOf(it), dataOnly: it.dataOnly }))))
+    : multicastGroups(items).map((g) => () => sendToTokens(pid, sa, g.tokens, msgOf(g), false, g.dataOnly));
+  return mapLimit(jobs, CONCURRENCY, (job) => job());
+}
+
+/** 한 페이지 발송 → 다음 상태. 무효·검증 토큰은 페이지마다 반영한다(끝까지 모으면 메모리가 대상 수에 비례). */
+async function sendPage(db: Db, log: PushLog, ctx: SendContext, page: ScopedDevice[], state: ResumeState): Promise<ResumeState> {
+  const { allowed, reserved } = await admitPage(db, log, ctx, page);
+
+  const recipients = ctx.personalized && allowed.length ? await loadRecipients(db, log.projectId, allowed.map((r) => r.token)) : null;
+  const render = recipients
+    ? (text: string, token: string) => renderTemplate(text, recipients.get(token) ?? null, ctx.renderCtx)
+    : null;
+  const items = buildItems(allowed, { title: log.title, body: log.body }, log.variants ?? null, render);
+
+  let next: ResumeState = {
+    ...state,
+    cursor: page[page.length - 1].id,
+    total: state.total + items.length,
+    variantStats: addVariantSent(state.variantStats, items),
+  };
+
+  if (ctx.sa && items.length) {
+    const results = await sendItems(ctx, log, items);
+    next = tallyResults(next, items, results);
+    await recordPageOutcome(db, log, results, releasableUsers(reserved, allowed, results.flatMap((r) => r.validTokens)));
+  }
+  return next;
+}
+
+/**
+ * 발송 뒤 부수 기록. 이미 나간 페이지이므로 여기서 실패해도 커서 저장을 막으면 안 된다 —
+ * 막으면 로그가 failed 로 끝나 재개되지 않거나, 재클레임 때 같은 페이지를 또 보낸다.
+ */
+async function recordPageOutcome(db: Db, log: PushLog, results: FcmResult[], releasable: string[]): Promise<void> {
   try {
-    const project = (await db.select().from(projects).where(eq(projects.id, log.projectId)).limit(1))[0];
-    const logOnly = !project?.firebaseCredentialsEnc;
-    const sa = logOnly ? null : parseServiceAccount(decryptSecret(project!.firebaseCredentialsEnc!));
-    const suppression = await loadSuppression(db, log.projectId);
-
-    // 분모는 **발송 시작 전에** 확정한다. 발송 뒤에 세면 그 사이의 구독 해지·바인딩 변경·
-    // 무효토큰 비활성화가 반영되어, 실제로 받은 사람보다 작은(때로는 큰) 분모가 남는다.
-    const audience = await countAudience(db, log);
-
-    let total = 0;
-    let success = 0;
-    let failure = 0;
-
-    const variants = log.variants ?? null;
-    const personalized = hasPlaceholders(log.title, log.body, ...(variants ?? []).flatMap((v) => [v.title, v.body]));
-    const variantStats: Record<string, { sent: number; success: number }> = {};
-    if (variants) variants.forEach((_, i) => (variantStats[String(i)] = { sent: 0, success: 0 }));
-    const invalidAll: string[] = [];
-    // FCM 이 받아준 토큰 — 실재하는 기기로 신뢰할 수 있는 유일한 근거
-    const validAll: string[] = [];
-
-    for await (const page of tokenPages(db, log)) {
-      // fencing: 각 페이지 발송 전 소유권(하트비트) 확인 — 잃었으면 즉시 중단(중복 발송 방지)
-      const hb = await db
-        .update(pushLogs)
-        .set({ lockedAt: new Date() })
-        .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)))
-        .returning({ id: pushLogs.id });
-      if (hb.length === 0) return reload(db, logId);
-
-      const tokens = page.filter((t) => !suppression.has(t));
-      total += tokens.length;
-      if (tokens.length === 0) continue;
-
-      // 웹은 data-only 로 보내야 한다(사유는 fcm.ts 의 dataOnly 참조).
-      // 페이지 단위 인덱스 조회 한 번 — 제너레이터 4개 분기에 platform 을 끼워넣는
-      // 것보다 변경 범위가 좁다.
-      const webRows = await db
-        .select({ token: devices.token })
-        .from(devices)
-        .where(and(eq(devices.projectId, log.projectId), eq(devices.platform, "web"), inArray(devices.token, tokens)));
-      const webSet = new Set(webRows.map((r) => r.token));
-      const splitByPlatform = (list: string[]): Array<{ batch: string[]; dataOnly: boolean }> => {
-        const web = list.filter((t) => webSet.has(t));
-        const native = list.filter((t) => !webSet.has(t));
-        const out: Array<{ batch: string[]; dataOnly: boolean }> = [];
-        for (const b of chunk(native, BATCH)) out.push({ batch: b, dataOnly: false });
-        for (const b of chunk(web, BATCH)) out.push({ batch: b, dataOnly: true });
-        return out;
-      };
-
-      // 토큰마다 보낼 내용을 정한다: A/B 변형 배정 → 치환. 같은 내용끼리 묶어 배치로 보낸다.
-      // 치환이 없으면 변형 수만큼, 있으면 최악의 경우 사람 수만큼 묶음이 생긴다.
-      const recipients = personalized ? await loadRecipients(db, log.projectId, tokens) : null;
-      const groups = new Map<string, { vi: number | null; title: string; body: string; tokens: string[] }>();
-      for (const tok of tokens) {
-        const vi = variants ? variantIndex(tok, variants.length) : null;
-        const base = vi === null ? { title: log.title, body: log.body } : variants![vi];
-        const who = recipients?.get(tok) ?? null;
-        const title = recipients ? renderTemplate(base.title, who) : base.title;
-        const body = recipients ? renderTemplate(base.body, who) : base.body;
-        const key = `${vi}\u0000${title}\u0000${body}`;
-        const g = groups.get(key) ?? { vi, title, body, tokens: [] };
-        g.tokens.push(tok);
-        groups.set(key, g);
-      }
-
-      for (const g of groups.values()) if (g.vi !== null) variantStats[String(g.vi)].sent += g.tokens.length;
-      if (logOnly) continue;
-
-      const jobs = [...groups.values()].flatMap((g) => splitByPlatform(g.tokens).map((p) => ({ ...p, g })));
-      const results = await mapLimit(jobs, CONCURRENCY, (j) =>
-        sendToTokens(project!.id, sa!, j.batch, { title: j.g.title, body: j.g.body, deepLink: log.deepLink ?? undefined, logId: log.id, data: log.data ?? undefined }, false, j.dataOnly)
-          .then((r) => ({ r, vi: j.g.vi }))
-      );
-      for (const { r, vi } of results) {
-        success += r.success;
-        failure += r.failure;
-        if (vi !== null) variantStats[String(vi)].success += r.success;
-        invalidAll.push(...r.invalidTokens);
-        validAll.push(...r.validTokens);
-      }
-    }
     // 무효 토큰 비활성화 + **앱 삭제로 기록**. FCM 의 not-registered 판정이
     // 사실상 유일한 삭제 신호라, 여기서 버리면 삭제 추이를 볼 방법이 없다.
-    await recordUninstalls(db, project!.id, invalidAll, "send");
-    await markVerified(db, project!.id, validAll);
-
-    // fencing: 우리가 여전히 이 로그의 소유자일 때만 완료 처리(부작용 1회 보장)
-    const finalStatus = logOnly ? "logged" : "completed";
-    const finalized = await db
-      .update(pushLogs)
-      .set({ status: finalStatus, totalCount: total, successCount: success, failureCount: failure, audienceUserCount: audience.users, audienceDeviceCount: audience.devices, ...(variants ? { variantStats } : {}) })
-      .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)))
-      .returning({ id: pushLogs.id });
-    if (finalized.length === 0) return reload(db, logId); // stale 재클레임에 의해 대체됨 → 부작용 스킵
-
-    // In-app 인박스: 사람을 지정한 발송(single·multi)만 (소유 확인 후 1회)
-    if (log.type === "single" || log.type === "multi") {
-      const ids = log.type === "single" ? (log.target ? [log.target] : []) : (log.targets ?? []);
-      const users = ids.length
-        ? await db
-            .select({ id: pushUsers.id, externalId: pushUsers.externalId, attributes: pushUsers.attributes, phone: pushUsers.phone })
-            .from(pushUsers)
-            .where(and(eq(pushUsers.projectId, log.projectId), inArray(pushUsers.externalId, ids)))
-        : [];
-      if (users.length) {
-        await db.insert(notifications).values(
-          users.map((u) => ({
-            projectId: log.projectId,
-            userId: u.id,
-            title: renderTemplate(log.title, u),
-            body: renderTemplate(log.body, u),
-            deepLink: log.deepLink,
-            data: log.data,
-          }))
-        );
-      }
-
-      // 카카오 알림톡 폴백: 단건만. device 발송 성공 0 + phone + 설정 존재 시
-      const u = log.type === "single" ? users[0] : undefined;
-      if (u && log.kakaoFallback && u.phone && project?.kakaoConfigEnc && success === 0) {
-        try {
-          const cfg = parseKakaoConfig(decryptSecret(project.kakaoConfigEnc));
-          await assertSafeWebhookUrl(cfg.provider_url); // 발송 시점 SSRF 재검증(DNS 변경 대응)
-          const r = await sendAlimtalk(cfg, u.phone, `${renderTemplate(log.title, u)}\n${renderTemplate(log.body, u)}`);
-          if (r.ok) await db.update(pushLogs).set({ kakaoCount: 1 }).where(eq(pushLogs.id, logId));
-        } catch {
-          /* 폴백 실패는 무시 */
-        }
-      }
-    }
-
-    // 웹훅 발행 (논블로킹, 소유 확인 후 1회)
-    void emitWebhook(log.projectId, "message.sent", {
-      message_id: logId,
-      status: finalStatus,
-      total,
-      success,
-      failure,
-    }).catch(() => {});
+    const invalid = results.flatMap((r) => r.invalidTokens);
+    const valid = results.flatMap((r) => r.validTokens);
+    if (invalid.length) await recordUninstalls(db, log.projectId, invalid, "send");
+    if (valid.length) await markVerified(db, log.projectId, valid);
+    await releaseReservations(db, log.id, releasable);
   } catch (e) {
-    // 우리 소유일 때만 실패 표시 (새 워커의 클레임을 덮지 않음)
-    await db.update(pushLogs).set({ status: "failed" }).where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, myToken)));
+    console.warn(`[push] page bookkeeping failed for log ${log.id}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** 대상 페이지를 커서부터 끝까지. 소유권을 잃으면 null. */
+async function runPages(db: Db, log: PushLog, ctx: SendContext, lockToken: string): Promise<ResumeState | null> {
+  // 분모는 **발송 시작 전에** 확정한다. 발송 뒤에 세면 그 사이의 구독 해지·바인딩 변경·
+  // 무효토큰 비활성화가 반영되어, 실제로 받은 사람보다 작은(때로는 큰) 분모가 남는다.
+  // 재클레임이면 저장된 상태(커서·누적·분모)에서 이어 간다.
+  const resumed = parseResumeState(log.resumeCursor);
+  if (resumed?.followUps) return resumed; // 발송은 이미 끝났다 — 남은 후속 단계만 돈다
+  let state = resumed ?? initialState(await countAudience(db, log), log.variants?.length ?? null);
+  const scope = await resolveScope(db, log);
+  if (ctx.cap !== null) await purgeOldSends(db, log.projectId);
+  if (!(await saveProgress(db, log.id, lockToken, state))) return null;
+  if (!scope) return state;
+
+  for (;;) {
+    const page = await scopedDevicePage(db, scope, state.cursor, PAGE);
+    if (page.length === 0) break;
+    state = await sendPage(db, log, ctx, page, state);
+    // 전달 보장은 페이지 단위 at-least-once — FCM 발송 후 이 커서 저장 전에 죽으면 그 페이지를 다시 보낸다
+    if (!(await saveProgress(db, log.id, lockToken, state))) return null;
+    if (page.length < PAGE) break;
+  }
+  return state;
+}
+
+/** 완료 처리 — 우리가 여전히 소유자일 때만(부작용 1회 보장). */
+async function finalizeLog(db: Db, log: PushLog, lockToken: string, state: ResumeState, status: string): Promise<boolean> {
+  const finalized = await db
+    .update(pushLogs)
+    .set({
+      status,
+      totalCount: state.total,
+      successCount: state.success,
+      failureCount: state.failure,
+      audienceUserCount: state.audience.users,
+      audienceDeviceCount: state.audience.devices,
+      resumeCursor: null,
+      ...(state.variantStats ? { variantStats: state.variantStats } : {}),
+    })
+    .where(and(eq(pushLogs.id, log.id), eq(pushLogs.lockToken, lockToken)))
+    .returning({ id: pushLogs.id });
+  return finalized.length > 0;
+}
+
+type FollowUpUser = Recipient & { id: string; phone: string | null };
+
+/** 후속 채널(인박스·알림톡)의 받는 사람 — 사람을 지정한 발송만, 수신거부한 사람은 뺀다 */
+async function loadFollowUpUsers(db: Db, log: PushLog): Promise<FollowUpUser[]> {
+  if (log.type !== "single" && log.type !== "multi") return [];
+  const ids = log.type === "single" ? (log.target ? [log.target] : []) : (log.targets ?? []);
+  if (ids.length === 0) return [];
+  return db
+    .select({
+      id: pushUsers.id,
+      externalId: pushUsers.externalId,
+      name: pushUsers.name,
+      attributes: pushUsers.attributes,
+      timezone: pushUsers.timezone,
+      locale: pushUsers.locale,
+      phone: pushUsers.phone,
+    })
+    .from(pushUsers)
+    .where(and(eq(pushUsers.projectId, log.projectId), inArray(pushUsers.externalId, ids), userNotSuppressed(log.projectId)));
+}
+
+/** In-app 인박스. (log, user) 유니크라 재실행해도 한 번만 쌓인다. */
+async function deliverInbox(db: Db, log: PushLog, ctx: SendContext, users: FollowUpUser[]): Promise<void> {
+  if (users.length === 0) return;
+  await db
+    .insert(notifications)
+    .values(
+      users.map((u) => ({
+        projectId: log.projectId,
+        userId: u.id,
+        logId: log.id,
+        title: renderTemplate(log.title, u, ctx.renderCtx),
+        body: renderTemplate(log.body, u, ctx.renderCtx),
+        deepLink: log.deepLink,
+        data: log.data,
+      }))
+    )
+    .onConflictDoNothing();
+}
+
+/** 카카오 알림톡 폴백: 단건만. device 발송 성공 0 + phone + 설정 존재 시 */
+async function deliverKakaoFallback(db: Db, log: PushLog, ctx: SendContext, users: FollowUpUser[], success: number): Promise<void> {
+  const u = log.type === "single" ? users[0] : undefined;
+  if (!u || !log.kakaoFallback || !u.phone || !ctx.project.kakaoConfigEnc || success !== 0) return;
+  try {
+    const cfg = parseKakaoConfig(decryptSecret(ctx.project.kakaoConfigEnc));
+    await assertSafeWebhookUrl(cfg.provider_url); // 발송 시점 SSRF 재검증(DNS 변경 대응)
+    const text = `${renderTemplate(log.title, u, ctx.renderCtx)}\n${renderTemplate(log.body, u, ctx.renderCtx)}`;
+    const r = await sendAlimtalk(cfg, u.phone, text);
+    if (r.ok) await db.update(pushLogs).set({ kakaoCount: 1 }).where(eq(pushLogs.id, log.id));
+    else console.warn(`[push] kakao fallback rejected for log ${log.id}`);
+  } catch (e) {
+    // 폴백 실패가 발송 완료를 되돌리지는 않지만, 조용히 삼키면 운영자가 원인을 알 수 없다(전화번호는 남기지 않는다)
+    console.warn(`[push] kakao fallback failed for log ${log.id}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+async function notifySent(log: PushLog, status: string, state: ResumeState): Promise<void> {
+  try {
+    const data = { message_id: log.id, status, total: state.total, success: state.success, failure: state.failure };
+    await emitWebhook(log.projectId, "message.sent", data);
+  } catch (e) {
+    console.warn(`[push] message.sent webhook failed for log ${log.id}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/**
+ * 후속 단계(인박스 → 알림톡 → 웹훅)를 **완료 표시 전에** 돈다. 완료 뒤에 돌면 그 사이에 죽었을 때 영영 유실된다.
+ * 단계마다 끝났다는 표시를 resume_cursor 에 남겨, 재클레임한 워커는 남은 단계만 이어 간다.
+ */
+async function runFollowUps(db: Db, log: PushLog, ctx: SendContext, lockToken: string, sent: ResumeState, status: string): Promise<boolean> {
+  let state: ResumeState = { ...sent, followUps: { ...sent.followUps } };
+  if (!(await saveProgress(db, log.id, lockToken, state))) return false;
+  const users = await loadFollowUpUsers(db, log);
+  const steps: Record<keyof FollowUps, () => Promise<void>> = {
+    inbox: () => deliverInbox(db, log, ctx, users),
+    kakao: () => deliverKakaoFallback(db, log, ctx, users, state.success),
+    webhook: () => notifySent(log, status, state),
+  };
+  for (const key of FOLLOW_UP_KEYS) {
+    if (state.followUps?.[key]) continue;
+    await steps[key]();
+    state = { ...state, followUps: { ...state.followUps, [key]: true } };
+    if (!(await saveProgress(db, log.id, lockToken, state))) return false;
+  }
+  return true;
+}
+
+async function failOwned(db: Db, logId: string, lockToken: string): Promise<void> {
+  // 우리 소유일 때만 실패 표시 (새 워커의 클레임을 덮지 않음)
+  await db.update(pushLogs).set({ status: "failed" }).where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
+}
+
+async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
+  return (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
+}
+
+/**
+ * 큐잉 로그 1건 처리. 원자적 클레임(+stale 'processing' 재클레임)으로 중복/유실 방지.
+ * 대상은 페이지 스트리밍, 페이지마다 진행 상태를 남겨 재클레임 시 이어서 보낸다.
+ * 크레덴셜 없으면 log-only.
+ */
+export async function processPushLog(logId: string): Promise<PushLog | undefined> {
+  const db = getDb();
+  const lockToken = randomUUID();
+  const log = await claimLog(db, logId, lockToken);
+  if (!log) return reload(db, logId); // 다른 워커가 이미 처리
+
+  try {
+    const ctx = await loadSendContext(db, log);
+    if (!ctx) {
+      // 프로젝트가 사라졌다(삭제 경합) — 보낼 곳이 없으니 실패로 닫는다
+      await failOwned(db, logId, lockToken);
+      return reload(db, logId);
+    }
+    const state = await runPages(db, log, ctx, lockToken);
+    if (!state) return reload(db, logId); // 소유권 상실 → 새 소유자가 이어 간다
+
+    const finalStatus = ctx.sa ? "completed" : "logged";
+    if (!(await runFollowUps(db, log, ctx, lockToken, state, finalStatus))) return reload(db, logId);
+    await finalizeLog(db, log, lockToken, state, finalStatus);
+  } catch (e) {
+    await failOwned(db, logId, lockToken);
     throw e;
   }
 
@@ -459,16 +615,15 @@ export async function drainQueue(projectId: string, limit = 50): Promise<{ proce
     )
     .limit(limit);
 
-  let processed = 0;
-  let failed = 0;
-  const results = await mapLimit(pending, 4, async ({ id }) => {
+  const results = await mapLimit(pending, DRAIN_CONCURRENCY, async ({ id }) => {
     try {
       await processPushLog(id);
       return true;
-    } catch {
+    } catch (e) {
+      console.error(`[push] processing log ${id} failed: ${e instanceof Error ? e.message : String(e)}`);
       return false;
     }
   });
-  for (const ok of results) ok ? processed++ : failed++;
-  return { processed, failed };
+  const processed = results.filter(Boolean).length;
+  return { processed, failed: results.length - processed };
 }

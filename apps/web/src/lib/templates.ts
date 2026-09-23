@@ -12,11 +12,17 @@ export type TemplateField = { key: string; label?: string; default?: string; req
  * - 우리가 싣는 키: 덮어쓰면 딥링크·클릭 추적·웹 알림 표시가 깨진다
  * - FCM 예약 키: 넣으면 발송 자체가 거부된다
  */
-const RESERVED_KEYS = new Set(["deep_link", "notikit_log_id", "title", "body", "icon", "from", "notification", "message_type", "collapse_key"]);
+const RESERVED_KEYS = new Set(["deep_link", "notikit_log_id", "title", "body", "icon", "image", "from", "notification", "message_type", "collapse_key"]);
 const RESERVED_PREFIXES = ["google.", "gcm."];
 
+/** 대소문자·유니코드 호환 문자(전각 등)로 예약 키를 우회하지 못하게 비교 전에 맞춘다. */
+function normalizeKey(key: string): string {
+  return key.normalize("NFKC").toLowerCase();
+}
+
 export function isReservedKey(key: string): boolean {
-  return RESERVED_KEYS.has(key) || RESERVED_PREFIXES.some((p) => key.startsWith(p));
+  const k = normalizeKey(key);
+  return RESERVED_KEYS.has(k) || RESERVED_PREFIXES.some((p) => k.startsWith(p));
 }
 
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/;

@@ -29,7 +29,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     // ilike 특수문자(%, _)를 리터럴로 — 검색어 하나로 전체 스캔이 되지 않게
     const esc = q.replace(/[\\%_]/g, (m) => `\\${m}`);
     const like = `%${esc}%`;
-    conds.push(or(ilike(pushUsers.externalId, like), ilike(pushUsers.phone, like))!);
+    conds.push(or(ilike(pushUsers.externalId, like), ilike(pushUsers.name, like), ilike(pushUsers.phone, like))!);
   }
   if (cursor) conds.push(beforeCursor(pushUsers.createdAt, pushUsers.id, cursor));
 
@@ -38,6 +38,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     .select({
       id: pushUsers.id,
       externalId: pushUsers.externalId,
+      name: pushUsers.name,
       attributes: pushUsers.attributes,
       phone: pushUsers.phone,
       locale: pushUsers.locale,

@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { notifications, pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
 import { verifyIdentity } from "@/lib/keys";
+import { userIdParam } from "@/lib/user-id-alias";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { ok, fail } from "@/lib/api-response";
 
@@ -15,9 +16,9 @@ export async function GET(req: Request) {
   if (!rateLimit(clientKey(project.id, "inbox"))) return fail("Rate limit exceeded", 429);
 
   const params = new URL(req.url).searchParams;
-  const externalId = params.get("external_id");
+  const externalId = userIdParam(params);
   const identityHash = params.get("identity_hash");
-  if (!externalId) return fail("external_id required", 422);
+  if (!externalId) return fail("user_id required", 422);
   // 인박스는 타 유저 데이터 노출 위험 → identity_hash 항상 필수(프로젝트 플래그와 무관)
   if (!identityHash || !verifyIdentity(externalId, identityHash, project.apiSecretEnc)) {
     return fail("identity_hash invalid or missing", 403);

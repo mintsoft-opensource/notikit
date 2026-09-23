@@ -1,6 +1,7 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { getDb } from "@/db/client";
 import { devices, pushUsers, subscriptions, topics, type PushLog } from "@/db/schema";
+import { attrConds } from "@/lib/topic-membership";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -80,8 +81,7 @@ export async function isPlausibleRecipient(db: Db, log: PushLog, device: ClickDe
     // 규칙식 그룹: 명단이 없으므로 이 기기의 유저가 지금도 규칙에 맞는지로 근사한다.
     if (topic.rules && topic.rules.length > 0) {
       if (!userId) return false;
-      const conds = [eq(devices.id, deviceId), eq(devices.projectId, log.projectId)];
-      for (const r of topic.rules) conds.push(sql`${pushUsers.attributes} ->> ${r.attribute} = ${r.value}`);
+      const conds = [eq(devices.id, deviceId), eq(devices.projectId, log.projectId), ...attrConds(topic.rules)];
       const row = (
         await db
           .select({ id: devices.id })

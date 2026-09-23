@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
 import { beforeCursor, cursorExpr, nextCursor, parseCursor } from "@/lib/keyset";
 import { getDb } from "@/db/client";
 import { pushLogs } from "@/db/schema";
@@ -10,6 +10,13 @@ export const dynamic = "force-dynamic";
 const TYPES = ["single", "multi", "topic", "broadcast", "segment"] as const;
 type LogType = (typeof TYPES)[number];
 const LIMIT = 50;
+const RANKED_LIMIT_DEFAULT = 20;
+
+/** `?limit=` — 순위 조회 전용. 1~LIMIT 밖이면 기본값. */
+function parseRankedLimit(url: URL): number {
+  const n = Number(url.searchParams.get("limit"));
+  return Number.isInteger(n) && n >= 1 && n <= LIMIT ? n : RANKED_LIMIT_DEFAULT;
+}
 
 /**
  * `?from=`/`?to=` 파싱. 날짜(YYYY-MM-DD)와 ISO 둘 다 받는다.
@@ -62,11 +69,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   else if (type) conds.push(eq(pushLogs.type, type));
   if (from) conds.push(gte(pushLogs.createdAt, from));
   if (to) conds.push(lt(pushLogs.createdAt, to));
-  if (cursor) conds.push(beforeCursor(pushLogs.createdAt, pushLogs.id, cursor));
+
+  // `?sort=readRate` — 참여 화면 발송 순위. 기간 안 발송을 서버에서 정렬해 상위 N 만 준다.
+  // 클라이언트가 최근 50건만 받아 정렬하면 기간과 무관한 목록이 되고, 51번째 이후 발송은 순위에 못 든다.
+  // 읽음률은 화면의 "읽음률" 열과 같은 값(clickUserCount / audienceUserCount) — 분모가 0 이면 비율이 없으므로 뺀다.
+  const ranked = url.searchParams.get("sort") === "readRate";
+  // 테스트 발송은 대상이 한 명이라 운영자가 눌러 보면 100% 로 순위를 차지한다 — 순위에서 뺀다
+  if (ranked) conds.push(gt(pushLogs.audienceUserCount, 0), eq(pushLogs.isTest, false));
+  // 순위는 한 번에 상위 N 만 주므로 커서가 없다
+  else if (cursor) conds.push(beforeCursor(pushLogs.createdAt, pushLogs.id, cursor));
 
   const db = getDb();
   // 요약 필드만 (수신자/본문/데이터/딥링크 등 민감정보 노출 방지)
-  const rows = await db
+  const query = db
     .select({
       id: pushLogs.id,
       title: pushLogs.title,
@@ -83,13 +98,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       clickCount: pushLogs.clickCount,
       clickUserCount: pushLogs.clickUserCount,
       variantStats: pushLogs.variantStats,
+      imageUrl: pushLogs.imageUrl,
+      isTest: pushLogs.isTest,
       createdAt: pushLogs.createdAt,
       cursorTs: cursorExpr(pushLogs.createdAt),
     })
     .from(pushLogs)
-    .where(and(...conds))
-    .orderBy(desc(pushLogs.createdAt), desc(pushLogs.id))
-    .limit(LIMIT + 1);
+    .where(and(...conds));
+
+  if (ranked) {
+    const rows = await query
+      .orderBy(
+        desc(sql`${pushLogs.clickUserCount}::float8 / ${pushLogs.audienceUserCount}`),
+        desc(pushLogs.audienceUserCount),
+        desc(pushLogs.createdAt),
+        desc(pushLogs.id)
+      )
+      .limit(parseRankedLimit(url));
+    return ok({ logs: rows.map(({ cursorTs: _cursorTs, ...l }) => l), next: null });
+  }
+
+  const rows = await query.orderBy(desc(pushLogs.createdAt), desc(pushLogs.id)).limit(LIMIT + 1);
 
   const hasMore = rows.length > LIMIT;
   const logs = hasMore ? rows.slice(0, LIMIT) : rows;

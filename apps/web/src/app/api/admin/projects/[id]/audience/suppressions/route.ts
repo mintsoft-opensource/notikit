@@ -60,7 +60,7 @@ const createSchema = z
     token: z.string().max(4096).optional(),
     reason: z.enum(REASONS).default("manual"),
   })
-  .refine((d) => d.external_id || d.token, "external_id or token is required");
+  .refine((d) => d.external_id || d.token, "user_id or token is required");
 
 /** [Web Admin] 억제 추가 */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {

@@ -74,6 +74,18 @@ export async function requireAuth(req: Request, opts?: { write?: boolean }): Pro
   return { ok: true, ctx };
 }
 
+let appOriginWarned = false;
+
+/**
+ * 프로덕션에서 APP_ORIGIN 이 비면 Host·x-forwarded-proto 헤더로 기대 Origin 을 추정한다.
+ * 프록시가 이 헤더를 그대로 넘기면 추정이 흔들리므로 한 번만 경고한다(동작은 유지 — 배포가 깨지지 않게).
+ */
+function warnMissingAppOrigin(): void {
+  if (appOriginWarned || process.env.NODE_ENV !== "production") return;
+  appOriginWarned = true;
+  console.warn("[notikit] APP_ORIGIN is not set — CSRF origin check falls back to the request Host header. Set APP_ORIGIN to the public console URL (e.g. https://push.example.com).");
+}
+
 /**
  * CSRF 방어 — 상태변경(POST/PATCH/PUT/DELETE) 요청의 Origin 을 호스트와 대조.
  * superadmin(x-admin-token) 호출은 브라우저 컨텍스트가 아니므로 면제(Origin 없음 허용).
@@ -93,6 +105,7 @@ export function checkOrigin(req: Request): boolean {
   if (allowed) return origin === allowed; // 정확 비교(scheme+host+port)
 
   // APP_ORIGIN 미설정: 요청 스킴(프록시면 x-forwarded-proto) + host 로 기대 Origin 구성 후 정확 비교
+  warnMissingAppOrigin();
   const host = req.headers.get("host");
   if (!host) return false;
   const proto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || new URL(req.url).protocol.replace(":", "");

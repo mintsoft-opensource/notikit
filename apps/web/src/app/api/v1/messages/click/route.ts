@@ -5,6 +5,7 @@ import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { isPlausibleRecipient } from "@/lib/click-eligibility";
+import { variantForToken } from "@/lib/push-variant";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -62,9 +63,8 @@ export async function POST(req: Request) {
     return fail("Device was not a recipient of this message", 403);
   }
 
-  // 삽입과 집계를 한 트랜잭션으로. 따로 커밋하면 (a) 사이에서 죽었을 때 클릭은 남고
-  // 카운터만 영영 누락되고, (b) 동시 클릭이 read-committed 스냅샷으로 서로의 최신값을
-  // 덮어쓴다. 로그 행을 먼저 잠가 집계를 직렬화한다.
+  // 삽입과 증분을 한 트랜잭션으로 — 둘이 함께 커밋되므로 "삽입은 됐는데 +1 이 빠진" 상태가 없다.
+  // 그래서 매 클릭마다 push_clicks 를 전부 다시 세던 절대값 재계산이 필요 없다(대형 발송에서 O(클릭 수)).
   const recorded = await db.transaction(async (tx) => {
     const inserted = await tx
       .insert(pushClicks)
@@ -75,27 +75,33 @@ export async function POST(req: Request) {
         userId: device.userId,
         platform: device.platform,
         destination: b.destination,
+        // 변형별 클릭률을 내려면 이 기기가 어느 변형을 받았는지 남겨야 한다.
+        // 배정은 발송기와 같은 해시 규칙(push-variant)이라 재계산해도 같은 값이 나온다.
+        variant: variantForToken(b.token, log.variants?.length),
       })
       .onConflictDoNothing({ target: [pushClicks.logId, pushClicks.deviceId] })
       .returning({ id: pushClicks.id });
-    // 행 잠금 획득 후에 집계 — 이 시점 이후의 서브쿼리는 앞선 트랜잭션의 커밋을 본다
+    if (inserted.length === 0) return false; // 재클릭 — 카운터 그대로
+
+    // 로그 행을 잠가 같은 사람의 다른 기기 클릭과 직렬화한다. 잠금 뒤의 조회는 앞선 트랜잭션의
+    // 커밋을 보므로 "이 사람의 첫 클릭인가"를 정확히 판정한다.
     await tx.execute(sql`select 1 from ${pushLogs} where ${pushLogs.id} = ${log.id} for update`);
-    // 증분(+1)이 아니라 **절대값 재계산**이다. 증분은 삽입 성공 후 갱신 전에 죽으면
-    // 영구히 어긋난다(재시도는 유니크 충돌로 갱신을 건너뛴다). 절대값이면 재시도가
-    // 스스로 복구하므로 삽입이 없었어도 다시 센다.
+    let firstForUser = false;
+    if (device.userId) {
+      const same = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(pushClicks)
+        .where(and(eq(pushClicks.logId, log.id), eq(pushClicks.userId, device.userId)));
+      firstForUser = Number(same[0]?.n ?? 0) === 1;
+    }
     await tx
       .update(pushLogs)
       .set({
-        clickCount: sql`(
-          select count(*)::int from ${pushClicks} where ${pushClicks.logId} = ${log.id}
-        )`,
-        clickUserCount: sql`(
-          select count(distinct ${pushClicks.userId})::int from ${pushClicks}
-          where ${pushClicks.logId} = ${log.id} and ${pushClicks.userId} is not null
-        )`,
+        clickCount: sql`${pushLogs.clickCount} + 1`,
+        ...(firstForUser ? { clickUserCount: sql`${pushLogs.clickUserCount} + 1` } : {}),
       })
       .where(eq(pushLogs.id, log.id));
-    return inserted.length > 0;
+    return true;
   });
 
   return ok({ recorded }, undefined, 202);

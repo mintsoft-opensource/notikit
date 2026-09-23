@@ -1,6 +1,6 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { devices, pushUsers, pushLogs, pushClicks, deviceEvents } from "@/db/schema";
+import { devices, pushUsers, pushLogs, pushClicks, pushConversions, deviceEvents } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject } from "@/lib/authz";
 
@@ -33,10 +33,42 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const inEventRange = and(eq(deviceEvents.projectId, id), gte(deviceEvents.at, since));
 
+  // 직전 같은 길이의 구간 — KPI 타일의 "전기간 대비" 비교용
+  const prevSince = new Date(since.getTime() - ms);
+  const prevPromise = db
+    .select({
+      sends: sql<number>`count(*)::int`,
+      recipients: sql<number>`coalesce(sum(${pushLogs.totalCount}), 0)::int`,
+      success: sql<number>`coalesce(sum(${pushLogs.successCount}), 0)::int`,
+      clicks: sql<number>`coalesce(sum(${pushLogs.clickCount}), 0)::int`,
+      clickUsers: sql<number>`coalesce(sum(${pushLogs.clickUserCount}), 0)::int`,
+      audienceDevices: sql<number>`coalesce(sum(${pushLogs.audienceDeviceCount}), 0)::int`,
+      audienceUsers: sql<number>`coalesce(sum(${pushLogs.audienceUserCount}), 0)::int`,
+    })
+    .from(pushLogs)
+    .where(and(eq(pushLogs.projectId, id), gte(pushLogs.createdAt, prevSince), lt(pushLogs.createdAt, since)));
+
+  /** 전환 집계 — 기간별 건수와 금액 합. 금액 없는 전환은 0 으로 더해진다(합계가 null 이 되지 않게) */
+  const conversionAgg = (from: Date, to?: Date) =>
+    db
+      .select({
+        count: sql<number>`count(*)::int`,
+        valueCents: sql<number>`coalesce(sum(${pushConversions.valueCents}), 0)::int`,
+      })
+      .from(pushConversions)
+      .where(
+        and(
+          eq(pushConversions.projectId, id),
+          gte(pushConversions.createdAt, from),
+          ...(to ? [lt(pushConversions.createdAt, to)] : [])
+        )
+      );
+  const prevConversionPromise = conversionAgg(prevSince, since);
+
   const [
     totalDevices, activeDevices, dau, totalUsers, totalSends, delivered, queued,
     bucketRows, statusRows, agg, recent, platformRows,
-    clickAgg, clickBucketRows, uninstallAgg, uninstallBucketRows, topClicked,
+    clickAgg, clickBucketRows, uninstallAgg, uninstallBucketRows, topClicked, conversionRows,
   ] =
     await Promise.all([
       count(db.select({ c: sql<number>`count(*)` }).from(devices).where(eq(devices.projectId, id))),
@@ -134,6 +166,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         .where(and(inRange, sql`${pushLogs.clickCount} > 0`))
         .orderBy(desc(pushLogs.clickCount))
         .limit(5),
+      conversionAgg(since),
     ]);
 
   // 빈 버킷 = 0 으로 채움
@@ -156,6 +189,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   }
 
   const c = clickAgg[0];
+  const p = (await prevPromise)[0];
+  const conv = conversionRows[0];
+  const prevConv = (await prevConversionPromise)[0];
   const uninstalls = Object.fromEntries(uninstallAgg.map((r) => [r.event, r.count]));
   /** 분모가 0이면 비율은 정의되지 않는다 — 0% 로 위장하지 않고 null 로 낸다 */
   const rate = (num: number, den: number) => (den > 0 ? num / den : null);
@@ -186,11 +222,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       buckets: clickBuckets,
       top: topClicked,
     },
+    // 전환 — 클릭에 귀속된 앱 안 행동. 금액은 최소 화폐 단위(원/센트)라 화면이 단위를 밝혀야 한다.
+    conversions: { count: conv?.count ?? 0, value_cents: conv?.valueCents ?? 0 },
     devices_lifecycle: {
       uninstalled: uninstalls.uninstalled ?? 0,
       reinstalled: uninstalls.reinstalled ?? 0,
       net: (uninstalls.reinstalled ?? 0) - (uninstalls.uninstalled ?? 0),
       buckets: uninstallBuckets,
+    },
+    // 직전 같은 길이 구간의 같은 집계 — 화면이 증감을 계산한다
+    previous: {
+      sends: p?.sends ?? 0,
+      recipients: p?.recipients ?? 0,
+      success: p?.success ?? 0,
+      clicks: p?.clicks ?? 0,
+      click_users: p?.clickUsers ?? 0,
+      audience_devices: p?.audienceDevices ?? 0,
+      audience_users: p?.audienceUsers ?? 0,
+      device_rate: rate(p?.clicks ?? 0, p?.audienceDevices ?? 0),
+      user_rate: rate(p?.clickUsers ?? 0, p?.audienceUsers ?? 0),
+      conversions: prevConv?.count ?? 0,
+      conversion_value_cents: prevConv?.valueCents ?? 0,
     },
     statuses: Object.fromEntries(statusRows.map((r) => [r.status, r.count])),
     platforms: Object.fromEntries(platformRows.map((r) => [r.platform, r.count])),

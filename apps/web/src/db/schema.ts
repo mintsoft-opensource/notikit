@@ -13,7 +13,11 @@ import {
   inet,
   bigint,
   date,
+  smallint,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import type { RuleOp } from "@/lib/topic-rule-ops";
+import type { PushOptions } from "@/lib/fcm";
 
 /** 조직/워크스페이스 (테넌트 최상위) */
 export const organizations = pgTable("organizations", {
@@ -62,6 +66,8 @@ export const projects = pgTable("projects", {
   // 진행 중 스윕의 리스. 워커가 죽으면 만료되어 다른 워커가 이어받는다.
   // 정상적으로 한 구간을 마치면 null 로 풀어 즉시 이어 돌 수 있게 한다.
   tokensSweepLeaseAt: timestamp("tokens_sweep_lease_at", { withTimezone: true }),
+  // 빈도 상한 — 한 사용자가 24시간 동안 받을 수 있는 테스트 외 푸시 수. null 이면 제한 없음.
+  frequencyCapPerDay: integer("frequency_cap_per_day"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   apiKeyIdx: uniqueIndex("projects_api_key_idx").on(t.apiKey),
@@ -84,6 +90,7 @@ export const pushUsers = pgTable("push_users", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   externalId: text("external_id").notNull(), // 고객 시스템의 유저 ID
+  name: text("name"), // 표시·치환({{name}})용 이름
   attributes: jsonb("attributes").$type<Record<string, unknown>>().default({}),
   phone: text("phone"), // 카카오 알림톡 폴백용
   locale: text("locale"),
@@ -119,6 +126,8 @@ export const devices = pgTable("devices", {
   tokenIdx: uniqueIndex("devices_token_idx").on(t.projectId, t.token),
   userIdx: index("devices_user_idx").on(t.userId),
   projIdx: index("devices_project_idx").on(t.projectId),
+  // 발송·도달 인원이 활성 기기를 (project_id, id) keyset 으로 훑는다 — 비활성 기기는 인덱스에서 뺀다
+  activePageIdx: index("devices_active_page_idx").on(t.projectId, t.id).where(sql`${t.isActive}`),
 }));
 
 /**
@@ -134,8 +143,8 @@ export const topics = pgTable("topics", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  // 규칙 (AND): [{ attribute, value }] — attributes->>attribute = value
-  rules: jsonb("rules").$type<{ attribute: string; value: string }[] | null>(),
+  // 규칙 (AND): [{ attribute, op?, value }] — op 없으면 eq(attributes->>attribute = value)
+  rules: jsonb("rules").$type<{ attribute: string; op?: RuleOp; value: string }[] | null>(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   nameIdx: uniqueIndex("topics_name_idx").on(t.projectId, t.name),
@@ -186,6 +195,10 @@ export const suppressions = pgTable("suppressions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("suppressions_project_idx").on(t.projectId),
+  tokenIdx: index("suppressions_project_token_idx").on(t.projectId, t.token).where(sql`${t.token} is not null`),
+  externalIdx: index("suppressions_project_external_idx")
+    .on(t.projectId, t.externalId)
+    .where(sql`${t.externalId} is not null`),
 }));
 
 /** 푸시 로그 (발송 이력 — 대량, 리텐션 대상) */
@@ -200,6 +213,10 @@ export const pushLogs = pgTable("push_logs", {
   body: text("body").notNull(),
   data: jsonb("data").$type<Record<string, unknown>>(),
   deepLink: text("deep_link"),
+  // 리치 알림 이미지(https) — FCM notification.imageUrl / APNs fcm_options.image / 웹 data.image
+  imageUrl: text("image_url"),
+  // 콘솔에서 보낸 테스트 발송 — 로그에 "테스트" 로 표시
+  isTest: boolean("is_test").notNull().default(false),
   status: text("status").notNull().default("queued"), // queued | processing | completed | failed
   totalCount: integer("total_count").notNull().default(0),
   successCount: integer("success_count").notNull().default(0),
@@ -210,6 +227,9 @@ export const pushLogs = pgTable("push_logs", {
   lockToken: text("lock_token"),
   // 예약 발송 — 미래면 status='scheduled', 워커가 도래 시 처리
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  // 알림 옵션(소리·배지·collapse·TTL·우선순위·무음·액션 버튼). 발송 한 건에 한 벌이라 컬럼 하나에 담는다 —
+  // 컬럼으로 쪼개면 옵션이 늘 때마다 스키마가 바뀌고, 어차피 전부 FCM 페이로드로만 나간다.
+  options: jsonb("options").$type<PushOptions>(),
   // A/B 변형 (있으면 수신자를 해시로 변형에 배정) + 변형별 집계
   variants: jsonb("variants").$type<{ title: string; body: string }[]>(),
   variantStats: jsonb("variant_stats").$type<Record<string, { sent: number; success: number }>>(),
@@ -224,10 +244,37 @@ export const pushLogs = pgTable("push_logs", {
   // 클릭률 분자 — push_clicks 집계 캐시(유니크 클릭 기준)
   clickCount: integer("click_count").notNull().default(0),
   clickUserCount: integer("click_user_count").notNull().default(0),
+  // 재클레임 시 이어서 보낼 지점(JSON). 페이지마다 커서·누적 카운터를 남겨, 워커가 죽어도
+  // 앞쪽 수신자에게 다시 보내지 않는다.
+  resumeCursor: text("resume_cursor"),
+  // 멱등 키 — 같은 키로 다시 요청하면 처음 큐잉한 발송을 돌려준다(네트워크 재시도 중복 방지)
+  idempotencyKey: text("idempotency_key"),
+  // 발송자 — 콘솔 멤버 이메일 · "admin-token" · "api" · "journey"
+  sentBy: text("sent_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("push_logs_project_idx").on(t.projectId, t.createdAt),
   statusIdx: index("push_logs_status_idx").on(t.projectId, t.status),
+  idempotencyIdx: uniqueIndex("push_logs_idempotency_idx")
+    .on(t.projectId, t.idempotencyKey)
+    .where(sql`${t.idempotencyKey} is not null`),
+}));
+
+/**
+ * 빈도 상한 판정용 수신 기록 — 사용자 × 발송 한 행.
+ *
+ * 발송 로그만으로는 broadcast·토픽 발송이 실제로 누구에게 갔는지 알 수 없다.
+ * 상한이 켜진 프로젝트에서만 쌓고, 25시간이 지난 행은 처리기가 지운다.
+ */
+export const pushUserSends = pgTable("push_user_sends", {
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => pushUsers.id, { onDelete: "cascade" }),
+  logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ name: "push_user_sends_pk", columns: [t.logId, t.userId] }),
+  userIdx: index("push_user_sends_user_idx").on(t.userId, t.sentAt),
+  projIdx: index("push_user_sends_project_idx").on(t.projectId, t.sentAt),
 }));
 
 /**
@@ -303,13 +350,49 @@ export const pushClicks = pgTable("push_clicks", {
   platform: text("platform"),
   // 클릭으로 이동한 목적지 — 발송의 deepLink 와 다를 수 있어 실제 착지점을 따로 남긴다
   destination: text("destination"),
+  // 이 기기에 배정됐던 A/B 변형. 변형이 없는 발송이면 null.
+  // 기록 시점에 박아 둔다 — 나중에 다시 계산하면 배정 규칙이 바뀌는 순간 과거 클릭의 변형이 뒤집힌다.
+  variant: smallint("variant"),
   clickedAt: timestamp("clicked_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   uniqDevice: uniqueIndex("push_clicks_uniq_idx").on(t.logId, t.deviceId),
   logIdx: index("push_clicks_log_idx").on(t.logId),
   userIdx: index("push_clicks_user_idx").on(t.projectId, t.userId),
   atIdx: index("push_clicks_at_idx").on(t.projectId, t.clickedAt),
+  // 전환 귀속이 "이 기기의 최근 클릭"을 찾는다 — 없으면 프로젝트의 클릭 전체를 훑는다
+  deviceIdx: index("push_clicks_device_idx").on(t.projectId, t.deviceId, t.clickedAt),
 }));
+
+/**
+ * 전환 이벤트 — 클릭한 발송에 귀속된 앱 안 행동(구매·가입 등).
+ *
+ * 귀속은 **기록 시점에 끝난다**(그 기기·사람이 최근 24시간 안에 클릭한 마지막 발송).
+ * 나중에 다시 계산하지 않으므로 클릭이 리텐션으로 지워져도 과거 성과가 흔들리지 않는다.
+ * 클릭이 없는 이벤트는 귀속할 발송이 없어 아예 저장하지 않는다.
+ */
+export const pushConversions = pgTable("push_conversions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  /** 금액(최소 화폐 단위). 금액 없는 전환은 null. */
+  valueCents: integer("value_cents"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  logIdx: index("push_conversions_log_idx").on(t.logId, t.name),
+  projIdx: index("push_conversions_project_idx").on(t.projectId, t.createdAt),
+  // 같은 (발송, 사람, 이름)은 하루 1건. 익명 기기(user_id null)도 한 사람으로 묶이도록 coalesce 한다 —
+  // NULL 끼리는 서로 다른 값이라 그대로 두면 유니크가 익명 기기에 걸리지 않는다.
+  uniqDay: uniqueIndex("push_conversions_uniq_idx").on(
+    t.logId,
+    sql`coalesce(${t.userId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+    t.name,
+    sql`(${t.createdAt} at time zone 'utc')::date`
+  ),
+}));
+
+export type PushConversion = typeof pushConversions.$inferSelect;
 
 /** 아웃바운드 웹훅 엔드포인트 */
 export const webhooks = pgTable("webhooks", {
@@ -333,9 +416,13 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   status: text("status").notNull().default("pending"), // pending | delivered | failed
   attempts: integer("attempts").notNull().default(0),
   lastStatusCode: integer("last_status_code"),
+  // 재시도 스윕이 다음에 집어 갈 시각(지수 백오프). null 이면 아직 예약되지 않은 실패다.
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   whIdx: index("webhook_deliveries_wh_idx").on(t.webhookId, t.status),
+  // 스윕은 실패 행만 본다 — 부분 인덱스라 배달 이력이 쌓여도 훑는 범위가 늘지 않는다
+  retryIdx: index("webhook_deliveries_retry_idx").on(t.nextAttemptAt, t.attempts).where(sql`${t.status} = 'failed'`),
 }));
 
 /** 저니(워크플로우) — 다단계 자동 발송 정의 */
@@ -373,6 +460,8 @@ export const notifications = pgTable("notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull().references(() => pushUsers.id, { onDelete: "cascade" }),
+  // 발송이 만든 항목이면 그 로그 — 후속 단계 재실행 시 중복 적재를 막는다
+  logId: uuid("log_id").references(() => pushLogs.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   body: text("body").notNull(),
   deepLink: text("deep_link"),
@@ -381,6 +470,7 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   userIdx: index("notifications_user_idx").on(t.projectId, t.userId, t.createdAt),
+  logUserIdx: uniqueIndex("notifications_log_user_idx").on(t.logId, t.userId).where(sql`${t.logId} is not null`),
 }));
 
 /**

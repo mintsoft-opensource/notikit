@@ -5,7 +5,7 @@ export const openapi = {
     title: "Notikit API",
     version: "1.0.0",
     description:
-      "유저 중심 푸시 API.\n\n- **App SDK (공개)**: 등록/식별/구독은 `api-key` 만으로 호출(클라이언트 안전). external_id 바인딩엔 `identity_hash` 필요.\n- **App SDK (발송)**: `POST /messages` 는 `api-key` + `api-secret` 필수(서버 전용).\n- **Web Admin**: `x-admin-token`.",
+      "유저 중심 푸시 API.\n\n- **App SDK (공개)**: 등록/식별/구독은 `api-key` 만으로 호출(클라이언트 안전). user_id 바인딩엔 `identity_hash` 필요. `user_id` 는 고객사 서비스의 회원 ID 이며, 예전 이름 `external_id` 도 모든 요청에서 똑같이 받는다.\n- **App SDK (발송)**: `POST /messages` 는 `api-key` + `api-secret` 필수(서버 전용).\n- **Web Admin**: `x-admin-token`.",
   },
   servers: [{ url: "/", description: "current host" }],
   tags: [
@@ -39,8 +39,8 @@ export const openapi = {
                     type: "string",
                     enum: ["android", "ios", "web", "webview", "electron", "flutter", "react-native"],
                   },
-                  external_id: { type: "string", description: "고객 유저 ID (identity)" },
-                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret) — external_id 바인딩 검증" },
+                  user_id: { type: "string", description: "고객 유저 ID (identity)" },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(user_id, api_secret) — user_id 바인딩 검증" },
                   app_version: { type: "string" },
                   os_version: { type: "string" },
                   locale: { type: "string", example: "ko-KR" },
@@ -65,10 +65,11 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["external_id"],
+                required: ["user_id"],
                 properties: {
-                  external_id: { type: "string" },
-                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret)" },
+                  user_id: { type: "string" },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(user_id, api_secret)" },
+                  name: { type: "string", maxLength: 100, nullable: true, description: "사용자 이름 — 치환 변수 {{name}}, 콘솔 표시·검색. null 이면 지운다" },
                   attributes: { type: "object", additionalProperties: true },
                   locale: { type: "string" },
                   timezone: { type: "string" },
@@ -114,7 +115,7 @@ export const openapi = {
         tags: ["App SDK"],
         summary: "토픽 구독",
         description:
-          "token 이면 그 기기 하나, external_id 면 그 사람의 활성 기기 전부. 둘 중 하나만 보낸다. " +
+          "token 이면 그 기기 하나, user_id 면 그 사람의 활성 기기 전부. 둘 중 하나만 보낸다. " +
           "없는 그룹은 자동 생성된다. 규칙식 그룹은 명단이 자동으로 정해지므로 409.",
         security: [{ apiKey: [] }],
         requestBody: {
@@ -126,9 +127,9 @@ export const openapi = {
                 required: ["topic"],
                 properties: {
                   topic: { type: "string", minLength: 1, maxLength: 255 },
-                  token: { type: "string", description: "기기 하나. external_id 와 배타." },
-                  external_id: { type: "string", description: "그 사람의 활성 기기 전부. token 과 배타." },
-                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret). external_id 를 보낼 때 필수." },
+                  token: { type: "string", description: "기기 하나. user_id 와 배타." },
+                  user_id: { type: "string", description: "그 사람의 활성 기기 전부. token 과 배타." },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(user_id, api_secret). user_id 를 보낼 때 필수." },
                 },
               },
             },
@@ -136,10 +137,10 @@ export const openapi = {
         },
         responses: {
           "200": { description: "구독됨" },
-          "403": { description: "external_id 에 identity_hash 누락·불일치" },
+          "403": { description: "user_id 에 identity_hash 누락·불일치" },
           "404": { description: "디바이스 또는 유저 없음" },
           "409": { description: "규칙식 그룹 — 구독으로 넣을 수 없음" },
-          "422": { description: "token 과 external_id 중 정확히 하나가 필요" },
+          "422": { description: "token 과 user_id 중 정확히 하나가 필요" },
         },
       },
     },
@@ -159,9 +160,9 @@ export const openapi = {
                 required: ["topic"],
                 properties: {
                   topic: { type: "string", minLength: 1, maxLength: 255 },
-                  token: { type: "string", description: "기기 하나. external_id 와 배타." },
-                  external_id: { type: "string", description: "그 사람의 활성 기기 전부. token 과 배타." },
-                  identity_hash: { type: "string", description: "HMAC-SHA256(external_id, api_secret). external_id 를 보낼 때 필수." },
+                  token: { type: "string", description: "기기 하나. user_id 와 배타." },
+                  user_id: { type: "string", description: "그 사람의 활성 기기 전부. token 과 배타." },
+                  identity_hash: { type: "string", description: "HMAC-SHA256(user_id, api_secret). user_id 를 보낼 때 필수." },
                 },
               },
             },
@@ -169,10 +170,10 @@ export const openapi = {
         },
         responses: {
           "200": { description: "해지됨" },
-          "403": { description: "external_id 에 identity_hash 누락·불일치" },
+          "403": { description: "user_id 에 identity_hash 누락·불일치" },
           "404": { description: "그룹·디바이스·유저 없음" },
           "409": { description: "규칙식 그룹 — 구독으로 뺄 수 없음" },
-          "422": { description: "token 과 external_id 중 정확히 하나가 필요" },
+          "422": { description: "token 과 user_id 중 정확히 하나가 필요" },
         },
       },
     },
@@ -181,6 +182,17 @@ export const openapi = {
         tags: ["App SDK"],
         summary: "푸시 전송 (큐잉)",
         security: [{ apiKey: [], apiSecret: [] }],
+        parameters: [
+          {
+            name: "Idempotency-Key",
+            in: "header",
+            required: false,
+            schema: { type: "string", minLength: 1, maxLength: 255 },
+            description:
+              "재시도해도 한 번만 발송되게 하는 키(출력 가능한 ASCII). 같은 프로젝트에서 같은 키로 다시 보내면 새로 큐잉하지 않고 " +
+              "처음 발송을 200 과 `meta.idempotent_replay: true` 로 돌려준다(본문이 달라도). 형식이 틀리면 400.",
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -189,7 +201,7 @@ export const openapi = {
                 type: "object",
                 required: ["type"],
                 properties: {
-                  title: { type: "string", maxLength: 255, description: "`{{속성}}`·`{{external_id}}`·`{{속성|기본값}}` 치환 지원. template 을 쓰면 생략 가능(주면 템플릿보다 우선)" },
+                  title: { type: "string", maxLength: 255, description: "`{{속성}}`·`{{user_id}}`·`{{속성|기본값}}` 치환 지원. template 을 쓰면 생략 가능(주면 템플릿보다 우선)" },
                   body: { type: "string", maxLength: 4000, description: "title 과 같은 치환 지원. template 을 쓰면 생략 가능" },
                   template: { type: "string", maxLength: 120, description: "콘솔 > 발송 > 템플릿 의 이름. 제목·본문·딥링크·커스텀 필드를 채운다. 없으면 404" },
                   fields: {
@@ -204,16 +216,17 @@ export const openapi = {
                       "single/topic 은 target 필수, multi 는 targets 필수, broadcast 는 전체 발송. " +
                       "segment 는 통합 전 이름으로, topic 과 똑같이 동작한다(신규 연동은 topic 을 쓸 것).",
                   },
-                  target: { type: "string", maxLength: 255, description: "external_id(single) 또는 토픽 이름(topic)" },
+                  target: { type: "string", maxLength: 255, description: "user_id(single) 또는 토픽 이름(topic)" },
                   targets: {
                     type: "array",
                     minItems: 1,
                     maxItems: 1000,
                     items: { type: "string", maxLength: 255 },
-                    description: "multi 의 받는 사람 external_id 목록. 없는 아이디는 건너뛴다.",
+                    description: "multi 의 받는 사람 user_id 목록. 없는 아이디는 건너뛴다.",
                   },
                   scheduled_at: { type: "string", format: "date-time", description: "예약 발송 시각(ISO8601). 미지정 시 방해금지 시간대 규칙 적용" },
                   deep_link: { type: "string", format: "uri", maxLength: 2048 },
+                  image_url: { type: "string", format: "uri", maxLength: 2048, description: "리치 알림 이미지(https 만, http 는 422). Android·iOS·웹 알림에 크게 표시" },
                   data: { type: "object", additionalProperties: true, description: "커스텀 데이터 페이로드(최대 8KB)" },
                   variants: {
                     type: "array",
@@ -227,12 +240,68 @@ export const openapi = {
                     },
                   },
                   kakao_fallback: { type: "boolean", description: "미도달 유저에게 카카오 알림톡 대체 발송" },
+                  options: {
+                    type: "object",
+                    description:
+                      "알림 옵션. Android·APNs·웹 페이로드의 제자리로 나뉘어 실린다. 4KB 검사에 포함된다. " +
+                      "`silent: true` 면 제목·본문 없이 data 만 보내므로 title·body 가 없어도 통과한다.",
+                    properties: {
+                      sound: { type: "string", maxLength: 64, description: "알림음 파일명 또는 \"default\" → Android notification.sound · APNs aps.sound" },
+                      badge: { type: "integer", minimum: 0, maximum: 99999, description: "iOS 배지 수 → APNs aps.badge" },
+                      collapse_key: { type: "string", maxLength: 64, description: "같은 키의 이전 알림을 덮어쓴다 → Android collapse_key · APNs apns-collapse-id" },
+                      android_channel_id: { type: "string", maxLength: 64, description: "→ Android notification.channel_id" },
+                      ios_thread_id: { type: "string", maxLength: 64, description: "→ APNs aps.thread-id" },
+                      ttl_seconds: { type: "integer", minimum: 0, maximum: 2419200, description: "배달 유효기간(초, 최대 28일) → Android ttl · APNs apns-expiration. 0 이면 즉시 만료" },
+                      priority: { type: "string", enum: ["normal", "high"], default: "high", description: "→ Android priority · normal 은 APNs apns-priority 5" },
+                      silent: { type: "boolean", description: "무음 푸시(data-only) → APNs content-available. 알림을 그리지 않는다" },
+                      actions: {
+                        type: "array",
+                        maxItems: 3,
+                        description: "액션 버튼. `data.actions` 에 JSON 문자열로 실리고 앱 SDK 가 읽는다(id 중복 불가)",
+                        items: {
+                          type: "object",
+                          required: ["id", "title"],
+                          properties: {
+                            id: { type: "string", maxLength: 64 },
+                            title: { type: "string", maxLength: 64 },
+                            deep_link: { type: "string", format: "uri", maxLength: 2048 },
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
           },
         },
-        responses: { "202": { description: "큐잉됨 (worker 가 실제 발송)" }, "413": { description: "페이로드 초과" }, "422": { description: "검증 실패" }, "429": { description: "rate limit" } },
+        responses: {
+          "202": {
+            description: "큐잉됨 (worker 가 실제 발송). 본문 `{ message: { id, status, scheduled_at } }`",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string", format: "uuid" },
+                        status: { type: "string", enum: ["queued", "scheduled"] },
+                        scheduled_at: { type: ["string", "null"], format: "date-time" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "200": { description: "같은 Idempotency-Key 의 재요청 — 처음 발송을 그대로 돌려준다" },
+          "400": { description: "Idempotency-Key 형식 오류" },
+          "413": { description: "페이로드 초과" },
+          "422": { description: "검증 실패(치환 후 FCM 페이로드 4KB 초과 포함)" },
+          "429": { description: "rate limit" },
+        },
       },
     },
     "/api/v1/suppressions": {
@@ -246,9 +315,9 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                description: "external_id 또는 token 중 하나 필수. external_id 로 등록할 때는 identity_hash 필수(타 유저 수신 차단 방지).",
+                description: "user_id 또는 token 중 하나 필수. user_id 로 등록할 때는 identity_hash 필수(타 유저 수신 차단 방지).",
                 properties: {
-                  external_id: { type: "string", maxLength: 255 },
+                  user_id: { type: "string", maxLength: 255 },
                   token: { type: "string", maxLength: 4096 },
                   reason: { type: "string", enum: ["opt_out", "bounced", "complaint", "manual"], default: "opt_out" },
                 },
@@ -256,7 +325,44 @@ export const openapi = {
             },
           },
         },
-        responses: { "201": { description: "등록됨" }, "422": { description: "external_id 또는 token 필요" } },
+        responses: { "201": { description: "등록됨" }, "422": { description: "user_id 또는 token 필요" } },
+      },
+    },
+    "/api/v1/events": {
+      post: {
+        tags: ["App SDK"],
+        summary: "전환 이벤트 보고",
+        description:
+          "앱에서 일어난 행동(구매·가입 등)을 **그 기기/사람이 최근 24시간 안에 클릭한 마지막 발송**에 귀속한다. " +
+          "클릭이 없으면 저장하지 않고 `attributed: false` 로 202 를 준다(오류가 아니다). " +
+          "같은 날 같은 (발송, 사람, 이름)은 1건만 남는다 — 재시도해도 매출이 부풀지 않는다.",
+        security: [{ apiKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                description: "token 과 user_id 중 정확히 하나. user_id 를 보낼 때는 identity_hash 필수.",
+                properties: {
+                  name: { type: "string", minLength: 1, maxLength: 64, description: "전환 이름 (purchase, signup …)" },
+                  value_cents: { type: "integer", minimum: 0, maximum: 1000000000, description: "금액(최소 화폐 단위). 금액 없는 전환은 생략" },
+                  token: { type: "string", maxLength: 4096, description: "알림을 받은 기기의 푸시 토큰. user_id 와 배타." },
+                  user_id: { type: "string", maxLength: 255, description: "그 사람의 모든 기기 클릭이 후보. token 과 배타." },
+                  identity_hash: { type: "string", maxLength: 128, description: "HMAC-SHA256(user_id, api_secret). user_id 를 보낼 때 필수." },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "202": { description: "처리됨. 본문 `{ recorded, attributed, message_id? }`" },
+          "403": { description: "user_id 에 identity_hash 누락·불일치" },
+          "404": { description: "디바이스 또는 유저 없음" },
+          "422": { description: "token 과 user_id 중 정확히 하나가 필요" },
+          "429": { description: "rate limit" },
+        },
       },
     },
     "/api/v1/inbox": {
@@ -266,10 +372,10 @@ export const openapi = {
         description: "본인 데이터만 조회 가능 — `identity_hash` 필수(IDOR 방지).",
         security: [{ apiKey: [] }],
         parameters: [
-          { name: "external_id", in: "query", required: true, schema: { type: "string" } },
-          { name: "identity_hash", in: "query", required: true, schema: { type: "string" }, description: "HMAC-SHA256(external_id, api_secret)" },
+          { name: "user_id", in: "query", required: true, schema: { type: "string" } },
+          { name: "identity_hash", in: "query", required: true, schema: { type: "string" }, description: "HMAC-SHA256(user_id, api_secret)" },
         ],
-        responses: { "200": { description: "최근 50건 + unread 수" }, "403": { description: "identity_hash 불일치/누락" }, "422": { description: "external_id 필요" } },
+        responses: { "200": { description: "최근 50건 + unread 수" }, "403": { description: "identity_hash 불일치/누락" }, "422": { description: "user_id 필요" } },
       },
     },
     "/api/v1/inbox/read": {
@@ -284,10 +390,10 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["external_id", "identity_hash"],
+                required: ["user_id", "identity_hash"],
                 properties: {
-                  external_id: { type: "string", maxLength: 255 },
-                  identity_hash: { type: "string", maxLength: 128, description: "HMAC-SHA256(external_id, api_secret)" },
+                  user_id: { type: "string", maxLength: 255 },
+                  identity_hash: { type: "string", maxLength: 128, description: "HMAC-SHA256(user_id, api_secret)" },
                   notification_id: { type: "string", format: "uuid", description: "미지정 시 전체 읽음 처리" },
                 },
               },
@@ -309,11 +415,11 @@ export const openapi = {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["journey", "external_id", "identity_hash"],
+                required: ["journey", "user_id", "identity_hash"],
                 properties: {
                   journey: { type: "string", minLength: 1, maxLength: 120, description: "저니 이름" },
-                  external_id: { type: "string", minLength: 1, maxLength: 255 },
-                  identity_hash: { type: "string", maxLength: 128, description: "HMAC-SHA256(external_id, api_secret)" },
+                  user_id: { type: "string", minLength: 1, maxLength: 255 },
+                  identity_hash: { type: "string", maxLength: 128, description: "HMAC-SHA256(user_id, api_secret)" },
                 },
               },
             },
@@ -430,6 +536,35 @@ export const openapi = {
           },
         },
         responses: { "200": { description: "저장됨" }, "422": { description: "유효하지 않은 설정" } },
+      },
+    },
+    "/api/admin/projects/{id}/audience/estimate": {
+      post: {
+        tags: ["Web Admin"],
+        summary: "발송 전 도달 인원 추정",
+        description: "발송과 같은 대상 필드. 활성 기기만, 수신거부 제외 — 실제 발송의 대상 수와 같은 함수로 센다.",
+        security: [{ adminToken: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["type"],
+                properties: {
+                  type: { type: "string", enum: ["single", "multi", "broadcast", "topic", "segment"] },
+                  target: { type: "string", maxLength: 255 },
+                  targets: { type: "array", minItems: 1, maxItems: 1000, items: { type: "string", maxLength: 255 } },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "{ users, devices, platforms: { ios, android, web, other } } — other 는 flutter·react-native 등 OS 를 알 수 없는 기기" },
+          "422": { description: "대상 필드 누락" },
+        },
       },
     },
     "/api/admin/projects/{id}/audience/topics": {
@@ -688,6 +823,8 @@ export const openapi = {
                   target: { type: "string", maxLength: 255, description: "broadcast 외 필수" },
                   scheduled_at: { type: "string", format: "date-time" },
                   deep_link: { type: "string", format: "uri", maxLength: 2048 },
+                  image_url: { type: "string", format: "uri", maxLength: 2048, description: "리치 알림 이미지(https 만, http 는 422). Android·iOS·웹 알림에 크게 표시" },
+                  test: { type: "boolean", description: "테스트 발송 표시(로그 isTest). 콘솔 라우트에서만 반영" },
                   data: { type: "object", additionalProperties: true },
                   variants: {
                     type: "array",
