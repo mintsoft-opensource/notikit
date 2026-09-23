@@ -1,5 +1,6 @@
 import { NotikitClient, NOTIKIT_LOG_ID_KEY, resolveUserId, type NotikitConfig } from "@notikit/core";
 import { saveToken } from "./token-store.js";
+import { NOTIKIT_SW_MESSAGE_TYPE } from "./service-worker.js";
 
 /** 워커용 토큰 저장을 기다려 주는 최대 시간 */
 const PERSIST_TIMEOUT_MS = 1000;
@@ -36,6 +37,9 @@ export interface NotikitWebConfig extends Omit<NotikitConfig, "apiSecret"> {
   /**
    * 포그라운드(탭이 보이는 상태) 메시지 처리. 넘기지 않으면 SDK 가 알림을 띄우고
    * 클릭을 보고한다. 화면 안 토스트로 처리하려면 여기서 직접 다룬다.
+   *
+   * 백그라운드로 온 **무음 푸시**(`options.silent`)도 여기로 온다 — 워커가 알림을
+   * 그리지 않고 열린 탭으로 넘기기 때문이다. 핸들러가 없으면 그 푸시는 버려진다.
    */
   onForegroundMessage?: (data: Record<string, string>) => void;
   /** 서비스워커 경로 (기본 /notikit-sw.js) */
@@ -61,6 +65,8 @@ export class NotikitWeb {
   /** 포그라운드 클릭 보고에 쓸 현재 토큰 */
   private lastToken: string | null = null;
   private unsubscribeForeground?: () => void;
+  /** 워커가 넘기는 무음 푸시 수신기 — unlisten 에서 떼어낼 수 있게 들고 있는다 */
+  private workerMessageHandler?: (event: MessageEvent) => void;
 
   constructor(config: NotikitWebConfig) {
     this.config = config;
@@ -103,6 +109,7 @@ export class NotikitWeb {
     await this.persistToken(token);
 
     this.lastToken = token;
+    this.listenWorker();
     await this.listenForeground();
 
     await this.client.registerDevice({
@@ -162,10 +169,34 @@ export class NotikitWeb {
     await this.client.reportClick({ logId, token, destination }).catch(() => {});
   }
 
+  /**
+   * 워커가 넘긴 무음(data-only) 푸시를 앱으로 전달한다. `register()` 가 자동으로 호출한다.
+   *
+   * 무음 푸시는 알림을 그리지 않으므로, 화면이 받지 않으면 그대로 사라진다. 포그라운드
+   * 메시지와 **같은 핸들러**로 넘겨 앱이 수신 경로를 하나만 알면 되게 한다.
+   */
+  private listenWorker(): void {
+    if (this.workerMessageHandler) return;
+    const container = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+    if (typeof container?.addEventListener !== "function") return;
+
+    const handler = (event: MessageEvent) => {
+      const payload = event.data as { type?: string; data?: Record<string, string> } | null;
+      if (!payload || payload.type !== NOTIKIT_SW_MESSAGE_TYPE) return;
+      this.config.onForegroundMessage?.(payload.data ?? {});
+    };
+    container.addEventListener("message", handler);
+    this.workerMessageHandler = handler;
+  }
+
   /** 포그라운드 수신을 멈춘다. 컴포넌트 정리 시 호출한다. */
   unlisten(): void {
     this.unsubscribeForeground?.();
     this.unsubscribeForeground = undefined;
+    if (this.workerMessageHandler && typeof navigator !== "undefined") {
+      navigator.serviceWorker?.removeEventListener("message", this.workerMessageHandler);
+    }
+    this.workerMessageHandler = undefined;
   }
 
   /**

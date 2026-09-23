@@ -14,6 +14,15 @@
 /** 워커가 불러올 firebase compat SDK 기본 버전. 앱의 firebase 메이저와 맞추는 것을 권장. */
 export const DEFAULT_FIREBASE_SDK_VERSION = "12.0.0";
 
+/**
+ * 워커 → 페이지 메시지 타입. 무음(data-only) 푸시는 알림을 그리지 않고 이 이름으로
+ * 열린 탭에 넘긴다 — 앱은 `onForegroundMessage` 와 **같은 모양**(data 객체)으로 받는다.
+ */
+export const NOTIKIT_SW_MESSAGE_TYPE = "notikit-push";
+
+/** 웹 알림이 그릴 수 있는 액션 버튼 수 상한. 서버도 3개까지만 싣는다. */
+export const MAX_NOTIFICATION_ACTIONS = 3;
+
 export const NOTIKIT_SERVICE_WORKER = `
 var NOTIKIT = (function () {
   try {
@@ -40,6 +49,50 @@ var NOTIKIT_FB_VER = NOTIKIT.ver || "${DEFAULT_FIREBASE_SDK_VERSION}";
 importScripts("https://www.gstatic.com/firebasejs/" + NOTIKIT_FB_VER + "/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/" + NOTIKIT_FB_VER + "/firebase-messaging-compat.js");
 
+/**
+ * data.actions(JSON 문자열) → 알림 액션 버튼 + 버튼별 링크 표.
+ *
+ * 모양이 틀린 항목은 버린다 — 반쪽짜리 버튼을 그리면 눌러도 어디로 갈지 알 수 없다.
+ * 링크를 notification 자체에 싣지 못하므로(액션에는 action/title/icon 만 있다)
+ * data 에 id→url 표를 따로 넣어 클릭 때 되찾는다.
+ */
+function notikitActions(raw) {
+  var empty = { actions: [], links: {} };
+  if (typeof raw !== "string" || !raw) return empty;
+  var parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return empty;
+  }
+  if (!Array.isArray(parsed)) return empty;
+
+  var out = { actions: [], links: {} };
+  for (var i = 0; i < parsed.length && out.actions.length < ${MAX_NOTIFICATION_ACTIONS}; i++) {
+    var a = parsed[i] || {};
+    if (typeof a.id !== "string" || !a.id || typeof a.title !== "string" || !a.title) continue;
+    out.actions.push({ action: a.id, title: a.title });
+    var link = typeof a.deep_link === "string" ? a.deep_link : a.deepLink;
+    if (typeof link === "string" && link) out.links[a.id] = link;
+  }
+  return out;
+}
+
+/**
+ * 무음(data-only) 푸시를 열려 있는 탭으로 넘긴다.
+ *
+ * 탭이 하나도 없으면 아무 일도 일어나지 않는다 — 그게 맞다. 무음 푸시는 "알리지 말라"는
+ * 약속이고, 웹에는 화면 없이 처리할 자리가 없다. 여기서 기본 제목으로 알림을 띄우면
+ * 그 약속이 깨진다.
+ */
+function notikitDeliver(data) {
+  return clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+    for (var i = 0; i < list.length; i++) {
+      list[i].postMessage({ type: "${NOTIKIT_SW_MESSAGE_TYPE}", data: data });
+    }
+  }).catch(function () {});
+}
+
 if (NOTIKIT.firebase.appId) {
   firebase.initializeApp(NOTIKIT.firebase);
   firebase.messaging().onBackgroundMessage(function (payload) {
@@ -47,19 +100,33 @@ if (NOTIKIT.firebase.appId) {
     // 알림을 자동으로 띄운 뒤 이 콜백도 불러 알림이 두 번 뜬다.
     var data = payload.data || {};
     var n = payload.notification || {};
+    var title = data.title || n.title || "";
+    var body = data.body || n.body || "";
+
     // **반드시 반환한다.** Firebase 는 이 콜백의 반환값을 기다리는데, 반환하지 않으면
     // 표시가 끝나기 전에 push 이벤트 수명이 끝나 워커가 멈출 수 있다 — 탭이 모두
     // 닫힌 상태에서 알림이 통째로 사라진다.
-    return self.registration.showNotification(data.title || n.title || "알림", {
-      body: data.body || n.body || "",
+
+    // 무음 푸시는 서버가 제목·본문을 **아예 싣지 않는다**(options.silent). 그걸 기본
+    // 제목("알림")으로 띄우면 무음 발송이 웹에서만 시끄러워진다.
+    if (!title && !body) return notikitDeliver(data);
+
+    var parsed = notikitActions(data.actions);
+    var options = {
+      body: body,
       icon: data.icon || n.icon,
       image: data.image || n.image,
       data: {
         deep_link: data.deep_link || "/",
+        // 액션 버튼별 이동 경로. 없는 버튼은 발송의 deep_link 로 떨어진다.
+        notikit_action_links: parsed.links,
         // 클릭 보고에 필요한 발송 id. 서버가 data 에 실어 보낸다.
         notikit_log_id: data.notikit_log_id || null
       }
-    });
+    };
+    // 빈 배열을 넣지 않는다 — actions 를 지원하지 않는 브라우저에서 불필요한 키가 된다
+    if (parsed.actions.length) options.actions = parsed.actions;
+    return self.registration.showNotification(title || "알림", options);
   });
 }
 
@@ -89,7 +156,10 @@ function notikitToken() {
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
   var d = event.notification.data || {};
-  var url = d.deep_link || "/";
+  // 액션 버튼을 눌렀으면 그 버튼의 링크로 — 버튼에 링크가 없으면 발송 자체의 링크로
+  // 떨어진다(버튼을 눌렀는데 아무 데도 가지 않는 것보다 낫다).
+  var links = d.notikit_action_links || {};
+  var url = (event.action && links[event.action]) || d.deep_link || "/";
 
   // 클릭 보고는 창을 여는 것과 **병렬로** 진행한다. 보고를 기다렸다가 열면
   // 네트워크가 느릴 때 탭 반응이 눈에 띄게 늦어진다.
