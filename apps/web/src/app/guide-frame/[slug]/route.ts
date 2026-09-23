@@ -1,7 +1,13 @@
+import { getLocale, getTranslations } from "next-intl/server";
 import { readDoc } from "@/lib/docs";
+import { BASE_LOCALE } from "@/i18n/locales";
+import { localeDir } from "@/i18n/request";
 import { DOC_STYLE } from "./doc-style";
 
 export const dynamic = "force-dynamic";
+
+/** 문서 본문의 언어. `apps/web/docs/*.md` 는 원문이 하나뿐이라 번역본이 없다. */
+const DOC_LANG = BASE_LOCALE;
 
 /**
  * iframe 안에 들어갈 문서 HTML.
@@ -20,8 +26,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
 
   const dark = new URL(req.url).searchParams.get("theme") === "dark";
 
+  // 프레임은 콘솔 언어를, 본문은 문서 원문 언어를 알린다 — 둘을 섞으면 보조기술이
+  // 한국어 본문을 콘솔 언어로 읽는다.
+  const [locale, t] = await Promise.all([getLocale(), getTranslations("docsFrame")]);
+
   const html = `<!doctype html>
-<html lang="ko" class="${dark ? "dark" : ""}">
+<html lang="${locale}" dir="${localeDir(locale)}" class="${dark ? "dark" : ""}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -29,7 +39,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
 <style>${DOC_STYLE}</style>
 </head>
 <body>
-${enhance(doc.html)}
+<main lang="${DOC_LANG}" dir="ltr">
+${enhance(doc.html, t("anchorLabel"))}
+</main>
 <script>
   // 높이와 테마는 부모가 직접 재고 직접 건드린다(같은 오리진). 자식이 알리는 방식은
   // 하이드레이션 전에 알림이 도착하면 사라져 문서가 잘린 채로 멈춘다.
@@ -66,8 +78,9 @@ ${enhance(doc.html)}
  *  - h2/h3 에 id 와 앵커를 단다. 없으면 문서의 특정 절을 가리킬 방법이 없다.
  *  - 표를 스크롤 래퍼로 감싼다. 넓은 표가 문서를 통째로 가로로 밀지 않게.
  */
-function enhance(html: string): string {
+function enhance(html: string, anchorLabel: string): string {
   const used = new Set<string>();
+  const label = escapeHtml(anchorLabel);
 
   return html
     .replace(/<h([23])>(.*?)<\/h\1>/g, (_m, level: string, inner: string) => {
@@ -77,7 +90,7 @@ function enhance(html: string): string {
       let n = 2;
       while (used.has(id)) id = `${slugify(text)}-${n++}`;
       used.add(id);
-      return `<h${level} id="${id}">${inner}<a class="anchor" href="#${id}" aria-label="이 절 링크">#</a></h${level}>`;
+      return `<h${level} id="${id}">${inner}<a class="anchor" href="#${id}" aria-label="${label}">#</a></h${level}>`;
     })
     .replace(/<table>([\s\S]*?)<\/table>/g, '<div class="table-wrap"><table>$1</table></div>');
 }

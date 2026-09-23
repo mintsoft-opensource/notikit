@@ -133,6 +133,21 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
     return () => { readersGenRef.current++; };
   }, [projectId, logId, attempt]);
 
+  /**
+   * "더 보기" 로 늘어난 줄은 화면에만 생긴다 — 알리지 않으면 스크린리더 사용자는 눌렀는데
+   * 아무 일도 안 일어난 걸로 안다. 늘어난 뒤 **총 몇 명인지** 를 polite 로 알리고,
+   * 포커스는 새로 붙은 첫 줄로 옮긴다(더 없을 땐 버튼이 사라져 포커스가 body 로 떨어진다).
+   */
+  const [readersLive, setReadersLive] = React.useState("");
+  const rowRefs = React.useRef(new Map<number, HTMLDivElement>());
+  const pendingRowFocus = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    const index = pendingRowFocus.current;
+    if (index === null) return;
+    pendingRowFocus.current = null;
+    rowRefs.current.get(index)?.focus();
+  }, [readers]);
+
   async function loadMoreReaders() {
     if (!readersNext || loadingMore) return;
     const my = readersGenRef.current;
@@ -141,8 +156,11 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
       const q = new URLSearchParams({ before: readersNext.ts, before_id: readersNext.id });
       const d = await adminApi<ReadersPage>(`/api/admin/projects/${projectId}/logs/${logId}/readers?${q}`);
       if (my !== readersGenRef.current) return;
+      const shown = (readers?.length ?? 0) + d.readers.length;
+      pendingRowFocus.current = readers?.length ?? 0; // 새로 붙은 첫 줄
       setReaders((cur) => [...(cur ?? []), ...d.readers]);
       setReadersNext(d.next);
+      setReadersLive(t("readersLoaded", { count: nf.format(shown) }));
     } catch (e) {
       if (my === readersGenRef.current) toast.error(errorText(e, tc("loadFailed")));
     } finally {
@@ -279,8 +297,16 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
           {readers?.length === 0 && <p className="text-sm text-muted-foreground">{t("noReaders")}</p>}
           {readers && readers.length > 0 && (
             <div className="space-y-1">
-              {readers.map((r) => (
-                <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 text-sm last:border-b-0">
+              {readers.map((r, i) => (
+                <div
+                  key={r.id}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(i, el);
+                    else rowRefs.current.delete(i);
+                  }}
+                  tabIndex={-1}
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 text-sm last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
                   <span className="font-mono text-xs">{r.externalId ?? t("anonymousReader")}</span>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {r.platform && <Badge variant="neutral">{r.platform}</Badge>}
@@ -288,6 +314,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
                   </div>
                 </div>
               ))}
+              <p role="status" aria-live="polite" className="sr-only">{readersLive}</p>
               {readersNext && (
                 <div className="flex justify-center pt-3">
                   <Button variant="outline" size="sm" onClick={loadMoreReaders} disabled={loadingMore}>

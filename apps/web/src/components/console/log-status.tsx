@@ -47,7 +47,8 @@ export function RateBar({ num, den, tone }: { num: number; den: number; tone: "s
           <span className={cn("block h-full rounded-full", tone === "success" ? "bg-success" : "bg-primary")} style={{ width: `${ratio * 100}%` }} />
         )}
       </span>
-      <span className="w-11 text-end tabular-nums">{ratio === null ? "—" : `${(ratio * 100).toFixed(ratio === 1 ? 0 : 1)}%`}</span>
+      {/* 폭은 열 정렬을 위한 최소값이다 — 고정폭으로 두면 확대(200~400%)에서 수치가 잘린다 */}
+      <span className="min-w-11 text-end tabular-nums">{ratio === null ? "—" : `${(ratio * 100).toFixed(ratio === 1 ? 0 : 1)}%`}</span>
     </span>
   );
 }

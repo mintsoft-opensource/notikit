@@ -8,6 +8,14 @@ function fallbackAriaLabel(props: { id?: string; placeholder?: string; "aria-lab
   return props.placeholder;
 }
 
+/**
+ * aria-invalid 일 때의 시각 상태. 메시지만 띄우면 **칸은 멀쩡해 보인다** —
+ * 여러 칸이 한 줄에 있을 때 어디를 고쳐야 하는지 눈으로 알 수 없다.
+ * 색만으로 알리지 않도록 메시지(Field error)와 항상 함께 쓴다.
+ */
+const invalidField =
+  "aria-[invalid=true]:border-error aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-error/40";
+
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, type, ...props }, ref) => (
     <input
@@ -16,6 +24,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       aria-label={fallbackAriaLabel(props)}
       className={cn(
         "flex h-9 w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors file:me-3 file:h-7 file:rounded-md file:border-0 file:bg-surface-muted file:px-2.5 file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        invalidField,
         className
       )}
       {...props}
@@ -31,6 +40,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
       aria-label={fallbackAriaLabel(props)}
       className={cn(
         "flex min-h-16 w-full resize-y rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        invalidField,
         className
       )}
       {...props}
@@ -51,25 +61,38 @@ export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLab
 export function Field({
   label,
   hint,
+  error,
   children,
   className,
 }: {
   label: React.ReactNode;
   hint?: string;
-  children: React.ReactElement<{ id?: string; "aria-describedby"?: string }>;
+  /**
+   * 오류 메시지. **이 칸 바로 아래**에 붙고 aria-invalid·aria-describedby 를 자동으로 이어 준다 —
+   * 여러 칸이 한 줄에 있을 때 줄 전체에 걸친 메시지는 어느 칸 이야기인지 알려 주지 못한다.
+   * 읽어 주는 일은 폼의 polite 영역이 맡는다(타이핑 도중 끼어들지 않게).
+   */
+  error?: string | null;
+  children: React.ReactElement<{ id?: string; "aria-describedby"?: string; "aria-invalid"?: boolean }>;
   /** 남는 세로 공간을 컨트롤이 가져가야 할 때 사용 (예: 발송 본문) */
   className?: string;
 }) {
   const generated = React.useId();
   const id = children.props.id ?? generated; // 라벨과 컨트롤이 동일 id 사용
   const hintId = `${id}-hint`;
-  const describedBy = hint
-    ? [children.props["aria-describedby"], hintId].filter(Boolean).join(" ")
-    : children.props["aria-describedby"];
+  const errorId = `${id}-error`;
+  const describedBy =
+    [children.props["aria-describedby"], error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ") ||
+    undefined;
   return (
     <div className={cn("space-y-1", className)}>
       <Label htmlFor={id}>{label}</Label>
-      {React.cloneElement(children, { id, "aria-describedby": describedBy })}
+      {React.cloneElement(children, {
+        id,
+        "aria-describedby": describedBy,
+        "aria-invalid": error ? true : children.props["aria-invalid"],
+      })}
+      {error && <p id={errorId} className="text-xs font-semibold text-error">{error}</p>}
       {hint && <p id={hintId} className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
@@ -81,6 +104,7 @@ export function Select({ className, children, ...props }: React.SelectHTMLAttrib
       <select
         className={cn(
           "flex h-9 w-full appearance-none rounded-lg border border-border bg-surface px-2.5 pe-8 text-sm text-foreground shadow-sm transition-colors focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          invalidField,
           className
         )}
         {...props}

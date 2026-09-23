@@ -12,7 +12,7 @@ import { LiveChart } from "@/components/system/live-chart";
 import { Heatmap } from "@/components/system/heatmap";
 import { BarList } from "@/components/console/panels";
 import { ChartEmpty } from "@/components/ui/chart-empty";
-import type { StatDelta } from "@/components/ui/stat-tile";
+import { StatTileGrid, type StatDelta } from "@/components/ui/stat-tile";
 import { pctChange, ptChange } from "@/lib/stat-delta";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
@@ -175,7 +175,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <StatTileGrid>
         <StatTile icon={Send} label={to("statSends")} value={num(stats?.messages.sends)} loading={busy} delta={deltas?.sends} />
         <StatTile icon={MousePointerClick} label={to("statClicks")} value={num(stats?.clicks.clicks)} loading={busy} delta={deltas?.clicks} />
         <StatTile
@@ -203,7 +203,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
           delta={deltas?.conversions}
           hint={stats?.conversions ? to("statConversionValue", { value: nf.format(stats.conversions.value_cents) }) : null}
         />
-      </div>
+      </StatTileGrid>
 
       <Card>
         <CardHeader>

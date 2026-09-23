@@ -143,8 +143,15 @@ export default function ProfilePage() {
                 ) : (
                   <dl className="space-y-3 [&_dd]:min-w-0">
                     <DataRow label={t("orgNameLabel")} value={org ? org.name : <Skeleton className="h-4 w-32" />} />
-                    <DataRow label={t("orgMembersLabel")} value={org ? org.members.toLocaleString(locale) : <Skeleton className="h-4 w-10" />} mono />
-                    <DataRow label={t("orgProjectsLabel")} value={org ? org.projects.toLocaleString(locale) : <Skeleton className="h-4 w-10" />} mono />
+                    {/* 수치는 콘솔 전체와 같이 tabular-nums — 여기만 mono 면 같은 숫자가 다른 서체로 보인다 */}
+                    <DataRow
+                      label={t("orgMembersLabel")}
+                      value={org ? <span className="tabular-nums">{org.members.toLocaleString(locale)}</span> : <Skeleton className="h-4 w-10" />}
+                    />
+                    <DataRow
+                      label={t("orgProjectsLabel")}
+                      value={org ? <span className="tabular-nums">{org.projects.toLocaleString(locale)}</span> : <Skeleton className="h-4 w-10" />}
+                    />
                     <DataRow label={tc("createdAt")} value={org ? df.format(new Date(org.createdAt)) : <Skeleton className="h-4 w-24" />} />
                   </dl>
                 )}

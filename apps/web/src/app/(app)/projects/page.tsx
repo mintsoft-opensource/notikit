@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Plus, Copy, ChevronRight, FolderKanban, AlertTriangle, RotateCw, Rocket, Flame, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,9 @@ export default function ProjectsPage() {
   const errorText = useAdminErrorText();
   const ts = useTranslations("settings");
   const tc = useTranslations("common");
+  const locale = useLocale();
+  // 요약 수치도 콘솔의 다른 수치와 같은 로케일 서식으로 — 여기만 1234 처럼 맨숫자로 보이지 않게
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const { projects, loading, error, reload } = useProjects();
   // 목록을 한 번도 못 받은 실패만 오류 화면으로 — 이미 보이는 목록을 재로드 실패로 지우지 않는다
   const loadFailed = !loading && !!error && projects.length === 0;
@@ -150,10 +153,10 @@ export default function ProjectsPage() {
       {/* 목록이 하나라도 있을 때만 — 빈 화면에 0 만 네 개 띄우지 않는다 */}
       {projects.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatTile label={t("summaryTotal")} value={summary.total} icon={FolderKanban} />
-          <StatTile label={t("summaryProduction")} value={summary.production} icon={Rocket} accent="primary" />
-          <StatTile label={t("summaryFirebase")} value={summary.firebase} icon={Flame} hint={t("summaryFirebaseHint")} />
-          <StatTile label={tc("logOnly")} value={summary.logOnly} icon={FileText} accent="muted" hint={t("summaryLogOnlyHint")} />
+          <StatTile label={t("summaryTotal")} value={nf.format(summary.total)} icon={FolderKanban} />
+          <StatTile label={t("summaryProduction")} value={nf.format(summary.production)} icon={Rocket} accent="primary" />
+          <StatTile label={t("summaryFirebase")} value={nf.format(summary.firebase)} icon={Flame} hint={t("summaryFirebaseHint")} />
+          <StatTile label={tc("logOnly")} value={nf.format(summary.logOnly)} icon={FileText} accent="muted" hint={t("summaryLogOnlyHint")} />
         </div>
       )}
 

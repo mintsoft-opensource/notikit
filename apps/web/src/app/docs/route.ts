@@ -7,7 +7,40 @@
  * Redoc 은 테마를 초기화 시점에만 받는다. 그래서 토글은 다시 init 한다 —
  * 스펙은 브라우저 캐시에서 오므로 다시 그리는 비용이 크지 않다.
  */
-export const dynamic = "force-static";
+import { getLocale, getTranslations } from "next-intl/server";
+import { BASE_LOCALE } from "@/i18n/locales";
+import { localeDir } from "@/i18n/request";
+
+// 콘솔 언어는 쿠키로 정해진다 — 이 화면도 같은 쿠키를 읽어야 하므로 정적화할 수 없다
+export const dynamic = "force-dynamic";
+
+/** 화면(chrome) 문구. 콘솔이 24개 로케일로 도는데 이 프레임만 한국어일 수는 없다. */
+interface FrameStrings {
+  locale: string;
+  dir: "ltr" | "rtl";
+  title: string;
+  toLightMode: string;
+  toDarkMode: string;
+}
+
+async function frameStrings(): Promise<FrameStrings> {
+  const [locale, t, common] = await Promise.all([
+    getLocale(),
+    getTranslations("docsFrame"),
+    getTranslations("common"),
+  ]);
+  return {
+    locale,
+    dir: localeDir(locale),
+    title: t("apiTitle"),
+    toLightMode: common("toLightMode"),
+    toDarkMode: common("toDarkMode"),
+  };
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+}
 
 /**
  * 버전을 고정한다. `latest` 를 쓰면 Redoc 이 새 버전을 낼 때 예고 없이 화면이 바뀌고,
@@ -15,12 +48,16 @@ export const dynamic = "force-static";
  */
 const REDOC = "https://cdn.redoc.ly/redoc/v2.5.0/bundles/redoc.standalone.js";
 
-const html = `<!doctype html>
-<html lang="ko">
+/** OpenAPI 스펙 본문의 언어. 번역본이 없으므로 콘솔 언어와 무관하게 고정한다. */
+const SPEC_LANG = BASE_LOCALE;
+
+function page(strings: FrameStrings): string {
+  return `<!doctype html>
+<html lang="${strings.locale}" dir="${strings.dir}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Notikit API 문서</title>
+<title>${escapeHtml(strings.title)}</title>
 <style>
   /* globals.css 의 팔레트를 그대로 옮긴다 — 비슷한 색을 새로 고르면 콘솔과 어긋난다 */
   :root { --bg: #ffffff; --fg: #1c1f1c; --border: #e5e6e1; --muted: #6f746a; }
@@ -29,7 +66,8 @@ const html = `<!doctype html>
 
   /* 토글 — 콘솔 헤더의 버튼과 같은 모양 */
   #theme {
-    position: fixed; top: 12px; right: 16px; z-index: 100;
+    /* 논리 속성 — RTL 로케일에서는 버튼이 왼쪽으로 가야 스크롤바·사이드바를 가리지 않는다 */
+    position: fixed; top: 12px; inset-inline-end: 16px; z-index: 100;
     display: flex; align-items: center; gap: 6px;
     height: 32px; padding: 0 10px;
     background: var(--bg); color: var(--muted);
@@ -65,7 +103,8 @@ const html = `<!doctype html>
 </head>
 <body>
 <button id="theme" type="button"></button>
-<div id="redoc"></div>
+<!-- 스펙 본문은 번역본이 없다 — 화면(chrome)과 달리 원문 언어를 그대로 알린다 -->
+<div id="redoc" lang="${SPEC_LANG}" dir="ltr"></div>
 <script src="${REDOC}"></script>
 <script>
   // 콘솔과 같은 신호를 읽는다: 저장된 선택이 없으면 OS 설정을 따른다.
@@ -161,13 +200,16 @@ const html = `<!doctype html>
     painted = dark;
 
     document.documentElement.classList.toggle("dark", dark);
-    document.getElementById("theme").textContent = dark ? "라이트 모드" : "다크 모드";
+    document.getElementById("theme").textContent = dark ? ${JSON.stringify(strings.toLightMode)} : ${JSON.stringify(strings.toDarkMode)};
 
     // 다시 그릴 땐 컨테이너를 통째로 갈아 끼운다. Redoc 이 이전 트리를 정리하지 않아
     // 같은 노드에 두 번 init 하면 서로의 DOM 을 지우려다 예외를 던진다.
     var old = document.getElementById("redoc");
     var fresh = document.createElement("div");
     fresh.id = "redoc";
+    // 갈아 끼운 컨테이너도 스펙 원문 언어를 알려야 한다 — 빠지면 보조기술이 화면 언어로 읽는다
+    fresh.lang = ${JSON.stringify(SPEC_LANG)};
+    fresh.dir = "ltr";
     old.replaceWith(fresh);
 
     Redoc.init("/api/openapi.json", { theme: themeFor(dark), hideDownloadButton: false, expandResponses: "200,201" },
@@ -200,7 +242,10 @@ const html = `<!doctype html>
 </script>
 </body>
 </html>`;
+}
 
-export function GET() {
-  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+export async function GET() {
+  return new Response(page(await frameStrings()), {
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
 }

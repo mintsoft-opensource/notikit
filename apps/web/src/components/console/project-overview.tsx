@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { StatTile, EmptyState, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
 import { ChartEmpty } from "@/components/ui/chart-empty";
-import type { StatDelta } from "@/components/ui/stat-tile";
+import { StatTileGrid, type StatDelta } from "@/components/ui/stat-tile";
 import { pctChange, ptChange, ratio } from "@/lib/stat-delta";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
@@ -187,7 +187,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <StatTileGrid>
         <StatTile icon={Send} label={t("statSends")} value={num(stats?.messages.sends)} loading={busy} delta={sendsDelta} />
         <StatTile icon={Percent} label={t("successRate")} value={successRate} accent="success" loading={busy} delta={successDelta} />
         <StatTile
@@ -206,7 +206,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           loading={busy}
           hint={stats ? `${t("statActiveDevices")} ${nf.format(stats.devices.active)}` : null}
         />
-      </div>
+      </StatTileGrid>
 
       <Card>
         <CardHeader>

@@ -153,6 +153,13 @@ export function hasSendOptionErrors(e: SendOptionsErrors): boolean {
   return Boolean(e.badge || e.ttl) || Object.keys(e.actions).length > 0;
 }
 
+/** 액션 오류가 세 칸 중 **어느 칸** 이야기인지. 아이디 칸에만 표시하면 엉뚱한 칸이 빨개진다 */
+function actionErrorField(key: ErrorKey): "id" | "title" | "link" {
+  if (key === "errOptActionTitle") return "title";
+  if (key === "errOptActionLink") return "link";
+  return "id"; // errOptActionId · errOptActionDup
+}
+
 /** 접힌 머리글에 "몇 개 켰는지" 를 보여 주려고 센다 — 접어 두면 설정한 걸 잊는다 */
 export function countSendOptions(d: SendOptionsDraft): number {
   const filled = [d.sound, d.badge, d.collapseKey, d.androidChannelId, d.iosThreadId, d.ttlSeconds].filter((v) => v.trim()).length;
@@ -181,23 +188,66 @@ export function SendOptions({
   const t = useTranslations("send");
   const panelId = React.useId();
   const silentId = React.useId();
-  const badgeErrId = `${panelId}-badge-err`;
-  const ttlErrId = `${panelId}-ttl-err`;
+  const silentNoticeId = `${panelId}-silent-notice`;
   const [open, setOpen] = React.useState(false);
-  const invalid = hasSendOptionErrors(errors);
 
-  // 접은 채로 발송을 누르면 어느 칸이 틀렸는지 볼 수 없다 — 오류가 생기거나 발송이 막히면 펼친다
+  const badgeError = errors.badge ? t(errors.badge, { max: BADGE_MAX }) : null;
+  const ttlError = errors.ttl ? t(errors.ttl, { max: TTL_SECONDS_MAX }) : null;
+  const actionError = (rowId: string) => {
+    const key = errors.actions[rowId];
+    return key ? t(key, { max: SHORT_MAX }) : null;
+  };
+
+  /**
+   * 읽어 주는 건 여기 한 곳뿐이다. 오류 문단마다 role="alert" 를 달면 **글자를 칠 때마다**
+   * 끼어들어(아이디→중복→이름→링크) 입력을 방해한다. 그래서 칸을 벗어날 때(blur)와
+   * 발송이 막혔을 때만 polite 로 한 번 알린다. 눈으로 보는 오류는 칸 옆에 계속 떠 있다.
+   */
+  const [liveError, setLiveError] = React.useState("");
+  const errorSummary = [badgeError, ttlError, ...value.actions.map((a) => actionError(a.rowId))]
+    .filter(Boolean)
+    .join(" · ");
+  const announce = (message: string | null) => setLiveError(message ?? "");
+
+  // 접은 채로 발송을 누르면 어느 칸이 틀렸는지 볼 수 없다 — 발송이 막히면 펼치고 한 번 읽어 준다
+  const revealedRef = React.useRef(0);
   React.useEffect(() => {
-    if (invalid) setOpen(true);
-  }, [invalid]);
-  React.useEffect(() => {
-    if (revealAt) setOpen(true);
-  }, [revealAt]);
+    if (!revealAt || revealedRef.current === revealAt) return;
+    revealedRef.current = revealAt;
+    setOpen(true);
+    setLiveError(errorSummary);
+  }, [revealAt, errorSummary]);
 
   const set = (patch: Partial<SendOptionsDraft>) => onChange({ ...value, ...patch });
   const setAction = (rowId: string, patch: Partial<SendActionDraft>) =>
     set({ actions: value.actions.map((a) => (a.rowId === rowId ? { ...a, ...patch } : a)) });
   const count = countSendOptions(value);
+
+  /**
+   * 액션을 더하면 3개째에서 "추가" 버튼이, 지우면 누르고 있던 삭제 버튼이 사라진다 —
+   * 그대로 두면 포커스가 body 로 떨어져 키보드 사용자는 처음부터 다시 훑어야 한다.
+   * topic-rules-form 과 같은 pendingFocus 방식: 다음 렌더에서 갈 곳으로 옮긴다.
+   */
+  const idInputRefs = React.useRef(new Map<string, HTMLInputElement>());
+  const addActionRef = React.useRef<HTMLButtonElement>(null);
+  const pendingFocus = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const target = pendingFocus.current;
+    if (target === null) return;
+    pendingFocus.current = null;
+    (idInputRefs.current.get(target) ?? addActionRef.current)?.focus();
+  }, [value.actions]);
+
+  const addAction = () => {
+    const next = newSendAction();
+    pendingFocus.current = next.rowId; // 새 줄의 첫 칸으로 — "추가" 버튼은 3개째에 사라진다
+    set({ actions: [...value.actions, next] });
+  };
+  const removeAction = (index: number) => {
+    const rest = value.actions.filter((_, i) => i !== index);
+    pendingFocus.current = rest[Math.max(0, index - 1)]?.rowId ?? ""; // 남은 줄이 없으면 "추가" 버튼
+    set({ actions: rest });
+  };
 
   return (
     <div className="space-y-4 border-t border-border pt-4">
@@ -215,9 +265,13 @@ export function SendOptions({
         </span>
       </button>
 
+      {/* 접혀 있어도 읽어 줘야 하므로 패널(hidden) 바깥에 둔다 */}
+      <p role="status" aria-live="polite" className="sr-only">{liveError}</p>
+
       <div id={panelId} hidden={!open} className="space-y-4">
         <p className="text-xs text-muted-foreground">{t("optionsHint")}</p>
 
+        {/* 7개 칸을 한 격자로 흘린다 — 칸 하나짜리 줄을 따로 두면 그 칸만 동떨어져 보인다 */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label={t("optPriority")} hint={t("optPriorityHint")}>
             <Select
@@ -242,27 +296,32 @@ export function SendOptions({
             />
           </Field>
 
-          <Field label={t("optBadge")} hint={t("optBadgeHint")}>
+          <Field label={t("optBadge")} hint={t("optBadgeHint")} error={badgeError}>
             <Input
               inputMode="numeric"
               spellCheck={false}
               autoComplete="off"
-              aria-describedby={errors.badge ? badgeErrId : undefined}
-              aria-invalid={errors.badge ? true : undefined}
               value={value.badge}
               disabled={disabled}
               onChange={(e) => set({ badge: e.target.value })}
+              onBlur={() => announce(badgeError)}
               placeholder="0"
             />
           </Field>
-        </div>
-        {errors.badge && (
-          <p id={badgeErrId} role="alert" className="text-xs font-semibold text-error">
-            {t(errors.badge, { max: BADGE_MAX })}
-          </p>
-        )}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label={t("optTtl")} hint={t("optTtlHint")} error={ttlError}>
+            <Input
+              inputMode="numeric"
+              spellCheck={false}
+              autoComplete="off"
+              value={value.ttlSeconds}
+              disabled={disabled}
+              onChange={(e) => set({ ttlSeconds: e.target.value })}
+              onBlur={() => announce(ttlError)}
+              placeholder="3600"
+            />
+          </Field>
+
           <Field label={t("optCollapseKey")} hint={t("optCollapseKeyHint")}>
             <Input
               spellCheck={false}
@@ -287,7 +346,8 @@ export function SendOptions({
             />
           </Field>
 
-          <Field label={t("optIosThread")} hint={t("optIosThreadHint")}>
+          {/* 마지막 칸은 남은 줄을 다 쓴다 — 3열 격자에서 혼자 1/3만 차지하고 끝나지 않게 */}
+          <Field label={t("optIosThread")} hint={t("optIosThreadHint")} className="sm:col-span-2 lg:col-span-3">
             <Input
               spellCheck={false}
               autoComplete="off"
@@ -300,27 +360,6 @@ export function SendOptions({
           </Field>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label={t("optTtl")} hint={t("optTtlHint")}>
-            <Input
-              inputMode="numeric"
-              spellCheck={false}
-              autoComplete="off"
-              aria-describedby={errors.ttl ? ttlErrId : undefined}
-              aria-invalid={errors.ttl ? true : undefined}
-              value={value.ttlSeconds}
-              disabled={disabled}
-              onChange={(e) => set({ ttlSeconds: e.target.value })}
-              placeholder="3600"
-            />
-          </Field>
-        </div>
-        {errors.ttl && (
-          <p id={ttlErrId} role="alert" className="text-xs font-semibold text-error">
-            {t(errors.ttl, { max: TTL_SECONDS_MAX })}
-          </p>
-        )}
-
         <div className="space-y-2 rounded-lg border border-border p-3">
           <label htmlFor={silentId} className="flex items-start gap-2 text-sm leading-relaxed">
             <input
@@ -328,6 +367,9 @@ export function SendOptions({
               type="checkbox"
               checked={value.silent}
               disabled={disabled}
+              // 켰을 때 나타나는 안내를 체크박스에 이어 준다 — 안 이으면 스크린리더는
+              // "무음 푸시는 제목·본문이 표시되지 않는다"는 사실을 끝내 듣지 못한다
+              aria-describedby={value.silent ? silentNoticeId : undefined}
               onChange={(e) => set({ silent: e.target.checked })}
               className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
             />
@@ -336,12 +378,15 @@ export function SendOptions({
               <span className="mt-0.5 block text-xs text-muted-foreground">{t("optSilentHint")}</span>
             </span>
           </label>
-          {value.silent && (
-            <p className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
-              <BellOff aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{t("optSilentNotice")}</span>
-            </p>
-          )}
+          {/* 체크를 켜는 순간에도 들리도록 polite 영역 안에서 나타난다 */}
+          <div role="status" aria-live="polite">
+            {value.silent && (
+              <p id={silentNoticeId} className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
+                <BellOff aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{t("optSilentNotice")}</span>
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -350,8 +395,10 @@ export function SendOptions({
 
           {value.actions.map((a, i) => {
             const nameId = `${panelId}-${a.rowId}-name`;
-            const errId = `${panelId}-${a.rowId}-err`;
             const err = errors.actions[a.rowId];
+            const errText = actionError(a.rowId);
+            // 오류는 틀린 칸 하나에만 — 아이디 칸에 몰아 두면 이름·딥링크가 틀려도 아이디가 빨개진다
+            const field = err ? actionErrorField(err) : null;
             return (
               <div key={a.rowId} role="group" aria-labelledby={nameId} className="space-y-3 rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between gap-2">
@@ -362,68 +409,61 @@ export function SendOptions({
                     size="icon"
                     aria-label={a.title.trim() ? t("optRemoveActionNamed", { title: a.title.trim() }) : t("optRemoveAction", { index: i + 1 })}
                     disabled={disabled}
-                    onClick={() => set({ actions: value.actions.filter((x) => x.rowId !== a.rowId) })}
+                    onClick={() => removeAction(i)}
                   >
                     <Trash2 aria-hidden="true" className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={t("optActionId")} hint={t("optActionIdHint")}>
+                  <Field label={t("optActionId")} hint={t("optActionIdHint")} error={field === "id" ? errText : null}>
                     <Input
+                      ref={(el) => {
+                        if (el) idInputRefs.current.set(a.rowId, el);
+                        else idInputRefs.current.delete(a.rowId);
+                      }}
                       className="font-mono"
                       spellCheck={false}
                       autoComplete="off"
                       maxLength={SHORT_MAX}
-                      aria-describedby={err ? errId : undefined}
-                      aria-invalid={err ? true : undefined}
                       value={a.id}
                       disabled={disabled}
                       onChange={(e) => setAction(a.rowId, { id: e.target.value })}
+                      onBlur={() => announce(errText)}
                       placeholder="buy"
                     />
                   </Field>
-                  <Field label={t("optActionTitle")}>
+                  <Field label={t("optActionTitle")} error={field === "title" ? errText : null}>
                     <Input
                       spellCheck={false}
                       autoComplete="off"
                       maxLength={SHORT_MAX}
-                      aria-describedby={err ? errId : undefined}
                       value={a.title}
                       disabled={disabled}
                       onChange={(e) => setAction(a.rowId, { title: e.target.value })}
+                      onBlur={() => announce(errText)}
                       placeholder={t("optActionTitlePlaceholder")}
                     />
                   </Field>
                 </div>
-                <Field label={t("optActionLink")} hint={t("optActionLinkHint")}>
+                <Field label={t("optActionLink")} hint={t("optActionLinkHint")} error={field === "link" ? errText : null}>
                   <Input
                     inputMode="url"
                     spellCheck={false}
                     autoComplete="off"
                     maxLength={DEEP_LINK_MAX}
-                    aria-describedby={err ? errId : undefined}
                     value={a.deepLink}
                     disabled={disabled}
                     onChange={(e) => setAction(a.rowId, { deepLink: e.target.value })}
+                    onBlur={() => announce(errText)}
                     placeholder="myapp://cart · https://…"
                   />
                 </Field>
-                {err && (
-                  <p id={errId} role="alert" className="text-xs font-semibold text-error">
-                    {t(err, { max: SHORT_MAX })}
-                  </p>
-                )}
               </div>
             );
           })}
 
           {value.actions.length < MAX_SEND_ACTIONS && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={disabled}
-              onClick={() => set({ actions: [...value.actions, newSendAction()] })}
-            >
+            <Button ref={addActionRef} type="button" variant="outline" disabled={disabled} onClick={addAction}>
               <Plus aria-hidden="true" className="h-4 w-4" /> {t("optAddAction")}
             </Button>
           )}

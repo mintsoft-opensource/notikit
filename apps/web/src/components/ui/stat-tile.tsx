@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "./card";
@@ -57,6 +58,39 @@ function DeltaLine({ delta }: { delta: StatDelta }) {
   );
 }
 
+/**
+ * KPI 타일 줄. **마지막 줄에 타일 하나만 남지 않게** 칸 수를 맞춘다 —
+ * 5개 타일을 2·3열에 그냥 흘리면 마지막 한 개가 줄 왼쪽에 덩그러니 남아 리듬이 깨진다.
+ *
+ * 2열에서는 홀수 마지막 타일이 가로 전체를, 3열(md, 6칸 격자에 2칸씩)에서는 마지막 줄의
+ * 두 타일이 절반씩 나눠 갖는다. 5열(xl)은 5개가 정확히 한 줄이라 그대로 둔다.
+ */
+const SPAN_DEFAULT = "col-span-1 md:col-span-2 xl:col-span-1";
+const SPAN_MD_HALF = "col-span-1 md:col-span-3 xl:col-span-1";
+const SPAN_WIDE_HALF = "col-span-2 md:col-span-3 xl:col-span-1";
+const SPAN_WIDE = "col-span-2 md:col-span-2 xl:col-span-1";
+
+function spanOf(index: number, count: number): string {
+  const mdTailPair = count % 3 === 2 && index >= count - 2; // 3열 마지막 줄에 둘만 남는다
+  const oddTail = count % 2 === 1 && index === count - 1; // 2열 마지막 줄에 하나만 남는다
+  if (oddTail) return mdTailPair ? SPAN_WIDE_HALF : SPAN_WIDE;
+  return mdTailPair ? SPAN_MD_HALF : SPAN_DEFAULT;
+}
+
+export function StatTileGrid({ children }: { children: React.ReactNode }) {
+  const items = React.Children.toArray(children);
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-6 xl:grid-cols-5">
+      {items.map((child, i) => (
+        // 감싼 칸이 줄 높이를 받고 타일이 그 높이를 채운다 — 힌트 줄이 있고 없고에 따라 키가 달라지지 않게
+        <div key={i} className={cn("min-w-0 [&>*]:h-full", spanOf(i, items.length))}>
+          {child}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** goji/webapp StatTile — 라벨 + 아이콘 배지 + 큰 수치 + 힌트(+ 전기간 대비) */
 export function StatTile({
   label,
@@ -95,7 +129,8 @@ export function StatTile({
         {loading ? (
           <Skeleton className="mt-2 h-7 w-20" />
         ) : (
-          <p className={cn("mt-2 truncate text-xl font-extrabold tracking-tight tabular-nums", accentClass[accent])}>
+          // 값은 자르지 않는다 — 200~400% 확대에서 고정폭으로 자르면 수치 자체가 사라진다
+          <p className={cn("mt-2 break-words text-xl font-extrabold tracking-tight tabular-nums", accentClass[accent])}>
             {value}
             {suffix && <span className="ms-1 text-xs font-bold text-muted-foreground">{suffix}</span>}
           </p>
