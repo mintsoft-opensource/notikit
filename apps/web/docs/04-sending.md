@@ -6,8 +6,8 @@ title: 발송
 
 | 타입 | target | 대상 |
 |---|---|---|
-| `single` | external_id | 그 유저의 활성 디바이스 전체 |
-| `multi` | `targets`: external_id 배열 (최대 1000) | 목록에 있는 유저들의 활성 디바이스 전체 |
+| `single` | user_id | 그 유저의 활성 디바이스 전체 |
+| `multi` | `targets`: user_id 배열 (최대 1000) | 목록에 있는 유저들의 활성 디바이스 전체 |
 | `topic` | 토픽 이름 | 그 토픽에 속한 디바이스 전체 |
 | `broadcast` | 불필요 | 프로젝트의 활성 디바이스 전체 |
 
@@ -21,13 +21,27 @@ title: 발송
 
 ## 치환 — 받는 사람마다 다른 문구
 
-제목·본문에 `{{속성}}` 을 쓰면 받는 사람의 값으로 바뀝니다. 값은 `identify` 로 보낸 **유저 속성**입니다.
+제목·본문에 `{{변수}}` 를 쓰면 받는 사람마다 다른 값으로 바뀝니다. 기본 변수가 먼저이고, 그 밖의 이름은 `identify` 로 보낸 **유저 속성**에서 찾습니다.
 
-| 쓰는 법 | 결과 |
+| 변수 | 값 |
 |---|---|
-| `{{name}}` | 속성 `name` 의 값 |
-| `{{external_id}}` | 사용자 아이디 |
+| `{{name}}` | 사용자 이름 — `identify` 의 `name`. 없으면 `attributes.name` |
+| `{{user_id}}` | 사용자 아이디 |
+| `{{app_name}}` | 프로젝트 이름 |
+| `{{date}}` | 받는 날짜 (받는 사람의 시간대·언어, 예: `9월 22일`) |
+| `{{time}}` | 받는 시각 (예: `오후 3:30`) |
+| `{{weekday}}` | 요일 (예: `화요일`) |
+| `{{plan}}` 등 | `attributes` 의 같은 이름 값 |
 | `{{name\|고객}}` | 값이 없거나 빈 문자열이면 `고객` |
+
+이름은 `identify` 로 보냅니다. 앱 SDK 는 모두 `name` 을 받습니다(`identify(..., name)`).
+
+```json
+POST /api/v1/users/identify
+{ "user_id": "u-42", "name": "김민지", "timezone": "Asia/Seoul", "locale": "ko", "attributes": { "plan": "pro" } }
+```
+
+날짜·시각은 `identify` 의 `timezone`·`locale` 을 씁니다. 없으면 UTC·한국어로 표시합니다.
 
 ```json
 { "type": "topic", "target": "vip", "title": "{{name|고객}}님, VIP 전용 혜택", "body": "{{plan}} 요금제 회원만 받는 쿠폰이에요" }
@@ -111,17 +125,86 @@ POST /api/v1/topics/subscribe     { "topic": "news", "token": "..." }
 POST /api/v1/topics/unsubscribe   { "topic": "news", "token": "..." }
 ```
 
-`token` 대신 `external_id` 를 주면 **그 사람의 활성 디바이스 전부**가 한 번에 처리됩니다. 백엔드에서 "이 사람을 vip 에 넣어줘" 할 때 쓰면 기기 목록을 따로 관리하지 않아도 됩니다. 둘 중 **정확히 하나**만 보내야 합니다(둘 다 보내면 422).
+`token` 대신 `user_id` 를 주면 **그 사람의 활성 디바이스 전부**가 한 번에 처리됩니다. 백엔드에서 "이 사람을 vip 에 넣어줘" 할 때 쓰면 기기 목록을 따로 관리하지 않아도 됩니다. 둘 중 **정확히 하나**만 보내야 합니다(둘 다 보내면 422).
 
-`external_id` 를 쓸 때는 `identity_hash`(= HMAC-SHA256(external_id, api_secret))가 **항상 필수**입니다(없거나 틀리면 403). 공개 api-key 만으로 남의 기기를 넣고 빼지 못하게 하기 위해서입니다.
+`user_id` 를 쓸 때는 `identity_hash`(= HMAC-SHA256(user_id, api_secret))가 **항상 필수**입니다(없거나 틀리면 403). 공개 api-key 만으로 남의 기기를 넣고 빼지 못하게 하기 위해서입니다.
 
 ```jsonc
-POST /api/v1/topics/subscribe     { "topic": "vip", "external_id": "u-42", "identity_hash": "..." }
+POST /api/v1/topics/subscribe     { "topic": "vip", "user_id": "u-42", "identity_hash": "..." }
 ```
 
 응답의 `added`/`removed` 로 실제로 몇 건이 바뀌었는지 확인할 수 있습니다.
 
 구독은 없는 토픽을 자동으로 만들지만, **해지는 만들지 않습니다** — 없으면 404 입니다.
+
+## 이미지
+
+`image_url` 에 https 이미지 주소를 넣으면 알림에 큰 이미지가 붙습니다(최대 2048자). http 주소는 422 로 거절합니다 — iOS 와 브라우저가 http 이미지를 내려받지 않아 이미지 없는 알림이 나가기 때문입니다.
+
+```json
+{ "type": "topic", "target": "news", "title": "신상품 입고", "body": "지금 확인해 보세요", "image_url": "https://cdn.example.com/p/1.jpg" }
+```
+
+- Android: 그대로 표시됩니다.
+- iOS: `mutable-content: 1` 로 보내므로 앱에 **Notification Service Extension** 이 있어야 이미지가 붙습니다(없으면 글자만 표시).
+- 웹: 서비스 워커가 알림의 `image` 로 그립니다. 앱에서는 `data.image` 로도 읽을 수 있습니다.
+
+## 알림 옵션
+
+`options` 에 알림음·배지·유효기간·액션 버튼 같은 표시 방식을 넣습니다. 서버가 플랫폼별 제자리에 나눠 싣습니다.
+
+| 키 | 값 | Android | iOS(APNs) | 웹 |
+|---|---|---|---|---|
+| `sound` | 파일명 또는 `"default"` | `notification.sound` | `aps.sound` | — |
+| `badge` | 0 이상 정수 | — | `aps.badge` | — |
+| `collapse_key` | 64자 이내 | `collapse_key` | `apns-collapse-id` | — |
+| `android_channel_id` | 64자 이내 | `notification.channel_id` | — | — |
+| `ios_thread_id` | 64자 이내 | — | `aps.thread-id` | — |
+| `ttl_seconds` | 0 ~ 2419200(28일) | `ttl` | `apns-expiration` | — |
+| `priority` | `high`(기본) · `normal` | `priority` | `normal` 이면 `apns-priority: 5` | — |
+| `silent` | 불리언 | 알림 없이 data 만 | `content-available` | 알림 없이 data 만 |
+| `actions` | 최대 3개 `{ id, title, deep_link? }` | `data.actions` | `data.actions` | `data.actions` |
+
+```json
+{
+  "type": "topic", "target": "news", "title": "장바구니가 기다려요", "body": "지금 결제하면 10% 할인",
+  "options": {
+    "sound": "default", "badge": 1, "collapse_key": "cart", "ttl_seconds": 3600,
+    "actions": [{ "id": "checkout", "title": "결제하기", "deep_link": "https://shop.example.com/cart" }]
+  }
+}
+```
+
+- `ttl_seconds: 0` 은 "지금 못 받는 기기에는 버린다"는 뜻입니다. 실시간 알림에만 쓰세요.
+- `collapse_key` 를 같게 주면 기기에 알림이 하나만 남습니다(최신 것으로 덮어씀).
+- `silent: true` 면 알림을 그리지 않고 `data` 만 갑니다. 이때는 **제목·본문이 없어도 됩니다**. 무음 푸시는 iOS 에서 자동으로 `apns-priority: 5` 로 나갑니다(우선순위 10 이면 APNs 가 거절합니다).
+- 액션 버튼은 `data.actions` 에 JSON 문자열로 실립니다. 앱 SDK 에서는 `readPushData(data).actions` 로 읽어 버튼을 그리고, 누른 버튼의 `id` 로 분기하세요. 버튼을 그리는 것은 앱(또는 웹 서비스워커)의 몫입니다.
+- `options` 도 4KB 검사에 포함됩니다. 액션 버튼을 많이 붙이면 본문을 줄여야 할 수 있습니다.
+
+## 전환 측정
+
+알림을 누른 뒤 앱에서 일어난 행동(구매·가입 등)을 발송 성과로 남깁니다.
+
+```jsonc
+POST /api/v1/events
+{ "name": "purchase", "value_cents": 19900, "token": "<이 기기의 푸시 토큰>" }
+```
+
+`token` 대신 `user_id` + `identity_hash` 로도 보낼 수 있습니다(둘 중 **정확히 하나**). 공개 api-key 만 있으면 되므로 앱에서 직접 부릅니다.
+
+```ts
+// @notikit/core · React Native · Web SDK
+await notikit.trackConversion("purchase", 19900);
+```
+
+| 규칙 | 내용 |
+|---|---|
+| 귀속 대상 | 그 기기(또는 그 사람)가 **최근 24시간 안에 클릭한 마지막 발송** |
+| 클릭이 없으면 | 저장하지 않고 `202 { "attributed": false }` — 오류가 아닙니다 |
+| 중복 | 같은 날 같은 (발송, 사람, 이름)은 1건. 재시도해도 매출이 부풀지 않습니다 |
+| 금액 | `value_cents` 는 최소 화폐 단위(원화면 원)의 정수. 금액 없는 전환은 생략 |
+
+귀속은 **보고하는 순간에 끝납니다**. 나중에 다시 계산하지 않으므로 클릭 기록이 정리돼도 과거 성과가 흔들리지 않습니다.
 
 ## 예약 발송
 
@@ -140,3 +223,20 @@ POST /api/v1/topics/subscribe     { "topic": "vip", "external_id": "u-42", "iden
 > `scheduled_at` 을 주지 않으면 프로젝트의 **방해금지 시간대** 규칙이 적용됩니다. 조용한 시간에 걸리면 서버가 자동으로 그 이후로 미룹니다 — 즉시 나가야 하는 알림이라면 방해금지 설정을 확인하세요.
 
 발송 대상에서 자동으로 빠지는 것: 수신 거부한 유저·토큰, 비활성(앱 삭제 감지) 디바이스.
+
+## 응답과 재시도(멱등 키)
+
+발송은 큐에 넣고 바로 `202` 로 돌아옵니다. 본문은 `{ "message": { "id", "status", "scheduled_at" } }` 입니다.
+
+네트워크 오류로 다시 보내도 한 번만 나가게 하려면 `Idempotency-Key` 헤더에 요청마다 고유한 값(예: 주문 ID)을 넣으세요.
+같은 키로 다시 보내면 새로 발송하지 않고 처음 발송을 `200` 과 `meta.idempotent_replay: true` 로 돌려줍니다.
+
+```bash
+curl -X POST "$NOTIKIT/api/v1/messages" \
+  -H "api-key: nk_xxx" -H "api-secret: sk_xxx" \
+  -H "Idempotency-Key: order-1042-shipped" \
+  -H "content-type: application/json" \
+  -d '{ "type": "single", "target": "user_42", "title": "배송이 시작됐어요" }'
+```
+
+치환까지 마친 푸시가 FCM 한도(4KB)를 넘으면 `422` 입니다. 본문이나 `data` 를 줄이세요.

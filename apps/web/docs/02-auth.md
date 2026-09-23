@@ -15,10 +15,10 @@ title: 인증
 
 ## identity_hash
 
-남의 계정을 사칭하지 못하도록, `external_id` 를 다루는 요청에는 `identity_hash` 를 요구합니다. 고객 서버가 계산해 클라이언트에 내려주세요.
+남의 계정을 사칭하지 못하도록, `user_id` 를 다루는 요청에는 `identity_hash` 를 요구합니다. 고객 서버가 계산해 클라이언트에 내려주세요.
 
 ```
-identity_hash = HMAC-SHA256(external_id, api_secret) → hex
+identity_hash = HMAC-SHA256(user_id, api_secret) → hex
 ```
 
 ```js
@@ -26,15 +26,15 @@ identity_hash = HMAC-SHA256(external_id, api_secret) → hex
 import { createHmac } from "node:crypto";
 
 const identityHash = createHmac("sha256", API_SECRET)
-  .update(externalId)
+  .update(userId)
   .digest("hex");
 
 // 이 값을 로그인 응답에 담아 앱으로 내려줍니다.
 // api_secret 자체는 절대 앱으로 내려보내지 마세요.
 ```
 
-**항상 필수**: 인박스 조회·읽음, 저니 등록, external_id 수신거부, 토큰 교체(유저 바인딩된 기기)
+**항상 필수**: 인박스 조회·읽음, 저니 등록, user_id 수신거부, 토큰 교체(유저 바인딩된 기기)
 
-**프로젝트 설정 시 필수**: 디바이스 등록의 external_id 바인딩, 바인딩 해제, 유저 식별
+**프로젝트 설정 시 필수**: 디바이스 등록의 user_id 바인딩, 바인딩 해제, 유저 식별
 
 프로젝트 설정 > 정책에서 "유저 검증 요구"를 끄면 후자는 생략됩니다(개발 중에만 권장).

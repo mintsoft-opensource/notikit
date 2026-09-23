@@ -21,7 +21,7 @@ curl -X POST https://push.example.com/api/v1/devices \
   -d '{
     "token": "<FCM 등록 토큰>",
     "platform": "android",
-    "external_id": "user-123",
+    "user_id": "user-123",
     "identity_hash": "<서버계산 HMAC>",
     "locale": "ko-KR",
     "timezone": "Asia/Seoul"
