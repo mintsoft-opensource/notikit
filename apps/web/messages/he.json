@@ -447,6 +447,7 @@
     "subtitleTopic": "שליחות למנויי הנושא — הרחיבו שורה כדי לראות מי פתח",
     "readers": "מי פתח",
     "noReaders": "עדיין אף אחד לא פתח",
+    "readersLoaded": "מוצגים {count} קוראים",
     "anonymousReader": "מכשיר אנונימי",
     "readRateHint": "{read} מתוך {audience} משתמשים פתחו",
     "readTrend": "קריאות לאורך זמן",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "עדיין אין מסמכים",
     "emptyDesc": "הוסף קבצי ‎.md‎ לתיקייה apps/web/docs והם יופיעו כאן עם תוכן עניינים."
+  },
+  "docsFrame": {
+    "apiTitle": "מדריך ה-API של Notikit",
+    "anchorLabel": "קישור לסעיף זה"
   },
   "update": {
     "title": "Updates",

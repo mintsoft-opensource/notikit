@@ -447,6 +447,7 @@
     "subtitleTopic": "ارسال به مشترکان موضوع — برای دیدن بازکنندگان ردیف را باز کنید",
     "readers": "چه کسی باز کرد",
     "noReaders": "هنوز کسی باز نکرده",
+    "readersLoaded": "نمایش {count} خواننده",
     "anonymousReader": "دستگاه ناشناس",
     "readRateHint": "{read} از {audience} کاربر باز کردند",
     "readTrend": "بازدیدها در طول زمان",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "هنوز سندی وجود ندارد",
     "emptyDesc": "فایل‌های .md را به پوشه apps/web/docs اضافه کنید تا با فهرست مطالب در اینجا نمایش داده شوند."
+  },
+  "docsFrame": {
+    "apiTitle": "مرجع API Notikit",
+    "anchorLabel": "لینک به این بخش"
   },
   "update": {
     "title": "Updates",

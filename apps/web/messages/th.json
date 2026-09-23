@@ -447,6 +447,7 @@
     "subtitleTopic": "ส่งถึงผู้ติดตามหัวข้อ — ขยายแถวเพื่อดูว่าใครเปิด",
     "readers": "ใครเปิดบ้าง",
     "noReaders": "ยังไม่มีใครเปิด",
+    "readersLoaded": "กำลังแสดงผู้อ่าน {count} คน",
     "anonymousReader": "อุปกรณ์นิรนาม",
     "readRateHint": "ผู้ใช้ {read} จาก {audience} คนเปิด",
     "readTrend": "การอ่านตามเวลา",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "ยังไม่มีเอกสาร",
     "emptyDesc": "เพิ่มไฟล์ .md ลงในโฟลเดอร์ apps/web/docs แล้วจะปรากฏที่นี่พร้อมสารบัญ"
+  },
+  "docsFrame": {
+    "apiTitle": "เอกสารอ้างอิง API ของ Notikit",
+    "anchorLabel": "ลิงก์ไปยังส่วนนี้"
   },
   "update": {
     "title": "Updates",

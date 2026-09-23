@@ -447,6 +447,7 @@
     "subtitleTopic": "إرسال إلى مشتركي الموضوع — وسّع الصف لمعرفة من فتحه",
     "readers": "من فتحه",
     "noReaders": "لم يفتحه أحد بعد",
+    "readersLoaded": "عرض {count} من القرّاء",
     "anonymousReader": "جهاز مجهول",
     "readRateHint": "فتحه {read} من {audience} مستخدمًا",
     "readTrend": "القراءات عبر الزمن",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "لا توجد مستندات بعد",
     "emptyDesc": "أضف ملفات .md إلى مجلد apps/web/docs وستظهر هنا مع جدول محتويات."
+  },
+  "docsFrame": {
+    "apiTitle": "مرجع Notikit API",
+    "anchorLabel": "رابط إلى هذا القسم"
   },
   "update": {
     "title": "Updates",

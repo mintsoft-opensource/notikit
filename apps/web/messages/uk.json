@@ -447,6 +447,7 @@
     "subtitleTopic": "Надсилання підписникам теми — розгорніть рядок, щоб побачити, хто відкрив",
     "readers": "Хто відкрив",
     "noReaders": "Поки ніхто не відкрив",
+    "readersLoaded": "Показано читачів: {count}",
     "anonymousReader": "Анонімний пристрій",
     "readRateHint": "Відкрили {read} із {audience} користувачів",
     "readTrend": "Відкриття з часом",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Поки що немає документів",
     "emptyDesc": "Додайте файли .md до папки apps/web/docs, і вони з'являться тут зі змістом."
+  },
+  "docsFrame": {
+    "apiTitle": "Довідник API Notikit",
+    "anchorLabel": "Посилання на цей розділ"
   },
   "update": {
     "title": "Updates",

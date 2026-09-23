@@ -447,6 +447,7 @@
     "subtitleTopic": "Invii agli iscritti a un argomento: espandi una riga per vedere chi ha aperto",
     "readers": "Chi l'ha aperto",
     "noReaders": "Nessuno l'ha ancora aperto",
+    "readersLoaded": "Visualizzazione di {count} lettori",
     "anonymousReader": "Dispositivo anonimo",
     "readRateHint": "{read} utenti su {audience} l'hanno aperto",
     "readTrend": "Letture nel tempo",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Nessun documento ancora",
     "emptyDesc": "Aggiungi file .md alla cartella apps/web/docs e appariranno qui con un indice."
+  },
+  "docsFrame": {
+    "apiTitle": "Riferimento API di Notikit",
+    "anchorLabel": "Link a questa sezione"
   },
   "update": {
     "title": "Updates",

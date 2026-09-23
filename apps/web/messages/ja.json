@@ -447,6 +447,7 @@
     "subtitleTopic": "トピック購読者への送信 — 行を開くと読んだ人が表示されます",
     "readers": "読んだ人",
     "noReaders": "まだ読んだ人がいません",
+    "readersLoaded": "{count}人の閲覧者を表示中",
     "anonymousReader": "匿名デバイス",
     "readRateHint": "ユーザー {audience} 人中 {read} 人が読みました",
     "readTrend": "読んだ数の推移",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "登録された文書がありません",
     "emptyDesc": "apps/web/docs フォルダに.mdファイルを追加すると、ここに目次と本文が表示されます。"
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit APIリファレンス",
+    "anchorLabel": "このセクションへのリンク"
   },
   "update": {
     "title": "Updates",

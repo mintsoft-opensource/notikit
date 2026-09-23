@@ -447,6 +447,7 @@
     "subtitleTopic": "Konu abonelerine gönderim — kimin açtığını görmek için satırı genişletin",
     "readers": "Kimler açtı",
     "noReaders": "Henüz kimse açmadı",
+    "readersLoaded": "{count} okuyucu gösteriliyor",
     "anonymousReader": "Anonim cihaz",
     "readRateHint": "{audience} kullanıcıdan {read} tanesi açtı",
     "readTrend": "Zamana göre okumalar",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Henüz belge yok",
     "emptyDesc": "apps/web/docs klasörüne .md dosyaları ekleyin; burada içindekiler tablosuyla görünecekler."
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API referansı",
+    "anchorLabel": "Bu bölüme bağlantı"
   },
   "update": {
     "title": "Updates",

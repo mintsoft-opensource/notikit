@@ -447,6 +447,7 @@
     "subtitleTopic": "Sendungen an Themen-Abonnenten – Zeile aufklappen, um zu sehen, wer geöffnet hat",
     "readers": "Wer geöffnet hat",
     "noReaders": "Bisher hat niemand geöffnet",
+    "readersLoaded": "{count} Leser werden angezeigt",
     "anonymousReader": "Anonymes Gerät",
     "readRateHint": "{read} von {audience} Nutzern haben geöffnet",
     "readTrend": "Öffnungen im Zeitverlauf",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Noch keine Dokumente",
     "emptyDesc": "Füge .md-Dateien zum Ordner apps/web/docs hinzu, damit sie hier mit einem Inhaltsverzeichnis erscheinen."
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit-API-Referenz",
+    "anchorLabel": "Link zu diesem Abschnitt"
   },
   "update": {
     "title": "Updates",

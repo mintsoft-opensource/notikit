@@ -447,6 +447,7 @@
     "subtitleTopic": "Verzendingen naar onderwerpabonnees — klap een rij uit om te zien wie opende",
     "readers": "Wie het opende",
     "noReaders": "Nog niemand heeft het geopend",
+    "readersLoaded": "{count} lezers weergegeven",
     "anonymousReader": "Anoniem apparaat",
     "readRateHint": "{read} van {audience} gebruikers openden het",
     "readTrend": "Openingen in de tijd",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Nog geen documenten",
     "emptyDesc": "Voeg .md-bestanden toe aan de map apps/web/docs; ze verschijnen hier dan met een inhoudsopgave."
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API-referentie",
+    "anchorLabel": "Link naar dit gedeelte"
   },
   "update": {
     "title": "Updates",

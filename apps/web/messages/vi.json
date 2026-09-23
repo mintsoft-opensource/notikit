@@ -447,6 +447,7 @@
     "subtitleTopic": "Gửi tới người theo dõi chủ đề — mở rộng dòng để xem ai đã mở",
     "readers": "Ai đã mở",
     "noReaders": "Chưa ai mở",
+    "readersLoaded": "Đang hiển thị {count} độc giả",
     "anonymousReader": "Thiết bị ẩn danh",
     "readRateHint": "{read} trong {audience} người dùng đã mở",
     "readTrend": "Lượt đọc theo thời gian",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Chưa có tài liệu nào",
     "emptyDesc": "Thêm tệp .md vào thư mục apps/web/docs, chúng sẽ xuất hiện ở đây kèm mục lục."
+  },
+  "docsFrame": {
+    "apiTitle": "Tài liệu tham khảo API Notikit",
+    "anchorLabel": "Liên kết đến phần này"
   },
   "update": {
     "title": "Updates",

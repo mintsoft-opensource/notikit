@@ -447,6 +447,7 @@
     "subtitleTopic": "विषय ग्राहकों को भेजा गया — किसने खोला देखने के लिए पंक्ति खोलें",
     "readers": "किसने खोला",
     "noReaders": "अभी किसी ने नहीं खोला",
+    "readersLoaded": "{count} पाठक दिखाए जा रहे हैं",
     "anonymousReader": "अनाम डिवाइस",
     "readRateHint": "{audience} में से {read} उपयोगकर्ताओं ने खोला",
     "readTrend": "समय के साथ पठन",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "अभी तक कोई दस्तावेज़ नहीं है",
     "emptyDesc": "apps/web/docs फ़ोल्डर में .md फ़ाइलें जोड़ें, और वे यहां विषय-सूची के साथ दिखेंगी।"
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API संदर्भ",
+    "anchorLabel": "इस सेक्शन का लिंक"
   },
   "update": {
     "title": "Updates",

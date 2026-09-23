@@ -447,6 +447,7 @@
     "subtitleTopic": "Utskick till ämnesprenumeranter – expandera en rad för att se vilka som öppnade",
     "readers": "Vilka som öppnade",
     "noReaders": "Ingen har öppnat ännu",
+    "readersLoaded": "Visar {count} läsare",
     "anonymousReader": "Anonym enhet",
     "readRateHint": "{read} av {audience} användare öppnade",
     "readTrend": "Läsningar över tid",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Inga dokument än",
     "emptyDesc": "Lägg till .md-filer i mappen apps/web/docs så visas de här med en innehållsförteckning."
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API-referens",
+    "anchorLabel": "Länk till det här avsnittet"
   },
   "update": {
     "title": "Updates",

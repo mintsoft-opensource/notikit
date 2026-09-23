@@ -447,6 +447,7 @@
     "subtitleTopic": "Broadcasts to a topic — expand a row to see who opened it",
     "readers": "Who opened it",
     "noReaders": "Nobody has opened this yet",
+    "readersLoaded": "Showing {count} readers",
     "anonymousReader": "Anonymous device",
     "readRateHint": "{read} of {audience} users opened it",
     "readTrend": "Reads over time",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "No documents yet",
     "emptyDesc": "Add .md files to the apps/web/docs folder and they will appear here with a table of contents."
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API reference",
+    "anchorLabel": "Link to this section"
   },
   "update": {
     "title": "Updates",

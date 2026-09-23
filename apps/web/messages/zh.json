@@ -447,6 +447,7 @@
     "subtitleTopic": "发送给主题订阅者 — 展开行可查看谁打开了",
     "readers": "已打开的人",
     "noReaders": "还没有人打开",
+    "readersLoaded": "正在显示 {count} 位读者",
     "anonymousReader": "匿名设备",
     "readRateHint": "{audience} 位用户中有 {read} 位打开",
     "readTrend": "阅读趋势",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "暂无文档",
     "emptyDesc": "将 .md 文件放入 apps/web/docs 文件夹，即可在此处生成目录和正文。"
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API 参考",
+    "anchorLabel": "此章节的链接"
   },
   "update": {
     "title": "Updates",

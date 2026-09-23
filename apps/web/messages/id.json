@@ -447,6 +447,7 @@
     "subtitleTopic": "Kirim ke pelanggan topik — buka baris untuk melihat siapa yang membuka",
     "readers": "Siapa yang membuka",
     "noReaders": "Belum ada yang membuka",
+    "readersLoaded": "Menampilkan {count} pembaca",
     "anonymousReader": "Perangkat anonim",
     "readRateHint": "{read} dari {audience} pengguna membuka",
     "readTrend": "Bacaan dari waktu ke waktu",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "Belum ada dokumen",
     "emptyDesc": "Tambahkan file .md ke folder apps/web/docs, dan file tersebut akan muncul di sini beserta daftar isi."
+  },
+  "docsFrame": {
+    "apiTitle": "Referensi API Notikit",
+    "anchorLabel": "Tautan ke bagian ini"
   },
   "update": {
     "title": "Updates",

@@ -447,6 +447,7 @@
     "subtitleTopic": "發送給主題訂閱者 — 展開列可查看誰開啟了",
     "readers": "已開啟的人",
     "noReaders": "尚無人開啟",
+    "readersLoaded": "正在顯示 {count} 位讀者",
     "anonymousReader": "匿名裝置",
     "readRateHint": "{audience} 位使用者中有 {read} 位開啟",
     "readTrend": "閱讀趨勢",
@@ -937,6 +938,10 @@
     "toc": "Contents",
     "emptyTitle": "尚無文件",
     "emptyDesc": "將 .md 檔案放入 apps/web/docs 資料夾，即可在此處產生目錄與內文。"
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API 參考",
+    "anchorLabel": "此章節的連結"
   },
   "update": {
     "title": "Updates",

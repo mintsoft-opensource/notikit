@@ -447,6 +447,7 @@
     "subtitleTopic": "토픽 구독자에게 보낸 발송 — 행을 펼치면 읽은 사람이 보입니다",
     "readers": "읽은 사람",
     "noReaders": "아직 읽은 사람이 없습니다",
+    "readersLoaded": "읽은 사람 {count}명을 표시하고 있습니다",
     "anonymousReader": "익명 디바이스",
     "readRateHint": "유저 {audience}명 중 {read}명이 읽었습니다",
     "readTrend": "읽은 수 추이",
@@ -937,6 +938,10 @@
     "toc": "목차",
     "emptyTitle": "등록된 문서가 없습니다",
     "emptyDesc": "apps/web/docs 폴더에 .md 파일을 넣으면 이곳에 목차와 본문이 생깁니다."
+  },
+  "docsFrame": {
+    "apiTitle": "Notikit API 문서",
+    "anchorLabel": "이 절 링크"
   },
   "update": {
     "title": "업데이트",

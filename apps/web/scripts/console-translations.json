@@ -786,7 +786,10 @@
     "logs.conversionsRow": "{count} ・{value}",
     "logs.conversionsNone": "まだコンバージョンがありません",
     "overview.statConversions": "コンバージョン",
-    "overview.statConversionValue": "金額 {value}"
+    "overview.statConversionValue": "金額 {value}",
+    "logs.readersLoaded": "{count}人の閲覧者を表示中",
+    "docsFrame.apiTitle": "Notikit APIリファレンス",
+    "docsFrame.anchorLabel": "このセクションへのリンク"
   },
   "zh": {
     "meta.description": "以用户为中心的推送通知基础设施",
@@ -1575,7 +1578,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "暂无转化",
     "overview.statConversions": "转化",
-    "overview.statConversionValue": "金额 {value}"
+    "overview.statConversionValue": "金额 {value}",
+    "logs.readersLoaded": "正在显示 {count} 位读者",
+    "docsFrame.apiTitle": "Notikit API 参考",
+    "docsFrame.anchorLabel": "此章节的链接"
   },
   "zh-TW": {
     "meta.description": "以使用者為中心的推播通知基礎設施",
@@ -2364,7 +2370,10 @@
     "logs.conversionsRow": "{count} ・{value}",
     "logs.conversionsNone": "尚無轉換",
     "overview.statConversions": "轉換",
-    "overview.statConversionValue": "金額 {value}"
+    "overview.statConversionValue": "金額 {value}",
+    "logs.readersLoaded": "正在顯示 {count} 位讀者",
+    "docsFrame.apiTitle": "Notikit API 參考",
+    "docsFrame.anchorLabel": "此章節的連結"
   },
   "es": {
     "meta.description": "Infraestructura de notificaciones push centrada en el usuario",
@@ -3153,7 +3162,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Aún no hay conversiones",
     "overview.statConversions": "Conversiones",
-    "overview.statConversionValue": "Valor {value}"
+    "overview.statConversionValue": "Valor {value}",
+    "logs.readersLoaded": "Mostrando {count} lectores",
+    "docsFrame.apiTitle": "Referencia de la API de Notikit",
+    "docsFrame.anchorLabel": "Enlace a esta sección"
   },
   "pt": {
     "meta.description": "Infraestrutura de notificações push centrada no utilizador",
@@ -3942,7 +3954,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Ainda não há conversões",
     "overview.statConversions": "Conversões",
-    "overview.statConversionValue": "Valor {value}"
+    "overview.statConversionValue": "Valor {value}",
+    "logs.readersLoaded": "A mostrar {count} leitores",
+    "docsFrame.apiTitle": "Referência da API do Notikit",
+    "docsFrame.anchorLabel": "Ligação para esta secção"
   },
   "pt-BR": {
     "meta.description": "Infraestrutura de notificações push centrada no usuário",
@@ -4731,7 +4746,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Ainda não há conversões",
     "overview.statConversions": "Conversões",
-    "overview.statConversionValue": "Valor {value}"
+    "overview.statConversionValue": "Valor {value}",
+    "logs.readersLoaded": "Mostrando {count} leitores",
+    "docsFrame.apiTitle": "Referência da API do Notikit",
+    "docsFrame.anchorLabel": "Link para esta seção"
   },
   "fr": {
     "meta.description": "Infrastructure de notifications push centrée sur l'utilisateur",
@@ -5520,7 +5538,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Aucune conversion pour l'instant",
     "overview.statConversions": "Conversions",
-    "overview.statConversionValue": "Valeur {value}"
+    "overview.statConversionValue": "Valeur {value}",
+    "logs.readersLoaded": "Affichage de {count} lecteurs",
+    "docsFrame.apiTitle": "Référence de l'API Notikit",
+    "docsFrame.anchorLabel": "Lien vers cette section"
   },
   "de": {
     "meta.description": "Nutzerzentrierte Push-Benachrichtigungs-Infrastruktur",
@@ -6309,7 +6330,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Noch keine Conversions",
     "overview.statConversions": "Conversions",
-    "overview.statConversionValue": "Wert {value}"
+    "overview.statConversionValue": "Wert {value}",
+    "logs.readersLoaded": "{count} Leser werden angezeigt",
+    "docsFrame.apiTitle": "Notikit-API-Referenz",
+    "docsFrame.anchorLabel": "Link zu diesem Abschnitt"
   },
   "it": {
     "meta.description": "Infrastruttura di notifiche push centrata sull'utente",
@@ -7098,7 +7122,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Nessuna conversione ancora",
     "overview.statConversions": "Conversioni",
-    "overview.statConversionValue": "Valore {value}"
+    "overview.statConversionValue": "Valore {value}",
+    "logs.readersLoaded": "Visualizzazione di {count} lettori",
+    "docsFrame.apiTitle": "Riferimento API di Notikit",
+    "docsFrame.anchorLabel": "Link a questa sezione"
   },
   "nl": {
     "meta.description": "Gebruikersgerichte pushnotificatie-infrastructuur",
@@ -7887,7 +7914,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Nog geen conversies",
     "overview.statConversions": "Conversies",
-    "overview.statConversionValue": "Waarde {value}"
+    "overview.statConversionValue": "Waarde {value}",
+    "logs.readersLoaded": "{count} lezers weergegeven",
+    "docsFrame.apiTitle": "Notikit API-referentie",
+    "docsFrame.anchorLabel": "Link naar dit gedeelte"
   },
   "sv": {
     "meta.description": "Användarcentrerad push-notisinfrastruktur",
@@ -8676,7 +8706,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Inga konverteringar än",
     "overview.statConversions": "Konverteringar",
-    "overview.statConversionValue": "Värde {value}"
+    "overview.statConversionValue": "Värde {value}",
+    "logs.readersLoaded": "Visar {count} läsare",
+    "docsFrame.apiTitle": "Notikit API-referens",
+    "docsFrame.anchorLabel": "Länk till det här avsnittet"
   },
   "pl": {
     "meta.description": "Infrastruktura powiadomień push zorientowana na użytkownika",
@@ -9465,7 +9498,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Brak konwersji",
     "overview.statConversions": "Konwersje",
-    "overview.statConversionValue": "Wartość {value}"
+    "overview.statConversionValue": "Wartość {value}",
+    "logs.readersLoaded": "Wyświetlanie {count} czytelników",
+    "docsFrame.apiTitle": "Dokumentacja API Notikit",
+    "docsFrame.anchorLabel": "Link do tej sekcji"
   },
   "ru": {
     "meta.description": "пользователь-ориентированная инфраструктура push-уведомлений",
@@ -10254,7 +10290,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Пока нет конверсий",
     "overview.statConversions": "Конверсии",
-    "overview.statConversionValue": "Сумма {value}"
+    "overview.statConversionValue": "Сумма {value}",
+    "logs.readersLoaded": "Показано читателей: {count}",
+    "docsFrame.apiTitle": "Справочник API Notikit",
+    "docsFrame.anchorLabel": "Ссылка на этот раздел"
   },
   "uk": {
     "meta.description": "орієнтована на користувача інфраструктура push-сповіщень",
@@ -11043,7 +11082,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Поки що немає конверсій",
     "overview.statConversions": "Конверсії",
-    "overview.statConversionValue": "Сума {value}"
+    "overview.statConversionValue": "Сума {value}",
+    "logs.readersLoaded": "Показано читачів: {count}",
+    "docsFrame.apiTitle": "Довідник API Notikit",
+    "docsFrame.anchorLabel": "Посилання на цей розділ"
   },
   "tr": {
     "meta.description": "Kullanıcı odaklı push bildirim altyapısı",
@@ -11832,7 +11874,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Henüz dönüşüm yok",
     "overview.statConversions": "Dönüşümler",
-    "overview.statConversionValue": "Değer {value}"
+    "overview.statConversionValue": "Değer {value}",
+    "logs.readersLoaded": "{count} okuyucu gösteriliyor",
+    "docsFrame.apiTitle": "Notikit API referansı",
+    "docsFrame.anchorLabel": "Bu bölüme bağlantı"
   },
   "ar": {
     "meta.description": "بنية إشعارات دفع تتمحور حول المستخدم",
@@ -12621,7 +12666,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "لا توجد تحويلات بعد",
     "overview.statConversions": "التحويلات",
-    "overview.statConversionValue": "القيمة {value}"
+    "overview.statConversionValue": "القيمة {value}",
+    "logs.readersLoaded": "عرض {count} من القرّاء",
+    "docsFrame.apiTitle": "مرجع Notikit API",
+    "docsFrame.anchorLabel": "رابط إلى هذا القسم"
   },
   "he": {
     "meta.description": "תשתית התראות פוש ממוקדת משתמש",
@@ -13410,7 +13458,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "אין עדיין המרות",
     "overview.statConversions": "המרות",
-    "overview.statConversionValue": "ערך {value}"
+    "overview.statConversionValue": "ערך {value}",
+    "logs.readersLoaded": "מוצגים {count} קוראים",
+    "docsFrame.apiTitle": "מדריך ה-API של Notikit",
+    "docsFrame.anchorLabel": "קישור לסעיף זה"
   },
   "fa": {
     "meta.description": "زیرساخت اعلان پوش کاربرمحور",
@@ -14199,7 +14250,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "هنوز تبدیلی وجود ندارد",
     "overview.statConversions": "تبدیل‌ها",
-    "overview.statConversionValue": "ارزش {value}"
+    "overview.statConversionValue": "ارزش {value}",
+    "logs.readersLoaded": "نمایش {count} خواننده",
+    "docsFrame.apiTitle": "مرجع API Notikit",
+    "docsFrame.anchorLabel": "لینک به این بخش"
   },
   "hi": {
     "meta.description": "उपयोगकर्ता-केंद्रित पुश सूचना इन्फ्रास्ट्रक्चर",
@@ -14988,7 +15042,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "अभी तक कोई कन्वर्शन नहीं",
     "overview.statConversions": "कन्वर्शन",
-    "overview.statConversionValue": "मूल्य {value}"
+    "overview.statConversionValue": "मूल्य {value}",
+    "logs.readersLoaded": "{count} पाठक दिखाए जा रहे हैं",
+    "docsFrame.apiTitle": "Notikit API संदर्भ",
+    "docsFrame.anchorLabel": "इस सेक्शन का लिंक"
   },
   "th": {
     "meta.description": "โครงสร้างพื้นฐานการแจ้งเตือนพุชที่เน้นผู้ใช้",
@@ -15777,7 +15834,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "ยังไม่มีการแปลง",
     "overview.statConversions": "การแปลง",
-    "overview.statConversionValue": "มูลค่า {value}"
+    "overview.statConversionValue": "มูลค่า {value}",
+    "logs.readersLoaded": "กำลังแสดงผู้อ่าน {count} คน",
+    "docsFrame.apiTitle": "เอกสารอ้างอิง API ของ Notikit",
+    "docsFrame.anchorLabel": "ลิงก์ไปยังส่วนนี้"
   },
   "vi": {
     "meta.description": "Hạ tầng thông báo đẩy lấy người dùng làm trung tâm",
@@ -16566,7 +16626,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Chưa có chuyển đổi nào",
     "overview.statConversions": "Chuyển đổi",
-    "overview.statConversionValue": "Giá trị {value}"
+    "overview.statConversionValue": "Giá trị {value}",
+    "logs.readersLoaded": "Đang hiển thị {count} độc giả",
+    "docsFrame.apiTitle": "Tài liệu tham khảo API Notikit",
+    "docsFrame.anchorLabel": "Liên kết đến phần này"
   },
   "id": {
     "meta.description": "Infrastruktur notifikasi push berpusat pada pengguna",
@@ -17355,7 +17418,10 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Belum ada konversi",
     "overview.statConversions": "Konversi",
-    "overview.statConversionValue": "Nilai {value}"
+    "overview.statConversionValue": "Nilai {value}",
+    "logs.readersLoaded": "Menampilkan {count} pembaca",
+    "docsFrame.apiTitle": "Referensi API Notikit",
+    "docsFrame.anchorLabel": "Tautan ke bagian ini"
   },
   "ms": {
     "meta.description": "Infrastruktur pemberitahuan tolak berpusatkan pengguna",
@@ -18144,6 +18210,9 @@
     "logs.conversionsRow": "{count} · {value}",
     "logs.conversionsNone": "Belum ada penukaran",
     "overview.statConversions": "Penukaran",
-    "overview.statConversionValue": "Nilai {value}"
+    "overview.statConversionValue": "Nilai {value}",
+    "logs.readersLoaded": "Memaparkan {count} pembaca",
+    "docsFrame.apiTitle": "Rujukan API Notikit",
+    "docsFrame.anchorLabel": "Pautan ke bahagian ini"
   }
 }
