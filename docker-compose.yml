@@ -45,9 +45,9 @@ services:
       redis:
         condition: service_healthy
     ports:
-      # 콘솔은 항상 호스트 3000. 개발자가 손으로 띄우는 `next start -p 3001` 과
-      # e2e 의 3100 은 이 포트와 겹치지 않는다.
-      - "3000:3000"
+      # 콘솔은 호스트 3000(`WEB_PORT` 로 바꾼다 — 한 대에서 다른 앱이 3000 을 쓰고 있을 때).
+      # 개발자가 손으로 띄우는 `next start -p 3001` 과 e2e 의 3100 은 이 포트와 겹치지 않는다.
+      - "${WEB_PORT:-3000}:3000"
     # liveness(/api/health)가 아니라 readiness 를 본다 — DB 에 붙고 스키마가 맞는
     # 인스턴스만 "healthy" 다. worker 의 depends_on 이 이 신호를 기다린다.
     # (이미지에 curl/wget 을 넣지 않으려고 node 내장 fetch 를 쓴다. 비루트로도 동작.)
