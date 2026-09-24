@@ -4,7 +4,7 @@ import { topics } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
-import { countTopicAudience, isRuleFilled, rulesSchema } from "@/lib/topic-membership";
+import { countTopicAudience, isRuleFilled, rulesSchema, toStoredRules } from "@/lib/topic-membership";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +82,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; t
   const db = getDb();
   const rows = await db
     .update(topics)
-    .set({ rules: parsed.data.rules })
+    .set({ rules: toStoredRules(parsed.data.rules) })
     .where(and(eq(topics.id, topicId), eq(topics.projectId, id)))
     .returning();
   return ok({ topic: rows[0] });

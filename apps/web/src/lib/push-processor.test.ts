@@ -3,9 +3,10 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
 import type { PushLog, Project } from "@/db/schema";
 
-const { emitted } = vi.hoisted(() => ({ emitted: [] as unknown[][] }));
+const { emitted, webhook } = vi.hoisted(() => ({ emitted: [] as unknown[][], webhook: { fail: false } }));
 vi.mock("@/lib/webhooks", () => ({
   emitWebhook: (...args: unknown[]) => {
+    if (webhook.fail) return Promise.reject(new Error("db down"));
     emitted.push(args);
     return Promise.resolve();
   },
@@ -27,6 +28,7 @@ import {
   variantIndex,
   claimableLog,
   parseAttempts,
+  reclaimAttempts,
   reserveCapped,
   runFollowUps,
   saveProgress,
@@ -130,7 +132,7 @@ describe("tallyResults", () => {
       { token: "a", vi: 0, title: "", body: "", dataOnly: false },
       { token: "b", vi: 1, title: "", body: "", dataOnly: false },
     ];
-    const next = tallyResults(state, items, [{ success: 1, failure: 1, invalidTokens: ["b"], validTokens: ["a"] }]);
+    const next = tallyResults(state, items, [{ success: 1, failure: 1, validTokens: ["a"] }]);
     expect(next.success).toBe(1);
     expect(next.failure).toBe(1);
     expect(next.variantStats).toEqual({ "0": { sent: 0, success: 1 }, "1": { sent: 0, success: 0 } });
@@ -269,19 +271,22 @@ describe("settleFailure", () => {
   const LOG = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
   const TOKEN = "lock-1";
 
-  function db(resumeCursor: string | null) {
+  /** 실패 정산은 DB 를 **읽지 않는다** — select 를 부르면 즉시 터지는 db 로 그걸 고정한다 */
+  function db() {
     const spy = updateSpy([{ id: LOG }]);
-    const withSelect = {
+    const noSelect = {
       ...(spy.db as unknown as Record<string, unknown>),
-      select: () => ({ from: () => ({ where: () => ({ limit: async () => [{ resumeCursor }] }) }) }),
+      select: () => {
+        throw new Error("db is down");
+      },
     };
-    return { db: withSelect as unknown as Parameters<typeof settleFailure>[0], sets: spy.sets };
+    return { db: noSelect as unknown as Parameters<typeof settleFailure>[0], sets: spy.sets };
   }
 
   it("일시적 실패는 failed 로 닫지 않고 시도 횟수만 올린다 — stale 재클레임이 이어 간다", async () => {
     const state = { ...initialState({ users: 9, devices: 9 }, null), cursor: DEV, total: 5, success: 5 };
-    const t = db(JSON.stringify(state));
-    expect(await settleFailure(t.db, LOG, TOKEN, new Error("db down"))).toBe(true);
+    const t = db();
+    expect(await settleFailure(t.db, LOG, TOKEN, new Error("db down"), JSON.stringify(state))).toBe(true);
     expect(t.sets).toHaveLength(1);
     expect(t.sets[0].status).toBeUndefined();
     const saved = parseResumeState(t.sets[0].resumeCursor as string)!;
@@ -292,15 +297,15 @@ describe("settleFailure", () => {
   });
 
   it("진행 상태가 아직 없어도 횟수를 남긴다(첫 페이지 전에 죽은 경우)", async () => {
-    const t = db(null);
-    expect(await settleFailure(t.db, LOG, TOKEN, new Error("boom"))).toBe(true);
+    const t = db();
+    expect(await settleFailure(t.db, LOG, TOKEN, new Error("boom"), null)).toBe(true);
     expect(parseAttempts(t.sets[0].resumeCursor as string)).toBe(1);
   });
 
   it("한도를 소진하면 사유와 함께 failed 로 닫는다", async () => {
     const state = { ...initialState({ users: 1, devices: 1 }, null), attempts: MAX_SEND_ATTEMPTS - 1 };
-    const t = db(JSON.stringify(state));
-    expect(await settleFailure(t.db, LOG, TOKEN, new Error("still down"))).toBe(false);
+    const t = db();
+    expect(await settleFailure(t.db, LOG, TOKEN, new Error("still down"), JSON.stringify(state))).toBe(false);
     expect(t.sets[0].status).toBe("failed");
     expect(t.sets[0].failureReason).toBe(`attempt ${MAX_SEND_ATTEMPTS}/${MAX_SEND_ATTEMPTS}: still down`);
     expect(parseAttempts(t.sets[0].resumeCursor as string)).toBe(MAX_SEND_ATTEMPTS);
@@ -308,8 +313,8 @@ describe("settleFailure", () => {
 
   it("사유는 길이를 잘라 로그 행이 비대해지지 않게 한다", async () => {
     const state = { ...initialState({ users: 1, devices: 1 }, null), attempts: MAX_SEND_ATTEMPTS - 1 };
-    const t = db(JSON.stringify(state));
-    await settleFailure(t.db, LOG, TOKEN, new Error("x".repeat(5000)));
+    const t = db();
+    await settleFailure(t.db, LOG, TOKEN, new Error("x".repeat(5000)), JSON.stringify(state));
     expect((t.sets[0].failureReason as string).length).toBe(300);
   });
 });
@@ -345,6 +350,8 @@ const ctx = {
   cap: null,
   renderCtx: { appName: "P", now: new Date() },
   personalized: false,
+  rateLimit: null,
+  localTime: null,
 } satisfies SendContext;
 
 describe("runFollowUps", () => {
@@ -494,5 +501,75 @@ describe("reserveCapped 동시성", () => {
     const r = await reserveCapped(makeDb(store, "log-b"), logOf("log-b"), page, 3);
     expect(r.allowed).toHaveLength(1);
     expect(r.reserved).toEqual(["u1"]);
+  });
+});
+
+describe("settleFailure 소유권 표식", () => {
+  const LOG2 = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+
+  it("되살릴 때 lock_token 을 비운다 — 다음 재클레임이 같은 실패를 두 번 세지 않게", async () => {
+    const t = updateSpy([{ id: LOG2 }]);
+    await settleFailure(t.db as unknown as Parameters<typeof settleFailure>[0], LOG2, "lock-1", new Error("db down"), null);
+    expect(t.sets[0].lockToken).toBeNull();
+  });
+});
+
+describe("reclaimAttempts", () => {
+  const row = (o: Record<string, unknown>) =>
+    o as unknown as Parameters<typeof reclaimAttempts>[0];
+
+  it("락을 쥔 채 사라진 processing 로그는 시도 1회로 센다 — 안 세면 OOM 발송이 5분마다 영원히 되살아난다", () => {
+    expect(reclaimAttempts(row({ status: "processing", lockToken: "lock-1", resumeCursor: null }))).toBe(1);
+    expect(
+      reclaimAttempts(row({ status: "processing", lockToken: "lock-1", resumeCursor: JSON.stringify({ attempts: 2 }) }))
+    ).toBe(3);
+  });
+
+  it("스스로 실패를 적었거나(토큰 비움) 아직 시작 전인 로그는 세지 않는다", () => {
+    expect(reclaimAttempts(row({ status: "processing", lockToken: null, resumeCursor: "{}" }))).toBeNull();
+    expect(reclaimAttempts(row({ status: "queued", lockToken: null, resumeCursor: null }))).toBeNull();
+    expect(reclaimAttempts(undefined)).toBeNull();
+  });
+});
+
+describe("진행 상태 확장 필드", () => {
+  it("미룬 시각·회차·실패 사유를 왕복시킨다 — 이어받은 워커가 같은 판단을 해야 한다", () => {
+    const s: ResumeState = {
+      ...initialState({ users: 1, devices: 1 }, null),
+      nextPageAt: "2026-09-24T01:00:00.000Z",
+      local: { sentOffsets: ["+09:00"], passAt: "2026-09-24T00:00:00.000Z", nextPassAt: "2026-09-24T01:00:00.000Z" },
+      errors: { "messaging/quota-exceeded": 2 },
+    };
+    expect(parseResumeState(JSON.stringify(s))).toEqual(s);
+  });
+
+  it("망가진 확장 필드는 버리고 기본값으로 — 발송 자체를 막지는 않는다", () => {
+    const raw = JSON.stringify({
+      ...initialState({ users: 1, devices: 1 }, null),
+      nextPageAt: "언젠가",
+      local: { sentOffsets: [1, "+09:00"], passAt: "x" },
+      errors: { a: "많이" },
+    });
+    const parsed = parseResumeState(raw)!;
+    expect(parsed.nextPageAt).toBeUndefined();
+    expect(parsed.local).toEqual({ sentOffsets: ["+09:00"], passAt: null, nextPassAt: null });
+    expect(parsed.errors).toBeUndefined();
+  });
+});
+
+describe("runFollowUps 웹훅 실패", () => {
+  it("배달 행조차 못 남긴 웹훅은 단계를 완료로 표시하지 않는다 — 삼키면 그 이벤트는 영영 사라진다", async () => {
+    emitted.length = 0;
+    webhook.fail = true;
+    const t = updateSpy([{ id: LOG_ID }]);
+    const sent = initialState({ users: 1, devices: 1 }, null);
+    try {
+      await expect(runFollowUps(t.db, broadcastLog, ctx, "mine", sent, "completed")).rejects.toThrow("db down");
+      // 인박스·알림톡까지만 완료 표시 — 재클레임은 웹훅 단계만 다시 돈다
+      const last = parseResumeState(t.sets[t.sets.length - 1].resumeCursor as string)!;
+      expect(Object.keys(last.followUps ?? {}).sort()).toEqual(["inbox", "kakao"]);
+    } finally {
+      webhook.fail = false;
+    }
   });
 });

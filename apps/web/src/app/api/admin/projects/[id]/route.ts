@@ -13,6 +13,8 @@ const patchSchema = z.object({
   quiet_start_hour: z.number().int().min(0).max(23).nullable().optional(),
   quiet_end_hour: z.number().int().min(0).max(23).nullable().optional(),
   frequency_cap_per_day: z.number().int().min(1).max(100).nullable().optional(),
+  /** 분당 발송 상한(기기 수). null 이면 제한 없음 — 소진하면 다음 분까지 미뤘다 이어 보낸다. */
+  max_sends_per_minute: z.number().int().min(1).max(100_000).nullable().optional(),
 });
 
 const policyFields = {
@@ -21,6 +23,7 @@ const policyFields = {
   quietStartHour: projects.quietStartHour,
   quietEndHour: projects.quietEndHour,
   frequencyCapPerDay: projects.frequencyCapPerDay,
+  maxSendsPerMinute: projects.maxSendsPerMinute,
 };
 
 /** [Web Admin] 프로젝트 발송 정책 조회 — 설정 화면이 저장된 값으로 시작하게 */
@@ -54,6 +57,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (b.quiet_start_hour !== undefined) set.quietStartHour = b.quiet_start_hour;
   if (b.quiet_end_hour !== undefined) set.quietEndHour = b.quiet_end_hour;
   if (b.frequency_cap_per_day !== undefined) set.frequencyCapPerDay = b.frequency_cap_per_day;
+  if (b.max_sends_per_minute !== undefined) set.maxSendsPerMinute = b.max_sends_per_minute;
   if (Object.keys(set).length === 0) return fail("no fields to update", 422);
 
   const db = getDb();

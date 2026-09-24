@@ -11,6 +11,7 @@ import {
   conversionEventSchema,
   loadConversionNames,
   MAX_CONVERSION_NAMES_PER_PROJECT,
+  recordConversionName,
 } from "@/lib/conversions";
 import { ok, fail } from "@/lib/api-response";
 
@@ -63,11 +64,6 @@ export async function POST(req: Request) {
 
   const db = getDb();
 
-  // 새 이름은 상한 안에서만 받는다. 이미 쓰던 이름은 언제나 통과한다.
-  if (!(await admitConversionName(project.id, b.name, () => loadConversionNames(db, project.id)))) {
-    return fail(`Too many distinct conversion names (limit ${MAX_CONVERSION_NAMES_PER_PROJECT} per project)`, 422);
-  }
-
   // 대상 해석 — 토큰이면 그 기기의 클릭, user_id 면 그 사람의 모든 기기 클릭이 후보다
   let scope: SQL | undefined;
   /** 토큰으로 보낸 경우의 기기. 익명 전환의 유니크 키가 이 값으로 갈린다. */
@@ -110,6 +106,13 @@ export async function POST(req: Request) {
   )[0];
   if (!click) return ok({ recorded: false, attributed: false }, undefined, 202);
 
+  // 이름 상한은 여기서 본다 — 기기/사용자가 확인됐고 저장까지 갈 요청만 축을 건드리게.
+  // 앞쪽(미검증 시점)에서 보면 공개 api-key 만으로 가짜 이름을 채워 넣어
+  // 정상적인 새 이름을 전부 422 로 막을 수 있다.
+  if (!(await admitConversionName(project.id, b.name, () => loadConversionNames(db, project.id)))) {
+    return fail(`Too many distinct conversion names (limit ${MAX_CONVERSION_NAMES_PER_PROJECT} per project)`, 422);
+  }
+
   const inserted = await db
     .insert(pushConversions)
     .values({
@@ -125,6 +128,9 @@ export async function POST(req: Request) {
     })
     .onConflictDoNothing()
     .returning({ id: pushConversions.id });
+
+  // DB 에 실제로 남은 이름만 축으로 센다 — 충돌(하루 1건 유니크)이면 이미 세어져 있다.
+  if (inserted.length > 0) recordConversionName(project.id, b.name);
 
   return ok({ recorded: inserted.length > 0, attributed: true, message_id: click.logId }, undefined, 202);
 }

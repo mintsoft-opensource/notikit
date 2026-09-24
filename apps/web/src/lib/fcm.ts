@@ -53,12 +53,29 @@ export interface FcmMessage {
   options?: PushOptions;
 }
 
+/** 토큰 한 개의 실패 — 사유(FCM 에러 코드)와 다시 시도할 가치가 있는지 */
+export interface TokenFailure {
+  token: string;
+  code: string;
+  /** 쿼터·일시 장애처럼 같은 토큰으로 다시 보내면 성공할 수 있는 실패 */
+  retryable: boolean;
+}
+
 export interface FcmResult {
   success: number;
   failure: number;
   invalidTokens: string[];
   /** FCM 이 받아들인 토큰 — 이것만 "실재하는 기기"로 신뢰할 수 있다 */
   validTokens: string[];
+  /**
+   * 실패한 토큰과 사유. 수만 세고 버리면 "왜 안 갔는지"가 남지 않아,
+   * 쿼터에 막힌 발송과 죽은 토큰을 구분할 수 없고 재시도 대상도 고를 수 없다.
+   */
+  failures: TokenFailure[];
+}
+
+function emptyResult(): FcmResult {
+  return { success: 0, failure: 0, invalidTokens: [], validTokens: [], failures: [] };
 }
 
 /** 크레덴셜 지문 — 회전 감지용 */
@@ -208,23 +225,45 @@ export async function sendToTokens(
    */
   dataOnly = false
 ): Promise<FcmResult> {
-  if (tokens.length === 0) return { success: 0, failure: 0, invalidTokens: [], validTokens: [] };
+  if (tokens.length === 0) return emptyResult();
 
   const messaging = getMessaging(appForProject(projectId, sa));
   const res = await messaging.sendEachForMulticast({ tokens, ...buildMulticast(msg, dataOnly) }, dryRun);
   return classifyResponses(tokens, res);
 }
 
-/** 응답 → 성공/실패/무효 토큰 (순수 함수). 응답 순서는 요청 토큰 순서와 같다. */
+/**
+ * 다시 보내면 성공할 수 있는 실패 코드. 서버 혼잡·쿼터·내부 오류는 토큰 잘못이 아니다 —
+ * 한 번 세고 넘어가면 그 수신자는 **영영** 못 받는다(커서가 지나가고 로그가 완료된다).
+ */
+const RETRYABLE_CODES = new Set([
+  "messaging/server-unavailable",
+  "messaging/internal-error",
+  "messaging/quota-exceeded",
+  "messaging/message-rate-exceeded",
+  "messaging/device-message-rate-exceeded",
+  "messaging/topics-message-rate-exceeded",
+  "messaging/unknown-error",
+]);
+
+export function isRetryableCode(code: string): boolean {
+  return RETRYABLE_CODES.has(code);
+}
+
+/** 응답 → 성공/실패/무효 토큰 + 실패 사유 (순수 함수). 응답 순서는 요청 토큰 순서와 같다. */
 export function classifyResponses(tokens: string[], res: Pick<BatchResponse, "responses" | "successCount" | "failureCount">): FcmResult {
   const invalidTokens: string[] = [];
   const validTokens: string[] = [];
+  const failures: TokenFailure[] = [];
   res.responses.forEach((r, i) => {
-    if (r.success) validTokens.push(tokens[i]);
-    else if (r.error && INVALID_CODES.has(r.error.code)) invalidTokens.push(tokens[i]);
-    // 나머지(쿼터·일시 장애)는 판정 불가 — 어느 쪽에도 넣지 않는다
+    if (r.success) return validTokens.push(tokens[i]);
+    const code = r.error?.code ?? "messaging/unknown-error";
+    // 토큰 자체가 무효인 것만 삭제 신호로 쓴다. 나머지(쿼터·일시 장애)는 사유만 남기고
+    // 재시도 가능 여부로 갈라 둔다 — 정상 토큰을 오삭제하지 않기 위해서다.
+    if (INVALID_CODES.has(code)) invalidTokens.push(tokens[i]);
+    failures.push({ token: tokens[i], code, retryable: isRetryableCode(code) });
   });
-  return { success: res.successCount, failure: res.failureCount, invalidTokens, validTokens };
+  return { success: res.successCount, failure: res.failureCount, invalidTokens, validTokens, failures };
 }
 
 /** FCM sendEach 한 번의 최대 메시지 수 */
@@ -244,7 +283,7 @@ export async function sendEachToTokens(
   items: TokenMessage[],
   dryRun = false
 ): Promise<FcmResult> {
-  if (items.length === 0) return { success: 0, failure: 0, invalidTokens: [], validTokens: [] };
+  if (items.length === 0) return emptyResult();
   if (items.length > SEND_EACH_LIMIT) throw new Error(`sendEach accepts at most ${SEND_EACH_LIMIT} messages`);
   const messages: Message[] = items.map((it) => ({ token: it.token, ...buildMulticast(it.msg, it.dataOnly) }));
   const res = await getMessaging(appForProject(projectId, sa)).sendEach(messages, dryRun);

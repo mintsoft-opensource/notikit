@@ -21,7 +21,7 @@ const buckets = new Map<string, Bucket>();
 let calls = 0;
 
 // 리미터 저장 상한 (키 회전 공격으로 인한 메모리 증가 방지)
-const MAX_BUCKETS = 10_000;
+export const MAX_BUCKETS = 10_000;
 /** 공유 키 접두사 — 한 Redis 를 다른 용도와 같이 쓰더라도 충돌하지 않게 */
 const SHARED_PREFIX = "nk:rl";
 /** 창이 끝난 뒤 키가 남지 않게, TTL 은 창 길이 + 약간의 여유 */
@@ -77,11 +77,33 @@ function warnMemoryOnlyOnce(): void {
   );
 }
 
-/** 신규 키인데 저장소가 가득 → 가장 오래된 항목 축출(Map 은 삽입 순서 보존). */
+/**
+ * 접근 표시 — 만진 버킷을 Map 의 맨 뒤로 보낸다(삽입 순서를 LRU 순서로 쓴다).
+ *
+ * `set` 만으로는 부족하다: 이미 있는 키에 `set` 해도 Map 은 순서를 갱신하지 않으므로,
+ * 계속 쓰이는 버킷이 영원히 "가장 오래된" 자리에 남는다. 지운 뒤 다시 넣어야 갱신된다.
+ */
+function touch(key: string, bucket: Bucket): void {
+  buckets.delete(key);
+  buckets.set(key, bucket);
+}
+
+/**
+ * 신규 키인데 저장소가 가득 → **가장 오래 쓰이지 않은(LRU)** 항목 축출.
+ *
+ * 삽입 순서로 버리면 안 된다. 프로젝트 한도(20_000/분)가 MAX_BUCKETS 보다 크므로
+ * 공개 api-key 만 쥔 쪽이 매 요청 새 token 을 보내면 한도를 채우기 전에 저장소가 먼저
+ * 가득 찬다. 이때 삽입 순서 축출은 가장 먼저 만들어져 계속 갱신되던 `proj:<id>:*`
+ * 버킷부터 버리고, 카운트가 1 부터 다시 시작해 **한도가 통째로 무력화된다**
+ * (측정: 한도 20_000 에 60_000 요청 전부 통과). 덤으로 남의 테넌트 버킷까지 날아간다.
+ *
+ * 그래서 기준은 마지막 **접근** 시각이다. 활성 버킷은 매 요청 touch 되어 맨 뒤에 있고,
+ * 밀려나는 것은 한 번 쓰이고 버려진 유휴 버킷뿐이다.
+ */
 function evictIfFull(key: string): void {
   if (buckets.has(key) || buckets.size < MAX_BUCKETS) return;
-  const oldest = buckets.keys().next().value;
-  if (oldest !== undefined) buckets.delete(oldest);
+  const lru = buckets.keys().next().value;
+  if (lru !== undefined) buckets.delete(lru);
 }
 
 /** Redis 카운터를 올리고, 돌아온 전역 카운트를 로컬 버킷에 반영한다(같은 창일 때만). */
@@ -90,16 +112,20 @@ function publishShared(key: string, bucket: Bucket, now: number, windowMs: numbe
     if (shared === null) return;
     const current = buckets.get(key);
     if (!current || current.resetAt !== bucket.resetAt) return; // 창이 바뀌었으면 버린다
-    if (shared > current.count) buckets.set(key, { ...current, count: shared });
+    if (shared > current.count) touch(key, { ...current, count: shared });
   });
 }
 
 /** 로컬 버킷만으로 내리는 판정 — Redis 가 없거나 응답이 예산을 넘겼을 때의 경로. */
 function decideLocal(key: string, now: number, limit: number, windowMs: number, alignToEpoch: boolean): boolean {
   const { allowed, bucket } = decideFixedWindow(buckets.get(key), now, limit, windowMs, alignToEpoch);
-  if (!allowed) return false;
+  // 거절도 접근이다 — 만지지 않으면 **한도에 걸린 버킷이 가장 먼저 축출되어** 한도가 풀린다
+  if (!allowed) {
+    touch(key, bucket);
+    return false;
+  }
   evictIfFull(key);
-  buckets.set(key, bucket);
+  touch(key, bucket);
   return true;
 }
 
@@ -129,7 +155,7 @@ export async function rateLimitShared(key: string, limit = 600, windowMs = 60_00
   if (shared === null) return decideLocal(key, now, limit, windowMs, true);
 
   evictIfFull(key);
-  buckets.set(key, { count: shared, resetAt: windowResetAt(now, windowMs, true) });
+  touch(key, { count: shared, resetAt: windowResetAt(now, windowMs, true) });
   return shared <= limit;
 }
 
@@ -149,10 +175,13 @@ export function rateLimit(key: string, limit = 600, windowMs = 60_000): boolean 
 
   const prev = buckets.get(key);
   const { allowed, bucket } = decideFixedWindow(prev, now, limit, windowMs, shared);
-  if (!allowed) return false;
+  if (!allowed) {
+    touch(key, bucket); // 거절도 접근 — decideLocal 과 같은 이유
+    return false;
+  }
 
   evictIfFull(key);
-  buckets.set(key, bucket);
+  touch(key, bucket);
   if (shared) publishShared(key, bucket, now, windowMs);
   return true;
 }

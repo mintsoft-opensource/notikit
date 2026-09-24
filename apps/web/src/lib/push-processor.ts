@@ -1,156 +1,78 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, or, lt, lte, gt, ne, isNull, inArray, sql } from "drizzle-orm";
+import { and, eq, lt, gt, ne, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs, projects, devices, pushUsers, pushUserSends, notifications, type PushLog, type Project } from "@/db/schema";
+import { pushLogs, projects, devices, pushUsers, pushUserSends, notifications, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
-import { parseServiceAccount, type ServiceAccount } from "@/lib/firebase-credentials";
-import { sendToTokens, sendEachToTokens, SEND_EACH_LIMIT, type FcmMessage, type FcmResult } from "@/lib/fcm";
+import { parseServiceAccount } from "@/lib/firebase-credentials";
+import type { FcmResult } from "@/lib/fcm";
 import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
 import { recordUninstalls, markVerified } from "@/lib/device-events";
 import { countAudience, resolveScope, scopedDevicePage, userNotSuppressed, type Db, type ScopedDevice } from "@/lib/audience-count";
-import { hasPlaceholders, renderTemplate, type Recipient, type RenderContext } from "@/lib/personalize";
+import { hasPlaceholders, renderTemplate, type Recipient } from "@/lib/personalize";
 import { variantIndex } from "@/lib/push-variant";
+import {
+  buildItems,
+  chunk,
+  dispatchItems,
+  mapLimit,
+  multicastGroups,
+  type SendContext,
+} from "@/lib/send-dispatch";
+import {
+  addErrors,
+  addVariantSent,
+  claimableLog,
+  failPermanently,
+  FIRST_CURSOR,
+  FOLLOW_UP_KEYS,
+  initialState,
+  MAX_SEND_ATTEMPTS,
+  parseAttempts,
+  parseResumeState,
+  reclaimAttempts,
+  releaseLog,
+  saveProgress,
+  settleFailure,
+  STALE_MS,
+  tallyResults,
+  withAttempts,
+  type FollowUps,
+  type Progress,
+  type ResumeState,
+} from "@/lib/push-resume";
+import {
+  closeLocalPass,
+  loadZones,
+  LOCAL_WINDOW_MS,
+  openLocalPass,
+  parseLocalTime,
+  passState,
+  splitDue,
+  type LocalPass,
+} from "@/lib/local-delivery";
+import { nextWindow, purgeRateWindows, refundSendBudget, reserveSendBudget } from "@/lib/send-throttle";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
-const BATCH = 500; // FCM 멀티캐스트 한도
-const CONCURRENCY = 5; // 동시 FCM 호출 수
-const STALE_MS = 5 * 60 * 1000; // 'processing' 에 멈춘 로그 재클레임 임계
 const DRAIN_CONCURRENCY = 4; // 한 프로젝트에서 동시에 처리하는 로그 수
-const FIRST_CURSOR = "00000000-0000-0000-0000-000000000000";
 const CAP_WINDOW_MS = 24 * 60 * 60 * 1000; // 빈도 상한 창
 const CAP_RETENTION_MS = 25 * 60 * 60 * 1000; // 수신 기록 보존(창 + 여유)
-/** 예외로 끝난 발송을 몇 번까지 되살릴지. 소진하면 사유와 함께 failed 로 닫는다. */
-export const MAX_SEND_ATTEMPTS = 3;
 
-export function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-export { variantIndex };
-
-/** 동시성 제한 map */
-export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = [];
-  let i = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) {
-      const idx = i++;
-      results[idx] = await fn(items[idx]);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
-
-// ─── 이어 보내기 상태 ────────────────────────────────────────────────────────
-
-export type VariantStats = Record<string, { sent: number; success: number }>;
-
-/**
- * push_logs.resume_cursor 에 페이지마다 남기는 진행 상태.
- * 커서만 두면 재클레임한 워커가 앞쪽 페이지의 성공·실패 수를 잃어 최종 집계가 줄어든다.
- * 분모(audience)도 처음 확정한 값을 들고 간다 — 이어 보낼 때 다시 세면 발송 중 변화가 섞인다.
- */
-export type ResumeState = {
-  cursor: string;
-  total: number;
-  success: number;
-  failure: number;
-  variantStats: VariantStats | null;
-  audience: { users: number; devices: number };
-  /**
-   * 지금까지 예외로 끝난 시도 횟수. 일시적 실패(DB 순단·FCM 5xx)를 재시도하되 무한히 돌지 않게 하는 한도다.
-   * 진행 상태와 같은 칼럼에 두는 이유: 재클레임한 워커가 커서와 시도 횟수를 **한 번에** 읽어야 한다.
-   */
-  attempts: number;
-  /** 있으면 발송 페이지는 끝났고 후속 단계 중이다 — 재클레임한 워커는 페이지를 건너뛰고 남은 단계만 돈다 */
-  followUps?: FollowUps;
-};
-
-/** 후속 단계 완료 표시. 끝난 단계는 재클레임 때 다시 돌지 않는다. */
-export type FollowUps = { inbox?: boolean; kakao?: boolean; webhook?: boolean };
-
-const FOLLOW_UP_KEYS = ["inbox", "kakao", "webhook"] as const;
-
-function parseFollowUps(v: unknown): FollowUps | undefined {
-  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
-  const o = v as Record<string, unknown>;
-  return Object.fromEntries(FOLLOW_UP_KEYS.filter((k) => o[k] === true).map((k) => [k, true]));
-}
-
-export function initialState(
-  audience: { users: number; devices: number },
-  variantCount: number | null,
-  attempts = 0
-): ResumeState {
-  const variantStats: VariantStats | null = variantCount
-    ? Object.fromEntries(Array.from({ length: variantCount }, (_, i) => [String(i), { sent: 0, success: 0 }]))
-    : null;
-  return {
-    cursor: FIRST_CURSOR,
-    total: 0,
-    success: 0,
-    failure: 0,
-    variantStats,
-    audience: { users: audience.users, devices: audience.devices },
-    attempts,
-  };
-}
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isCount = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
-
-/** 저장된 진행 상태 해석. 모양이 틀리면 null — 처음부터 다시 보내는 편이 틀린 커서로 건너뛰는 것보다 낫다. */
-export function parseResumeState(raw: string | null | undefined): ResumeState | null {
-  if (!raw) return null;
-  let v: unknown;
-  try {
-    v = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!v || typeof v !== "object") return null;
-  const s = v as Record<string, unknown>;
-  const aud = s.audience as Record<string, unknown> | undefined;
-  if (typeof s.cursor !== "string" || !UUID_RE.test(s.cursor)) return null;
-  if (!isCount(s.total) || !isCount(s.success) || !isCount(s.failure)) return null;
-  if (!aud || !isCount(aud.users) || !isCount(aud.devices)) return null;
-  const stats = s.variantStats;
-  if (stats !== null && (typeof stats !== "object" || Array.isArray(stats))) return null;
-  if (stats) {
-    for (const x of Object.values(stats as Record<string, unknown>)) {
-      const e = x as Record<string, unknown> | null;
-      if (!e || !isCount(e.sent) || !isCount(e.success)) return null;
-    }
-  }
-  return {
-    cursor: s.cursor,
-    total: s.total,
-    success: s.success,
-    failure: s.failure,
-    variantStats: (stats as VariantStats | null) ?? null,
-    audience: { users: aud.users, devices: aud.devices },
-    attempts: isCount(s.attempts) ? s.attempts : 0,
-    ...(s.followUps !== undefined ? { followUps: parseFollowUps(s.followUps) ?? {} } : {}),
-  };
-}
-
-/**
- * 시도 횟수만 읽는다. 진행 상태가 아직 없거나(첫 페이지 전에 죽음) 모양이 깨졌어도
- * 횟수는 살아 있어야 한다 — 그러지 않으면 같은 실패를 영원히 재시도한다.
- */
-export function parseAttempts(raw: string | null | undefined): number {
-  if (!raw) return 0;
-  try {
-    const v = JSON.parse(raw) as Record<string, unknown>;
-    return isCount(v?.attempts) ? v.attempts : 0;
-  } catch {
-    return 0;
-  }
-}
+export { variantIndex, chunk, mapLimit, buildItems, multicastGroups };
+export {
+  addVariantSent,
+  claimableLog,
+  initialState,
+  MAX_SEND_ATTEMPTS,
+  parseAttempts,
+  parseResumeState,
+  reclaimAttempts,
+  saveProgress,
+  settleFailure,
+  tallyResults,
+} from "@/lib/push-resume";
+export type { FollowUps, Progress, ResumeState, VariantStats } from "@/lib/push-resume";
+export type { SendContext, SendItem } from "@/lib/send-dispatch";
 
 // ─── 빈도 상한 ───────────────────────────────────────────────────────────────
 
@@ -251,80 +173,7 @@ function distinctUserIds(rows: Array<{ userId: string | null }>): string[] {
   return [...new Set(rows.map((r) => r.userId).filter((u): u is string => Boolean(u)))];
 }
 
-// ─── 보낼 내용 만들기 ────────────────────────────────────────────────────────
-
-export type SendItem = { token: string; vi: number | null; title: string; body: string; dataOnly: boolean };
-
-/**
- * 기기마다 보낼 내용: A/B 변형 배정 → 치환. 웹은 data-only(사유는 fcm.ts 의 dataOnly 참조).
- * `render` 가 없으면 치환하지 않는다(순수 함수).
- */
-export function buildItems(
-  rows: Array<Pick<ScopedDevice, "token" | "platform">>,
-  base: { title: string; body: string },
-  variants: { title: string; body: string }[] | null,
-  render: ((text: string, token: string) => string) | null
-): SendItem[] {
-  return rows.map((r) => {
-    const vi = variants ? variantIndex(r.token, variants.length) : null;
-    const content = vi === null ? base : variants![vi];
-    return {
-      token: r.token,
-      vi,
-      title: render ? render(content.title, r.token) : content.title,
-      body: render ? render(content.body, r.token) : content.body,
-      dataOnly: r.platform === "web",
-    };
-  });
-}
-
-/** 같은 내용·같은 페이로드 모양끼리 묶어 멀티캐스트 배치로(최대 500) */
-export function multicastGroups(items: SendItem[]): Array<Omit<SendItem, "token"> & { tokens: string[] }> {
-  const groups = new Map<string, Omit<SendItem, "token"> & { tokens: string[] }>();
-  for (const it of items) {
-    const key = `${it.vi}\u0000${it.dataOnly}\u0000${it.title}\u0000${it.body}`;
-    const g = groups.get(key) ?? { vi: it.vi, title: it.title, body: it.body, dataOnly: it.dataOnly, tokens: [] };
-    g.tokens.push(it.token);
-    groups.set(key, g);
-  }
-  return [...groups.values()].flatMap((g) => chunk(g.tokens, BATCH).map((tokens) => ({ ...g, tokens })));
-}
-
-function addVariantSent(stats: VariantStats | null, items: SendItem[]): VariantStats | null {
-  if (!stats) return null;
-  const next: VariantStats = Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, { ...v }]));
-  for (const it of items) if (it.vi !== null && next[String(it.vi)]) next[String(it.vi)].sent++;
-  return next;
-}
-
-/** FCM 결과를 상태에 더한다(순수 함수). 변형별 성공은 성공 토큰의 변형으로 센다. */
-export function tallyResults(state: ResumeState, items: SendItem[], results: FcmResult[]): ResumeState {
-  const viOf = new Map(items.map((it) => [it.token, it.vi]));
-  const stats = state.variantStats ? Object.fromEntries(Object.entries(state.variantStats).map(([k, v]) => [k, { ...v }])) : null;
-  let success = state.success;
-  let failure = state.failure;
-  for (const r of results) {
-    success += r.success;
-    failure += r.failure;
-    if (!stats) continue;
-    for (const t of r.validTokens) {
-      const vi = viOf.get(t);
-      if (vi !== null && vi !== undefined && stats[String(vi)]) stats[String(vi)].success++;
-    }
-  }
-  return { ...state, success, failure, variantStats: stats };
-}
-
 // ─── 발송 단계 ───────────────────────────────────────────────────────────────
-
-export type SendContext = {
-  project: Project;
-  sa: ServiceAccount | null;
-  /** 테스트 발송은 null — 상한을 적용하지도, 수신 기록을 남기지도 않는다 */
-  cap: number | null;
-  renderCtx: RenderContext;
-  personalized: boolean;
-};
 
 /** 치환용 — 토큰마다 받는 사람의 아이디·속성. 익명 기기는 null(기본값으로 채워진다). */
 async function loadRecipients(db: Db, projectId: string, tokens: string[]): Promise<Map<string, Recipient>> {
@@ -350,20 +199,6 @@ async function loadRecipients(db: Db, projectId: string, tokens: string[]): Prom
   );
 }
 
-/**
- * 워커가 지금 집어도 되는 로그 조건. **클레임과 큐 스캔이 같은 조건을 써야 한다** —
- * 한쪽만 `locked_at IS NULL` 을 빠뜨리면(SQL 비교는 NULL 을 참으로 만들지 않는다)
- * 클레임 직후 죽어 lockedAt 이 비어 있는 'processing' 행이 스캔에 영영 안 잡혀 발송이 멈춘다.
- * 일시적 실패로 되돌려 둔 로그도 이 조건의 stale 재클레임으로 이어진다.
- */
-export function claimableLog(now: Date, staleBefore: Date) {
-  return or(
-    eq(pushLogs.status, "queued"),
-    and(eq(pushLogs.status, "scheduled"), lte(pushLogs.scheduledAt, now)),
-    and(eq(pushLogs.status, "processing"), or(isNull(pushLogs.lockedAt), lt(pushLogs.lockedAt, staleBefore)))
-  );
-}
-
 async function claimLog(db: Db, logId: string, lockToken: string): Promise<PushLog | undefined> {
   const now = new Date();
   const claimed = await db
@@ -382,47 +217,35 @@ async function loadSendContext(db: Db, log: PushLog): Promise<SendContext | null
   return {
     project,
     sa,
+    // 테스트 발송은 운영자가 지금 받아 보려는 것이다 — 상한도 속도 제한도 현지 시각도 걸지 않는다
     cap: log.isTest ? null : project.frequencyCapPerDay,
+    rateLimit: log.isTest ? null : project.maxSendsPerMinute,
+    localTime: log.isTest ? null : parseLocalTime(log.localTime),
     // 발송 한 건에 공통인 치환 값. 시각을 한 번 고정해야 페이지마다 {{time}} 이 달라지지 않는다.
     renderCtx: { appName: project.name, now: new Date() },
     personalized: hasPlaceholders(log.title, log.body, ...variants.flatMap((v) => [v.title, v.body])),
   };
 }
 
-/** 소유권 확인(하트비트) + 진행 상태 저장. 잃었으면 false — 즉시 중단해야 중복 발송이 없다. */
-export async function saveProgress(db: Db, logId: string, lockToken: string, state: ResumeState): Promise<boolean> {
-  const hb = await db
-    .update(pushLogs)
-    .set({ lockedAt: new Date(), resumeCursor: JSON.stringify(state) })
-    .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)))
-    .returning({ id: pushLogs.id });
-  return hb.length > 0;
-}
+/** 한 실행이 페이지를 돌 때 들고 다니는 것 — 소유권·진행 상태·현지 시각 회차 */
+type Run = { ctx: SendContext; lockToken: string; progress: Progress; pass: LocalPass | null };
 
-async function sendItems(ctx: SendContext, log: PushLog, items: SendItem[]): Promise<FcmResult[]> {
-  const msgOf = (c: { title: string; body: string }): FcmMessage => ({
-    title: c.title,
-    body: c.body,
-    imageUrl: log.imageUrl ?? undefined,
-    deepLink: log.deepLink ?? undefined,
-    logId: log.id,
-    data: log.data ?? undefined,
-    options: log.options ?? undefined,
-  });
-  const pid = ctx.project.id;
-  const sa = ctx.sa!;
-  // 치환이 있으면 사람마다 내용이 달라 묶이지 않는다 — 메시지 배열 한 번(sendEach)으로 보낸다
-  const jobs: Array<() => Promise<FcmResult>> = ctx.personalized
-    ? chunk(items, SEND_EACH_LIMIT).map((batch) => () =>
-        sendEachToTokens(pid, sa, batch.map((it) => ({ token: it.token, msg: msgOf(it), dataOnly: it.dataOnly }))))
-    : multicastGroups(items).map((g) => () => sendToTokens(pid, sa, g.tokens, msgOf(g), false, g.dataOnly));
-  return mapLimit(jobs, CONCURRENCY, (job) => job());
+/** 현지 시각 발송: 지금 보낼 기기만 남긴다. 미룬 기기는 상한 예약 전에 빠져 슬롯을 태우지 않는다. */
+async function dueDevices(db: Db, log: PushLog, run: Run, page: ScopedDevice[]): Promise<ScopedDevice[]> {
+  if (!run.pass) return page;
+  const zones = await loadZones(db, log.projectId, page.map((r) => r.token));
+  return splitDue(run.pass, page, (r) => zones.get(r.token) ?? run.ctx.project.timezone).send;
 }
 
 /** 한 페이지 발송 → 다음 상태. 무효·검증 토큰은 페이지마다 반영한다(끝까지 모으면 메모리가 대상 수에 비례). */
-async function sendPage(db: Db, log: PushLog, ctx: SendContext, page: ScopedDevice[], state: ResumeState): Promise<ResumeState> {
-  const { allowed, reserved } = await admitPage(db, log, ctx, page);
+async function sendPage(db: Db, log: PushLog, run: Run, page: ScopedDevice[], state: ResumeState): Promise<ResumeState> {
+  const ctx = run.ctx;
+  const cursor = page[page.length - 1].id;
+  const targets = await dueDevices(db, log, run, page);
+  const local = run.pass ? { local: passState(run.pass) } : {};
+  if (targets.length === 0) return { ...state, cursor, ...local };
 
+  const { allowed, reserved } = await admitPage(db, log, ctx, targets);
   const recipients = ctx.personalized && allowed.length ? await loadRecipients(db, log.projectId, allowed.map((r) => r.token)) : null;
   const render = recipients
     ? (text: string, token: string) => renderTemplate(text, recipients.get(token) ?? null, ctx.renderCtx)
@@ -431,15 +254,16 @@ async function sendPage(db: Db, log: PushLog, ctx: SendContext, page: ScopedDevi
 
   let next: ResumeState = {
     ...state,
-    cursor: page[page.length - 1].id,
+    cursor,
+    ...local,
     total: state.total + items.length,
     variantStats: addVariantSent(state.variantStats, items),
   };
 
   if (ctx.sa && items.length) {
-    const results = await sendItems(ctx, log, items);
-    next = tallyResults(next, items, results);
-    await recordPageOutcome(db, log, results, releasableUsers(reserved, allowed, results.flatMap((r) => r.validTokens)));
+    const { result, errors } = await dispatchItems(ctx, log, items);
+    next = addErrors(tallyResults(next, items, [result]), errors);
+    await recordPageOutcome(db, log, [result], releasableUsers(reserved, allowed, result.validTokens));
   }
   return next;
 }
@@ -462,30 +286,73 @@ async function recordPageOutcome(db: Db, log: PushLog, results: FcmResult[], rel
   }
 }
 
+/** 페이지 루프의 결과. `deferredUntil` 이면 아직 끝나지 않았고 그 시각에 이어야 한다. */
+type PageRun = { state: ResumeState; deferredUntil: Date | null };
+
+/** 이번 페이지에 쓸 예산. 제한이 없으면 PAGE 그대로. */
+async function pageBudget(db: Db, log: PushLog, limit: number | null): Promise<{ size: number; window: Date | null }> {
+  if (limit === null) return { size: PAGE, window: null };
+  const { granted, window } = await reserveSendBudget(db, log.projectId, limit, PAGE);
+  return { size: granted, window };
+}
+
 /** 대상 페이지를 커서부터 끝까지. 소유권을 잃으면 null. */
-async function runPages(db: Db, log: PushLog, ctx: SendContext, lockToken: string): Promise<ResumeState | null> {
+async function runPages(db: Db, log: PushLog, run: Run, now: Date): Promise<PageRun | null> {
   // 분모는 **발송 시작 전에** 확정한다. 발송 뒤에 세면 그 사이의 구독 해지·바인딩 변경·
   // 무효토큰 비활성화가 반영되어, 실제로 받은 사람보다 작은(때로는 큰) 분모가 남는다.
   // 재클레임이면 저장된 상태(커서·누적·분모)에서 이어 간다.
-  const resumed = parseResumeState(log.resumeCursor);
-  if (resumed?.followUps) return resumed; // 발송은 이미 끝났다 — 남은 후속 단계만 돈다
+  const { ctx, lockToken, progress } = run;
+  const resumed = parseResumeState(progress.raw);
+  if (resumed?.followUps) return { state: resumed, deferredUntil: null }; // 발송은 이미 끝났다
+  // 미뤄 둔 시각 전에 집혔으면(스캔 경합) 아무 일도 하지 않고 그대로 다시 반납한다
+  const waitUntil = resumed?.nextPageAt ? new Date(resumed.nextPageAt) : null;
+  if (waitUntil && waitUntil.getTime() > now.getTime()) return { state: resumed!, deferredUntil: waitUntil };
+
   // 상태가 깨졌어도 시도 횟수는 이어받는다 — 아니면 같은 실패를 한도 없이 반복한다
-  let state =
-    resumed ?? initialState(await countAudience(db, log), log.variants?.length ?? null, parseAttempts(log.resumeCursor));
+  let state: ResumeState = resumed ?? initialState(await countAudience(db, log), log.variants?.length ?? null, parseAttempts(progress.raw));
+  state = { ...state, nextPageAt: undefined };
+  run.pass = ctx.localTime
+    ? openLocalPass(ctx.localTime, state.local, now, now.getTime() - log.createdAt.getTime() >= LOCAL_WINDOW_MS)
+    : null;
+
   const scope = await resolveScope(db, log);
   if (ctx.cap !== null) await purgeOldSends(db, log.projectId);
-  if (!(await saveProgress(db, log.id, lockToken, state))) return null;
-  if (!scope) return state;
+  if (ctx.rateLimit !== null) await purgeRateWindows(db, log.projectId, now);
+  if (!(await saveProgress(db, log.id, lockToken, state, progress))) return null;
+  if (!scope) return { state, deferredUntil: null };
 
   for (;;) {
-    const page = await scopedDevicePage(db, scope, state.cursor, PAGE);
+    const { size, window } = await pageBudget(db, log, ctx.rateLimit);
+    // 예산 소진: 루프 안에서 기다리면 stale 창을 넘겨 다른 워커가 같은 페이지를 또 보낸다
+    if (size === 0) return defer(db, log, run, state, nextWindow(new Date()));
+    const page = await scopedDevicePage(db, scope, state.cursor, size);
+    const before = state.total;
+    if (page.length > 0) state = await sendPage(db, log, run, page, state);
+    if (window) await refundSendBudget(db, log.projectId, window, size - (state.total - before));
     if (page.length === 0) break;
-    state = await sendPage(db, log, ctx, page, state);
     // 전달 보장은 페이지 단위 at-least-once — FCM 발송 후 이 커서 저장 전에 죽으면 그 페이지를 다시 보낸다
-    if (!(await saveProgress(db, log.id, lockToken, state))) return null;
-    if (page.length < PAGE) break;
+    if (!(await saveProgress(db, log.id, lockToken, state, progress))) return null;
+    if (page.length < size) break;
   }
-  return state;
+  return finishPass(db, log, run, state);
+}
+
+/** 현지 시각 회차 마감 — 미룬 묶음이 있으면 커서를 처음으로 되돌리고 그 시각에 다시 깨어난다. */
+async function finishPass(db: Db, log: PushLog, run: Run, state: ResumeState): Promise<PageRun | null> {
+  if (!run.pass) return { state, deferredUntil: null };
+  const local = closeLocalPass(run.pass);
+  const next = { ...state, local, cursor: FIRST_CURSOR };
+  if (!local.nextPassAt) return { state: next, deferredUntil: null };
+  return defer(db, log, run, next, new Date(local.nextPassAt));
+}
+
+/** 지금은 더 못 보낸다 — 다시 깨어날 시각을 상태에 적고 반납을 예고한다(반납 자체는 호출부에서). */
+async function defer(db: Db, log: PushLog, run: Run, state: ResumeState, at: Date): Promise<PageRun | null> {
+  // 회차 기준 시각을 함께 굳힌다 — 없으면 이어받은 워커가 새 회차를 열어 커서 앞쪽을 건너뛴다
+  const local = run.pass ? { local: passState(run.pass) } : {};
+  const next: ResumeState = { ...state, ...local, nextPageAt: at.toISOString() };
+  if (!(await saveProgress(db, log.id, run.lockToken, next, run.progress))) return null;
+  return { state: next, deferredUntil: at };
 }
 
 /** 완료 처리 — 우리가 여전히 소유자일 때만(부작용 1회 보장). */
@@ -500,6 +367,7 @@ async function finalizeLog(db: Db, log: PushLog, lockToken: string, state: Resum
       audienceUserCount: state.audience.users,
       audienceDeviceCount: state.audience.devices,
       resumeCursor: null,
+      ...(state.errors ? { deliveryErrors: state.errors } : {}),
       ...(state.variantStats ? { variantStats: state.variantStats } : {}),
     })
     .where(and(eq(pushLogs.id, log.id), eq(pushLogs.lockToken, lockToken)))
@@ -564,12 +432,25 @@ async function deliverKakaoFallback(db: Db, log: PushLog, ctx: SendContext, user
   }
 }
 
+/**
+ * message.sent 웹훅. **삼키지 않는다.**
+ *
+ * emitWebhook 은 배달 행을 넣고 같은 요청에서 한 번 쏜다. 전송 실패는 행에 기록되어 재시도 스윕이
+ * 회수하지만, 행을 넣기 **전에** 터지면(DB 순단) 회수할 근거 자체가 없다 — 스윕은 행을 보고 돈다.
+ * 예전에는 그 예외를 삼키고 단계를 완료로 표시해, 그 이벤트가 영영 사라졌다.
+ * 그래서 던진다: 단계가 완료로 표시되지 않고, 로그는 `processing` 으로 남아 재클레임이 이 단계만
+ * 다시 돈다(앞선 인박스·알림톡은 표시가 남아 건너뛴다).
+ *
+ * 대가로 웹훅이 **중복 배달**될 수 있다(행을 넣은 구독과 못 넣은 구독이 섞인 경우). 발송 자체가
+ * at-least-once 이므로 같은 약속이고, 구독자는 배달 id 로 중복을 거를 수 있다.
+ */
 async function notifySent(log: PushLog, status: string, state: ResumeState): Promise<void> {
+  const data = { message_id: log.id, status, total: state.total, success: state.success, failure: state.failure };
   try {
-    const data = { message_id: log.id, status, total: state.total, success: state.success, failure: state.failure };
     await emitWebhook(log.projectId, "message.sent", data);
   } catch (e) {
     console.warn(`[push] message.sent webhook failed for log ${log.id}: ${e instanceof Error ? e.message : String(e)}`);
+    throw e;
   }
 }
 
@@ -583,10 +464,11 @@ export async function runFollowUps(
   ctx: SendContext,
   lockToken: string,
   sent: ResumeState,
-  status: string
+  status: string,
+  progress?: Progress
 ): Promise<boolean> {
   let state: ResumeState = { ...sent, followUps: { ...sent.followUps } };
-  if (!(await saveProgress(db, log.id, lockToken, state))) return false;
+  if (!(await saveProgress(db, log.id, lockToken, state, progress))) return false;
   const users = await loadFollowUpUsers(db, log);
   const steps: Record<keyof FollowUps, () => Promise<void>> = {
     inbox: () => deliverInbox(db, log, ctx, users),
@@ -597,61 +479,30 @@ export async function runFollowUps(
     if (state.followUps?.[key]) continue;
     await steps[key]();
     state = { ...state, followUps: { ...state.followUps, [key]: true } };
-    if (!(await saveProgress(db, log.id, lockToken, state))) return false;
+    if (!(await saveProgress(db, log.id, lockToken, state, progress))) return false;
   }
   return true;
 }
 
-/** 남길 사유 길이 상한 — 스택이 통째로 들어와 로그 행이 비대해지는 걸 막는다 */
-const FAILURE_REASON_MAX = 300;
-
-function reasonOf(err: unknown, attempts: number): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  return `attempt ${attempts}/${MAX_SEND_ATTEMPTS}: ${msg}`.slice(0, FAILURE_REASON_MAX);
-}
-
-/** 시도 횟수만 갈아 끼운 진행 상태. 상태가 없거나 깨졌으면 횟수만 남긴다(다음 클레임이 처음부터 보낸다). */
-function withAttempts(raw: string | null, attempts: number): string {
-  const state = parseResumeState(raw);
-  return JSON.stringify(state ? { ...state, attempts } : { attempts });
-}
-
-/** 다시 시도하지 않을 실패(대상이 사라진 경우 등) — 사유를 남기고 닫는다 */
-async function failPermanently(db: Db, logId: string, lockToken: string, reason: string): Promise<void> {
-  // 우리 소유일 때만 실패 표시 (새 워커의 클레임을 덮지 않음)
-  await db
-    .update(pushLogs)
-    .set({ status: "failed", failureReason: reason.slice(0, FAILURE_REASON_MAX) })
-    .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
+async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
+  return (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
 }
 
 /**
- * 발송 중 터진 예외의 처리. 예전에는 무조건 `failed` 로 닫았는데, `failed` 는 클레임 대상도
- * 스캔 대상도 아니라 **DB 순단 한 번에 남은 대상 전체가 영영 발송되지 않았다** — resume_cursor 는
- * 멀쩡한 채로.
- *
- * 그래서 한도까지는 되살린다: 시도 횟수를 진행 상태에 적고 `processing` 그대로 둔다.
- * `locked_at` 은 마지막 하트비트 그대로 두어 stale 창(5분)이 지나면 다른 워커가 이어 간다 —
- * 이게 그대로 재시도 간격이 된다. 소유권 조건(lock_token)을 그대로 쓰므로 이미 남에게 넘어간
- * 로그는 건드리지 않는다. 한도를 소진하면 사유와 함께 `failed` 로 닫는다.
+ * 말없이 죽은 실행을 시도 1회로 센다. 한도를 넘으면 닫고 true.
+ * 세지 않으면 OOM 으로 죽는 발송이 5분마다 되살아나 같은 자리에서 영원히 다시 죽는다.
  */
-export async function settleFailure(db: Db, logId: string, lockToken: string, err: unknown): Promise<boolean> {
-  const raw = (await reload(db, logId))?.resumeCursor ?? null;
-  const attempts = parseAttempts(raw) + 1;
-  const retryable = attempts < MAX_SEND_ATTEMPTS;
-  await db
-    .update(pushLogs)
-    .set(
-      retryable
-        ? { resumeCursor: withAttempts(raw, attempts) }
-        : { status: "failed", resumeCursor: withAttempts(raw, attempts), failureReason: reasonOf(err, attempts) }
-    )
-    .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
-  return retryable;
-}
-
-async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
-  return (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
+async function countReclaim(db: Db, log: PushLog, lockToken: string, before: PushLog | undefined, progress: Progress): Promise<boolean> {
+  const attempts = reclaimAttempts(before);
+  if (attempts === null) return false;
+  if (attempts >= MAX_SEND_ATTEMPTS) {
+    await failPermanently(db, log.id, lockToken, `attempt ${attempts}/${MAX_SEND_ATTEMPTS}: worker died without recording a failure`);
+    return true;
+  }
+  const raw = withAttempts(progress.raw, attempts);
+  await db.update(pushLogs).set({ resumeCursor: raw }).where(and(eq(pushLogs.id, log.id), eq(pushLogs.lockToken, lockToken)));
+  progress.raw = raw;
+  return false;
 }
 
 /**
@@ -662,25 +513,36 @@ async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
 export async function processPushLog(logId: string): Promise<PushLog | undefined> {
   const db = getDb();
   const lockToken = randomUUID();
+  // 클레임 **전**의 행 — 앞선 실행이 어떻게 끝났는지(말없이 죽었는지)는 이 값으로만 알 수 있다
+  const before = await reload(db, logId);
   const log = await claimLog(db, logId, lockToken);
-  if (!log) return reload(db, logId); // 다른 워커가 이미 처리
+  if (!log) return before ?? reload(db, logId); // 다른 워커가 이미 처리
+  const progress: Progress = { raw: log.resumeCursor };
 
   try {
+    if (await countReclaim(db, log, lockToken, before, progress)) return reload(db, logId);
     const ctx = await loadSendContext(db, log);
     if (!ctx) {
       // 프로젝트가 사라졌다(삭제 경합) — 다시 해도 결과가 같으니 재시도 없이 닫는다
       await failPermanently(db, logId, lockToken, "project not found");
       return reload(db, logId);
     }
-    const state = await runPages(db, log, ctx, lockToken);
-    if (!state) return reload(db, logId); // 소유권 상실 → 새 소유자가 이어 간다
+    const run: Run = { ctx, lockToken, progress, pass: null };
+    const paged = await runPages(db, log, run, new Date());
+    if (!paged) return reload(db, logId); // 소유권 상실 → 새 소유자가 이어 간다
+    if (paged.deferredUntil) {
+      await releaseLog(db, logId, lockToken, paged.deferredUntil);
+      return reload(db, logId);
+    }
 
     const finalStatus = ctx.sa ? "completed" : "logged";
-    if (!(await runFollowUps(db, log, ctx, lockToken, state, finalStatus))) return reload(db, logId);
-    await finalizeLog(db, log, lockToken, state, finalStatus);
+    if (!(await runFollowUps(db, log, ctx, lockToken, paged.state, finalStatus, progress))) return reload(db, logId);
+    await finalizeLog(db, log, lockToken, paged.state, finalStatus);
   } catch (e) {
-    // 한도 안이면 'processing' 으로 남아 stale 재클레임으로 이어진다
-    await settleFailure(db, logId, lockToken, e);
+    // 한도 안이면 'processing' 으로 남아 stale 재클레임으로 이어진다.
+    // 진행 상태를 여기서 다시 읽지 않는다 — DB 가 죽어서 들어온 경로라 그 select 가 같이 터진다.
+    const retryable = await settleFailure(db, logId, lockToken, e, progress.raw);
+    if (!retryable) console.error(`[push] log ${logId} gave up after ${MAX_SEND_ATTEMPTS} attempts`);
     throw e;
   }
 

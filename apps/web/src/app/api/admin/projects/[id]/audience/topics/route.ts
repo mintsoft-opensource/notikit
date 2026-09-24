@@ -4,7 +4,7 @@ import { topics } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
-import { countTopicAudience, isRuleFilled, rulesSchema } from "@/lib/topic-membership";
+import { countTopicAudience, isRuleFilled, rulesSchema, toStoredRules } from "@/lib/topic-membership";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +87,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const created = (
     await db
       .insert(topics)
-      .values({ projectId: id, name, rules: rules ?? null })
+      .values({ projectId: id, name, rules: rules ? toStoredRules(rules) : null })
       .onConflictDoNothing({ target: [topics.projectId, topics.name] })
       .returning()
   )[0];

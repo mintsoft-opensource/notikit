@@ -196,6 +196,13 @@ async function processProject(p) {
   // 프로젝트마다 다시 읽는다 — 한 번 캡처하면 스윕이 길어졌을 때 뒤쪽 프로젝트가
   // 이미 지나간 분(minute)으로 판정된다
   const now = new Date();
+  // 반복 예약이 먼저다 — 도래한 예약은 이번 tick 의 큐 처리에 바로 실려 나간다.
+  // 뒤에 두면 만들어진 로그가 다음 tick(기본 10초)까지 그대로 앉아 있다.
+  const sched = await post(`/api/admin/projects/${p.id}/schedules/process`);
+  if (sched?.data?.fired > 0 || sched?.data?.skipped > 0) {
+    // 건너뛴 회차는 반드시 남긴다 — 다운타임 뒤 "안 온 푸시"의 유일한 근거다
+    console.log(`[worker] schedules for ${p.id}: fired ${sched.data.fired}, skipped ${sched.data.skipped}`);
+  }
   await post(`/api/admin/projects/${p.id}/process-queue`);
   await post(`/api/admin/projects/${p.id}/journeys/process`);
   // 웹훅 재시도는 프로젝트별이 아니라 sweepWebhooks() 가 한 번에 처리한다.

@@ -41,6 +41,8 @@ const columns = {
   clickUserCount: pushLogs.clickUserCount,
   sentBy: pushLogs.sentBy,
   options: pushLogs.options,
+  // 토큰별 실패 사유별 건수 — 상세 화면이 "왜 실패했는지"를 보여 주는 유일한 값이다
+  deliveryErrors: pushLogs.deliveryErrors,
   createdAt: pushLogs.createdAt,
 };
 

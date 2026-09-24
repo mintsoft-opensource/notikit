@@ -225,6 +225,12 @@ export const openapi = {
                     description: "multi 의 받는 사람 user_id 목록. 없는 아이디는 건너뛴다.",
                   },
                   scheduled_at: { type: "string", format: "date-time", description: "예약 발송 시각(ISO8601). 미지정 시 방해금지 시간대 규칙 적용" },
+                  local_time: {
+                    type: "string",
+                    pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                    description:
+                      "받는 사람 현지 시각 발송(\"HH:MM\"). 기기의 시간대(사람 > 기기 > 프로젝트)로 묶어 아직 그 시각이 아닌 묶음은 미룬다. 하루가 지나면 즉시 발송. 방해금지·빈도 상한과 함께 적용된다.",
+                  },
                   deep_link: { type: "string", format: "uri", maxLength: 2048 },
                   image_url: { type: "string", format: "uri", maxLength: 2048, description: "리치 알림 이미지(https 만, http 는 422). Android·iOS·웹 알림에 크게 표시" },
                   data: { type: "object", additionalProperties: true, description: "커스텀 데이터 페이로드(최대 8KB)" },
@@ -487,6 +493,18 @@ export const openapi = {
                   require_identity_verification: { type: "boolean" },
                   quiet_start_hour: { type: ["integer", "null"], minimum: 0, maximum: 23 },
                   quiet_end_hour: { type: ["integer", "null"], minimum: 0, maximum: 23 },
+                  frequency_cap_per_day: {
+                    type: ["integer", "null"],
+                    minimum: 1,
+                    maximum: 100,
+                    description: "한 사람이 24시간 동안 받을 수 있는 푸시 수. null 이면 제한 없음",
+                  },
+                  max_sends_per_minute: {
+                    type: ["integer", "null"],
+                    minimum: 1,
+                    maximum: 100000,
+                    description: "프로젝트 분당 발송 상한(기기 수). 소진하면 다음 분까지 미뤘다 이어 보낸다. null 이면 제한 없음",
+                  },
                 },
               },
             },
@@ -822,6 +840,12 @@ export const openapi = {
                   type: { type: "string", enum: ["single", "broadcast", "topic", "segment"] },
                   target: { type: "string", maxLength: 255, description: "broadcast 외 필수" },
                   scheduled_at: { type: "string", format: "date-time" },
+                  local_time: {
+                    type: "string",
+                    pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                    description:
+                      "받는 사람 현지 시각 발송(\"HH:MM\"). 기기의 시간대(사람 > 기기 > 프로젝트)로 묶어 아직 그 시각이 아닌 묶음은 미룬다. 하루가 지나면 즉시 발송. 방해금지·빈도 상한과 함께 적용된다.",
+                  },
                   deep_link: { type: "string", format: "uri", maxLength: 2048 },
                   image_url: { type: "string", format: "uri", maxLength: 2048, description: "리치 알림 이미지(https 만, http 는 422). Android·iOS·웹 알림에 크게 표시" },
                   test: { type: "boolean", description: "테스트 발송 표시(로그 isTest). 콘솔 라우트에서만 반영" },

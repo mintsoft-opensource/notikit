@@ -75,9 +75,16 @@ export async function resolveMultiUsers(db: Db, t: AudienceTarget): Promise<stri
  * 따로 만들면 "추정 N명"과 실제 로그의 대상 수가 어긋난다.
  *
  * - `devices`: devices 만 (broadcast·single·multi)
- * - `rules`  : devices ⋈ push_users (규칙식 토픽 — 속성 조건)
+ * - `rules`  : devices ⟕ push_users (규칙식 토픽 — 속성·행동 조건)
  * - `subs`   : subscriptions ⋈ devices (구독식 토픽 — 커서는 subscriptions.device_id 순서라
  *              (topic_id, device_id) 유니크 인덱스를 그대로 탄다)
+ *
+ * `rules` 가 **left** join 인 이유: inner join 이면 사람이 아직 없는 기기(익명)가 통째로
+ * 빠진다. 속성 조건만 있던 시절엔 티가 나지 않았다 — 속성이 없는 기기는 어차피 안 맞으니까.
+ * 행동 조건은 다르다. 익명 기기도 클릭하고 앱을 연다. "30일 접속 없음" 같은 세그먼트가
+ * 조용히 반토막 나고, 줄어든 쪽은 아무 오류도 내지 않는다.
+ * left join 으로 바꿔도 속성 조건의 뜻은 그대로다 — user 가 없으면 `attributes ->> k` 가
+ * NULL 이라 eq·neq·contains·크기비교 모두 참이 되지 않는다.
  */
 export type DeviceScope =
   | { kind: "devices"; conds: SQL[] }
@@ -109,7 +116,9 @@ export async function resolveScope(db: Db, t: AudienceTarget): Promise<DeviceSco
     if (!t.target) return null;
     const group = await resolveGroup(db, t.projectId, t.target);
     if (!group) return null;
-    if (group.kind === "rules") return { kind: "rules", conds: [...base, ...attrConds(group.rules)] };
+    if (group.kind === "rules") {
+      return { kind: "rules", conds: [...base, ...attrConds(group.rules, t.projectId)] };
+    }
     return { kind: "subs", topicId: group.topicId, conds: base };
   }
 
@@ -136,7 +145,7 @@ export async function scopedDevicePage(db: Db, scope: DeviceScope, cursor: strin
     return db
       .select(deviceFields)
       .from(devices)
-      .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+      .leftJoin(pushUsers, eq(devices.userId, pushUsers.id))
       .where(and(gt(devices.id, cursor), ...scope.conds))
       .orderBy(asc(devices.id))
       .limit(limit);
@@ -192,7 +201,7 @@ async function countScope(db: Db, scope: DeviceScope): Promise<CountRow> {
   if (scope.kind === "rules") {
     return (
       await db.select(countFields).from(devices)
-        .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+        .leftJoin(pushUsers, eq(devices.userId, pushUsers.id))
         .where(and(...scope.conds))
     )[0];
   }

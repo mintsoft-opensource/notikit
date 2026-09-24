@@ -89,6 +89,15 @@ export const messageSchema = z.object({
   /** type=multi 의 받는 사람. 중복은 서버에서 합친다. */
   targets: z.array(z.string().min(1).max(255)).min(1).max(MAX_MULTI_TARGETS).optional(),
   scheduled_at: z.string().datetime().optional(),
+  /**
+   * 받는 사람 현지 시각 발송 — "HH:MM"(24시간). 기기의 시간대(사람 > 기기 등록값 > 프로젝트)로 묶어,
+   * 아직 그 시각이 안 된 묶음은 다음 회차로 미룬다. 하루가 지나면 남은 묶음도 즉시 보낸다.
+   * `scheduled_at`·방해금지·빈도 상한과 함께 쓸 수 있다(그 규칙들을 건너뛰지 않는다).
+   */
+  local_time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "local_time must be HH:MM")
+    .optional(),
   deep_link: z.string().url().max(2048).optional(),
   /** 리치 알림 이미지 — Android·iOS·웹 알림에 크게 표시 */
   image_url: z.string().url().max(IMAGE_URL_MAX).refine(isHttpsUrl, "image_url must be an https URL").optional(),
@@ -323,6 +332,7 @@ export async function enqueuePush(
       options: b.options ?? null,
       kakaoFallback: b.kakao_fallback ?? false,
       scheduledAt,
+      localTime: b.local_time ?? null,
       status: isScheduled ? "scheduled" : "queued",
       sentBy: opts.sentBy ?? null,
       idempotencyKey: key,

@@ -26,6 +26,8 @@ vi.mock("@/lib/redis", () => ({
 import {
   clientKey,
   decideFixedWindow,
+  getRateLimitHealth,
+  MAX_BUCKETS,
   principalKey,
   rateLimit,
   rateLimitShared,
@@ -118,6 +120,74 @@ describe("rateLimit (in-memory fallback)", () => {
     expect(rateLimit("k", 1, 60_000)).toBe(false);
     vi.advanceTimersByTime(60_001);
     expect(rateLimit("k", 1, 60_000)).toBe(true);
+  });
+});
+
+// 저장 상한이 걸린 Map 에서 **무엇을 버리는가**는 곧 한도가 지켜지는가의 문제다.
+// 삽입 순서로 버리면 오래 살아 있는(=활성) 버킷이 가장 먼저 나가고, 공격자는
+// 그 축출을 스스로 유도해 한도를 0 으로 되돌릴 수 있다.
+describe("bucket eviction (memory cap)", () => {
+  const savedUrl = process.env.REDIS_URL;
+  // 창을 1시간으로 잡아 실제 경과 시간이 창을 넘기지 못하게 한다.
+  // (가짜 타이머는 이 규모의 await 루프에서 마이크로태스크마다 비용이 붙어 100배 느려진다)
+  const WINDOW = 3_600_000;
+
+  beforeEach(() => {
+    delete process.env.REDIS_URL;
+    redisMock.enabled = false;
+    resetRateLimits();
+  });
+
+  afterEach(() => {
+    if (savedUrl === undefined) delete process.env.REDIS_URL;
+    else process.env.REDIS_URL = savedUrl;
+  });
+
+  // 재현: 공개 api-key 만 쥔 쪽이 매 요청 새 token 을 보내면 요청마다 principal 버킷이
+  // 하나씩 생긴다. 프로젝트 한도(20_000)가 MAX_BUCKETS(10_000)보다 크므로, 한도를
+  // 채우기 **전에** 저장소가 먼저 가득 찬다. 프로젝트 버킷은 맨 처음 삽입된 키이고
+  // 재삽입해도 순서가 갱신되지 않으므로, 삽입 순서 축출에서는 가장 먼저 사라진다
+  // → 카운트가 1 부터 다시 시작하고 한도가 무력화된다.
+  it("a fresh-token flood cannot evict the project bucket and reset its limit", async () => {
+    const LIMIT = 20_000; // 라우트의 PROJECT_LIMIT_PER_MIN
+    const project = clientKey("p1", "events");
+    let allowed = 0;
+    let blocked = 0;
+
+    for (let i = 0; i < 60_000; i++) {
+      if (!(await rateLimitShared(project, LIMIT, WINDOW))) {
+        blocked++;
+        continue;
+      }
+      // 라우트와 같은 순서: 프로젝트 → 주체. 주체 키는 매번 새것이라 항상 통과한다.
+      await rateLimitShared(principalKey("p1", "events", `tok-${i}`), 30, WINDOW);
+      allowed++;
+    }
+
+    // 창이 한 번도 넘어가지 않았으므로 통과 수는 정확히 한도여야 한다
+    expect(allowed).toBe(LIMIT);
+    expect(blocked).toBe(60_000 - LIMIT);
+  });
+
+  it("keeps one tenant's flood from wiping another tenant's bucket", async () => {
+    const victim = clientKey("victim", "events");
+    let victimAllowed = 0;
+
+    for (let i = 0; i < MAX_BUCKETS * 3; i++) {
+      await rateLimitShared(principalKey("attacker", "events", `tok-${i}`), 30, WINDOW);
+      // 피해 테넌트도 계속 요청을 보내고 있다 — 살아 있는 버킷이다
+      if (i % 500 === 0 && (await rateLimitShared(victim, 2, WINDOW))) victimAllowed++;
+    }
+
+    // 남의 축출에 기대 한도가 되살아나면 안 된다
+    expect(victimAllowed).toBe(2);
+  });
+
+  it("still honours the memory cap — idle buckets are the ones that go", async () => {
+    for (let i = 0; i < MAX_BUCKETS * 2; i++) {
+      await rateLimitShared(principalKey("p1", "events", `tok-${i}`), 30, WINDOW);
+    }
+    expect(getRateLimitHealth().trackedKeys).toBeLessThanOrEqual(MAX_BUCKETS);
   });
 });
 

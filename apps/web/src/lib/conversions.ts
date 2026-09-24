@@ -96,11 +96,27 @@ export async function loadConversionNames(db: Db, projectId: string): Promise<st
   return rows.map((r) => r.name);
 }
 
+/** 프로젝트의 이름 목록을 (필요하면 DB 에서 읽어) 캐시에 준비한다. */
+async function loadEntry(projectId: string, load: () => Promise<string[]>, now: number): Promise<NameCacheEntry> {
+  const cached = nameCache.get(projectId);
+  if (cached && now - cached.loadedAt < CONVERSION_NAME_CACHE_MS) return cached;
+
+  const entry: NameCacheEntry = { names: new Set(await load()), loadedAt: now };
+  if (!nameCache.has(projectId) && nameCache.size >= MAX_CACHED_PROJECTS) {
+    const oldest = nameCache.keys().next().value; // Map 은 삽입 순서 보존
+    if (oldest !== undefined) nameCache.delete(oldest);
+  }
+  nameCache.set(projectId, entry);
+  return entry;
+}
+
 /**
- * 이 이름을 받아도 되는가. 이미 쓰던 이름이면 언제나 true, 새 이름은 상한 안에서만 true.
+ * 이 이름을 받아도 되는가. **질문만 한다 — 캐시를 바꾸지 않는다.**
  *
- * 거절된 이름은 캐시에 넣지 않는다 — 넣으면 새 이름을 쏟아붓는 것만으로 메모리가 늘어
- * 막으려던 공격을 다른 자원에서 다시 허용하게 된다.
+ * 예전에는 여기서 새 이름을 바로 캐시에 넣었다. 그러면 저장으로 이어지지 않는 요청
+ * (기기 미확인·귀속 클릭 없음)도 축을 소비하므로, 공개 api-key 만 쥔 쪽이 가짜 이름
+ * 50개를 밀어 넣어 **그 프로젝트의 정상적인 새 전환 이름을 전부 422 로 막을 수 있었다**.
+ * 실제로 DB 에 남은 이름만 축을 소비해야 한다 → 계수는 `recordConversionName` 이 한다.
  *
  * 상한은 **프로젝트당 soft cap** 이다. 캐시 수명(최대 CONVERSION_NAME_CACHE_MS)과 replica 수만큼
  * 잠깐 넘을 수 있지만, 무한 증가는 막힌다. 정확한 상한이 필요하면 DB 유니크로 올려야 한다.
@@ -111,20 +127,20 @@ export async function admitConversionName(
   load: () => Promise<string[]>,
   now: number = Date.now()
 ): Promise<boolean> {
-  let entry = nameCache.get(projectId);
-  if (!entry || now - entry.loadedAt >= CONVERSION_NAME_CACHE_MS) {
-    const known = await load();
-    entry = { names: new Set(known), loadedAt: now };
-    if (!nameCache.has(projectId) && nameCache.size >= MAX_CACHED_PROJECTS) {
-      const oldest = nameCache.keys().next().value; // Map 은 삽입 순서 보존
-      if (oldest !== undefined) nameCache.delete(oldest);
-    }
-    nameCache.set(projectId, entry);
-  }
-  if (entry.names.has(name)) return true;
-  if (entry.names.size >= MAX_CONVERSION_NAMES_PER_PROJECT) return false;
-  entry.names.add(name);
-  return true;
+  const entry = await loadEntry(projectId, load, now);
+  // 이미 쓰던 이름은 상한과 무관하게 통과, 새 이름은 상한 안에서만.
+  return entry.names.has(name) || entry.names.size < MAX_CONVERSION_NAMES_PER_PROJECT;
+}
+
+/**
+ * 전환이 **실제로 저장된 뒤** 그 이름을 캐시에 반영한다.
+ *
+ * 이 시점의 이름은 DB 에 존재하는 사실이므로 상한과 무관하게 기록한다 — 캐시가 DB 보다
+ * 적게 아는 상태로 남으면 다음 요청이 상한을 넘겨 받아들인다. 캐시가 만료·축출되어
+ * 항목이 없으면 아무것도 하지 않는다(다음 조회가 DB 에서 다시 읽는다).
+ */
+export function recordConversionName(projectId: string, name: string): void {
+  nameCache.get(projectId)?.names.add(name);
 }
 
 /** 테스트/운영용 — 이름 캐시 비우기 */

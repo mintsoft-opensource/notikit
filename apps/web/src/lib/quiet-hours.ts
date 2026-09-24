@@ -8,7 +8,8 @@
 
 const UTC = "UTC";
 
-type Wall = { year: number; month: number; day: number; hour: number; minute: number };
+/** 어떤 타임존에서 본 벽시계 값 */
+export type Wall = { year: number; month: number; day: number; hour: number; minute: number };
 
 const formatters = new Map<string, Intl.DateTimeFormat | null>();
 
@@ -62,6 +63,38 @@ function fromWallClock(fmt: Intl.DateTimeFormat, w: Wall): Date {
   const target = wallAsUtcMs(w);
   const first = target - offsetAt(fmt, new Date(target));
   return new Date(target - offsetAt(fmt, new Date(first)));
+}
+
+/**
+ * 그 타임존에서 본 지금(또는 주어진 시각)의 벽시계. 타임존 이름이 틀리면 UTC 로 본다.
+ * 반복 예약처럼 "그 지역의 몇 시"를 다루는 쪽이 이 파일의 DST 처리를 그대로 쓰라고 내보낸다.
+ */
+export function wallClockIn(timeZone: string | null | undefined, at = new Date()): Wall {
+  return wallClock(formatterFor(timeZone || UTC) ?? formatterFor(UTC)!, at);
+}
+
+/**
+ * 벽시계 → 실제 시각. 오프셋을 두 번 재서 서머타임 경계에서도 맞는다 —
+ * 한 번만 재면 경계 직전의 오프셋으로 경계 이후의 시각을 계산해 한 시간 어긋난다.
+ * 서머타임 시작으로 **사라진** 시각이면 `null` 이 아니라 그 벽시계가 가리키는 가장 가까운 실제 시각이다.
+ */
+export function dateFromWallClock(timeZone: string | null | undefined, w: Wall): Date {
+  return fromWallClock(formatterFor(timeZone || UTC) ?? formatterFor(UTC)!, w);
+}
+
+/**
+ * 그 시각 그 타임존의 UTC 오프셋 딱지(예: "+09:00", "-03:30").
+ *
+ * 현지 시각 발송이 묶음 키로 쓴다. IANA 이름 대신 오프셋으로 묶는 이유: 이름은 수백 개인데
+ * "지금 현지 몇 시인가"는 오프셋만으로 정해져, 같은 오프셋 묶음은 **동시에** 발송 시각이 된다.
+ * 서머타임도 그 시점에 재므로 자동으로 따라간다. 이름이 틀리면 UTC 취급("+00:00").
+ */
+export function zoneOffsetLabel(timeZone: string | null | undefined, at = new Date()): string {
+  const fmt = formatterFor(timeZone || UTC) ?? formatterFor(UTC)!;
+  const minutes = Math.round(offsetAt(fmt, at) / 60_000);
+  const sign = minutes < 0 ? "-" : "+";
+  const abs = Math.abs(minutes);
+  return `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
 }
 
 /**

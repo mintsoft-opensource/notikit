@@ -78,15 +78,22 @@ export async function isPlausibleRecipient(db: Db, log: PushLog, device: ClickDe
     )[0];
     if (!topic) return false;
 
-    // 규칙식 그룹: 명단이 없으므로 이 기기의 유저가 지금도 규칙에 맞는지로 근사한다.
+    // 규칙식 그룹: 명단이 없으므로 이 기기가 지금도 규칙에 맞는지로 근사한다.
+    //
+    // push_users 는 left join 이고 사람이 없다고 먼저 잘라내지 않는다 — 행동 규칙은
+    // 기기에 남은 기록을 보므로 익명 기기도 정당한 수신자가 될 수 있다. 여기서 잘라내면
+    // 그 클릭이 전부 403 이 되어 익명 사용자가 많은 앱의 클릭률이 통째로 낮게 잡힌다.
     if (topic.rules && topic.rules.length > 0) {
-      if (!userId) return false;
-      const conds = [eq(devices.id, deviceId), eq(devices.projectId, log.projectId), ...attrConds(topic.rules)];
+      const conds = [
+        eq(devices.id, deviceId),
+        eq(devices.projectId, log.projectId),
+        ...attrConds(topic.rules, log.projectId),
+      ];
       const row = (
         await db
           .select({ id: devices.id })
           .from(devices)
-          .innerJoin(pushUsers, eq(devices.userId, pushUsers.id))
+          .leftJoin(pushUsers, eq(devices.userId, pushUsers.id))
           .where(and(...conds))
           .limit(1)
       )[0];

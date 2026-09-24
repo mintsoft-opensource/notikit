@@ -71,6 +71,10 @@ export const projects = pgTable("projects", {
   tokensSweepLeaseAt: timestamp("tokens_sweep_lease_at", { withTimezone: true }),
   // 빈도 상한 — 한 사용자가 24시간 동안 받을 수 있는 테스트 외 푸시 수. null 이면 제한 없음.
   frequencyCapPerDay: integer("frequency_cap_per_day"),
+  // 발송 속도 제한 — 이 프로젝트가 1분 동안 내보낼 수 있는 기기 수. null 이면 제한 없음.
+  // 빈도 상한(사람 단위 하루)과 다른 축이다: 이쪽은 프로젝트 단위 초당 유량이라
+  // 앱 서버·FCM 쿼터가 한 번에 밀려 터지는 것을 막는다.
+  maxSendsPerMinute: integer("max_sends_per_minute"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   apiKeyIdx: uniqueIndex("projects_api_key_idx").on(t.apiKey),
@@ -233,6 +237,12 @@ export const pushLogs = pgTable("push_logs", {
   lockToken: text("lock_token"),
   // 예약 발송 — 미래면 status='scheduled', 워커가 도래 시 처리
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  // 받는 사람 현지 시각 발송("HH:MM"). 처리기가 기기의 시간대별로 묶어, 아직 그 시각이
+  // 안 된 묶음은 다음 회차로 미룬다. null 이면 예전처럼 도래 즉시 전원에게 보낸다.
+  localTime: text("local_time"),
+  // 토큰별 일시 실패의 사유별 건수(예: {"messaging/quota-exceeded": 12}).
+  // 실패 수만 세면 "왜 안 갔는지"가 남지 않아 운영자가 쿼터 문제와 죽은 토큰을 구분할 수 없다.
+  deliveryErrors: jsonb("delivery_errors").$type<Record<string, number>>(),
   // 알림 옵션(소리·배지·collapse·TTL·우선순위·무음·액션 버튼). 발송 한 건에 한 벌이라 컬럼 하나에 담는다 —
   // 컬럼으로 쪼개면 옵션이 늘 때마다 스키마가 바뀌고, 어차피 전부 FCM 페이로드로만 나간다.
   options: jsonb("options").$type<PushOptions>(),
@@ -282,6 +292,52 @@ export const pushUserSends = pgTable("push_user_sends", {
   userIdx: index("push_user_sends_user_idx").on(t.userId, t.sentAt),
   projIdx: index("push_user_sends_project_idx").on(t.projectId, t.sentAt),
 }));
+
+/**
+ * 발송 속도 제한(분당 N건)의 예산 카운터 — 프로젝트 × 1분 창 한 행.
+ *
+ * 워커가 여러 대일 수 있어 프로세스 메모리에 세면 창마다 워커 수만큼 예산이 늘어난다.
+ * 창이 지난 행은 처리기가 지운다(2분 보존).
+ */
+export const pushRateCounters = pgTable("push_rate_counters", {
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  /** 1분 창의 시작(초·밀리초를 버린 시각) */
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+  count: integer("count").notNull().default(0),
+}, (t) => ({
+  pk: primaryKey({ name: "push_rate_counters_pk", columns: [t.projectId, t.windowStart] }),
+  windowIdx: index("push_rate_counters_window_idx").on(t.windowStart),
+}));
+
+/**
+ * 반복 예약 — cron 문자열 대신 daily/weekly/monthly + 시:분으로만 받는다.
+ * 워커가 도래한 회차마다 `enqueuePush` 를 불러 push_logs 1행을 만든다.
+ */
+export const pushSchedules = pgTable("push_schedules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  /** daily | weekly | monthly */
+  kind: text("kind").notNull(),
+  /** weekly 의 요일 (0=일 ~ 6=토) */
+  weekday: smallint("weekday"),
+  /** monthly 의 날짜 (1~28 — 29~31 은 없는 달이 있어 회차가 조용히 건너뛴다) */
+  dayOfMonth: smallint("day_of_month"),
+  hour: smallint("hour").notNull(),
+  minute: smallint("minute").notNull(),
+  /** 회차마다 큐잉할 메시지 본문 */
+  message: jsonb("message").$type<Record<string, unknown>>().notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  projIdx: index("push_schedules_project_idx").on(t.projectId),
+  // 워커의 도래분 스캔 — 꺼진 예약은 인덱스에서 뺀다
+  dueIdx: index("push_schedules_due_idx").on(t.nextRunAt).where(sql`${t.enabled}`),
+}));
+
+export type PushSchedule = typeof pushSchedules.$inferSelect;
 
 /**
  * 일별 접속 롤업 — 디바이스가 활동한 날 하루당 한 행.
