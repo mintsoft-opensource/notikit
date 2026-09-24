@@ -66,6 +66,14 @@
   --kakao-bg: #fee500;
   --kakao-fg: #191919;
 
+  /* 모달·드로어 뒤를 덮는 막. **두 테마 모두 어두운 값**이어야 한다 —
+   * foreground 를 쓰면 다크에서 밝은 막이 되어 깊이가 뒤집힌다(뒤가 앞으로 나와 보인다). */
+  --overlay: rgba(25, 27, 23, 0.45);
+  /* 그림자도 모드별로 다른 값이다. 다크에서 같은 옅은 잉크를 쓰면 아무것도 안 보이고,
+   * 밝은 그림자는 존재하지 않는다(빛은 위에서 온다) — 더 진한 검정으로 깊이를 만든다. */
+  --card-shadow: 0 1px 2px rgba(24, 30, 45, 0.04);
+  --elevated-shadow: 0 8px 24px rgba(24, 30, 45, 0.08);
+
   /* 차트 카테고리 — scripts/validate_palette.js 로 검증(밝기밴드/채도/CVD/대비 전부 PASS).
    * 순서 고정: 시리즈에 순번대로 배정하고 절대 순환시키지 않는다. 눈으로 고르지 말 것. */
   --chart-1: #159570;
@@ -102,6 +110,9 @@
   --error-foreground: var(--gy900); /* bg-error 위 글자 7.81 */
   --success: #5cc792;
   --warning: #e8a24a;
+  --overlay: rgba(6, 8, 6, 0.62);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --elevated-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
   --chart-1: #21a06f;
   --chart-2: #8a6ff0;
   /* 다크는 같은 색을 쓰면 밝기 밴드를 벗어난다 — 모드별로 따로 검증한 값 */
@@ -132,6 +143,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-kakao: var(--kakao-bg);
+  --color-overlay: var(--overlay);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -148,12 +160,14 @@
   --radius-card: 1rem;      /* 16 — card */
   --radius-dialog: 1.25rem; /* 20 — modal, hero */
 
-  /* Shadow scale */
-  --shadow-card: 0 1px 2px rgba(24, 30, 45, 0.04);
-  --shadow-elevated: 0 8px 24px rgba(24, 30, 45, 0.08);
+  /* Shadow scale — 값은 :root/.dark 의 --card-shadow/--elevated-shadow 에서 온다.
+   * 여기서 숫자를 직접 적으면(@theme inline 은 값을 그대로 박아 넣는다) 다크 모드에서
+   * 바꿀 수 없다. shadow-card = 카드·타일, shadow-elevated = 모달·드로어. */
+  --shadow-card: var(--card-shadow);
+  --shadow-elevated: var(--elevated-shadow);
 
-  /* Spacing */
-  --spacing-card: 1.25rem;  /* 20 — 카드 padding 단일 */
+  /* 카드 padding 토큰은 두지 않는다 — 실제 값은 p-3.5(14px, B2B 밀도)이고
+   * 안 쓰이는 --spacing-card(20px) 를 남겨 두면 어느 쪽이 규칙인지 두 개가 된다. */
 
   --font-sans:
     var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Pretendard",
@@ -213,6 +227,70 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * 모달·드로어 전환 — 150ms.
+ *
+ * 애니메이션 없이 튀어나오면 **어디서 온 창인지** 알 수 없다: 화면이 통째로 갈린 것처럼
+ * 보여 방금 누른 버튼과 열린 창이 이어지지 않는다. 들어올 때와 나갈 때 같은 길이로 둔다 —
+ * 나갈 때만 잘리면 "닫혔다"가 아니라 "사라졌다"로 읽힌다.
+ *
+ * 동작 줄이기를 켠 사용자에게는 위의 전역 규칙이 duration 을 0.01ms 로 만들어 즉시 끝난다.
+ * forwards 라 끝 상태(사라짐)는 그대로 유지된다.
+ *
+ * 드로어는 화면 시작 쪽(start)에서 나온다 — RTL 에서는 반대쪽이라 방향을 변수로 둔다.
+ */
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes modal-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+@keyframes drawer-in {
+  from { transform: translateX(var(--drawer-from)); }
+  to { transform: none; }
+}
+@keyframes drawer-out {
+  from { transform: none; }
+  to { transform: translateX(var(--drawer-from)); }
+}
+
+.animate-overlay-in {
+  animation: overlay-in 150ms ease-out;
+}
+.animate-overlay-out {
+  animation: overlay-out 150ms ease-in forwards;
+}
+.animate-modal-in {
+  animation: modal-in 150ms ease-out;
+}
+.animate-modal-out {
+  animation: modal-out 150ms ease-in forwards;
+}
+.animate-drawer-in,
+.animate-drawer-out {
+  --drawer-from: -100%;
+}
+[dir="rtl"] .animate-drawer-in,
+[dir="rtl"] .animate-drawer-out {
+  --drawer-from: 100%;
+}
+.animate-drawer-in {
+  animation: drawer-in 150ms ease-out;
+}
+.animate-drawer-out {
+  animation: drawer-out 150ms ease-in forwards;
 }
 
 /* 얇은 라운드 스크롤바 (goji 계열) */

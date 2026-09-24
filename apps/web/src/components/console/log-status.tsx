@@ -10,6 +10,8 @@ const STATUS_STYLE: Record<string, { chip: string; dot: string }> = {
   completed: { chip: "bg-success/10 text-success", dot: "bg-success" },
   logged: { chip: "bg-surface-muted text-muted-foreground", dot: "bg-muted-foreground" },
   failed: { chip: "bg-error/10 text-error", dot: "bg-error" },
+  // 취소는 실패가 아니다 — 붉게 칠하면 "터졌다" 로 읽힌다. 멈춘 상태로 중립에 둔다.
+  canceled: { chip: "bg-surface-muted text-foreground", dot: "bg-muted-foreground" },
 };
 
 /** 발송 상태 칩 — 번역된 이름 + 색 점. 모르는 상태는 원문 그대로 회색으로 */
@@ -28,7 +30,9 @@ export function StatusChip({ status }: { status: string }) {
 export function TestChip() {
   const t = useTranslations("logs");
   return (
-    <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-dashed border-border-strong px-1.5 text-2xs font-semibold text-muted-foreground">
+    // 칩 높이는 StatusChip 과 같은 24px(h-6) — 한 줄에 나란히 서는데 높이가 다르면 둘 중
+    // 하나가 잘못 얹힌 것처럼 보인다
+    <span className="inline-flex h-6 shrink-0 items-center rounded-full border border-dashed border-border-strong px-2 text-2xs font-semibold text-muted-foreground">
       {t("testChip")}
     </span>
   );

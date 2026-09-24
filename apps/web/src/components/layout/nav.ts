@@ -22,6 +22,7 @@ import {
   UserCog,
   UserRound,
   Settings,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -83,6 +84,8 @@ export function projectNavGroups(id: string): NavGroup[] {
       items: [
         { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
         { labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings },
+        // 감사 로그는 읽기 전용이라 설정 바로 옆에 둔다 — "방금 뭘 바꿨더라" 를 같은 자리에서 확인한다
+        { labelKey: "audit", href: `/projects/${id}/audit`, icon: ScrollText },
       ],
     },
     {

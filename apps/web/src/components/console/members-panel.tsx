@@ -141,11 +141,11 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
         </div>
         {canManage && (
           <Button size="sm" onClick={() => setOpen(true)}>
-            <UserPlus aria-hidden="true" className="h-4 w-4" /> {t("addMember")}
+            <UserPlus aria-hidden="true" className="size-4" /> {t("addMember")}
           </Button>
         )}
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {canManage && (
           <Dialog
             open={open}
@@ -156,12 +156,12 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
               <>
                 <Button variant="ghost" onClick={closeDialog} disabled={busy}>{tc("cancel")}</Button>
                 <Button type="submit" form="new-member-form" disabled={busy || !email || password.length < PASSWORD_MIN}>
-                  <UserPlus aria-hidden="true" className="h-4 w-4" /> {busy ? t("creating") : t("create")}
+                  <UserPlus aria-hidden="true" className="size-4" /> {busy ? t("creating") : t("create")}
                 </Button>
               </>
             }
           >
-            <form id="new-member-form" onSubmit={create} className="space-y-3">
+            <form id="new-member-form" onSubmit={create} className="space-y-4">
               <Field label={t("emailLabel")}>
                 <Input
                   id="new-member-email"
@@ -202,7 +202,7 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
         )}
 
         {members === null ? (
-          error ? <EmptyState icon={Users} title={tc("loadFailed")} /> : <div className="space-y-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
+          error ? <EmptyState icon={Users} title={tc("loadFailed")} /> : <div className="space-y-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
         ) : members.length === 0 ? (
           <EmptyState icon={Users} title={t("empty")} />
         ) : (
@@ -251,7 +251,7 @@ export function MembersPanel({ currentRole }: { currentRole?: string }) {
                     )}
                     {editable && (
                       <Button variant="ghost" size="icon" aria-label={t("remove")} onClick={() => remove(m)}>
-                        <Trash2 aria-hidden="true" className="h-4 w-4" />
+                        <Trash2 aria-hidden="true" className="size-4" />
                       </Button>
                     )}
                   </TableCell>

@@ -49,6 +49,20 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
 );
 Textarea.displayName = "Textarea";
 
+/**
+ * 12px(text-xs) 은 **칸에 딸린 글자**의 크기다. 여기서 쓰는 조합은 셋뿐이고, 굵기와 색이
+ * 그대로 역할을 뜻한다 — 이 밖의 조합(예: semibold + muted)을 새로 만들면 읽는 사람은
+ * 그게 라벨인지 힌트인지 매번 문맥으로 추측해야 한다.
+ *
+ *   라벨  = semibold + foreground        (Label)
+ *   오류  = semibold + error             (FIELD_ERROR_TEXT)
+ *   힌트  = regular  + muted-foreground  (FIELD_HINT_TEXT)
+ *
+ * 본문(13px)보다 작은 글자는 여기까지다 — 11px(text-2xs)는 뱃지·캡션 전용.
+ */
+export const FIELD_ERROR_TEXT = "text-xs font-semibold text-error";
+export const FIELD_HINT_TEXT = "text-xs text-muted-foreground";
+
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return <label className={cn("text-xs font-semibold text-foreground", className)} {...props} />;
 }
@@ -92,8 +106,8 @@ export function Field({
         "aria-describedby": describedBy,
         "aria-invalid": error ? true : children.props["aria-invalid"],
       })}
-      {error && <p id={errorId} className="text-xs font-semibold text-error">{error}</p>}
-      {hint && <p id={hintId} className="text-xs text-muted-foreground">{hint}</p>}
+      {error && <p id={errorId} className={FIELD_ERROR_TEXT}>{error}</p>}
+      {hint && <p id={hintId} className={FIELD_HINT_TEXT}>{hint}</p>}
     </div>
   );
 }
@@ -111,7 +125,7 @@ export function Select({ className, children, ...props }: React.SelectHTMLAttrib
       >
         {children}
       </select>
-      <ChevronDown aria-hidden="true" className="pointer-events-none absolute end-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute end-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/70" />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { FOCUS_RING } from "./focus-ring";
 
 export interface TabItem<T extends string> {
   value: T;
@@ -78,7 +79,8 @@ export function Tabs<T extends string>({
             onClick={() => onChange(tab.value)}
             className={cn(
               // 밑줄이 경계선을 덮도록 -mb-px — 안 그러면 활성 탭 아래 선이 두 겹으로 보인다
-              "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition-colors",
+              FOCUS_RING,
               active
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"

@@ -3,9 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, AlertTriangle, RotateCw } from "lucide-react";
+import { ArrowLeft, Trash2, AlertTriangle, RotateCw, SearchX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +30,8 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
   const t = useTranslations("journeys");
   const errorText = useAdminErrorText();
   const tc = useTranslations("common");
+  const locale = useLocale();
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const router = useRouter();
 
   const [loaded, setLoaded] = React.useState<Journey | null>(null);
@@ -134,13 +136,24 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
 
   const backHref = `/projects/${projectId}/journeys`;
 
+  // "없음"과 "못 가져옴"은 둘 다 Card + EmptyState 한 벌로 낸다 — 한쪽만 카드 밖에 맨몸으로
+  // 서 있으면 같은 자리에서 다른 화면처럼 보이고, 되돌아갈 버튼의 위치도 매번 달라진다.
   if (missing) {
     return (
       <div className="w-full space-y-4">
         <PageHeader title={tc("notFound")} />
-        <Button asChild variant="outline">
-          <Link href={backHref}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
-        </Button>
+        <Card>
+          <EmptyState
+            icon={SearchX}
+            title={tc("notFound")}
+            description={tc("notFoundDesc")}
+            action={
+              <Button asChild variant="outline">
+                <Link href={backHref}><ArrowLeft aria-hidden="true" className="size-4" /> {tc("back")}</Link>
+              </Button>
+            }
+          />
+        </Card>
       </div>
     );
   }
@@ -148,15 +161,20 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
   if (failed && !loaded) {
     return (
       <div className="w-full space-y-4">
-        <EmptyState
-          icon={AlertTriangle}
-          title={tc("loadFailed")}
-          action={
-            <Button variant="outline" onClick={load}>
-              <RotateCw aria-hidden="true" className="h-4 w-4" /> {tc("retry")}
-            </Button>
-          }
-        />
+        <PageHeader title={t("title")} />
+        <Card>
+          <EmptyState
+            icon={AlertTriangle}
+            tone="error"
+            title={tc("loadFailed")}
+            description={tc("loadFailedDesc")}
+            action={
+              <Button variant="outline" onClick={load}>
+                <RotateCw aria-hidden="true" className="size-4" /> {tc("retry")}
+              </Button>
+            }
+          />
+        </Card>
       </div>
     );
   }
@@ -178,10 +196,10 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
         actions={
           <>
             <Button asChild variant="ghost">
-              <Link href={backHref}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
+              <Link href={backHref}><ArrowLeft aria-hidden="true" className="size-4" /> {tc("back")}</Link>
             </Button>
             <Button variant="destructive" onClick={remove} disabled={saving}>
-              <Trash2 aria-hidden="true" className="h-4 w-4" /> {tc("remove")}
+              <Trash2 aria-hidden="true" className="size-4" /> {tc("remove")}
             </Button>
           </>
         }
@@ -189,8 +207,10 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
 
       {/* 스텝을 고치면 이미 중간에 있는 유저의 다음 단계가 바뀐다. 누르기 전에 알아야 한다. */}
       {activeRuns > 0 && (
-        <div className="flex items-start gap-2 border border-destructive/30 bg-destructive/5 p-3 text-sm">
-          <AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0 text-destructive" />
+        // 카드와 같은 줄에 서는 블록이라 같은 반경·같은 여백. `destructive` 는 이 프로젝트에
+        // 없는 색이라 테두리도 글자도 아무 색이 안 나왔다 — 상태색 토큰(error)으로 바꾼다.
+        <div className="flex items-start gap-2 rounded-card border border-error/30 bg-error/5 p-3.5 text-sm">
+          <AlertTriangle aria-hidden="true" className="size-4 shrink-0 text-error" />
           <span>{t("activeRunsWarning", { count: activeRuns })}</span>
         </div>
       )}
@@ -222,10 +242,12 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
           {/* DataRow 는 dt/dd 를 낸다 — dl 로 감싸지 않으면 정의목록 의미가 사라진다 */}
           <dl className="space-y-1">
           <DataRow label="ID" value={loaded.id} />
-          <DataRow label={t("activeRuns")} value={String(activeRuns)} />
-          <DataRow label={t("exitedRuns")} value={String(exitedRuns)} />
-          <DataRow label={t("totalRuns")} value={String(totalRuns)} />
-          <DataRow label={tc("createdAt")} value={new Date(loaded.createdAt).toLocaleString()} />
+          {/* 수는 로케일 규칙(자릿점)으로 찍고 tabular-nums 로 자릿수를 맞춘다 — String() 은
+              12345 를 그대로 내보내 자리 수를 눈으로 세야 하고, 줄마다 폭이 달라진다 */}
+          <DataRow label={t("activeRuns")} value={<span className="tabular-nums">{nf.format(activeRuns)}</span>} />
+          <DataRow label={t("exitedRuns")} value={<span className="tabular-nums">{nf.format(exitedRuns)}</span>} />
+          <DataRow label={t("totalRuns")} value={<span className="tabular-nums">{nf.format(totalRuns)}</span>} />
+          <DataRow label={tc("createdAt")} value={new Date(loaded.createdAt).toLocaleString(locale)} />
           </dl>
         </CardContent>
       </Card>

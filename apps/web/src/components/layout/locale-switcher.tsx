@@ -3,8 +3,9 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Globe } from "lucide-react";
+import { ChevronDown, Globe } from "lucide-react";
 import { LOCALES, LOCALE_COOKIE } from "@/i18n/locales";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
 
 export function LocaleSwitcher() {
   const locale = useLocale();
@@ -19,13 +20,13 @@ export function LocaleSwitcher() {
 
   return (
     <label className="relative flex items-center" aria-label={t("language")}>
-      <Globe aria-hidden="true" className="pointer-events-none absolute start-2 h-4 w-4 text-muted-foreground" />
+      <Globe aria-hidden="true" className="pointer-events-none absolute start-2 size-4 text-muted-foreground" />
       <select
         value={locale}
         onChange={(e) => change(e.target.value)}
         disabled={pending}
         aria-label={t("language")}
-        className="h-9 appearance-none rounded-lg border border-border bg-surface ps-7 pe-2 shadow-sm text-sm text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={`h-9 appearance-none rounded-lg border border-border bg-surface ps-7 pe-7 shadow-card text-sm text-foreground transition-colors hover:bg-surface-muted ${FOCUS_RING}`}
       >
         {LOCALES.map((l) => (
           <option key={l.code} value={l.code}>
@@ -33,6 +34,9 @@ export function LocaleSwitcher() {
           </option>
         ))}
       </select>
+      {/* appearance-none 은 OS 가 그려 주던 화살표까지 지운다 — 펼칠 수 있는 칸임을
+          알리는 표시가 없으면 그냥 글자로 보인다(Select 와 같은 규칙) */}
+      <ChevronDown aria-hidden="true" className="pointer-events-none absolute end-2 size-4 text-muted-foreground/70" />
     </label>
   );
 }

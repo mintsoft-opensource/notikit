@@ -113,7 +113,7 @@ export function StatTile({
           {Icon && (
             // 보조 아이콘 컨테이너 규칙 — 28px(h-7), 조작 요소는 36px
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-              <Icon aria-hidden="true" className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} />
+              <Icon aria-hidden="true" className="size-4 text-primary" strokeWidth={2.25} />
             </div>
           )}
         </div>

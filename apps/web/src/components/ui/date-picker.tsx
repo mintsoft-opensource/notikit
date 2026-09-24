@@ -107,7 +107,7 @@ export function DatePicker({
               selected ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
             <span className="truncate">{selected ? df.format(selected) : placeholder}</span>
           </button>
         </Popover.Trigger>
@@ -119,7 +119,7 @@ export function DatePicker({
             // 날짜 칸에 붙은 보조 조작 — 칸 안 요소 규칙(D3) 28px·14px 아이콘
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <X aria-hidden="true" className="h-3.5 w-3.5" />
+            <X aria-hidden="true" className="size-4" />
           </button>
         )}
       </div>

@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { X, Send, Clock, GitBranch, CircleStop } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Input, Label, Select, Field } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
 import {
   DEFAULT_BRANCH_HOURS,
@@ -318,16 +318,16 @@ function StepList(props: ListProps) {
 
   return (
     <div className="space-y-4">
-      {steps.length === 0 && <p className="text-xs text-muted-foreground">{t("armEmpty")}</p>}
+      {steps.length === 0 && <p className={FIELD_HINT_TEXT}>{t("armEmpty")}</p>}
       {steps.map((s, i) => (
         <StepRow key={s.rowId} {...props} step={s} path={path ? `${path}.${i}` : String(i)} index={i} />
       ))}
       <div data-add={addKey} className="flex flex-wrap gap-4">
         <Button variant="outline" size="sm" onClick={() => props.onAdd(parentRowId, arm, "send")} disabled={disabled || full}>
-          <Send aria-hidden="true" className="h-4 w-4" /> {t("addSend")}
+          <Send aria-hidden="true" className="size-4" /> {t("addSend")}
         </Button>
         <Button variant="outline" size="sm" onClick={() => props.onAdd(parentRowId, arm, "wait")} disabled={disabled || full}>
-          <Clock aria-hidden="true" className="h-4 w-4" /> {t("addWait")}
+          <Clock aria-hidden="true" className="size-4" /> {t("addWait")}
         </Button>
         <Button
           variant="outline"
@@ -336,10 +336,10 @@ function StepList(props: ListProps) {
           // 깊이 상한은 서버 검증과 같다 — 여기서 열어 두면 저장할 때만 422 가 난다
           disabled={disabled || full || depth >= MAX_BRANCH_DEPTH}
         >
-          <GitBranch aria-hidden="true" className="h-4 w-4" /> {t("addBranch")}
+          <GitBranch aria-hidden="true" className="size-4" /> {t("addBranch")}
         </Button>
         <Button variant="outline" size="sm" onClick={() => props.onAdd(parentRowId, arm, "exit")} disabled={disabled || full}>
-          <CircleStop aria-hidden="true" className="h-4 w-4" /> {t("addExit")}
+          <CircleStop aria-hidden="true" className="size-4" /> {t("addExit")}
         </Button>
       </div>
     </div>
@@ -357,7 +357,7 @@ function StepRow(props: ListProps & { step: StepDraft; path: string; index: numb
       role="group"
       aria-label={t("stepGroup", { n: index + 1 })}
       data-row={s.rowId}
-      className="w-full space-y-4 rounded-lg border border-border p-4"
+      className="w-full space-y-4 rounded-lg border border-border p-3.5"
     >
       <div className="flex items-center gap-4">
         <Select
@@ -374,9 +374,9 @@ function StepRow(props: ListProps & { step: StepDraft; path: string; index: numb
           <option value="branch">{t("stepTypeBranch")}</option>
           <option value="exit">{t("stepTypeExit")}</option>
         </Select>
-        <span className="text-xs text-muted-foreground">{t("stepN", { n: index + 1 })}</span>
+        <span className={FIELD_HINT_TEXT}>{t("stepN", { n: index + 1 })}</span>
         {here !== undefined && (
-          <span className="text-xs font-semibold text-muted-foreground">{t("stepHere", { count: here })}</span>
+          <span className={FIELD_HINT_TEXT}>{t("stepHere", { count: here })}</span>
         )}
         <Button
           variant="ghost"
@@ -386,7 +386,7 @@ function StepRow(props: ListProps & { step: StepDraft; path: string; index: numb
           onClick={() => onRemove(s.rowId)}
           disabled={disabled || !canRemove}
         >
-          <X aria-hidden="true" className="h-4 w-4" />
+          <X aria-hidden="true" className="size-4" />
         </Button>
       </div>
 

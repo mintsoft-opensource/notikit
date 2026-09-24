@@ -126,7 +126,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
           <>
             <SuppressionsImport projectId={projectId} onImported={() => void load()} />
             <Button onClick={() => setOpen(true)}>
-              <Plus aria-hidden="true" className="h-4 w-4" /> {t("addSuppression")}
+              <Plus aria-hidden="true" className="size-4" /> {t("addSuppression")}
             </Button>
           </>
         }
@@ -146,7 +146,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
           </>
         }
       >
-        <form onSubmit={add} className="space-y-3">
+        <form onSubmit={add} className="space-y-4">
           <Field label={t("userIdLabel")}>
             <Input id="new-suppression-id" value={externalId} onChange={(e) => editExternalId(e.target.value)} placeholder="user-1" maxLength={255} spellCheck={false} />
           </Field>
@@ -161,7 +161,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          {!rows && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!rows && <div className="space-y-4 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {rows && rows.length === 0 && <EmptyState icon={BellOff} title={t("noSuppressions")} />}
           {rows && rows.length > 0 && (
             <>
@@ -196,7 +196,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
                     aria-label={`${t("suppressionRemove")} ${s.externalId ?? ""}`}
                     onClick={() => remove(s)}
                   >
-                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+                    <Trash2 aria-hidden="true" className="size-4" />
                   </Button>
                   </TableCell>
                 </TableRow>

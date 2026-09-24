@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { BellOff, ChevronDown, Clock, Plus, Trash2 } from "lucide-react";
+import { BellOff, ChevronDown, Clock, Gauge, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
@@ -18,6 +18,11 @@ const DEEP_LINK_MAX = 2048;
 const LOCAL_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 /** 서버 local-delivery.ts 의 LOCAL_WINDOW_MS 와 같은 값. 안내 문구에만 쓴다. */
 const LOCAL_WINDOW_HOURS = 24;
+/** 서버 lib/holdout 과 **같은** 범위. 절반을 빼면 캠페인이 아니라 실험이다. */
+export const HOLDOUT_MIN = 1;
+export const HOLDOUT_MAX = 50;
+/** 서버 messages.ts `max_sends_per_minute` 상한 */
+export const MAX_PER_MINUTE = 1_000_000;
 
 export type SendActionDraft = { rowId: string; id: string; title: string; deepLink: string };
 
@@ -33,6 +38,12 @@ export type SendOptionsDraft = {
   silent: boolean;
   /** 받는 사람 현지 시각 "HH:MM". 빈 문자열이면 쓰지 않는다(=즉시 발송). */
   localTime: string;
+  /** 대조군 비율(%). 빈 문자열이면 쓰지 않는다. */
+  holdoutPercent: string;
+  /** 켜면 `quiet_hours:false` 로 나간다 — 프로젝트 방해금지 시간대를 이 발송만 건너뛴다 */
+  ignoreQuietHours: boolean;
+  /** 분당 발송 상한. 빈 문자열이면 프로젝트 설정을 따르고, "0" 은 이 발송만 제한 없음이다. */
+  maxPerMinute: string;
   actions: SendActionDraft[];
 };
 
@@ -54,6 +65,9 @@ type ErrorKey =
   | "errOptBadge"
   | "errOptTtl"
   | "errOptLocalTime"
+  | "errOptHoldout"
+  | "errOptHoldoutSingle"
+  | "errOptMaxPerMinute"
   | "errOptActionId"
   | "errOptActionTitle"
   | "errOptActionDup"
@@ -63,6 +77,8 @@ export type SendOptionsErrors = {
   badge?: ErrorKey;
   ttl?: ErrorKey;
   localTime?: ErrorKey;
+  holdout?: ErrorKey;
+  maxPerMinute?: ErrorKey;
   actions: Record<string, ErrorKey>;
 };
 
@@ -77,6 +93,9 @@ export function emptySendOptions(): SendOptionsDraft {
     priority: "high",
     silent: false,
     localTime: "",
+    holdoutPercent: "",
+    ignoreQuietHours: false,
+    maxPerMinute: "",
     actions: [],
   };
 }
@@ -112,13 +131,23 @@ function actionBlank(a: SendActionDraft): boolean {
  * 초안 → 발송 본문의 `options`. 아무것도 고르지 않았으면 undefined 를 돌려준다 —
  * 빈 객체를 보내면 서버가 priority 기본값을 채워 모든 발송 로그에 옵션이 붙는다.
  */
-export function buildSendOptions(d: SendOptionsDraft): {
+export function buildSendOptions(
+  d: SendOptionsDraft,
+  /** 대조군을 쓸 수 있는 발송인가. `single` 은 한 명이라 "전부 빼거나 아무도 안 빼거나" 가 된다. */
+  holdoutAllowed = true
+): {
   options?: PushOptionsPayload;
   /**
    * 발송 본문의 `local_time` — `options` 안이 아니라 **본문 최상위** 필드다.
    * 서버가 기기 시간대로 묶어 회차를 나누므로 알림 표현(options)과 층이 다르다.
    */
   localTime?: string;
+  /** 본문 최상위 `holdout_percent` */
+  holdoutPercent?: number;
+  /** 본문 최상위 `quiet_hours` — 덮을 때만(false) 싣는다 */
+  quietHours?: false;
+  /** 본문 최상위 `max_sends_per_minute`. 0 은 "이 발송은 제한 없음" 이라 빈칸과 다르다. */
+  maxSendsPerMinute?: number;
   errors: SendOptionsErrors;
 } {
   const errors: SendOptionsErrors = { actions: {} };
@@ -151,6 +180,28 @@ export function buildSendOptions(d: SendOptionsDraft): {
   if (localTimeRaw && !LOCAL_TIME_RE.test(localTimeRaw)) errors.localTime = "errOptLocalTime";
   else if (localTimeRaw) localTime = localTimeRaw;
 
+  /**
+   * 대조군. 빈칸은 "쓰지 않음" 이고 범위 밖은 오류다 — 둘을 같이 묶으면 끌 수가 없다.
+   * 단건 발송에서는 칸 자체를 숨기지만, 다른 방식으로 고른 뒤 방식을 바꾼 경우를 위해 여기서도 막는다.
+   */
+  const holdoutRaw = intOrNull(d.holdoutPercent);
+  let holdoutPercent: number | undefined;
+  if (holdoutRaw === "bad" || (typeof holdoutRaw === "number" && (holdoutRaw < HOLDOUT_MIN || holdoutRaw > HOLDOUT_MAX))) {
+    errors.holdout = "errOptHoldout";
+  } else if (typeof holdoutRaw === "number") {
+    if (!holdoutAllowed) errors.holdout = "errOptHoldoutSingle";
+    else holdoutPercent = holdoutRaw;
+  }
+
+  // 0 은 "이 발송만 제한 없음" 이다 — 빈칸(프로젝트 설정 따름)과 뜻이 다르므로 접어 넣지 않는다
+  const perMinuteRaw = intOrNull(d.maxPerMinute);
+  let maxSendsPerMinute: number | undefined;
+  if (perMinuteRaw === "bad" || (typeof perMinuteRaw === "number" && perMinuteRaw > MAX_PER_MINUTE)) {
+    errors.maxPerMinute = "errOptMaxPerMinute";
+  } else if (typeof perMinuteRaw === "number") {
+    maxSendsPerMinute = perMinuteRaw;
+  }
+
   const actions: PushActionPayload[] = [];
   const seen = new Set<string>();
   for (const a of d.actions) {
@@ -179,11 +230,19 @@ export function buildSendOptions(d: SendOptionsDraft): {
   }
   if (actions.length > 0) o.actions = actions.slice(0, MAX_SEND_ACTIONS);
 
-  return { options: Object.keys(o).length > 0 ? o : undefined, localTime, errors };
+  return {
+    options: Object.keys(o).length > 0 ? o : undefined,
+    localTime,
+    holdoutPercent,
+    // 켰을 때만 싣는다 — `true` 를 보내면 "프로젝트 설정을 따른다" 와 같은 뜻이라 잡음이다
+    quietHours: d.ignoreQuietHours ? false : undefined,
+    maxSendsPerMinute,
+    errors,
+  };
 }
 
 export function hasSendOptionErrors(e: SendOptionsErrors): boolean {
-  return Boolean(e.badge || e.ttl || e.localTime) || Object.keys(e.actions).length > 0;
+  return Boolean(e.badge || e.ttl || e.localTime || e.holdout || e.maxPerMinute) || Object.keys(e.actions).length > 0;
 }
 
 /** 액션 오류가 세 칸 중 **어느 칸** 이야기인지. 아이디 칸에만 표시하면 엉뚱한 칸이 빨개진다 */
@@ -195,9 +254,9 @@ function actionErrorField(key: ErrorKey): "id" | "title" | "link" {
 
 /** 접힌 머리글에 "몇 개 켰는지" 를 보여 주려고 센다 — 접어 두면 설정한 걸 잊는다 */
 export function countSendOptions(d: SendOptionsDraft): number {
-  const filled = [d.sound, d.badge, d.collapseKey, d.androidChannelId, d.iosThreadId, d.ttlSeconds, d.localTime].filter((v) => v.trim()).length;
+  const filled = [d.sound, d.badge, d.collapseKey, d.androidChannelId, d.iosThreadId, d.ttlSeconds, d.localTime, d.holdoutPercent, d.maxPerMinute].filter((v) => v.trim()).length;
   const actions = d.actions.filter((a) => !actionBlank(a)).length;
-  return filled + actions + (d.priority === "normal" ? 1 : 0) + (d.silent ? 1 : 0);
+  return filled + actions + (d.priority === "normal" ? 1 : 0) + (d.silent ? 1 : 0) + (d.ignoreQuietHours ? 1 : 0);
 }
 
 /**
@@ -210,10 +269,13 @@ export function SendOptions({
   errors,
   revealAt,
   disabled,
+  holdoutAllowed = true,
 }: {
   value: SendOptionsDraft;
   onChange: (v: SendOptionsDraft) => void;
   errors: SendOptionsErrors;
+  /** 대조군 칸을 보일지. 단건 발송은 받는 사람이 한 명이라 대조군이 성립하지 않는다. */
+  holdoutAllowed?: boolean;
   /** 발송이 옵션 오류로 막힐 때마다 올라가는 숫자 — 접어 둔 칸을 다시 펼쳐 무엇이 틀렸는지 보여 준다 */
   revealAt?: number;
   disabled?: boolean;
@@ -221,12 +283,18 @@ export function SendOptions({
   const t = useTranslations("send");
   const panelId = React.useId();
   const silentId = React.useId();
+  const quietId = React.useId();
   const silentNoticeId = `${panelId}-silent-notice`;
+  const quietNoticeId = `${panelId}-quiet-notice`;
   const [open, setOpen] = React.useState(false);
 
   const badgeError = errors.badge ? t(errors.badge, { max: BADGE_MAX }) : null;
   const ttlError = errors.ttl ? t(errors.ttl, { max: TTL_SECONDS_MAX }) : null;
   const localTimeError = errors.localTime ? t(errors.localTime) : null;
+  const holdoutError = errors.holdout
+    ? t(errors.holdout, { min: HOLDOUT_MIN, max: HOLDOUT_MAX })
+    : null;
+  const perMinuteError = errors.maxPerMinute ? t(errors.maxPerMinute, { max: MAX_PER_MINUTE }) : null;
   const actionError = (rowId: string) => {
     const key = errors.actions[rowId];
     return key ? t(key, { max: SHORT_MAX }) : null;
@@ -238,7 +306,7 @@ export function SendOptions({
    * 발송이 막혔을 때만 polite 로 한 번 알린다. 눈으로 보는 오류는 칸 옆에 계속 떠 있다.
    */
   const [liveError, setLiveError] = React.useState("");
-  const errorSummary = [badgeError, ttlError, localTimeError, ...value.actions.map((a) => actionError(a.rowId))]
+  const errorSummary = [badgeError, ttlError, localTimeError, holdoutError, perMinuteError, ...value.actions.map((a) => actionError(a.rowId))]
     .filter(Boolean)
     .join(" · ");
   const announce = (message: string | null) => setLiveError(message ?? "");
@@ -415,6 +483,75 @@ export function SendOptions({
               <p className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
                 <Clock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{t("optLocalTimeNotice", { hours: LOCAL_WINDOW_HOURS })}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/*
+          캠페인별 재정의 — 프로젝트 설정을 이 발송만 덮는 칸들이다. 알림 표현(소리·배지)과
+          같은 격자에 섞으면 "이 발송만 다르게 나간다" 는 무게가 드러나지 않는다.
+        */}
+        <div className="space-y-3 rounded-lg border border-border p-3">
+          <p className="text-xs font-semibold text-foreground">{t("optOverridesTitle")}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("optMaxPerMinute")} hint={t("optMaxPerMinuteHint")} error={perMinuteError}>
+              <Input
+                inputMode="numeric"
+                spellCheck={false}
+                autoComplete="off"
+                value={value.maxPerMinute}
+                disabled={disabled}
+                onChange={(e) => set({ maxPerMinute: e.target.value })}
+                onBlur={() => announce(perMinuteError)}
+                placeholder="600"
+              />
+            </Field>
+            {holdoutAllowed && (
+              <Field label={t("optHoldout")} hint={t("optHoldoutHint", { min: HOLDOUT_MIN, max: HOLDOUT_MAX })} error={holdoutError}>
+                <Input
+                  inputMode="numeric"
+                  spellCheck={false}
+                  autoComplete="off"
+                  value={value.holdoutPercent}
+                  disabled={disabled}
+                  onChange={(e) => set({ holdoutPercent: e.target.value })}
+                  onBlur={() => announce(holdoutError)}
+                  placeholder="10"
+                />
+              </Field>
+            )}
+          </div>
+
+          <label htmlFor={quietId} className="flex items-start gap-2 text-sm leading-relaxed">
+            <input
+              id={quietId}
+              type="checkbox"
+              checked={value.ignoreQuietHours}
+              disabled={disabled}
+              aria-describedby={value.ignoreQuietHours ? quietNoticeId : undefined}
+              onChange={(e) => set({ ignoreQuietHours: e.target.checked })}
+              className="mt-0.5 size-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
+            />
+            <span className="min-w-0">
+              <span className="font-semibold">{t("optQuietHours")}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{t("optQuietHoursHint")}</span>
+            </span>
+          </label>
+          {/* 켜는 순간 들리도록 polite 영역 안에서 나타난다 */}
+          <div role="status" aria-live="polite">
+            {value.ignoreQuietHours && (
+              <p id={quietNoticeId} className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
+                <Gauge aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                <span>{t("optQuietHoursNotice")}</span>
+              </p>
+            )}
+          </div>
+          <div role="status" aria-live="polite">
+            {holdoutAllowed && value.holdoutPercent.trim() !== "" && !holdoutError && (
+              <p className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
+                <Users aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                <span>{t("optHoldoutNotice", { percent: value.holdoutPercent.trim() })}</span>
               </p>
             )}
           </div>

@@ -4,11 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Plus, Play, ChevronRight } from "lucide-react";
+import { Plus, Play, ChevronRight, Workflow } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
 import {
@@ -126,11 +128,11 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
         actions={
           <>
             <Button variant="outline" onClick={process} disabled={!sel}>
-              <Play aria-hidden="true" className="h-4 w-4" /> {t("processBtn")}
+              <Play aria-hidden="true" className="size-4" /> {t("processBtn")}
             </Button>
             {sel && (
               <Button onClick={() => setOpen(true)}>
-                <Plus aria-hidden="true" className="h-4 w-4" /> {t("newJourney")}
+                <Plus aria-hidden="true" className="size-4" /> {t("newJourney")}
               </Button>
             )}
           </>
@@ -167,13 +169,27 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
           <Card>
             <CardHeader><CardTitle>{t("listTitle", { count: journeys.length })}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {journeys.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
+              {/* 빈 목록도 다른 화면과 같은 EmptyState 로 — 맨 문장 하나만 두면 "여기서 무엇을
+                  할 수 있는지" 가 사라져 운영자가 다음 행동을 찾지 못한다 */}
+              {journeys.length === 0 && (
+                <EmptyState
+                  icon={Workflow}
+                  title={t("emptyTitle")}
+                  description={t("emptyDesc")}
+                  action={
+                    <Button onClick={() => setOpen(true)}>
+                      <Plus aria-hidden="true" className="size-4" /> {t("newJourney")}
+                    </Button>
+                  }
+                />
+              )}
               {journeys.map((j) => (
                 <Link
                   key={j.id}
                   href={`/projects/${sel}/journeys/${j.id}`}
                   aria-label={`${j.name} — ${tc("detail")}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3.5 py-2 transition-colors hover:bg-surface-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  // 카드(rounded-card) 안에 들어가는 줄은 한 단계 작은 반경(rounded-tile)
+                  className={`flex items-center justify-between gap-3 rounded-tile border border-border px-3.5 py-2 transition-colors hover:bg-surface-muted/50 ${FOCUS_RING}`}
                 >
                   <span className="truncate text-sm font-semibold">{j.name}</span>
                   <div className="flex shrink-0 items-center gap-2">
@@ -185,7 +201,7 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
                         </Badge>
                       ))}
                     </div>
-                    <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
                   </div>
                 </Link>
               ))}

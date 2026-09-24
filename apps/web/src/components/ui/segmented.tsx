@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { FOCUS_RING } from "./focus-ring";
 
 const NEXT_KEYS = new Set(["ArrowRight", "ArrowDown"]);
 const PREV_KEYS = new Set(["ArrowLeft", "ArrowUp"]);
@@ -47,9 +48,10 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      // 다른 컨트롤과 같은 36px·rounded-lg. 안쪽 여백 + rounded-[7px] 로 32px 를 만들던 것을
-      // 걷어냈다 — 선택 칸이 높이를 다 쓰고, 바깥 overflow-hidden 이 모서리를 대신 깎는다.
-      className={cn("inline-flex h-9 items-stretch overflow-hidden rounded-lg bg-surface-muted text-sm font-semibold", className)}
+      // 다른 컨트롤과 같은 36px·rounded-lg. 선택 칸이 높이를 다 쓰고 같은 반경을 가지므로
+      // 양 끝에서 바깥 모서리와 정확히 겹친다 — overflow-hidden 은 쓰지 않는다.
+      // (모서리를 깎으려고 넣으면 칸의 포커스 링 바깥쪽이 잘려 나가 링이 반쪽만 보인다)
+      className={cn("inline-flex h-9 items-stretch rounded-lg bg-surface-muted text-sm font-semibold", className)}
     >
       {options.map((opt, i) => (
         <button
@@ -65,8 +67,11 @@ export function Segmented<T extends string>({
           onClick={() => onChange(opt.value)}
           onKeyDown={(e) => onKeyDown(e, i)}
           className={cn(
-            "rounded-lg px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-            value === opt.value ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            "rounded-lg px-3 transition-colors",
+            // 칸이 놓인 면은 surface 가 아니라 surface-muted 라 링 오프셋 색만 갈아 끼운다
+            FOCUS_RING,
+            "focus-visible:ring-offset-surface-muted",
+            value === opt.value ? "bg-surface text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
           )}
         >
           {opt.label}

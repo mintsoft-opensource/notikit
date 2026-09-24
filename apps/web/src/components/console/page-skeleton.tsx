@@ -18,15 +18,38 @@ type Variant = "table" | "stats" | "form" | "detail" | "docs" | "frame";
 /** DataTable 의 행·헤더 좌우 여백과 같은 값 */
 const ROW_X = "px-3.5";
 
-export function PageSkeleton({ variant = "table" }: { variant?: Variant }) {
+/** 자리표시 줄이 실제 행처럼 보이도록 남기는 가로 비율 — 나머지는 열 사이 간격과 여백 몫 */
+const ROW_FILL = 74;
+
+/**
+ * 열 너비를 **칸 수에서 만든다**. 숫자를 박아 두면 열이 3개인 표에도 4칸짜리 줄이 그려져,
+ * 로딩이 끝나는 순간 열 수가 바뀌며 화면이 튄다 — 자리표시가 자리를 못 잡는 셈이다.
+ * 첫 열(이름)은 넓고 마지막 열(동작·시각)은 좁은 실제 표의 리듬을 가중치로 옮긴다.
+ */
+function columnWidths(columns: number): number[] {
+  const weights = Array.from({ length: columns }, (_, i) =>
+    i === 0 ? 2 : i === columns - 1 ? 1 : 1.5
+  );
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  return weights.map((w) => (w / total) * ROW_FILL);
+}
+
+export function PageSkeleton({
+  variant = "table",
+  columns = 4,
+}: {
+  variant?: Variant;
+  /** 도착할 표의 열 수 — 행 자리표시의 칸 너비가 여기서 나온다 */
+  columns?: number;
+}) {
   return (
     <div className="w-full space-y-4">
       <Header />
-      {variant === "table" && <TableBlock />}
+      {variant === "table" && <TableBlock columns={columns} />}
       {variant === "stats" && (
         <>
           <StatRow />
-          <TableBlock rows={6} />
+          <TableBlock rows={6} columns={columns} />
         </>
       )}
       {variant === "form" && <FormBlock />}
@@ -78,19 +101,20 @@ function StatRow({ count = 5 }: { count?: number }) {
   );
 }
 
-function TableBlock({ rows = 8 }: { rows?: number }) {
+function TableBlock({ rows = 8, columns = 4 }: { rows?: number; columns?: number }) {
+  const widths = columnWidths(columns);
   return (
     <Card className="overflow-hidden">
       {/* 헤더 줄 — 실제 표에도 항상 헤더가 있으므로 자리표시에도 있어야 한다 */}
       <div className={cn("flex items-center gap-4 border-b border-border bg-surface-muted/50 py-2", ROW_X)}>
         {/* 헤더 줄은 배경이 이미 surface-muted 라, 같은 색 자리표시는 묻혀 사라진다 */}
-        {[16, 24, 20, 14].map((w, i) => (
+        {widths.map((w, i) => (
           <Skeleton key={i} className="h-3 bg-border" style={{ width: `${w}%` }} />
         ))}
       </div>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className={cn("flex min-h-12 items-center gap-4 border-b border-border py-2.5 last:border-b-0", ROW_X)}>
-          {[16, 24, 20, 14].map((w, j) => (
+          {widths.map((w, j) => (
             <Skeleton key={j} className="h-3.5" style={{ width: `${w}%` }} />
           ))}
         </div>
@@ -143,7 +167,7 @@ function DocsBlock() {
           <Skeleton key={i} className="h-9 w-full" />
         ))}
       </div>
-      <Card className="min-w-0 px-4 py-3">
+      <Card className="min-w-0 p-3.5">
         <div className="space-y-3">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-3.5 w-full" />

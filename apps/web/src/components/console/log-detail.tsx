@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, RefreshCw, ScrollText } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, RefreshCw, SearchX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { AdminApiError, adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { RateBar, StatusChip, TestChip } from "./log-status";
+import { CancelSendDialog, isCancelable, useCancelSend, type CanceledLog } from "./send-cancel";
 import { AB_MIN_VARIANT_SAMPLE, AB_TIE_MARGIN, type AbTest, type AbVariantResult } from "@/lib/ab-test";
 
 type Log = {
@@ -28,8 +29,21 @@ type Log = {
   totalCount: number;
   successCount: number;
   failureCount: number;
+  /** 단말이 받았다고 보고한 수. FCM 접수(successCount)와 **다른 축**이다 — 접수는 기기가 꺼져 있어도 성공한다 */
+  deliveredCount: number;
   readCount: number;
   scheduledAt: string | null;
+  canceledAt: string | null;
+  canceledBy: string | null;
+  /** 받는 사람 현지 시각 "HH:MM" — 있으면 기기 시간대로 묶어 회차를 나눠 보냈다 */
+  localTime?: string | null;
+  /** 로케일별 문구 — `{ default: {...}, ko: {...} }` */
+  localeVariants?: LocaleContent | null;
+  /** 기본 문구로 떨어진 사람 수. 숨기면 "번역을 넣었다" 는 믿음만 남는다 */
+  localeFallbacks?: LocaleFallback | null;
+  /** 캠페인별 재정의 — 프로젝트 설정 중 이 발송이 덮은 것 */
+  ignoreQuietHours?: boolean | null;
+  maxSendsPerMinute?: number | null;
   variants: Array<{ title: string; body: string }> | null;
   variantStats: Record<string, { sent: number; success: number }> | null;
   /** A/B 자동 승자 — 표본 발송이면 설정·판정, 승자 본발송이면 어느 발송의 어떤 변형인지 */
@@ -49,6 +63,22 @@ type Log = {
   sentBy?: string | null;
 };
 
+type LocaleText = { title: string; body: string };
+type LocaleContent = Record<string, LocaleText>;
+/** 기본 문구로 떨어진 사람 수 — 전체와 로케일별. 로케일을 모르는 기기는 `""` 로 센다. */
+type LocaleFallback = { total: number; byLocale: Record<string, number> };
+
+/**
+ * 대조군 — 보내지 않고 전환만 비교한 집단.
+ * `lift` 는 대조군 전환율이 0 이면 비율이 성립하지 않아 null 이다(0% 나 무한대로 적지 않는다).
+ */
+type Holdout = {
+  percent: number | null;
+  devices: number;
+  conversions: { count: number; valueCents: number };
+  lift: number | null;
+};
+
 /** 변형별 클릭 — variant 가 null 인 행은 변형 없이 나간 발송의 클릭이다 */
 type VariantClicks = { byVariant: Array<{ variant: number | null; clicks: number }> };
 
@@ -59,7 +89,7 @@ type Conversions = {
   byName: Array<{ name: string; count: number; valueCents: number }>;
 };
 
-type LogDetailResponse = { log: Log; clicks?: VariantClicks; conversions?: Conversions };
+type LogDetailResponse = { log: Log; clicks?: VariantClicks; conversions?: Conversions; holdout?: Holdout };
 
 type Reader = {
   id: string;
@@ -84,6 +114,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
   const [log, setLog] = React.useState<Log | null>(null);
   const [variantClicks, setVariantClicks] = React.useState<VariantClicks | null>(null);
   const [conversions, setConversions] = React.useState<Conversions | null>(null);
+  const [holdout, setHoldout] = React.useState<Holdout | null>(null);
   const [readers, setReaders] = React.useState<Reader[] | null>(null);
   const [readersNext, setReadersNext] = React.useState<Cursor>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
@@ -100,6 +131,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
     setLog(null);
     setVariantClicks(null);
     setConversions(null);
+    setHoldout(null);
     setMissing(false);
     setFailed(false);
     (async () => {
@@ -109,6 +141,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
         setLog(d.log);
         setVariantClicks(d.clicks ?? null);
         setConversions(d.conversions ?? null);
+        setHoldout(d.holdout ?? null);
       } catch (e) {
         if (stale) return;
         if (e instanceof AdminApiError && e.status === 404) return setMissing(true);
@@ -173,15 +206,47 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
     }
   }
 
+  /**
+   * 취소한 뒤 **다시 받아오지 않고** 응답을 그대로 반영한다 — 응답의 `sent` 가 취소 시점에
+   * 굳힌 수이고, 재조회는 그사이 워커가 마지막 페이지를 적으면 다른 수를 보여 줄 수 있다.
+   */
+  const onCanceled = React.useCallback((c: CanceledLog) => {
+    setLog((cur) =>
+      cur
+        ? {
+            ...cur,
+            status: c.status,
+            canceledAt: c.canceled_at,
+            canceledBy: c.canceled_by,
+            totalCount: c.sent.total,
+            successCount: c.sent.success,
+            failureCount: c.sent.failure,
+          }
+        : cur
+    );
+  }, []);
+  const cancel = useCancelSend(projectId, onCanceled);
+
   const backHref = `/projects/${projectId}/logs/${log?.type === "topic" ? "topic" : "single"}`;
 
+  // "없음"과 "못 가져옴"은 같은 껍데기(Card + EmptyState)로 낸다 — 한쪽만 맨 버튼이면
+  // 같은 자리에서 다른 화면처럼 보이고, 되돌아갈 버튼이 매번 다른 곳에 선다.
   if (missing) {
     return (
       <div className="w-full space-y-4">
         <PageHeader title={tc("notFound")} />
-        <Button asChild variant="outline">
-          <Link href={`/projects/${projectId}/logs`}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
-        </Button>
+        <Card>
+          <EmptyState
+            icon={SearchX}
+            title={tc("notFound")}
+            description={tc("notFoundDesc")}
+            action={
+              <Button asChild variant="outline">
+                <Link href={`/projects/${projectId}/logs`}><ArrowLeft aria-hidden="true" className="size-4" /> {tc("back")}</Link>
+              </Button>
+            }
+          />
+        </Card>
       </div>
     );
   }
@@ -192,11 +257,14 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
         <PageHeader title={t("title")} />
         <Card>
           <EmptyState
-            icon={ScrollText}
+            icon={AlertTriangle}
+            // 빈 목록과 같은 회색이면 "로그가 없다"로 읽힌다 — 여기는 못 가져온 것이다
+            tone="error"
             title={tc("loadFailed")}
+            description={tc("loadFailedDesc")}
             action={
               <Button variant="outline" onClick={() => setAttempt((n) => n + 1)}>
-                <RefreshCw aria-hidden="true" className="h-4 w-4" /> {tc("retry")}
+                <RefreshCw aria-hidden="true" className="size-4" /> {tc("retry")}
               </Button>
             }
           />
@@ -225,9 +293,16 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
         title={log.title}
         description={`${log.type}${log.target ? ` · ${log.target}` : ""}`}
         actions={
-          <Button asChild variant="ghost">
-            <Link href={backHref}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
-          </Button>
+          <>
+            {isCancelable(log.status) && (
+              <Button variant="destructive" onClick={() => cancel.ask({ id: log.id, title: log.title })}>
+                <Ban aria-hidden="true" className="size-4" /> {t("cancel")}
+              </Button>
+            )}
+            <Button asChild variant="ghost">
+              <Link href={backHref}><ArrowLeft aria-hidden="true" className="size-4" /> {tc("back")}</Link>
+            </Button>
+          </>
         }
       />
 
@@ -246,7 +321,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
               <p className="break-all font-mono text-xs text-muted-foreground">{log.deepLink}</p>
             )}
             {log.data && Object.keys(log.data).length > 0 && (
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all bg-surface-muted p-3 text-2xs text-muted-foreground">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-tile bg-surface-muted p-3.5 text-2xs text-muted-foreground">
                 {JSON.stringify(log.data, null, 2)}
               </pre>
             )}
@@ -254,7 +329,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
               <div className="space-y-2 border-t border-border pt-3">
                 <p className="text-xs font-semibold text-muted-foreground">{t("variantsTitle")}</p>
                 {log.variants.map((v, i) => (
-                  <div key={i} className="rounded-lg border border-border p-2.5 text-sm">
+                  <div key={i} className="rounded-tile border border-border p-3.5 text-sm">
                     <span className="flex min-w-0 items-center gap-2">
                       <Badge variant="neutral">{t("variantName", { letter: String.fromCharCode(65 + i) })}</Badge>
                       <span className="truncate font-semibold">{v.title}</span>
@@ -282,10 +357,31 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
                 }
               />
               <DataRow label={t("colDelivered")} value={`${nf.format(log.successCount)} / ${nf.format(log.totalCount)} (${rate(log.successCount, log.totalCount)})`} />
+              {/* 접수(success)와 **다른 줄**이다 — 접수는 기기가 꺼져 있어도 성공한다 */}
+              <DataRow
+                label={
+                  <span className="flex flex-col">
+                    <span>{t("colReceipts")}</span>
+                    <span className="text-2xs text-muted-foreground">{t("receiptsHint")}</span>
+                  </span>
+                }
+                value={`${nf.format(log.deliveredCount ?? 0)} (${rate(log.deliveredCount ?? 0, log.successCount)})`}
+              />
               <DataRow label={t("colReadRate")} value={`${nf.format(log.readCount)} (${rate(log.readCount, log.successCount)})`} />
               <DataRow label={t("readers")} value={`${nf.format(log.clickUserCount)} / ${nf.format(log.audienceUserCount)} (${rate(log.clickUserCount, log.audienceUserCount)})`} />
               {log.kakaoFallback && <DataRow label="Kakao" value={nf.format(log.kakaoCount)} />}
               <DataRow label={t("sentBy")} value={sentByText(log.sentBy)} />
+              {log.canceledAt && <DataRow label={t("canceledAt")} value={new Date(log.canceledAt).toLocaleString(locale)} />}
+              {log.canceledBy && <DataRow label={t("canceledBy")} value={log.canceledBy} />}
+              {/* 캠페인별 재정의는 **덮었을 때만** 적는다 — 기본값까지 줄로 두면 무엇이 특별한지 안 보인다 */}
+              {log.ignoreQuietHours && <DataRow label={t("ignoreQuietHours")} value={t("ignoreQuietHoursValue")} />}
+              {log.maxSendsPerMinute !== null && log.maxSendsPerMinute !== undefined && (
+                <DataRow
+                  label={t("maxSendsPerMinute")}
+                  value={log.maxSendsPerMinute === 0 ? t("unlimited") : nf.format(log.maxSendsPerMinute)}
+                />
+              )}
+              {log.localTime && <DataRow label={t("localTime")} value={log.localTime} />}
               {log.scheduledAt && <DataRow label={t("colSentAt")} value={new Date(log.scheduledAt).toLocaleString(locale)} />}
               <DataRow label={tc("createdAt")} value={new Date(log.createdAt).toLocaleString(locale)} />
               <DataRow label="ID" value={log.id} />
@@ -294,6 +390,30 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
           </CardContent>
         </Card>
       </div>
+
+      {/* 취소는 "멈췄다" 가 아니라 "여기까지 갔다" 가 핵심이다 — 나간 수를 화면에 남긴다 */}
+      {log.status === "canceled" && (
+        <Card>
+          <CardHeader><CardTitle>{t("canceledTitle")}</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm">
+              {t("canceledSent", {
+                success: nf.format(log.successCount),
+                total: nf.format(log.totalCount),
+                failure: nf.format(log.failureCount),
+                holdout: nf.format(holdout?.devices ?? 0),
+              })}
+            </p>
+            <p className="text-xs text-muted-foreground">{t("canceledHint")}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {log.localeVariants && Object.keys(log.localeVariants).length > 0 && (
+        <LocaleCard content={log.localeVariants} fallback={log.localeFallbacks ?? null} />
+      )}
+
+      {holdout && holdout.percent !== null && holdout.percent > 0 && <HoldoutCard holdout={holdout} />}
 
       {log.abTest && <AbTestCard projectId={projectId} ab={log.abTest} />}
 
@@ -335,6 +455,8 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
           )}
         </CardContent>
       </Card>
+
+      <CancelSendDialog target={cancel.target} busy={cancel.busy} onConfirm={cancel.confirm} onClose={cancel.close} />
     </div>
   );
 }
@@ -441,7 +563,7 @@ function VariantComparison({
     rows.map((s, i) => (s && s.success > 0 && clickByVariant.has(i) ? (clickByVariant.get(i) ?? 0) / s.success : null))
   );
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-tile border border-border">
       <table className="w-full text-sm">
         <caption className="sr-only">{t("variantCompareCaption")}</caption>
         <thead className="border-b border-border bg-surface-muted/50">
@@ -559,7 +681,7 @@ function AbResultsTable({ results, winner }: { results: AbVariantResult[]; winne
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div className="overflow-x-auto rounded-tile border border-border">
       <table className="w-full text-sm">
         <caption className="sr-only">{t("abResultsCaption")}</caption>
         <thead className="border-b border-border bg-surface-muted/50">
@@ -630,6 +752,108 @@ function ConversionsCard({ conversions }: { conversions: Conversions }) {
         ) : (
           <p className="text-sm text-muted-foreground">{t("conversionsNone")}</p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * 로케일별 문구와 **폴백 관측**.
+ *
+ * 폴백 수를 숨기면 "일본어를 넣었다" 는 믿음만 남고, 실제로는 `ja_JP` 가 `ja` 에 안 붙어
+ * 아무도 못 받은 상태를 아무도 모른다. 그래서 몇 명이 기본 문구를 받았는지, 그 사람들의
+ * 로케일이 무엇이었는지를 문구 목록보다 **먼저** 보여 준다.
+ */
+function LocaleCard({ content, fallback }: { content: LocaleContent; fallback: LocaleFallback | null }) {
+  const t = useTranslations("logs");
+  const locale = useLocale();
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const rows = React.useMemo(
+    () => Object.entries(fallback?.byLocale ?? {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]),
+    [fallback]
+  );
+  const total = fallback?.total ?? 0;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>{t("localesTitle")}</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2 rounded-lg border border-border p-3.5">
+          <p className="text-sm font-semibold">
+            {total > 0 ? t("localeFallbackTotal", { count: nf.format(total) }) : t("localeFallbackNone")}
+          </p>
+          <p className="text-xs text-muted-foreground">{t("localeFallbackHint")}</p>
+          {rows.length > 0 && (
+            <ul className="space-y-1 border-t border-border pt-2">
+              {rows.map(([tag, count]) => (
+                <li key={tag} className="flex min-w-0 items-baseline justify-between gap-3 text-xs">
+                  {/* 로케일을 모르는 기기는 빈 문자열로 온다 — 빈 줄로 두면 무엇인지 알 수 없다 */}
+                  <span className="min-w-0 truncate font-mono">{tag || t("localeUnknown")}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{nf.format(count)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <ul className="space-y-2">
+          {Object.entries(content).map(([tag, text]) => (
+            <li key={tag} className="rounded-tile border border-border p-3.5 text-sm">
+              <span className="flex min-w-0 items-center gap-2">
+                <Badge variant="neutral">{tag === "default" ? t("localeDefault") : tag}</Badge>
+                <span className="truncate font-semibold">{text.title}</span>
+              </span>
+              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{text.body}</p>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * 대조군 — 보내지 않고 전환만 비교한 집단. A/B 는 변형끼리만 비교하므로
+ * "푸시가 없었을 때보다 나은가" 는 여기서만 답이 나온다.
+ *
+ * 리프트가 null 인 경우를 0% 로 적지 않는다 — 대조군 전환이 하나도 없으면 비율 자체가
+ * 성립하지 않는다. "0% 개선" 과 "잴 수 없음" 은 정반대의 뜻이다.
+ */
+function HoldoutCard({ holdout }: { holdout: Holdout }) {
+  const t = useTranslations("logs");
+  const locale = useLocale();
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const pf = React.useMemo(
+    () => new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1, signDisplay: "exceptZero" }),
+    [locale]
+  );
+  return (
+    <Card>
+      <CardHeader><CardTitle>{t("holdoutTitle")}</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutPercent")}</dt>
+            <dd className="mt-1 text-xl font-extrabold tabular-nums">{holdout.percent ?? 0}%</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutDevices")}</dt>
+            <dd className="mt-1 text-xl font-extrabold tabular-nums">{nf.format(holdout.devices)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutConversions")}</dt>
+            <dd className="mt-1 text-xl font-extrabold tabular-nums">{nf.format(holdout.conversions.count)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutLift")}</dt>
+            <dd className="mt-1 text-xl font-extrabold tabular-nums">
+              {holdout.lift === null ? "—" : pf.format(holdout.lift)}
+            </dd>
+          </div>
+        </dl>
+        <p className="text-xs text-muted-foreground">
+          {holdout.lift === null ? t("holdoutLiftNone") : t("holdoutHint")}
+        </p>
       </CardContent>
     </Card>
   );

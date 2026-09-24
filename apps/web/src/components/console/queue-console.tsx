@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Clock, Hourglass, Layers, Play, RefreshCw, Timer } from "lucide-react";
+import { Ban, Clock, Hourglass, Layers, Play, RefreshCw, Timer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
 import { formatDuration } from "@/components/console/panels";
 import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { CancelSendDialog, isCancelable, useCancelSend } from "@/components/console/send-cancel";
 
 type QueueItem = {
   id: string;
@@ -40,6 +41,7 @@ const statusVariant = (s: string) =>
 /** 발송 큐 — 아직 나가지 않은 건과 대기 시간. 워커 정지·예약 적체가 여기서 드러난다. */
 export function QueueConsole({ projectId }: { projectId?: string }) {
   const t = useTranslations("queue");
+  const tl = useTranslations("logs");
   const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -77,6 +79,9 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
     if (sel) load(sel);
     else setData(null);
   }, [sel, load]);
+
+  // 취소는 큐에서 바로 보이는 자리에 둔다 — 적체를 발견하는 화면이 곧 멈추는 화면이다
+  const cancel = useCancelSend(sel, () => void load(sel));
 
   async function processQueue() {
     if (!sel || busy) return;
@@ -154,7 +159,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
               {data && data.items.length > 0 && (
                 <DataTable label={t("title")} rowCount={data.items.length + 1}>
                   <TableHeader
-                    grid="xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem]"
+                    grid="xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem_6rem]"
                     columns={[
                       { label: t("colTitle") },
                       { label: t("colType") },
@@ -162,6 +167,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
                       { label: t("colAudience"), align: "end" },
                       { label: t("colWhen"), align: "end" },
                       { label: t("colStatus"), align: "end" },
+                      { label: tl("cancel"), align: "end" },
                     ]}
                   />
                   <TableBody>
@@ -173,7 +179,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
                       return (
                         <TableRow
                           key={it.id}
-                          className="grid min-h-14 gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem] xl:items-center"
+                          className="grid min-h-14 gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem_6rem] xl:items-center"
                         >
                           <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">{it.title}</TableCell>
                           <TableCell label={t("colType")} className="text-xs text-muted-foreground">{it.type}</TableCell>
@@ -193,6 +199,20 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
                           <TableCell label={t("colStatus")} className="xl:justify-self-end">
                             <Badge variant={statusVariant(it.status)}>{it.status}</Badge>
                           </TableCell>
+                          <TableCell label={tl("cancel")} className="xl:justify-self-end">
+                            {isCancelable(it.status) ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => cancel.ask({ id: it.id, title: it.title })}
+                                aria-label={tl("cancelNamed", { title: it.title })}
+                              >
+                                <Ban aria-hidden="true" className="size-4" /> {tl("cancel")}
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -206,6 +226,8 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
           </Card>
         </>
       )}
+
+      <CancelSendDialog target={cancel.target} busy={cancel.busy} onConfirm={cancel.confirm} onClose={cancel.close} />
     </div>
   );
 }

@@ -27,6 +27,8 @@ type Log = {
   status: string;
   totalCount: number;
   successCount: number;
+  /** 단말 수신 보고 수 — FCM 접수(successCount)와 다른 축이다 */
+  deliveredCount: number;
   audienceUserCount: number;
   audienceDeviceCount: number;
   clickCount: number;
@@ -223,13 +225,14 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
             <>
             <DataTable label={title} rowCount={logs.length + 1}>
             <TableHeader
-              grid="xl:grid-cols-[auto_minmax(0,1fr)_9rem_11rem_10rem_7rem_7.5rem]"
+              grid="xl:grid-cols-[auto_minmax(0,1fr)_9rem_11rem_10rem_8rem_7rem_7.5rem]"
               columns={[
                 { label: "", blank: true },
                 { label: t("colTitle") },
                 { label: t("colTargetName") },
                 { label: t("colSentAt"), align: "end" },
                 { label: t("colDelivered"), align: "end" },
+                { label: t("colReceipts"), align: "end" },
                 { label: t("colReadRate"), align: "end" },
                 { label: t("colStatus"), align: "end" },
               ]}
@@ -241,7 +244,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                   // 펼침 상세를 담으려면 한 겹이 더 필요하다. presentation 을 주지 않으면
                   // 이 요소가 rowgroup 과 row 사이에 끼어 표 구조가 끊긴다.
                   <div key={l.id} role="presentation">
-                    <TableRow className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_11rem_10rem_7rem_7.5rem]">
+                    <TableRow className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[auto_minmax(0,1fr)_9rem_11rem_10rem_8rem_7rem_7.5rem]">
                       <TableCell label={t("readers")}>
                       {expandable ? (
                         <Button
@@ -276,6 +279,14 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                       <TableCell label={t("colDelivered")} className="flex items-center justify-end gap-2 text-xs font-semibold tabular-nums">
                         <span className="text-muted-foreground">{nf.format(l.successCount)}/{nf.format(l.totalCount)}</span>
                         <RateBar num={l.successCount} den={l.totalCount} tone="success" />
+                      </TableCell>
+                      {/*
+                        접수(성공)와 **다른 열**이다. 한 칸에 합치면 "FCM 이 받아 줬다" 와
+                        "단말에 닿았다" 가 같은 수로 보이는데, 기기가 꺼져 있으면 앞은 성공하고 뒤는 0 이다.
+                      */}
+                      <TableCell label={t("colReceipts")} className="flex items-center justify-end gap-2 text-xs font-semibold tabular-nums">
+                        <span className="text-muted-foreground">{nf.format(l.deliveredCount ?? 0)}</span>
+                        <RateBar num={l.deliveredCount ?? 0} den={l.successCount} tone="primary" />
                       </TableCell>
                       <TableCell label={t("colReadRate")} className="flex items-center justify-end text-xs font-semibold">
                         <RateBar num={l.clickUserCount} den={l.audienceUserCount} tone="primary" />

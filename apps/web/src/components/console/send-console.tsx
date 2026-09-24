@@ -36,6 +36,13 @@ import {
   type VariantDraft,
 } from "@/components/console/send-variants";
 import {
+  SendLocaleFields,
+  buildLocales,
+  hasLocaleErrors,
+  type LocalePayload,
+  type LocaleRowDraft,
+} from "@/components/console/send-locales";
+import {
   SendOptions,
   buildSendOptions,
   emptySendOptions,
@@ -68,6 +75,14 @@ type Content = {
   local_time?: string;
   /** A/B 자동 승자 — 변형이 있는 발송에만 붙는다 */
   ab_test?: AbTestPayload;
+  /** 로케일별 문구 — 변형과 함께 쓸 수 없다(서버도 422) */
+  locales?: LocalePayload;
+  /** 대조군 비율(%) — 단건 발송에는 쓸 수 없다 */
+  holdout_percent?: number;
+  /** 방해금지 시간대 재정의. 덮을 때만(false) 싣는다. */
+  quiet_hours?: false;
+  /** 분당 발송 상한 재정의. 0 은 "이 발송은 제한 없음". */
+  max_sends_per_minute?: number;
 };
 
 /**
@@ -115,8 +130,19 @@ export function SendConsole({
   const [deepLink, setDeepLink] = React.useState("");
   const [imageUrl, setImageUrl] = React.useState("");
   const [sendOptions, setSendOptions] = React.useState<SendOptionsDraft>(emptySendOptions);
-  const builtOptions = React.useMemo(() => buildSendOptions(sendOptions), [sendOptions]);
+  /** 단건 발송은 받는 사람이 한 명이라 대조군이 성립하지 않는다 — 서버도 같은 이유로 422 */
+  const holdoutAllowed = type !== "single";
+  const builtOptions = React.useMemo(
+    () => buildSendOptions(sendOptions, holdoutAllowed),
+    [sendOptions, holdoutAllowed]
+  );
   const optionsInvalid = hasSendOptionErrors(builtOptions.errors);
+  const [localeRows, setLocaleRows] = React.useState<LocaleRowDraft[]>([]);
+  const builtLocales = React.useMemo(
+    () => buildLocales(localeRows, variants.length > 0),
+    [localeRows, variants.length]
+  );
+  const localesInvalid = hasLocaleErrors(builtLocales.errors);
   const [optionsReveal, setOptionsReveal] = React.useState(0);
   /** 무음 푸시는 알림을 그리지 않으므로 제목·본문 없이도 성립한다 — 서버 finalizeMessage 와 같은 규칙 */
   const silent = sendOptions.silent;
@@ -153,8 +179,6 @@ export function SendConsole({
    * 값이 채워지면 메시지는 저절로 사라진다 — 끄는 조작이 따로 필요 없다.
    */
   const [showErrors, setShowErrors] = React.useState(false);
-  /** 막힌 이유를 한 번만 읽어 준다. 타이핑 중에 끼어들지 않도록 polite 한 곳에서만. */
-  const [liveError, setLiveError] = React.useState("");
   const [focusTick, setFocusTick] = React.useState(0);
   const formRef = React.useRef<HTMLDivElement>(null);
 
@@ -320,10 +344,13 @@ export function SendConsole({
 
   /** 내용 검사 + 발송 본문. 테스트 발송과 실제 발송이 같은 내용을 보낸다. */
   function buildContent(): Content | null {
-    // 토스트는 사라진다 — 막힌 이유를 칸 옆에 남기고(showErrors), 첫 잘못된 칸으로 포커스를 옮긴다
+    /**
+     * 토스트는 사라진다 — 막힌 이유를 칸 옆에 남기고(showErrors), 첫 잘못된 칸으로 포커스를 옮긴다.
+     * 읽어 주는 일은 토스트에 맡긴다(sonner 가 polite 알림 영역에 그린다). 같은 문장을 sr-only
+     * 영역에 한 번 더 두면 스크린리더가 두 번 읽고, 화면에는 같은 문구가 두 곳에 존재하게 된다.
+     */
     const blocked = (message: string): null => {
       setShowErrors(true);
-      setLiveError(message);
       setFocusTick((n) => n + 1);
       toast.error(message);
       return null;
@@ -340,8 +367,10 @@ export function SendConsole({
     }
     if (variants.some((v) => !v.title.trim() || !v.body.trim())) return blocked(t("errVariantEmpty"));
     if (abInvalid) return blocked(t("errAbTestInvalid"));
+    if (localesInvalid) {
+      return blocked(builtLocales.errors.withVariants ? t("errLocalesWithVariants") : t("errLocalesInvalid"));
+    }
     setShowErrors(false);
-    setLiveError("");
     const content: Content = { title, body };
     if (variants.length > 0) {
       content.variants = [{ title, body }, ...variants.map((v) => ({ title: v.title, body: v.body }))];
@@ -351,7 +380,11 @@ export function SendConsole({
     if (validImage) content.image_url = validImage;
     if (builtOptions.options) content.options = builtOptions.options;
     if (builtOptions.localTime) content.local_time = builtOptions.localTime;
+    if (builtOptions.holdoutPercent !== undefined) content.holdout_percent = builtOptions.holdoutPercent;
+    if (builtOptions.quietHours === false) content.quiet_hours = false;
+    if (builtOptions.maxSendsPerMinute !== undefined) content.max_sends_per_minute = builtOptions.maxSendsPerMinute;
     if (builtAbTest.value) content.ab_test = builtAbTest.value;
+    if (builtLocales.locales) content.locales = builtLocales.locales;
     return content;
   }
 
@@ -425,6 +458,7 @@ export function SendConsole({
       setFieldValues({});
       setExtras([]);
       setSendOptions(emptySendOptions());
+      setLocaleRows([]);
     }
 
     // 예약 건은 지금 처리하지 않는다. 즉시 처리하면 예약 시각을 무시하고 나간다.
@@ -488,7 +522,7 @@ export function SendConsole({
 
   const variantsDone = variants.every((v) => v.title.trim() && v.body.trim());
   const contentDone =
-    (silent || Boolean(title && body)) && variantsDone && !abInvalid && !custom.error && imageState !== "notHttps" && imageState !== "invalid";
+    (silent || Boolean(title && body)) && variantsDone && !abInvalid && !localesInvalid && !custom.error && imageState !== "notHttps" && imageState !== "invalid";
   const optionsDone = !optionsInvalid;
   const shown = audience.shown;
 
@@ -498,9 +532,6 @@ export function SendConsole({
 
       <div className="grid flex-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div ref={formRef} className="flex min-w-0 flex-col gap-4">
-          {/* 막힌 이유를 한 번 읽어 준다. 눈으로 보는 메시지는 칸 옆에 계속 떠 있다. */}
-          <p role="status" aria-live="polite" className="sr-only">{liveError}</p>
-
           <StepCard step={1} title={t("sectionTarget")} done={hasTarget}>
             <SendTarget projectId={projectId} type={type} target={target} onTarget={setTarget} users={users} onUsers={setUsers} />
           </StepCard>
@@ -556,6 +587,13 @@ export function SendConsole({
             {abAllowed && (
               <SendAbTestFields value={abTest} onChange={setAbTest} errors={builtAbTest.errors} disabled={sending} />
             )}
+            <SendLocaleFields
+              rows={localeRows}
+              onRows={setLocaleRows}
+              errors={builtLocales.errors}
+              hasVariants={variants.length > 0}
+              disabled={sending}
+            />
             <SendImageField value={imageUrl} onChange={setImageUrl} disabled={sending} />
             <Field label={t("deepLink")} hint={t("helpDeepLink")}>
               <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
@@ -599,6 +637,7 @@ export function SendConsole({
               errors={builtOptions.errors}
               revealAt={optionsReveal}
               disabled={sending}
+              holdoutAllowed={holdoutAllowed}
             />
             <div className="space-y-2 border-t border-border pt-4">
               <p className="text-xs font-semibold text-foreground">{t("sectionCustomFields")}</p>
@@ -700,8 +739,12 @@ export function SendConsole({
   );
 }
 
-/** 테스트 발송은 한 사람에게 가므로 변형 배정도 A/B 판정도 없이 기본 내용(A)을 보낸다 */
-function withoutVariants(content: Content): Omit<Content, "variants" | "ab_test"> {
-  const { variants: _variants, ab_test: _abTest, ...rest } = content;
+/**
+ * 테스트 발송은 한 사람(type=single)에게 가므로 변형 배정도 A/B 판정도 없이 기본 내용(A)을 보낸다.
+ * 대조군도 뺀다 — 단건은 서버가 422 로 막고, 하필 그 한 명이 빠지면 "보냈는데 안 갔다" 가 된다.
+ * 로케일 문구는 남겨 둔다: 고른 사람의 언어로 실제로 어떤 문구가 가는지 보는 것이 테스트의 목적이다.
+ */
+function withoutVariants(content: Content): Omit<Content, "variants" | "ab_test" | "holdout_percent"> {
+  const { variants: _variants, ab_test: _abTest, holdout_percent: _holdout, ...rest } = content;
   return rest;
 }

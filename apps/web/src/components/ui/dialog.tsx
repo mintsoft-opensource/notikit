@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { FOCUS_RING } from "./focus-ring";
+import { useExitTransition } from "./use-exit-transition";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -94,10 +96,17 @@ export function Dialog({
   const descId = React.useId();
   /** 닫은 뒤 포커스를 열기 전 위치로 돌려준다 — 키보드 사용자가 목록에서 길을 잃지 않게 */
   const restoreRef = React.useRef<HTMLElement | null>(null);
+  // 나가는 동작이 끝날 때까지만 더 그린다(그 사이에도 창은 화면에 남아 있다)
+  const { rendered, leaving } = useExitTransition(open);
 
   React.useEffect(() => {
-    if (!open) return;
-    restoreRef.current = document.activeElement as HTMLElement | null;
+    if (open) restoreRef.current = document.activeElement as HTMLElement | null;
+  }, [open]);
+
+  React.useEffect(() => {
+    // 스크롤 잠금은 **보이는 동안** 유지한다 — 나가는 150ms 사이에 풀면 스크롤바가
+    // 되살아나며 배경이 옆으로 흔들린다.
+    if (!rendered) return;
 
     // 배경 스크롤 잠금. 스크롤바가 사라지며 생기는 가로 흔들림은 padding 으로 상쇄한다.
     const { overflow, paddingRight } = document.body.style;
@@ -109,15 +118,20 @@ export function Dialog({
       document.body.style.overflow = overflow;
       document.body.style.paddingRight = paddingRight;
     };
-  }, [open]);
+  }, [rendered]);
 
+  /**
+   * `rendered` 도 함께 본다. 나가는 동작이 생기면서 패널은 `open` 이 true 가 된 **다음**
+   * 커밋에 붙는다 — `open` 만 의존하면 이 효과는 ref 가 아직 null 인 첫 커밋에서 한 번 돌고
+   * 끝나, 첫 포커스도 포커스 트랩도 배경 inert 도 걸리지 않는다.
+   */
   React.useEffect(() => {
-    if (!open) return;
+    if (!open || !rendered) return;
     initialFocusTarget(bodyRef.current, panelRef.current, initialFocus)?.focus();
-  }, [open, initialFocus]);
+  }, [open, rendered, initialFocus]);
 
   React.useEffect(() => {
-    if (!open) return;
+    if (!open || !rendered) return;
     const container = containerRef.current;
     const panel = panelRef.current;
     if (!container || !panel) return;
@@ -157,7 +171,7 @@ export function Dialog({
       // 배경 inert 를 푼 **뒤에** 돌려준다 — inert 인 동안엔 focus() 가 무시된다
       restoreRef.current?.focus?.();
     };
-  }, [open, initialFocus]);
+  }, [open, rendered, initialFocus]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -196,19 +210,30 @@ export function Dialog({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [open, onClose]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (!rendered || typeof document === "undefined") return null;
 
   const width = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl" }[size];
 
   return createPortal(
-    <div ref={containerRef} className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
+    <div
+      ref={containerRef}
+      className={cn(
+        "fixed inset-0 z-[60] flex items-end justify-center sm:items-center",
+        // 나가는 동안엔 이미 닫힌 창이다 — 클릭을 받으면 안 된다
+        leaving && "pointer-events-none"
+      )}
+    >
       {/* 배경 클릭으로 닫기. 폼 내용이 날아가므로 저장되지 않은 변경이 있으면 호출측이 막는다. */}
       <button
         type="button"
         aria-label={tc("close")}
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-foreground/40 backdrop-blur-[2px]"
+        className={cn(
+          // bg-overlay 는 두 테마 모두 어두운 막이다(foreground 는 다크에서 밝아져 뒤집힌다)
+          "absolute inset-0 cursor-default bg-overlay backdrop-blur-[2px]",
+          leaving ? "animate-overlay-out" : "animate-overlay-in"
+        )}
       />
       <div
         ref={panelRef}
@@ -219,7 +244,8 @@ export function Dialog({
         tabIndex={-1}
         className={cn(
           // 모바일은 바텀시트, 데스크톱은 가운데. 긴 폼에서도 화면을 넘지 않게 스크롤은 본문에서만.
-          "relative flex max-h-[90dvh] w-full flex-col rounded-t-card border border-border bg-surface shadow-lg outline-none sm:rounded-card",
+          "relative flex max-h-[90dvh] w-full flex-col rounded-t-card border border-border bg-surface shadow-elevated outline-none sm:rounded-card",
+          leaving ? "animate-modal-out" : "animate-modal-in",
           width
         )}
       >
@@ -239,9 +265,12 @@ export function Dialog({
             onClick={onClose}
             aria-label={tc("close")}
             // 칸 밖에 따로 서 있는 버튼이므로 다른 단독 컨트롤과 같은 36px(D3)
-            className="-my-1.5 -me-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn(
+              "-my-1.5 -me-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground",
+              FOCUS_RING
+            )}
           >
-            <X aria-hidden="true" className="h-4 w-4" />
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
 

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useDarkMode } from "./use-dark-mode";
 
 export function ThemeToggle() {
@@ -21,13 +22,17 @@ export function ThemeToggle() {
   }
 
   return (
-    <button
+    // 헤더의 다른 아이콘 버튼과 같은 Button — 직접 만든 button 에는 포커스 링이 없어
+    // 키보드로 헤더를 지날 때 이 버튼에서만 위치가 보이지 않았다.
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onClick={toggle}
       aria-label={dark ? t("toLightMode") : t("toDarkMode")}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+      className="text-muted-foreground hover:text-foreground"
     >
-      {dark ? <Sun aria-hidden="true" className="h-4 w-4" /> : <Moon aria-hidden="true" className="h-4 w-4" />}
-    </button>
+      {dark ? <Sun aria-hidden="true" className="size-4" /> : <Moon aria-hidden="true" className="size-4" />}
+    </Button>
   );
 }

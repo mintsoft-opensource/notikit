@@ -68,9 +68,13 @@ export function TableBody({ children, className }: { children: React.ReactNode; 
   );
 }
 
+/**
+ * 행. 마우스가 얹힌 줄을 표시한다 — 열이 많은 표에서 가로로 눈을 옮기면 한 줄 위아래로
+ * 미끄러지기 쉽고, 그때 읽은 값이 어느 행의 것인지 알 수 없게 된다.
+ */
 export function TableRow({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div role="row" className={className}>
+    <div role="row" className={cn("transition-colors hover:bg-surface-muted/50", className)}>
       {children}
     </div>
   );

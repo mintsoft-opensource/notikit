@@ -150,15 +150,15 @@ export function UpdatePanel() {
    */
   const errorNotice = loadError && (
     <div className="space-y-2">
-      <Notice tone="warn" icon={<XCircle aria-hidden="true" className="h-4 w-4 text-destructive" />}>
+      <Notice tone="warn" icon={<XCircle aria-hidden="true" className="size-4 text-error" />}>
         {t("loadFailed")}
       </Notice>
       {/* 원문 그대로 — 이 문자열이 지원 요청에 붙는 유일한 단서다 */}
-      <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-surface-muted p-3 text-2xs text-muted-foreground">
+      <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-tile bg-surface-muted p-3.5 text-2xs text-muted-foreground">
         {loadError}
       </pre>
       <Button variant="outline" disabled={retrying} onClick={retry}>
-        <RefreshCw aria-hidden="true" className={`me-1.5 h-4 w-4 ${retrying ? "motion-safe:animate-spin" : ""}`} />
+        <RefreshCw aria-hidden="true" className={`me-1.5 size-4 ${retrying ? "motion-safe:animate-spin" : ""}`} />
         {t("retry")}
       </Button>
     </div>
@@ -167,7 +167,7 @@ export function UpdatePanel() {
   if (!data && !unreachable) {
     return (
       <Card>
-        <CardContent className={loadError ? "space-y-3 pt-4" : "py-6 text-sm text-muted-foreground"}>
+        <CardContent className={loadError ? "space-y-4 pt-4" : "py-6 text-sm text-muted-foreground"}>
           {errorNotice || "…"}
         </CardContent>
       </Card>
@@ -177,7 +177,7 @@ export function UpdatePanel() {
   return (
     <div className="w-full space-y-4">
       <Card>
-        <CardContent className="space-y-3 pt-4">
+        <CardContent className="space-y-4 pt-4">
           <DataRow label={t("current")} value={data?.current ?? "—"} />
           {data?.latest && <DataRow label={t("latest")} value={data.latest.version} />}
 
@@ -185,7 +185,7 @@ export function UpdatePanel() {
           {errorNotice}
 
           {unreachable && (
-            <Notice tone="info" icon={<RefreshCw aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />}>
+            <Notice tone="info" icon={<RefreshCw aria-hidden="true" className="size-4 motion-safe:animate-spin" />}>
               {t("restarting")}
             </Notice>
           )}
@@ -195,15 +195,15 @@ export function UpdatePanel() {
           {!unreachable && data?.status === "unreachable" && <Notice tone="warn">{t("unreachable")}</Notice>}
 
           {!busy && data?.status === "ok" && !data.outdated && (
-            <Notice tone="ok" icon={<CheckCircle2 aria-hidden="true" className="h-4 w-4" />}>{t("upToDate")}</Notice>
+            <Notice tone="ok" icon={<CheckCircle2 aria-hidden="true" className="size-4" />}>{t("upToDate")}</Notice>
           )}
 
           {!busy && data?.outdated && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <Notice tone="info">{t("available")}</Notice>
               {/* 스키마가 바뀌면 되돌리기가 백업 복원뿐이다. 누르기 전에 알아야 한다. */}
               {data.latest?.hasMigrations && (
-                <Notice tone="warn" icon={<AlertTriangle aria-hidden="true" className="h-4 w-4" />}>{t("hasMigrations")}</Notice>
+                <Notice tone="warn" icon={<AlertTriangle aria-hidden="true" className="size-4" />}>{t("hasMigrations")}</Notice>
               )}
               {data.blockedBy && (
                 <Notice tone="warn">{t("blocked", { version: data.blockedBy })}</Notice>
@@ -213,7 +213,7 @@ export function UpdatePanel() {
                   onClick={() => install({ target_version: data.latest!.version })}
                   disabled={starting || !!data.blockedBy}
                 >
-                  <Download aria-hidden="true" className="me-1.5 h-4 w-4" />
+                  <Download aria-hidden="true" className="me-1.5 size-4" />
                   {starting ? t("installing") : t("install")}
                 </Button>
               ) : (
@@ -253,11 +253,11 @@ export function UpdatePanel() {
 
       <Card>
         <CardHeader><CardTitle>{t("supportBundle")}</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("supportBundleHint")}</p>
           <Button asChild variant="secondary">
             <a href="/api/admin/support-bundle" download>
-              <LifeBuoy aria-hidden="true" className="me-1.5 h-4 w-4" />
+              <LifeBuoy aria-hidden="true" className="me-1.5 size-4" />
               {t("downloadSupportBundle")}
             </a>
           </Button>
@@ -271,16 +271,16 @@ function LicenseCard({ info, t }: { info: LicenseInfo; t: ReturnType<typeof useT
   return (
     <Card>
       <CardHeader><CardTitle>{t("license")}</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {info.status === "valid" && !info.expiringSoon && (
-          <Notice tone="ok" icon={<CheckCircle2 aria-hidden="true" className="h-4 w-4" />}>{t("licenseValid")}</Notice>
+          <Notice tone="ok" icon={<CheckCircle2 aria-hidden="true" className="size-4" />}>{t("licenseValid")}</Notice>
         )}
         {/* 만료가 곧 정지가 아니라는 점을 문구로 분명히 한다 */}
         {info.status === "expired" && <Notice tone="warn">{t("licenseExpired")}</Notice>}
         {info.status === "invalid" && <Notice tone="warn">{t("licenseInvalid")}{info.reason ? ` — ${info.reason}` : ""}</Notice>}
         {info.status === "missing" && <Notice tone="muted">{t("licenseMissing")}</Notice>}
         {info.expiringSoon && (
-          <Notice tone="warn" icon={<AlertTriangle aria-hidden="true" className="h-4 w-4" />}>
+          <Notice tone="warn" icon={<AlertTriangle aria-hidden="true" className="size-4" />}>
             {t("licenseExpiringSoon", { days: info.daysRemaining ?? 0 })}
           </Notice>
         )}
@@ -309,13 +309,13 @@ function BundleCard({
   return (
     <Card>
       <CardHeader><CardTitle>{t("airgap")}</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">{t("airgapHint")}</p>
-        <ul className="space-y-3">
+        <ul className="space-y-4">
           {bundles.map((b) => (
             <li key={b.file} className="space-y-1.5 border-b border-border pb-3 last:border-b-0 last:pb-0">
               <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                <Package aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+                <Package aria-hidden="true" className="size-4 text-muted-foreground" />
                 {b.version}
                 <span className="font-normal text-muted-foreground">
                   {(b.sizeBytes / 1_073_741_824).toFixed(2)} GB
@@ -349,9 +349,9 @@ function BundleCard({
 function Progress({ job, t }: { job: Job; t: ReturnType<typeof useTranslations> }) {
   const stepLabel = job.step ? t(`steps.${job.step}` as never) : t(`status.${job.status}` as never);
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3">
+    <div className="space-y-2 rounded-tile border border-border bg-surface-muted p-3.5">
       <div className="flex items-center gap-2 text-sm font-semibold">
-        <RefreshCw aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />
+        <RefreshCw aria-hidden="true" className="size-4 motion-safe:animate-spin" />
         {job.fromVersion} → {job.targetVersion} · {stepLabel}
       </div>
       {job.log && (
@@ -370,14 +370,14 @@ function History({ jobs, t }: { jobs: Job[]; t: ReturnType<typeof useTranslation
         {done.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("noHistory")}</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-4">
             {done.map((j) => (
               <li key={j.id} className="space-y-1.5 border-b border-border pb-3 last:border-b-0 last:pb-0">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   {j.status === "succeeded" ? (
-                    <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-primary" />
+                    <CheckCircle2 aria-hidden="true" className="size-4 text-primary" />
                   ) : (
-                    <XCircle aria-hidden="true" className="h-4 w-4 text-destructive" />
+                    <XCircle aria-hidden="true" className="size-4 text-error" />
                   )}
                   {j.fromVersion} → {j.targetVersion}
                   <span className="font-normal text-muted-foreground">
@@ -416,7 +416,7 @@ function Notice({
     muted: "border-border bg-surface text-muted-foreground",
   }[tone];
   return (
-    <div className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${styles}`}>
+    <div className={`flex items-start gap-2 rounded-tile border p-3.5 text-sm ${styles}`}>
       {icon}
       <span className="min-w-0">{children}</span>
     </div>

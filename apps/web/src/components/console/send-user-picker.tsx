@@ -249,16 +249,19 @@ export function UserSearchDialog({
         {/*
           결과 수·로딩·"없음" 을 알린다. 아래 목록은 입력칸(combobox)이 조종하므로 포커스가
           옮겨가지 않고, 화면을 보지 않는 사용자에게는 타이핑에 아무 반응이 없는 것처럼 느껴진다
-          (WCAG 4.1.3). 보이는 문구는 live 가 아니므로 두 번 읽히지 않는다.
+          (WCAG 4.1.3).
+
+          알림 문구는 **보이는 문구와 같은 말을 쓰지 않는다**. 같은 문장을 두 군데 두면 이 영역과
+          아래 목록이 한 화면에 나란히 존재하게 되어, 스크린리더는 결과를 두 번 듣고 화면 테스트는
+          같은 문구를 두 개 찾는다. 여기는 "결과가 몇 건인가"만 말하고, 무엇을 해야 하는지는
+          아래 보이는 문구가 말한다.
         */}
         <p role="status" aria-live="polite" className="sr-only">
           {failed
-            ? tc("loadFailed")
+            ? t("searchResultFailed")
             : !users
-              ? tc("loading")
-              : users.length === 0
-                ? t("noUsersFound")
-                : t("searchResultCount", { count: users.length })}
+              ? t("searchResultLoading")
+              : t("searchResultCount", { count: users.length })}
         </p>
 
         <div className="max-h-80 overflow-y-auto rounded-tile border border-border">

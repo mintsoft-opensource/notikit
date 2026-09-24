@@ -32,6 +32,8 @@ export default function AppError({
     <Card role="alert" className="flex flex-1 items-center justify-center">
       <EmptyState
         icon={AlertTriangle}
+        // 빈 목록과 같은 회색으로 두면 "아직 없음"으로 읽힌다 — 여기는 실패다
+        tone="error"
         title={t("errorTitle")}
         description={error.digest ? `${t("errorDesc")} (${error.digest})` : t("errorDesc")}
         action={

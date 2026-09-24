@@ -6,6 +6,7 @@ import { BellOff, Clock, Send } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
 import type { AudienceEstimate } from "./send-estimate";
 import type { SendWarning } from "./send-rules";
 import { SendWarnings } from "./send-summary";
@@ -96,7 +97,7 @@ export function SendReviewDialog({
             <Eyebrow>{t("sectionContent")}</Eyebrow>
             {silent ? (
               <p className="flex items-start gap-2 text-sm text-foreground/80">
-                <BellOff aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <BellOff aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <span>{t("reviewSilent")}</span>
               </p>
             ) : variants && variants.length > 1 ? (
@@ -126,7 +127,8 @@ export function SendReviewDialog({
             <Eyebrow>{t("optActions")}</Eyebrow>
             <ul aria-label={t("optActions")} className="flex flex-wrap gap-2">
               {actions.map((a) => (
-                <li key={a.id} className="inline-flex h-7 max-w-full items-center rounded-lg border border-border px-2.5 text-xs font-semibold">
+                // 칩 높이는 24px(h-6) 하나다 — 다른 화면의 상태 칩과 나란히 놓였을 때 어긋나지 않게
+                <li key={a.id} className="inline-flex h-6 max-w-full items-center rounded-tile border border-border px-2.5 text-xs font-semibold">
                   <span className="truncate">{a.title}</span>
                 </li>
               ))}
@@ -143,7 +145,9 @@ export function SendReviewDialog({
             checked={processNow && !isScheduled}
             disabled={isScheduled || sending}
             onChange={(e) => setProcessNow(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
+            // 포커스 링이 없으면 이 창에서 키보드로 마지막에 닿는 칸이 보이지 않는다 —
+            // 바로 다음이 "발송" 버튼이라 어디에 서 있는지 모르는 채로 Enter 를 누르게 된다
+            className={`mt-0.5 size-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50 ${FOCUS_RING}`}
           />
           <span className={isScheduled ? "text-muted-foreground" : undefined}>
             {isScheduled ? t("processNowDisabled") : t("processNow")}

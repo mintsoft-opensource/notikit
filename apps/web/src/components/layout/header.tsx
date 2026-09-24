@@ -13,6 +13,8 @@ import { LocaleSwitcher } from "./locale-switcher";
 import { SidebarBrand, SidebarNav } from "./sidebar";
 import { NAV_GROUPS, isActive, projectIdFromPath, projectNavGroups } from "./nav";
 import { lockBackground } from "@/components/ui/dialog";
+import { useExitTransition } from "@/components/ui/use-exit-transition";
+import { cn } from "@/lib/utils";
 import { logout, useAdminErrorText } from "@/lib/admin-client";
 
 /** 현재 경로에 해당하는 nav 그룹·항목 키 (없으면 null) */
@@ -27,7 +29,8 @@ function currentNavKeys(pathname: string): { groupKey: string; labelKey: string 
   return null;
 }
 
-const CRUMB_ICON = "h-3.5 w-3.5 rtl:rotate-180";
+/** 글줄 안에 끼는 아이콘은 전부 16px(size-4) — 크기가 섞이면 같은 층위가 다르게 읽힌다 */
+const CRUMB_ICON = "size-4 rtl:rotate-180";
 
 /**
  * 헤더 조작 버튼은 전부 Button(h-9·rounded-lg·포커스 링)으로 만든다.
@@ -42,6 +45,8 @@ export function Header() {
   const th = useTranslations("header");
   const ta = useTranslations("app");
   const [open, setOpen] = React.useState(false);
+  // 닫은 뒤에도 미끄러져 나가는 동안(150ms)은 그린다 — 툭 사라지면 어디로 갔는지 안 보인다
+  const { rendered: drawerRendered, leaving: drawerLeaving } = useExitTransition(open);
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const closeRef = React.useRef<HTMLButtonElement>(null);
@@ -85,15 +90,23 @@ export function Header() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  // 드로어 열림: Escape 닫기 + 포커스 트랩 + 배경 스크롤·inert 잠금 + 닫을 때 opener 로 포커스 복원.
+  // 스크롤 잠금은 드로어가 **보이는 동안** 유지한다 — 나가는 150ms 사이에 풀면 배경이 흔들린다
+  React.useEffect(() => {
+    if (!drawerRendered) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [drawerRendered]);
+
+  // 드로어 열림: Escape 닫기 + 포커스 트랩 + 배경 inert 잠금 + 닫을 때 opener 로 포커스 복원.
   // inert 는 모달과 같은 규칙(lockBackground) — Tab 트랩만으로는 스크린리더 가상 커서가 뒤 화면으로 샌다.
   React.useEffect(() => {
     if (!open) return;
     const opener = openerRef.current;
     const unlock = drawerRef.current ? lockBackground(drawerRef.current) : () => {};
     closeRef.current?.focus();
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -121,7 +134,6 @@ export function Header() {
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
       // inert 를 푼 뒤에 돌려준다 — inert 인 동안엔 focus() 가 무시된다
       unlock();
       opener?.focus();
@@ -142,7 +154,7 @@ export function Header() {
           aria-expanded={open}
           className={ICON_BUTTON + " md:hidden"}
         >
-          <Menu aria-hidden="true" className="h-4 w-4" />
+          <Menu aria-hidden="true" className="size-4" />
         </Button>
 
         <nav aria-label={th("menu")} className="min-w-0 flex-1 text-sm">
@@ -182,17 +194,30 @@ export function Header() {
           aria-label={th("logout")}
           className={ICON_BUTTON}
         >
-          <LogOut aria-hidden="true" className="h-4 w-4" />
+          <LogOut aria-hidden="true" className="size-4" />
         </Button>
       </header>
 
       {/* 모바일 드로어 — backdrop-blur 헤더 밖(body)으로 portal 하여 fixed 가 뷰포트 기준이 되게 함 */}
       {mounted &&
-        open &&
+        drawerRendered &&
         createPortal(
-          <div ref={drawerRef} className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
-            <div ref={panelRef} role="dialog" aria-modal="true" aria-label={th("menu")} className="absolute inset-y-0 start-0 flex w-[320px] max-w-[88vw] flex-col bg-surface shadow-modal">
+          <div ref={drawerRef} className={cn("fixed inset-0 z-50 md:hidden", drawerLeaving && "pointer-events-none")}>
+            <div
+              className={cn("absolute inset-0 bg-overlay", drawerLeaving ? "animate-overlay-out" : "animate-overlay-in")}
+              onClick={() => setOpen(false)}
+              aria-hidden
+            />
+            <div
+              ref={panelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label={th("menu")}
+              className={cn(
+                "absolute inset-y-0 start-0 flex w-[320px] max-w-[88vw] flex-col bg-surface shadow-elevated",
+                drawerLeaving ? "animate-drawer-out" : "animate-drawer-in"
+              )}
+            >
               <div className="flex items-center justify-between border-b border-border pe-2">
                 <SidebarBrand />
                 <Button
@@ -204,7 +229,7 @@ export function Header() {
                   aria-label={th("closeMenu")}
                   className={ICON_BUTTON}
                 >
-                  <X aria-hidden="true" className="h-4 w-4" />
+                  <X aria-hidden="true" className="size-4" />
                 </Button>
               </div>
               <SidebarNav pathname={pathname} />

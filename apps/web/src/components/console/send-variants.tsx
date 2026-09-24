@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Textarea } from "@/components/ui/input";
+import { FIELD_ERROR_TEXT, FIELD_HINT_TEXT, Field, Input, Textarea } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
 // 판정 상수는 서버와 한 곳에서 나눠 쓴다 — 어긋나면 화면은 통과시키고 서버가 422 로 막는다
 import {
@@ -94,7 +94,7 @@ export function SendVariantFields({
         const err = errors?.[v.rowId];
         const describedBy = (id: string, message?: string) => (message ? `${id}-count ${id}-error` : `${id}-count`);
         return (
-          <div key={v.rowId} role="group" aria-labelledby={`${baseId}-${v.rowId}-name`} className="space-y-3 rounded-lg border border-border p-3">
+          <div key={v.rowId} role="group" aria-labelledby={`${baseId}-${v.rowId}-name`} className="space-y-4 rounded-lg border border-border p-3.5">
             <div className="flex items-center justify-between gap-2">
               <p id={`${baseId}-${v.rowId}-name`} className="text-xs font-semibold text-foreground">{t("variantLegend", { letter })}</p>
               <Button
@@ -105,7 +105,7 @@ export function SendVariantFields({
                 onClick={() => remove(i)}
                 disabled={disabled}
               >
-                <Trash2 aria-hidden="true" className="h-4 w-4" />
+                <Trash2 aria-hidden="true" className="size-4" />
               </Button>
             </div>
             <div className="space-y-1">
@@ -126,7 +126,7 @@ export function SendVariantFields({
                 maxLength={255}
                 placeholder={t("titlePlaceholder")}
               />
-              {err?.title && <p id={`${titleId}-error`} className="text-xs font-semibold text-error">{err.title}</p>}
+              {err?.title && <p id={`${titleId}-error`} className={FIELD_ERROR_TEXT}>{err.title}</p>}
             </div>
             <div className="space-y-1">
               <CountedLabel
@@ -147,7 +147,7 @@ export function SendVariantFields({
                 maxLength={4000}
                 placeholder={t("bodyPlaceholder")}
               />
-              {err?.body && <p id={`${bodyId}-error`} className="text-xs font-semibold text-error">{err.body}</p>}
+              {err?.body && <p id={`${bodyId}-error`} className={FIELD_ERROR_TEXT}>{err.body}</p>}
             </div>
           </div>
         );
@@ -155,9 +155,9 @@ export function SendVariantFields({
       {variants.length < MAX_EXTRA_VARIANTS && (
         <div className="flex flex-wrap items-center gap-3">
           <Button ref={addRef} type="button" variant="outline" onClick={add} disabled={disabled}>
-            <Plus aria-hidden="true" className="h-4 w-4" /> {t("addVariant", { letter: nextLetter })}
+            <Plus aria-hidden="true" className="size-4" /> {t("addVariant", { letter: nextLetter })}
           </Button>
-          <p className="text-xs text-muted-foreground">{t("variantHint")}</p>
+          <p className={FIELD_HINT_TEXT}>{t("variantHint")}</p>
         </div>
       )}
     </div>
@@ -225,19 +225,19 @@ export function SendAbTestFields({
   const set = (patch: Partial<AbTestDraft>) => onChange({ ...value, ...patch });
 
   return (
-    <div className="space-y-4 rounded-lg border border-border p-3">
+    <div className="space-y-4 rounded-lg border border-border p-3.5">
       <div className="flex items-start gap-2">
         <input
           id={toggleId}
           type="checkbox"
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-0.5 size-4 shrink-0 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           checked={value.enabled}
           disabled={disabled}
           onChange={(e) => set({ enabled: e.target.checked })}
         />
         <div className="min-w-0 space-y-1">
           <label htmlFor={toggleId} className="block text-xs font-semibold text-foreground">{t("abTestLabel")}</label>
-          <p className="text-xs text-muted-foreground">{t("abTestHint")}</p>
+          <p className={FIELD_HINT_TEXT}>{t("abTestHint")}</p>
         </div>
       </div>
 
@@ -271,7 +271,7 @@ export function SendAbTestFields({
               />
             </Field>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className={FIELD_HINT_TEXT}>
             {t("abTestNotice", { min: AB_MIN_VARIANT_SAMPLE, margin: AB_TIE_MARGIN_POINTS })}
           </p>
         </div>
