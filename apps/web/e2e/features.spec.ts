@@ -880,3 +880,446 @@ test.describe("현지 시각 발송과 속도 제한", () => {
     }
   });
 });
+
+// ─── 트리거 저니: 이벤트 진입 · 분기 · 종료 조건 ─────────────────────────────
+
+const BRANCH_JOURNEY = [
+  { type: "entry", event: "signup" },
+  { type: "send", title: "환영합니다", body: "시작해 보세요" },
+  {
+    type: "branch",
+    withinHours: 1,
+    yes: [{ type: "send", title: "고맙습니다", body: "계속 둘러보세요" }],
+    no: [{ type: "send", title: "한 번 더", body: "아직 안 보셨네요" }],
+  },
+  { type: "exit", event: "purchase" },
+];
+
+async function createJourney(request: APIRequestContext, pid: string, name: string, steps: unknown[]) {
+  const res = await request.post(`/api/admin/projects/${pid}/journeys`, {
+    headers: { ...admin, origin: ORIGIN },
+    data: { name, steps },
+  });
+  expect(res.status()).toBe(201);
+  return (await res.json()).data.journey.id as string;
+}
+
+async function drain(request: APIRequestContext, pid: string) {
+  const res = await request.post(`/api/admin/projects/${pid}/journeys/process`, {
+    headers: { ...admin, origin: ORIGIN },
+    data: {},
+  });
+  expect(res.status()).toBe(200);
+  return (await res.json()).data.processed as number;
+}
+
+test.describe("트리거 저니", () => {
+  test("이벤트로 자동 등록되고, 같은 이벤트가 또 와도 실행은 하나다", async ({ request }) => {
+    const p = await createProject(request, "jrn-entry");
+    await createJourney(request, p.pid, `entry-${Date.now()}`, BRANCH_JOURNEY);
+    await identifyWithDevice(request, p, "jrn-entry-user", {});
+
+    const fire = () =>
+      request.post("/api/v1/journeys/event", {
+        headers: { "api-key": p.apiKey },
+        data: { event: "signup", external_id: "jrn-entry-user", identity_hash: idHash("jrn-entry-user", p.apiSecret) },
+      });
+
+    const first = await fire();
+    expect(first.status()).toBe(202);
+    expect((await first.json()).data).toMatchObject({ enrolled: 1, matched: true });
+
+    // 멱등 — (journey, user) 유니크가 두 번째를 삼킨다. 앱이 이벤트를 재시도해도 저니가 겹치지 않는다.
+    const again = await fire();
+    expect((await again.json()).data.enrolled).toBe(0);
+
+    // 진입 이름이 아닌 이벤트는 아무 일도 하지 않는다
+    const other = await request.post("/api/v1/journeys/event", {
+      headers: { "api-key": p.apiKey },
+      data: { event: "opened_app", external_id: "jrn-entry-user", identity_hash: idHash("jrn-entry-user", p.apiSecret) },
+    });
+    expect((await other.json()).data.enrolled).toBe(0);
+  });
+
+  test("진입 이벤트는 identity_hash 없이는 거절된다", async ({ request }) => {
+    const p = await createProject(request, "jrn-auth");
+    await createJourney(request, p.pid, `auth-${Date.now()}`, BRANCH_JOURNEY);
+    await identifyWithDevice(request, p, "jrn-auth-user", {});
+
+    const res = await request.post("/api/v1/journeys/event", {
+      headers: { "api-key": p.apiKey },
+      data: { event: "signup", external_id: "jrn-auth-user" },
+    });
+    // 공개 api-key 만으로 남을 저니에 넣거나 끝낼 수 있으면 안 된다
+    expect(res.status()).toBe(403);
+  });
+
+  test("클릭 창이 안 닫혔으면 분기를 미루고, 클릭이 들어오면 yes 갈래로 간다", async ({ request }) => {
+    const p = await createProject(request, "jrn-branch");
+    const jid = await createJourney(request, p.pid, `branch-${Date.now()}`, BRANCH_JOURNEY);
+    await identifyWithDevice(request, p, "jrn-branch-user", {});
+
+    const enroll = await request.post("/api/v1/journeys/enroll", {
+      headers: { "api-key": p.apiKey },
+      data: {
+        journey: (await (await request.get(`/api/admin/projects/${p.pid}/journeys/${jid}`, { headers: admin })).json()).data
+          .journey.name,
+        external_id: "jrn-branch-user",
+        identity_hash: idHash("jrn-branch-user", p.apiSecret),
+      },
+    });
+    expect(enroll.status()).toBe(201);
+
+    // 1회차: 환영 발송 → 분기로 이동
+    expect(await drain(request, p.pid)).toBe(1);
+    // 2회차: 분기. 창(1시간)이 안 닫혔고 클릭이 없으니 **미룬다** — 여기서 no 로 떨어지면
+    // 아직 누를 시간이 있는 사람이 전부 재촉 갈래로 간다.
+    await drain(request, p.pid);
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const [run] = await sql`select current_step, next_run_at, status from journey_runs where journey_id = ${jid}`;
+      expect(run.status).toBe("active");
+      expect(run.current_step).toBe(1); // 분기 자리에 그대로
+      expect(new Date(run.next_run_at).getTime()).toBeGreaterThan(Date.now());
+
+      // 그 발송을 눌렀다고 기록하고 창을 다시 연다
+      const [log] = await sql`
+        select id from push_logs where project_id = ${p.pid} and sent_by = 'journey'
+         order by created_at desc limit 1`;
+      const [device] = await sql`select id, user_id from devices where project_id = ${p.pid} limit 1`;
+      await sql`
+        insert into push_clicks (project_id, log_id, device_id, user_id)
+        values (${p.pid}, ${log.id}, ${device.id}, ${device.user_id})`;
+      await sql`update journey_runs set next_run_at = now() where journey_id = ${jid}`;
+
+      await drain(request, p.pid);
+      const [after] = await sql`select current_step from journey_runs where journey_id = ${jid}`;
+      expect(after.current_step).toBe(2); // 2.yes.0 — 고맙습니다 발송
+    } finally {
+      await sql.end();
+    }
+
+    const detail = (await (await request.get(`/api/admin/projects/${p.pid}/journeys/${jid}`, { headers: admin })).json()).data;
+    // 스텝별 인원은 빈 갈래까지 전부 나온다 — 0 인 스텝이 빠지면 분기가 있는지도 화면에서 알 수 없다
+    expect(Object.keys(detail.stepCounts).sort()).toEqual(["1", "2", "2.no.0", "2.yes.0", "3"]);
+    expect(detail.stepCounts["2.yes.0"]).toBe(1);
+  });
+
+  test("종료 이벤트가 오면 어느 단계에 있든 저니가 끝난다", async ({ request }) => {
+    const p = await createProject(request, "jrn-exit");
+    const jid = await createJourney(request, p.pid, `exit-${Date.now()}`, BRANCH_JOURNEY);
+    await identifyWithDevice(request, p, "jrn-exit-user", {});
+    const hash = idHash("jrn-exit-user", p.apiSecret);
+
+    await request.post("/api/v1/journeys/event", {
+      headers: { "api-key": p.apiKey },
+      data: { event: "signup", external_id: "jrn-exit-user", identity_hash: hash },
+    });
+    await drain(request, p.pid); // 환영 발송
+
+    const done = await request.post("/api/v1/journeys/event", {
+      headers: { "api-key": p.apiKey },
+      data: { event: "purchase", external_id: "jrn-exit-user", identity_hash: hash },
+    });
+    expect((await done.json()).data.exited).toBe(1);
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const [run] = await sql`select status from journey_runs where journey_id = ${jid}`;
+      expect(run.status).toBe("exited");
+      // 끝난 실행은 더 이상 도래하지 않는다 — 전환한 사람에게 재촉이 계속 가면 안 된다
+      expect(await drain(request, p.pid)).toBe(0);
+    } finally {
+      await sql.end();
+    }
+
+    const detail = (await (await request.get(`/api/admin/projects/${p.pid}/journeys/${jid}`, { headers: admin })).json()).data;
+    expect(detail.exitedRuns).toBe(1);
+    expect(detail.activeRuns).toBe(0);
+  });
+
+  test("서버가 트리 규칙을 거절한다 — 진입 위치·중첩 깊이·이름 없는 종료", async ({ request }) => {
+    const p = await createProject(request, "jrn-valid");
+    const bad = async (steps: unknown[]) =>
+      (
+        await request.post(`/api/admin/projects/${p.pid}/journeys`, {
+          headers: { ...admin, origin: ORIGIN },
+          data: { name: `bad-${Date.now()}-${Math.random()}`, steps },
+        })
+      ).status();
+
+    // entry 는 맨 앞에서만 읽힌다 — 다른 자리에 두면 안 도는 트리거가 조용히 저장된다
+    expect(await bad([{ type: "send", title: "a" }, { type: "entry", event: "signup" }])).toBe(422);
+    // 이름 없는 종료 조건은 영원히 걸리지 않는다
+    expect(await bad([{ type: "exit" }])).toBe(422);
+    // 실행할 스텝이 하나도 없는 저니
+    expect(await bad([{ type: "entry", event: "signup" }])).toBe(422);
+
+    let deep: Record<string, unknown> = { type: "send", title: "a" };
+    for (let i = 0; i < 4; i++) deep = { type: "branch", withinHours: 1, yes: [deep], no: [] };
+    expect(await bad([deep])).toBe(422);
+  });
+});
+
+test.describe("저니 편집 화면", () => {
+  test("분기를 넣으면 새 행으로 초점이 가고, 제목이 비면 그 칸에 오류가 붙는다", async ({ page }) => {
+    await ensureLogin(page);
+    const pid = await sessionProjectId(page);
+    const mk = await page.request.post(`/api/admin/projects/${pid}/journeys`, {
+      headers: { origin: ORIGIN },
+      data: { name: `ui-journey-${Date.now()}`, steps: [{ type: "send", title: "환영", body: "본문" }] },
+    });
+    expect(mk.status()).toBe(201);
+    const jid = (await mk.json()).data.journey.id as string;
+
+    await page.goto(`/projects/${pid}/journeys/${jid}`);
+    await page.getByRole("button", { name: "분기 추가" }).first().click();
+
+    // 새 행의 첫 입력칸으로 간다 — 추가 버튼에 초점이 남으면 어디에 쓰는지 알 수 없다
+    const added = page.getByRole("group", { name: "스텝 2" });
+    await expect(added.getByLabel("스텝 타입")).toBeFocused();
+    await expect(added.getByText("눌렀다면")).toBeVisible();
+    await expect(added.getByText("안 눌렀다면")).toBeVisible();
+
+    // 갈래 안에 발송을 넣고 제목을 비운 채 저장하면 그 칸 아래에 오류가 붙는다
+    await added.getByRole("button", { name: "send 추가" }).first().click();
+    await page.getByRole("button", { name: "저장" }).click();
+    const inner = page.getByRole("group", { name: "스텝 1" }).last();
+    const title = inner.getByLabel("제목");
+    await expect(title).toHaveAttribute("aria-invalid", "true");
+    await expect(title).toBeFocused();
+    await expect(page.getByText("제목을 입력하세요")).toBeVisible();
+
+    // 지우면 초점이 사라지지 않고 앞 행으로 돌아온다
+    await added.getByRole("button", { name: "스텝 삭제" }).click();
+    await expect(page.getByRole("group", { name: "스텝 2" })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "스텝 1" }).getByLabel("스텝 타입")).toBeFocused();
+  });
+});
+
+// ─── A/B 자동 승자 ───────────────────────────────────────────────────────────
+
+test.describe("A/B 자동 승자", () => {
+  const VARIANTS = [
+    { title: "A 제목", body: "A 본문" },
+    { title: "B 제목", body: "B 본문" },
+  ];
+
+  /** 기기 n대 등록(사람 없이) — 토큰 해시로 갈리므로 사람은 필요 없다 */
+  async function registerDevices(request: APIRequestContext, apiKey: string, prefix: string, n: number) {
+    await Promise.all(
+      Array.from({ length: n }, (_, i) =>
+        request.post("/api/v1/devices", {
+          headers: { "api-key": apiKey },
+          data: { token: `${prefix}-${i}-${Date.now()}`, platform: "android" },
+        })
+      )
+    );
+  }
+
+  test("ab_test 는 변형이 있어야 하고 단건 발송에는 쓸 수 없다", async ({ request }) => {
+    const p = await createProject(request, "ab-validate");
+    const headers = { "api-key": p.apiKey, "api-secret": p.apiSecret };
+    const send = (data: Record<string, unknown>) => request.post("/api/v1/messages", { headers, data });
+
+    // 변형이 없으면 비교할 것이 없다
+    const noVariants = await send({ title: "t", body: "b", type: "broadcast", ab_test: { sample_percent: 20, wait_minutes: 60 } });
+    expect(noVariants.status()).toBe(422);
+    expect((await noVariants.json()).error).toContain("variants");
+
+    // 한 사람에게 가는 발송은 표본과 나머지로 가를 수 없다 — 한쪽이 0명이 된다
+    await identifyWithDevice(request, p, "ab-one", {});
+    const single = await send({
+      title: "t", body: "b", type: "single", target: "ab-one", variants: VARIANTS,
+      ab_test: { sample_percent: 20, wait_minutes: 60 },
+    });
+    expect(single.status()).toBe(422);
+
+    // 범위를 벗어난 값은 스키마가 막는다
+    expect((await send({ title: "t", body: "b", type: "broadcast", variants: VARIANTS, ab_test: { sample_percent: 90, wait_minutes: 60 } })).status()).toBe(422);
+    expect((await send({ title: "t", body: "b", type: "broadcast", variants: VARIANTS, ab_test: { sample_percent: 20, wait_minutes: 1 } })).status()).toBe(422);
+
+    const ok = await send({ title: "t", body: "b", type: "broadcast", variants: VARIANTS, ab_test: { sample_percent: 20, wait_minutes: 60 } });
+    expect(ok.status()).toBe(202);
+    const id = (await ok.json()).data.message.id as string;
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const rows = await sql`select ab_test from push_logs where id = ${id}`;
+      // 지표는 고정이라 요청으로 받지 않고 서버가 채운다
+      expect(rows[0].ab_test).toEqual({ role: "test", samplePercent: 20, waitMinutes: 60, metric: "unique_click_rate" });
+    } finally {
+      await sql.end();
+    }
+  });
+
+  test("표본에 먼저 보내고 판정 시각까지 기다린다 — 승자 본발송은 표본과 겹치지 않는다", async ({ request }) => {
+    const p = await createProject(request, "ab-split");
+    const DEVICES = 20;
+    await registerDevices(request, p.apiKey, "ab-split", DEVICES);
+
+    const res = await request.post("/api/v1/messages", {
+      headers: { "api-key": p.apiKey, "api-secret": p.apiSecret },
+      data: { title: "A 제목", body: "A 본문", type: "broadcast", variants: VARIANTS, ab_test: { sample_percent: 50, wait_minutes: 30 } },
+    });
+    expect(res.status()).toBe(202);
+    const sampleId = (await res.json()).data.message.id as string;
+    const process = () => request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+    await process();
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const [sample] = await sql`select status, total_count, ab_test from push_logs where id = ${sampleId}`;
+      // 표본만 나갔다. 판정이 남았으므로 아직 닫지 않고, 언제 정할지를 적어 둔다.
+      expect(sample.status).toBe("processing");
+      expect(sample.ab_test.decideAt).toBeTruthy();
+      expect(sample.ab_test.decision).toBeUndefined();
+      const sampleSent = Number(sample.total_count);
+      expect(sampleSent).toBeGreaterThan(0);
+      expect(sampleSent).toBeLessThan(DEVICES);
+
+      // 스캔이 다시 집어도 판정 시각 전에는 아무 일도 하지 않는다
+      await process();
+      const [early] = await sql`select status, ab_test from push_logs where id = ${sampleId}`;
+      expect(early.status).toBe("processing");
+      expect(early.ab_test.decision).toBeUndefined();
+
+      // 최소 표본을 채운 결과를 심고(B 가 뚜렷이 높다) 판정 시각을 앞당긴다.
+      // locked_at 을 되돌려 놓아야 stale 재클레임 조건에 걸린다 — 반납이 하는 일과 같다.
+      const devices = await sql`select id from devices where project_id = ${p.pid} limit 14`;
+      await sql`
+        update push_logs set
+          resume_cursor = jsonb_set(resume_cursor::jsonb, '{variantStats}',
+            '{"0":{"sent":150,"success":150},"1":{"sent":150,"success":150}}'::jsonb)::text,
+          ab_test = jsonb_set(ab_test, '{decideAt}', to_jsonb((now() - interval '1 minute')::text)),
+          locked_at = now() - interval '10 minutes'
+        where id = ${sampleId}`;
+      for (const [i, d] of devices.entries()) {
+        await sql`insert into push_clicks (project_id, log_id, device_id, variant)
+                  values (${p.pid}, ${sampleId}, ${d.id}, ${i < 2 ? 0 : 1})`;
+      }
+
+      await process();
+      const [decided] = await sql`select status, ab_test from push_logs where id = ${sampleId}`;
+      expect(decided.status).toBe("logged"); // 크레덴셜이 없는 환경이라 로그 전용으로 닫힌다
+      expect(decided.ab_test.decision.winner).toBe(1);
+      expect(decided.ab_test.decision.reason).toBe("winner");
+      const winnerId = decided.ab_test.decision.followUpLogId as string;
+      expect(winnerId).toBeTruthy();
+
+      const [winner] = await sql`select title, variants, ab_test, sent_by from push_logs where id = ${winnerId}`;
+      expect(winner.title).toBe("B 제목");
+      expect(winner.variants).toBeNull(); // 본발송은 승자 하나로만 나간다
+      expect(winner.sent_by).toBe("ab-winner");
+      expect(winner.ab_test).toEqual({ role: "winner", parentLogId: sampleId, samplePercent: 50, variant: 1 });
+
+      // 승자 본발송을 내보낸다. 표본과 합이 정확히 전체 기기 수다 —
+      // 앞에서 N행으로 잘랐다면 여기서 합이 넘어(같은 사람이 두 번 받아) 무너진다.
+      await process();
+      const [sent] = await sql`select status, total_count from push_logs where id = ${winnerId}`;
+      expect(sent.status).toBe("logged");
+      expect(Number(sent.total_count)).toBe(DEVICES - sampleSent);
+
+      // 판정을 다시 돌려도 본발송은 한 행뿐이다(멱등 키)
+      const rows = await sql`select count(*)::int as n from push_logs where project_id = ${p.pid} and sent_by = 'ab-winner'`;
+      expect(rows[0].n).toBe(1);
+    } finally {
+      await sql.end();
+    }
+  });
+
+  test("표본이 작으면 승자를 고르지 않고 이유를 남긴다", async ({ request }) => {
+    const p = await createProject(request, "ab-tiny");
+    await registerDevices(request, p.apiKey, "ab-tiny", 6);
+    const res = await request.post("/api/v1/messages", {
+      headers: { "api-key": p.apiKey, "api-secret": p.apiSecret },
+      data: { title: "A 제목", body: "A 본문", type: "broadcast", variants: VARIANTS, ab_test: { sample_percent: 50, wait_minutes: 5 } },
+    });
+    const id = (await res.json()).data.message.id as string;
+    const process = () => request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+    await process();
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      await sql`
+        update push_logs set
+          ab_test = jsonb_set(ab_test, '{decideAt}', to_jsonb((now() - interval '1 minute')::text)),
+          locked_at = now() - interval '10 minutes'
+        where id = ${id}`;
+      await process();
+
+      const [row] = await sql`select ab_test from push_logs where id = ${id}`;
+      // 조용히 A 를 고르지 않는다 — 그러면 아무것도 재지 않고 A/B 를 했다고 믿게 된다
+      expect(row.ab_test.decision.winner).toBeNull();
+      expect(row.ab_test.decision.reason).toBe("insufficient_sample");
+      expect(row.ab_test.decision.followUpLogId).toBeUndefined();
+      const rest = await sql`select count(*)::int as n from push_logs where project_id = ${p.pid} and sent_by = 'ab-winner'`;
+      expect(rest[0].n).toBe(0);
+    } finally {
+      await sql.end();
+    }
+  });
+
+  test("발송 화면: 변형을 더하면 A/B 자동 승자 칸이 열리고 값이 본문으로 실린다", async ({ page }) => {
+    await ensureLogin(page);
+    const pid = await sessionProjectId(page);
+    await page.goto(`/projects/${pid}/send/broadcast`);
+
+    // 변형이 없으면 잴 것이 없으므로 칸도 없다
+    await expect(page.getByLabel("A/B 자동 승자")).toHaveCount(0);
+    await page.getByRole("button", { name: "변형 B 추가" }).click();
+    await page.getByLabel("변형 B 제목").fill("B 제목");
+    await page.getByLabel("변형 B 본문").fill("B 본문");
+    await page.getByLabel("A/B 자동 승자").check();
+
+    // 범위 밖 값은 그 칸 옆에 붙는다
+    await page.getByLabel("표본 비율(%)").fill("90");
+    await expect(page.getByText("표본 비율은 5~50 사이의 정수여야 합니다")).toBeVisible();
+    await page.getByLabel("제목", { exact: true }).fill("A 제목");
+    await page.getByLabel("본문", { exact: true }).fill("A 본문");
+    await page.getByRole("button", { name: "검토 후 발송" }).click();
+    await expect(page.getByText("A/B 자동 승자 설정에 잘못된 값이 있습니다")).toBeVisible();
+
+    await page.getByLabel("표본 비율(%)").fill("15");
+    await page.getByLabel("판정 대기(분)").fill("120");
+
+    let posted: Record<string, unknown> = {};
+    await page.route(`**/api/admin/projects/${pid}/messages`, async (route) => {
+      posted = JSON.parse(route.request().postData() ?? "{}");
+      await route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify({ data: { message: { id: "stub" } } }) });
+    });
+    await page.getByRole("button", { name: "검토 후 발송" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /발송/ }).click();
+    await expect.poll(() => Object.keys(posted).length).toBeGreaterThan(0);
+    expect(posted.ab_test).toEqual({ sample_percent: 15, wait_minutes: 120 });
+    expect(posted.variants).toHaveLength(2);
+  });
+
+  test("템플릿 덮어쓰기는 브라우저 confirm 이 아니라 콘솔 다이얼로그로 묻는다", async ({ page }) => {
+    await ensureLogin(page);
+    const pid = await sessionProjectId(page);
+    const name = `덮어쓰기-${Date.now()}`;
+    await page.request.post(`/api/admin/projects/${pid}/templates`, {
+      headers: { origin: ORIGIN },
+      data: { name, title: "템플릿 제목", body: "템플릿 본문" },
+    });
+
+    await page.goto(`/projects/${pid}/send/broadcast`);
+    await page.getByLabel("제목", { exact: true }).fill("쓰던 제목");
+    await page.getByLabel("템플릿").selectOption({ label: name });
+
+    // 버튼 글자가 브라우저 언어가 아니라 화면 언어다
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: "취소" })).toBeVisible();
+    await dialog.getByRole("button", { name: "취소" }).click();
+    await expect(page.getByLabel("제목", { exact: true })).toHaveValue("쓰던 제목");
+    await expect(page.getByLabel("템플릿")).toHaveValue("");
+
+    await page.getByLabel("템플릿").selectOption({ label: name });
+    await page.getByRole("dialog").getByRole("button", { name: "적용" }).click();
+    await expect(page.getByLabel("제목", { exact: true })).toHaveValue("템플릿 제목");
+    // 고른 템플릿과 화면의 선택이 어긋나지 않는다
+    await expect(page.getByLabel("템플릿")).not.toHaveValue("");
+  });
+});

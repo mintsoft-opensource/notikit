@@ -77,3 +77,20 @@ tsc 0 · vitest · SDK 테스트 · Playwright 전부 통과, 24개 로케일 �
 검증: tsc 0 · vitest 340 · sdk-core 39 · next build · Playwright **120 통과**. 24개 로케일 누락 0(새 키 96개, 전체 1,090).
 
 남은 것(다음 차수): 트리거 기반 저니 분기, A/B 자동 승자, 관측(구조화 로그·지표), `push-processor` 추가 분리.
+
+## 4차 마무리 (2026-09-24)
+
+남은 지적을 전부 처리했다.
+
+- **A/B 자동 승자**: `push_logs.ab_test`(표본 %·대기·지표=유니크 클릭률). 표본과 나머지는 `abBucket`(FNV-1a)로 가른다 — 변형 배정 해시를 그대로 쓰면 버킷과 배정이 붙어 표본 5%·변형 2개에서 3:2 로 기운다. 도달 100건 미만·차이 1%p 미만·클릭 0 이면 승자 없이 **이유를 남긴다**. 승자 본발송은 `idempotencyKey=ab-winner:{logId}`.
+- **트리거 저니**: 이벤트 진입(`POST /api/v1/journeys/event`), "직전 발송을 N시간 안에 눌렀나" 분기(창이 안 닫혔으면 **미룬다** — no 로 떨어뜨리면 아직 누를 시간이 남은 사람이 전부 재촉 갈래로 간다), 이벤트 종료 조건(등록 시점부터 어느 단계에서든). 마이그레이션 없이 기존 CAS advance 위에 트리를 평탄화해 올렸다.
+- **신뢰성**: Redis 예산에 연결 대기를 포함(TLS 핸드셰이크가 멈추면 로그인까지 503 이 되던 경로), "살아 있지만 느림" 차단기, 카운터를 Redis 공유로, 전환 이벤트는 **신원 검증 뒤에** 한도를 태운다.
+- **관측**: `logger.ts`(무의존 JSON 한 줄, 키 이름 기반 민감정보 차단) + `GET /api/internal/metrics`(발송량·사유별 실패·rate-limit 폴백/차단·웹훅 데드레터).
+- **죽은 코드**: `rateLimit()`·`publishShared()`·`alignToEpoch` 분기·`isAttributable` 제거(테스트만 있던 가짜 커버리지), `runLimited` → 공용 `mapLimit`.
+- **타입 스케일**: 본문 11.5px → 13px, 뱃지 10 → 11px 등 단계마다 최소 1px 차. 로딩 표현을 Skeleton 으로 통일, eyebrow 를 컴포넌트로 추출.
+- **접근성**: 검색 결과 수·경고 목록 안내, 검토 다이얼로그 초기 포커스, 커스텀 필드 행별 이름.
+- 빌드 사고 하나: 콘솔이 `journey-triggers`(DB import)를 끌어와 클라이언트 번들이 깨졌다 → 순수 로직을 `journey-steps.ts` 로 분리.
+
+검증: tsc 0 · vitest 394 · next build · Playwright **128 통과**. 24개 로케일 누락 0(전체 1,140키). 마이그레이션 `0027_ab_auto_winner`.
+
+남은 것: 저니 스텝별 **누적** 통과 수(지금은 현재 머문 수), `journeys.entry_event` 전용 컬럼·인덱스, `journey_runs.last_send_log_id`.

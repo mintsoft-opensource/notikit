@@ -130,10 +130,78 @@ REDIS_URL=redis://cache.example.com:6379    # rediss:// (TLS), redis://user:pass
 ```
 
 - 설정하면 같은 프로젝트·같은 라우트의 카운터를 인스턴스끼리 공유합니다(고정 창)
-- 비워 두면 지금처럼 메모리로만 세고, 서버 로그에 경고가 한 번 남습니다: `[notikit] REDIS_URL is not set ...`
-- Redis 가 죽어도 요청은 막히지 않습니다. 메모리 판정으로 내려앉고 경고를 남긴 뒤, 5초마다 한 번씩만 재연결을 시도합니다
+- 비워 두면 지금처럼 메모리로만 세고, 로그에 `ratelimit.memory_only` 가 남습니다
+- Redis 가 죽어도 요청은 막히지 않습니다. 메모리 판정으로 내려앉고(`redis.fallback`) 5초마다 한 번씩만 재연결을 시도합니다
 
 한 대로 운영한다면 설정하지 않아도 됩니다.
+
+### 지연 예산과 차단기
+
+요청 하나가 Redis 를 기다리는 시간은 **200ms** 로 묶여 있습니다. 이 예산은 명령 응답뿐 아니라
+**연결을 맺는 시간까지** 포함합니다 — 그러지 않으면 Redis 가 처음 느려지는 순간 모든 동시 요청이
+연결 타임아웃(2초)까지 함께 기다리고, 로그인처럼 동시 처리 슬롯을 쥐고 기다리는 화면이
+인증과 무관하게 503 을 돌려줍니다.
+
+연결은 멀쩡한데 **응답만 느린** Redis 에는 차단기가 있습니다. 예산 초과가 연속 3회 나면 잠시
+아예 묻지 않고 곧장 메모리 판정으로 갑니다(요청에 지연이 붙지 않습니다). 창이 지나면 요청
+**하나만** 내보내 회복을 확인하고, 예산 안에 답이 오면 차단을 풉니다.
+
+```bash
+REDIS_DEGRADED_PROBE_MS=3000   # 차단 유지 시간(기본 3초). 지나면 1건만 재확인
+```
+
+차단 중 메모리로 판정한 횟수는 `/api/internal/metrics` 의 `shortCircuits` 로 봅니다.
+
+## 관측 — 로그와 카운터
+
+### 구조화 로그
+
+web·worker 모두 **한 줄 JSON** 으로 찍습니다. 문장이 아니라 이벤트 이름으로 자르기 때문에
+문구가 바뀌어도 집계가 깨지지 않습니다.
+
+```json
+{"reason":"connect exceeded the 200ms budget","affected":12,"ts":"2026-09-24T02:00:00.000Z","level":"warn","event":"redis.fallback","instance":"web-1:31"}
+```
+
+```bash
+NOTIKIT_LOG_LEVEL=info    # debug | info | warn | error | silent (기본 info)
+docker compose logs web | jq -c 'select(.level=="warn" or .level=="error")'
+docker compose logs web | jq -r 'select(.event=="redis.fallback") | .reason' | sort | uniq -c
+```
+
+푸시 토큰·전화번호·이메일·시크릿·서명은 **필드 이름으로 걸러져 절대 찍히지 않습니다**.
+자유 텍스트(예외 메시지)는 300자에서 잘립니다.
+
+눈여겨볼 이벤트:
+
+| event | 뜻 |
+|---|---|
+| `redis.fallback` | 공유 한도가 인스턴스별 계수로 내려앉았다(한도가 대수만큼 느슨해짐) |
+| `redis.breaker_open` | Redis 가 느려 한동안 묻지 않기로 했다 |
+| `ratelimit.memory_only` | `REDIS_URL` 이 없다 |
+| `webhook.dead_letter` | 5회를 다 쓰고 포기한 배달 — 이벤트가 그대로 사라진 것 |
+| `worker.token_sweep_failed` | 야간 토큰 점검이 실패했다(다음 창에 재시도) |
+
+### 운영 지표 한 장
+
+```bash
+curl -s -H "x-admin-token: $ADMIN_TOKEN" \
+  "http://localhost:3000/api/internal/metrics?window_min=60" | jq .data
+```
+
+| 필드 | 범위 | 내용 |
+|---|---|---|
+| `sends` | DB(전체) | 창 안의 발송 처리량 — `processed`/`delivered`/`failed`, **사유별 실패**(`failuresByReason`), 포기한 발송 수 |
+| `shared` | 클러스터 합계 | Redis 에 모은 `ratelimit.fallback`·`webhook.dead_letter`. Redis 가 없으면 `null` |
+| `process` | **이 인스턴스만** | 공유 한도 상태(`fallbacks`·`shortCircuits`·`breakerMs`), 웹훅 데드레터, 이벤트 카운터 |
+
+`process` 아래 숫자는 replica 하나의 조각입니다(`scope: "process"`). 웹을 2대 이상 띄웠다면
+전체를 보려면 `shared` 를 보거나 인스턴스별로 각각 조회하세요. `sends` 는 DB 에서 읽으므로
+인스턴스와 무관합니다.
+
+`failuresByReason` 의 키는 FCM 오류 코드입니다(`messaging/quota-exceeded`,
+`registration-token-not-registered` 등). "실패 120건"만으로는 쿼터 문제와 앱 삭제를
+구분할 수 없어서 사유별로 나눠 둡니다.
 
 ## 웹훅 재시도
 
