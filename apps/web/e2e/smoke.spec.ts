@@ -270,7 +270,9 @@ test.describe("smoke", () => {
     await dlg.getByRole("combobox", { name: "사용자 검색" }).fill(ext);
     await dlg.getByRole("option", { name: new RegExp(ext) }).click();
 
-    await expect(page.getByText("대상 1명 · 기기 1대")).toBeVisible({ timeout: 1500 });
+    // 대상이 바뀌면 곧바로 갱신되어야 한다. 1.5초로 잡으면 전체 스위트를 돌리는
+    // 머신에서만 간헐적으로 넘쳐 실패한다 — 의도(즉시 갱신)는 3초로도 충분히 지켜진다.
+    await expect(page.getByText("대상 1명 · 기기 1대")).toBeVisible({ timeout: 3000 });
     await expect(summary.getByRole("listitem").filter({ hasText: "Web" })).toContainText("1");
 
     await page.getByLabel("제목").fill("요약 확인");

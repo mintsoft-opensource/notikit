@@ -50,7 +50,12 @@ let cachedSession: string | null = null;
 async function ensureLogin(page: Page) {
   if (cachedSession) {
     await page.context().addCookies([{ name: "notikit_session", value: cachedSession, url: ORIGIN }]);
-    return;
+    // 캐시한 쿠키가 아직 사는지 확인한다. 다른 스펙의 로그아웃이 세션을 무효화하면 이 쿠키는
+    // 조용히 401 이 되고, 뒤따르는 테스트는 "프로젝트를 못 만든다" 처럼 엉뚱한 곳에서 깨진다.
+    const alive = await page.request.get("/api/admin/projects");
+    if (alive.ok()) return;
+    cachedSession = null;
+    await page.context().clearCookies();
   }
   const headers = { origin: ORIGIN };
   const reg = await page.request.post("/api/admin/register", { data: { org_name: "E2E", ...SESSION_ADMIN }, headers });
@@ -118,10 +123,17 @@ test.describe("W4 기능 보강", () => {
     const csv = "user_id,reason\nu1,opt_out\nu2\nu1,manual\n,manual\nu3,not-a-reason\n";
     const first = await request.post(url, { headers: { ...admin, "content-type": "text/csv" }, data: csv });
     expect(first.status()).toBe(200);
-    expect((await first.json()).data).toEqual({ added: 2, skipped: 3 });
+    // batch_id 는 이번 라운드에 생긴 값 — 되돌리기(import/revert)가 가리킬 배치다.
+    // "더 늘지 않았다" 를 지키려고 added/skipped 는 그대로 정확히 맞추고, batch_id 는 존재만 본다.
+    const firstBody = (await first.json()).data as { added: number; skipped: number; batch_id: string };
+    expect({ added: firstBody.added, skipped: firstBody.skipped }).toEqual({ added: 2, skipped: 3 });
+    expect(firstBody.batch_id).toEqual(expect.any(String));
 
     const again = await request.post(url, { headers: admin, data: { rows: [{ user_id: "u1" }, { token: "tok-x" }] } });
-    expect((await again.json()).data).toEqual({ added: 1, skipped: 1 });
+    const againBody = (await again.json()).data as { added: number; skipped: number; batch_id: string };
+    expect({ added: againBody.added, skipped: againBody.skipped }).toEqual({ added: 1, skipped: 1 });
+    // 가져오기마다 배치가 새로 생긴다 — 되돌리기는 이 배치 하나만 건드려야 한다
+    expect(againBody.batch_id).not.toBe(firstBody.batch_id);
 
     const list = await request.get(`/api/admin/projects/${p.pid}/audience/suppressions`, { headers: admin });
     const rows = (await list.json()).data.suppressions as Array<{ externalId: string | null; reason: string }>;
@@ -1079,8 +1091,9 @@ test.describe("저니 편집 화면", () => {
     // 새 행의 첫 입력칸으로 간다 — 추가 버튼에 초점이 남으면 어디에 쓰는지 알 수 없다
     const added = page.getByRole("group", { name: "스텝 2" });
     await expect(added.getByLabel("스텝 타입")).toBeFocused();
-    await expect(added.getByText("눌렀다면")).toBeVisible();
-    await expect(added.getByText("안 눌렀다면")).toBeVisible();
+    // "눌렀다면" 은 "안 눌렀다면" 의 부분 문자열이라 exact 없이는 두 갈래가 같은 것으로 잡힌다
+    await expect(added.getByText("눌렀다면", { exact: true })).toBeVisible();
+    await expect(added.getByText("안 눌렀다면", { exact: true })).toBeVisible();
 
     // 갈래 안에 발송을 넣고 제목을 비운 채 저장하면 그 칸 아래에 오류가 붙는다
     await added.getByRole("button", { name: "send 추가" }).first().click();
@@ -1092,7 +1105,9 @@ test.describe("저니 편집 화면", () => {
     await expect(page.getByText("제목을 입력하세요")).toBeVisible();
 
     // 지우면 초점이 사라지지 않고 앞 행으로 돌아온다
-    await added.getByRole("button", { name: "스텝 삭제" }).click();
+    // 분기 스텝은 갈래 안에 **자기 스텝들**을 품는다 — 그 아이들의 삭제 단추도 같은 그룹 안에 있다.
+    // 지우려는 것은 분기 행 자신이고, 그 단추는 머리글에 있어 DOM 상 아이들보다 앞선다.
+    await added.getByRole("button", { name: "스텝 삭제" }).first().click();
     await expect(page.getByRole("group", { name: "스텝 2" })).toHaveCount(0);
     await expect(page.getByRole("group", { name: "스텝 1" }).getByLabel("스텝 타입")).toBeFocused();
   });
@@ -1314,12 +1329,498 @@ test.describe("A/B 자동 승자", () => {
     await expect(dialog.getByRole("button", { name: "취소" })).toBeVisible();
     await dialog.getByRole("button", { name: "취소" }).click();
     await expect(page.getByLabel("제목", { exact: true })).toHaveValue("쓰던 제목");
-    await expect(page.getByLabel("템플릿")).toHaveValue("");
+    // 확인 다이얼로그 이름이 "템플릿 적용" 이라 부분 일치로는 창까지 잡힌다 — 고르기 칸만 본다
+    await expect(page.getByLabel("템플릿", { exact: true })).toHaveValue("");
 
-    await page.getByLabel("템플릿").selectOption({ label: name });
+    await page.getByLabel("템플릿", { exact: true }).selectOption({ label: name });
     await page.getByRole("dialog").getByRole("button", { name: "적용" }).click();
     await expect(page.getByLabel("제목", { exact: true })).toHaveValue("템플릿 제목");
     // 고른 템플릿과 화면의 선택이 어긋나지 않는다
-    await expect(page.getByLabel("템플릿")).not.toHaveValue("");
+    await expect(page.getByLabel("템플릿", { exact: true })).not.toHaveValue("");
+  });
+});
+
+test.describe("감사 로그와 리포트 내보내기", () => {
+  test("설정 변경이 누가·무엇에서 무엇으로 바뀌었는지까지 남는다", async ({ request }) => {
+    const p = await createProject(request, "audit-settings");
+
+    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 22 } });
+    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 23 } });
+    // 같은 값으로 다시 저장한 요청은 기록하지 않는다 — 잡음이 쌓이면 진짜 변경을 못 찾는다
+    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 23 } });
+
+    const res = await request.get(`/api/admin/projects/${p.pid}/audit?action=project.settings.update`, { headers: admin });
+    expect(res.ok()).toBeTruthy();
+    const entries = (await res.json()).data.entries as Array<{
+      action: string;
+      actorLabel: string;
+      diff: Record<string, { before: unknown; after: unknown }> | null;
+    }>;
+
+    expect(entries).toHaveLength(2);
+    // 최신순 — 23 으로 바꾼 것이 위
+    expect(entries[0].diff?.quietStartHour).toEqual({ before: 22, after: 23 });
+    expect(entries[1].diff?.quietStartHour).toEqual({ before: null, after: 22 });
+    expect(entries[0].actorLabel).toBe("admin-token");
+  });
+
+  test("인증 없는 쓰기와 타 org 404 는 감사에 적지 않는다", async ({ request }) => {
+    const p = await createProject(request, "audit-denied");
+
+    // 토큰 없는 쓰기 → 401. 적으면 누구나 감사 테이블에 행을 밀어 넣을 수 있다.
+    const anon = await request.patch(`/api/admin/projects/${p.pid}`, {
+      headers: { origin: ORIGIN },
+      data: { quiet_start_hour: 1 },
+    });
+    expect([401, 403, 404]).toContain(anon.status());
+
+    const res = await request.get(`/api/admin/projects/${p.pid}/audit`, { headers: admin });
+    const entries = (await res.json()).data.entries as Array<{ action: string }>;
+    expect(entries.some((e) => e.action.endsWith(":denied"))).toBe(false);
+  });
+
+  test("가져오기 배치를 통째로 되돌린다 (두 번은 안 된다)", async ({ request }) => {
+    const p = await createProject(request, "audit-batch");
+
+    // 먼저 손으로 하나 넣어 둔다 — 되돌리기가 이 행까지 건드리면 안 된다
+    const manual = await request.post(`/api/admin/projects/${p.pid}/audience/suppressions`, {
+      headers: admin,
+      data: { user_id: "already-blocked", reason: "opt_out" },
+    });
+    expect(manual.status()).toBe(201);
+
+    const imp = await request.post(`/api/admin/projects/${p.pid}/audience/suppressions/import`, {
+      headers: { ...admin, "content-type": "text/csv" },
+      data: "user_id,reason\nbulk-a,manual\nbulk-b,manual\nalready-blocked,manual\n",
+    });
+    expect(imp.ok()).toBeTruthy();
+    const impBody = (await imp.json()).data;
+    expect(impBody.added).toBe(2); // 이미 있던 대상은 건너뛴다
+    const batchId = impBody.batch_id as string;
+    expect(batchId).toBeTruthy();
+
+    // 배치 id 가 감사에 남아 있다
+    const auditRes = await request.get(`/api/admin/projects/${p.pid}/audit?action=suppression.import`, { headers: admin });
+    const impEntry = (await auditRes.json()).data.entries[0];
+    expect(impEntry.targetId).toBe(batchId);
+    expect(impEntry.diff.added).toEqual({ before: 0, after: 2 });
+
+    const revert = await request.post(`/api/admin/projects/${p.pid}/audience/suppressions/import/revert`, {
+      headers: { ...admin, "content-type": "application/json" },
+      data: { batch_id: batchId },
+    });
+    expect(revert.ok()).toBeTruthy();
+    expect((await revert.json()).data.removed).toBe(2);
+
+    const left = await request.get(`/api/admin/projects/${p.pid}/audience/suppressions`, { headers: admin });
+    const ids = ((await left.json()).data.suppressions as Array<{ externalId: string | null }>).map((s) => s.externalId);
+    expect(ids).toEqual(["already-blocked"]); // 원래 있던 수신거부는 살아 있다
+
+    const again = await request.post(`/api/admin/projects/${p.pid}/audience/suppressions/import/revert`, {
+      headers: { ...admin, "content-type": "application/json" },
+      data: { batch_id: batchId },
+    });
+    expect(again.status()).toBe(409);
+  });
+
+  test("diff 에 토큰과 전화번호가 남지 않는다", async ({ request }) => {
+    const p = await createProject(request, "audit-redact");
+    const token = `secret-token-${Date.now()}`;
+
+    await request.post(`/api/admin/projects/${p.pid}/audience/suppressions`, {
+      headers: admin,
+      data: { token, reason: "bounced" },
+    });
+    await request.post(`/api/admin/projects/${p.pid}/audience/suppressions`, {
+      headers: admin,
+      data: { user_id: "+821012345678", reason: "opt_out" },
+    });
+
+    const res = await request.get(`/api/admin/projects/${p.pid}/audit?action=suppression.create`, { headers: admin });
+    const raw = JSON.stringify((await res.json()).data.entries);
+    expect(raw).not.toContain(token);
+    expect(raw).not.toContain("821012345678");
+    expect(raw).toContain("[redacted]");
+    expect(raw).toContain("[phone …5678]");
+  });
+
+  test("CSV 내보내기는 화면에 건 필터와 같은 범위만 담는다", async ({ request }) => {
+    const p = await createProject(request, "audit-export");
+    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 3 } });
+    await request.post(`/api/admin/projects/${p.pid}/audience/topics`, { headers: admin, data: { name: `export-topic-${Date.now()}` } });
+
+    const all = await request.get(`/api/admin/projects/${p.pid}/export/audit`, { headers: admin });
+    expect(all.ok()).toBeTruthy();
+    expect(all.headers()["content-type"]).toContain("text/csv");
+    expect(all.headers()["x-export-row-limit"]).toBe("50000");
+    const allText = await all.text();
+    expect(allText.startsWith("﻿")).toBe(true); // 엑셀이 한글을 깨뜨리지 않게
+    expect(allText).toContain("project.settings.update");
+    expect(allText).toContain("topic.create");
+
+    // 화면에서 토픽 생성만 보고 있으면 파일에도 그것만 담겨야 한다
+    const filtered = await request.get(`/api/admin/projects/${p.pid}/export/audit?action=topic.create`, { headers: admin });
+    const filteredText = await filtered.text();
+    expect(filteredText).toContain("topic.create");
+    expect(filteredText).not.toContain("project.settings.update");
+
+    // 범위 밖 기간이면 헤더만 남는다
+    const empty = await request.get(`/api/admin/projects/${p.pid}/export/audit?from=2000-01-01&to=2000-01-02`, { headers: admin });
+    expect((await empty.text()).trimEnd().split("\r\n")).toHaveLength(1);
+  });
+
+  test("감사 화면: 최신순 목록과 행위 필터, 내보내기 단추", async ({ page }) => {
+    await ensureLogin(page);
+    const pid = await sessionProjectId(page);
+    await page.request.patch(`/api/admin/projects/${pid}`, { headers: { origin: ORIGIN }, data: { quiet_end_hour: 7 } });
+
+    await page.goto(`/projects/${pid}/audit`);
+    await expect(page.getByRole("heading", { name: "감사 로그" })).toBeVisible();
+    await expect(page.getByRole("table", { name: "감사 로그" })).toBeVisible();
+    // 같은 이름이 행위 필터의 <option> 에도 있다 — 목록에 정말 남았는지는 표 안에서 본다
+    await expect(page.getByRole("table", { name: "감사 로그" }).getByText("프로젝트 설정 변경").first()).toBeVisible();
+
+    // 필터는 조회와 내보내기에 함께 걸린다
+    // "행위" 는 "행위자" 의 부분 문자열이라 exact 없이는 두 드롭다운이 함께 잡힌다
+    await page.getByLabel("행위", { exact: true }).selectOption("topic.create");
+    await expect(page.getByRole("link", { name: "감사 로그 CSV" })).toHaveAttribute("href", /action=topic\.create/);
+
+    // 시작일이 종료일보다 뒤면 그 칸 옆에 이유가 붙는다
+    await expect(page.getByRole("link", { name: "발송 로그 CSV" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "참여 CSV" })).toHaveAttribute("href", /range=30d/);
+  });
+});
+
+test.describe("발송 취소 · 로케일 문구 · 홀드아웃 · 수신 보고 · 캠페인별 재정의", () => {
+  const sdk = (p: { apiKey: string; apiSecret: string }) => ({ "api-key": p.apiKey, "api-secret": p.apiSecret });
+
+  async function queue(request: APIRequestContext, p: { apiKey: string; apiSecret: string }, data: Record<string, unknown>) {
+    const res = await request.post("/api/v1/messages", { headers: sdk(p), data });
+    expect(res.status()).toBe(202);
+    return (await res.json()).data.message.id as string;
+  }
+
+  async function registerDevice(request: APIRequestContext, p: { apiKey: string }, token: string, locale?: string) {
+    const res = await request.post("/api/v1/devices", {
+      headers: { "api-key": p.apiKey },
+      data: { token, platform: "android", ...(locale ? { locale } : {}) },
+    });
+    expect(res.ok()).toBeTruthy();
+  }
+
+  test("취소: 큐에서 빼고 이미 나간 수를 함께 돌려준다 — 두 번째 취소는 409", async ({ request }) => {
+    const p = await createProject(request, "cancel");
+    const id = await queue(request, p, { type: "broadcast", title: "멈출 발송", body: "본문" });
+
+    const res = await request.post(`/api/admin/projects/${p.pid}/logs/${id}/cancel`, { headers: { ...admin, origin: ORIGIN }, data: {} });
+    expect(res.status()).toBe(200);
+    const log = (await res.json()).data.log;
+    expect(log.status).toBe("canceled");
+    expect(log.canceled_at).not.toBeNull();
+    // "취소됨"만 보여 주면 아무에게도 안 갔다고 읽는다 — 이미 나간 수를 반드시 준다
+    expect(log.sent).toEqual({ total: 0, success: 0, failure: 0, holdout: 0 });
+
+    // 큐를 돌려도 취소된 로그는 집히지 않는다(클레임 조건에 canceled 가 없다)
+    await request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+    const detail = await request.get(`/api/admin/projects/${p.pid}/logs/${id}`, { headers: admin });
+    expect((await detail.json()).data.log.status).toBe("canceled");
+
+    const again = await request.post(`/api/admin/projects/${p.pid}/logs/${id}/cancel`, { headers: { ...admin, origin: ORIGIN }, data: {} });
+    expect(again.status()).toBe(409);
+  });
+
+  test("취소: 끝난 발송은 409, 없는 발송은 404", async ({ request }) => {
+    const p = await createProject(request, "cancel-done");
+    const id = await queue(request, p, { type: "broadcast", title: "끝난 발송", body: "본문" });
+    await request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+
+    const done = await request.post(`/api/admin/projects/${p.pid}/logs/${id}/cancel`, { headers: { ...admin, origin: ORIGIN }, data: {} });
+    expect(done.status()).toBe(409);
+    const missing = await request.post(
+      `/api/admin/projects/${p.pid}/logs/00000000-0000-0000-0000-000000000000/cancel`,
+      { headers: { ...admin, origin: ORIGIN }, data: {} }
+    );
+    expect(missing.status()).toBe(404);
+  });
+
+  test("로케일 문구: 저장되고 폴백 인원이 로케일별로 남는다", async ({ request }) => {
+    const p = await createProject(request, "locale");
+    const stamp = Date.now();
+    await registerDevice(request, p, `loc-ko-${stamp}`, "ko_KR"); // 밑줄 표기도 ko 로 접힌다
+    await registerDevice(request, p, `loc-fr-${stamp}`, "fr-CA"); // 맞는 언어가 없다 → 폴백
+    await registerDevice(request, p, `loc-none-${stamp}`); // 로케일 미상 → "" 로 센다
+
+    const locales = { ko: { title: "세일 시작", body: "최대 50% 할인" } };
+    const id = await queue(request, p, { type: "broadcast", title: "Sale", body: "50% off", locales });
+    await request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+
+    const detail = await request.get(`/api/admin/projects/${p.pid}/logs/${id}`, { headers: admin });
+    const log = (await detail.json()).data.log;
+    expect(log.localeVariants).toEqual(locales);
+    // 조용한 폴백은 믿을 수 없다 — 몇 명이 무슨 로케일로 기본 문구를 받았는지 보여야 한다
+    expect(log.localeFallbacks.total).toBe(2);
+    expect(log.localeFallbacks.byLocale).toMatchObject({ "fr-ca": 1, "": 1 });
+  });
+
+  test("로케일 문구: 변형과 함께 쓰거나 기본 문구가 없으면 422", async ({ request }) => {
+    const p = await createProject(request, "locale-bad");
+    const locales = { ko: { title: "안녕", body: "반가워" } };
+    const bad: Array<Record<string, unknown>> = [
+      { type: "broadcast", title: "a", body: "b", locales, variants: [{ title: "A", body: "a" }, { title: "B", body: "b" }] },
+      { type: "broadcast", locales },
+      { type: "broadcast", title: "a", body: "b", locales: { 한국어: { title: "a", body: "b" } } },
+      { type: "broadcast", title: "a", body: "b", locales: { ko_KR: { title: "a", body: "b" }, "ko-KR": { title: "c", body: "d" } } },
+    ];
+    for (const data of bad) {
+      const res = await request.post("/api/v1/messages", { headers: sdk(p), data });
+      expect(res.status()).toBe(422);
+    }
+  });
+
+  test("홀드아웃: 대조군을 빼고 명단을 남긴다 — 같은 사람은 발송이 바뀌어도 같은 쪽", async ({ request }) => {
+    const p = await createProject(request, "holdout");
+    const stamp = Date.now();
+    for (let i = 0; i < 60; i++) await registerDevice(request, p, `hold-${stamp}-${i}`);
+
+    const first = await queue(request, p, { type: "broadcast", title: "캠페인 1", body: "본문", holdout_percent: 50 });
+    await request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+    const second = await queue(request, p, { type: "broadcast", title: "캠페인 2", body: "본문", holdout_percent: 50 });
+    await request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const held = await sql`select log_id, device_id from push_holdouts where project_id = ${p.pid}`;
+      const a = new Set(held.filter((r) => r.log_id === first).map((r) => r.device_id));
+      const b = new Set(held.filter((r) => r.log_id === second).map((r) => r.device_id));
+      expect(a.size).toBeGreaterThan(0);
+      // 발송마다 다시 뽑으면 재는 것이 "푸시의 효과"가 아니라 "그날 누가 뽑혔는가"가 된다
+      expect([...b].sort()).toEqual([...a].sort());
+      const logs = await sql`select holdout_percent, holdout_count from push_logs where id = ${first}`;
+      expect(logs[0].holdout_percent).toBe(50);
+      expect(Number(logs[0].holdout_count)).toBe(a.size);
+    } finally {
+      await sql.end();
+    }
+
+    const detail = await request.get(`/api/admin/projects/${p.pid}/logs/${first}`, { headers: admin });
+    const body = (await detail.json()).data;
+    expect(body.holdout.percent).toBe(50);
+    expect(body.holdout.devices).toBeGreaterThan(0);
+    // 대조군 전환이 0 이면 비율이 성립하지 않는다 — 0% 나 무한대로 적지 않는다
+    expect(body.holdout.lift).toBeNull();
+  });
+
+  test("홀드아웃: type=single 은 422", async ({ request }) => {
+    const p = await createProject(request, "holdout-single");
+    const res = await request.post("/api/v1/messages", {
+      headers: sdk(p),
+      data: { type: "single", target: "u1", title: "a", body: "b", holdout_percent: 10 },
+    });
+    expect(res.status()).toBe(422);
+  });
+
+  test("수신 보고: 도달 수를 FCM 접수와 다른 칸에 세고, 재보고는 한 번만 센다", async ({ request }) => {
+    const p = await createProject(request, "receipt");
+    const token = `rcpt-${Date.now()}`;
+    await registerDevice(request, p, token);
+    const id = await queue(request, p, { type: "broadcast", title: "도달 확인", body: "본문" });
+    await request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: admin, data: {} });
+
+    const first = await request.post("/api/v1/messages/received", {
+      headers: { "api-key": p.apiKey },
+      data: { log_id: id, token },
+    });
+    expect(first.status()).toBe(202);
+    expect((await first.json()).data.recorded).toBe(true);
+
+    // (발송, 기기) 유니크 — SDK 가 재시도해도 카운터가 부풀지 않는다
+    const again = await request.post("/api/v1/messages/received", {
+      headers: { "api-key": p.apiKey },
+      data: { log_id: id, token },
+    });
+    expect((await again.json()).data.recorded).toBe(false);
+
+    const detail = await request.get(`/api/admin/projects/${p.pid}/logs/${id}`, { headers: admin });
+    expect((await detail.json()).data.log.deliveredCount).toBe(1);
+  });
+
+  test("수신 보고: 키·기기·발송 자격을 가린다", async ({ request }) => {
+    const p = await createProject(request, "receipt-auth");
+    const token = `rcpt-auth-${Date.now()}`;
+    await registerDevice(request, p, token);
+    const id = await queue(request, p, { type: "broadcast", title: "a", body: "b" });
+
+    const noKey = await request.post("/api/v1/messages/received", { data: { log_id: id, token } });
+    expect(noKey.status()).toBe(401);
+
+    const headers = { "api-key": p.apiKey };
+    const badBody = await request.post("/api/v1/messages/received", { headers, data: { log_id: "not-a-uuid", token } });
+    expect(badBody.status()).toBe(422);
+
+    const noLog = await request.post("/api/v1/messages/received", {
+      headers,
+      data: { log_id: "00000000-0000-0000-0000-000000000000", token },
+    });
+    expect(noLog.status()).toBe(404);
+
+    const noDevice = await request.post("/api/v1/messages/received", { headers, data: { log_id: id, token: "없는-토큰" } });
+    expect(noDevice.status()).toBe(404);
+  });
+
+  test("캠페인별 재정의: quiet_hours:false 는 방해금지를 건너뛰고, 속도 제한을 발송 단위로 덮는다", async ({ request }) => {
+    const p = await createProject(request, "override");
+    // 하루 전체가 방해금지인 프로젝트 — 재정의가 없으면 반드시 미뤄진다
+    const patch = await request.patch(`/api/admin/projects/${p.pid}`, {
+      headers: { ...admin, origin: ORIGIN },
+      data: { quiet_start_hour: 0, quiet_end_hour: 23, max_sends_per_minute: 1 },
+    });
+    expect(patch.ok()).toBeTruthy();
+
+    const quiet = await request.post("/api/v1/messages", { headers: sdk(p), data: { type: "broadcast", title: "마케팅", body: "본문" } });
+    expect((await quiet.json()).data.message.status).toBe("scheduled");
+
+    const txn = await request.post("/api/v1/messages", {
+      headers: sdk(p),
+      data: { type: "broadcast", title: "주문 확인", body: "결제됐습니다", quiet_hours: false, max_sends_per_minute: 0 },
+    });
+    // 거래성 발송이 마케팅용 야간 금지에 밀리지 않는다
+    expect((await txn.json()).data.message.status).toBe("queued");
+    const id = (await (await request.get(`/api/admin/projects/${p.pid}/logs`, { headers: admin })).json()).data.logs[0].id;
+
+    const detail = await request.get(`/api/admin/projects/${p.pid}/logs/${id}`, { headers: admin });
+    const log = (await detail.json()).data.log;
+    expect(log.ignoreQuietHours).toBe(true);
+    // 0 과 "주지 않음"은 다르다 — 0 은 이 발송만 제한 없음이라는 명시적 해제다
+    expect(log.maxSendsPerMinute).toBe(0);
+  });
+});
+
+/**
+ * 라운드 5 콘솔 배선.
+ *
+ * 서버가 돌려주는 값을 화면이 실제로 **보여 주는지** 만 본다. 여기서 꼭 지켜보는 것:
+ *  - 취소가 "취소됨" 만 말하지 않고 **이미 나간 수**를 함께 말하는가
+ *  - 로케일 폴백 인원이 화면에 나오는가(조용한 폴백은 믿을 수 없다)
+ *  - 단말 수신이 FCM 접수와 **다른 칸**에 서 있는가
+ */
+test.describe("라운드 5 콘솔: 취소 · 로케일 · 대조군 · 수신 보고", () => {
+  const sdk = (p: { apiKey: string; apiSecret: string }) => ({ "api-key": p.apiKey, "api-secret": p.apiSecret });
+
+  async function seed(page: Page, prefix: string) {
+    await ensureLogin(page);
+    const created = await page.request.post("/api/admin/projects", {
+      data: { name: `${prefix}-${Date.now()}` },
+      headers: { origin: ORIGIN },
+    });
+    expect(created.status()).toBe(201);
+    const j = (await created.json()).data;
+    return { pid: j.project.id as string, apiKey: j.project.apiKey as string, apiSecret: j.api_secret as string };
+  }
+
+  test("큐 화면: 취소는 확인 창을 거치고, 이미 나간 수를 함께 알린다", async ({ page }) => {
+    const p = await seed(page, "cancel-ui");
+    const queued = await page.request.post("/api/v1/messages", {
+      headers: sdk(p),
+      data: { type: "broadcast", title: "멈출 캠페인", body: "본문" },
+    });
+    expect(queued.status()).toBe(202);
+
+    await page.goto(`/projects/${p.pid}/queue`);
+    await expect(page.getByText("멈출 캠페인")).toBeVisible();
+
+    // 네이티브 confirm() 이 아니라 콘솔 다이얼로그다 — 브라우저 언어의 OK/Cancel 이 섞이지 않는다
+    await page.getByRole("button", { name: "멈출 캠페인 발송 취소" }).click();
+    const dialog = page.getByRole("dialog", { name: "이 발송을 취소할까요?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "취소하기" }).click();
+
+    // "취소됨" 만 보여 주면 아무에게도 안 갔다고 읽는다 — 나간 수를 함께 말한다
+    await expect(page.getByText("발송을 취소했습니다")).toBeVisible();
+    await expect(page.getByText(/취소 시점까지 0건이 나갔습니다/)).toBeVisible();
+    await expect(page.getByText("멈출 캠페인")).toHaveCount(0);
+
+    // 상세는 취소 시각·취소한 사람과 나간 수를 남긴다
+    const list = await page.request.get(`/api/admin/projects/${p.pid}/logs`, { headers: { origin: ORIGIN } });
+    const id = (await list.json()).data.logs[0].id as string;
+    await page.goto(`/projects/${p.pid}/logs/${id}`);
+    await expect(page.getByText("취소됨")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "취소 시점까지 나간 수" })).toBeVisible();
+    await expect(page.getByText("취소한 사람")).toBeVisible();
+    // 끝난 발송은 되돌릴 것이 없으므로 취소 단추가 서 있지 않다
+    await expect(page.getByRole("button", { name: "발송 취소" })).toHaveCount(0);
+  });
+
+  test("로그 상세: 로케일 폴백 인원·대조군·단말 수신이 접수와 따로 보인다", async ({ page }) => {
+    const p = await seed(page, "detail-ui");
+    const stamp = Date.now();
+    // 대조군에 뽑히는 기기는 문구를 배정받지 않는다 — 비율을 낮추고 기기를 늘려
+    // "폴백이 0 건" 으로 흘러가지 않게 한다(버킷은 토큰 해시라 한두 대로는 흔들린다)
+    const devices = [[`ui-ko-${stamp}`, "ko_KR"], ...Array.from({ length: 5 }, (_, i) => [`ui-fr-${i}-${stamp}`, "fr-CA"])] as const;
+    for (const [token, locale] of devices) {
+      const res = await page.request.post("/api/v1/devices", {
+        headers: { "api-key": p.apiKey },
+        data: { token, platform: "android", locale },
+      });
+      expect(res.ok()).toBeTruthy();
+    }
+
+    const sent = await page.request.post("/api/v1/messages", {
+      headers: sdk(p),
+      data: {
+        type: "broadcast",
+        title: "Sale",
+        body: "50% off",
+        locales: { ko: { title: "세일 시작", body: "최대 50% 할인" } },
+        holdout_percent: 10,
+      },
+    });
+    expect(sent.status()).toBe(202);
+    const id = (await sent.json()).data.message.id as string;
+    await page.request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: { origin: ORIGIN }, data: {} });
+
+    await page.goto(`/projects/${p.pid}/logs/${id}`);
+    // 접수와 수신은 다른 줄이다 — 한 칸에 합치면 기기가 꺼져 있어도 "닿았다" 로 읽힌다
+    await expect(page.getByText("단말 수신")).toBeVisible();
+    await expect(page.getByText("FCM 접수와 다른 축")).toBeVisible();
+
+    await expect(page.getByRole("heading", { name: "로케일별 문구" })).toBeVisible();
+    // 폴백을 숨기면 "번역을 넣었다" 는 믿음만 남는다
+    await expect(page.getByText(/명이 기본 문구를 받았습니다/)).toBeVisible();
+    await expect(page.getByText("세일 시작")).toBeVisible();
+
+    await expect(page.getByRole("heading", { name: "홀드아웃(대조군)" })).toBeVisible();
+    await expect(page.getByText("대조군 비율")).toBeVisible();
+    // 대조군 전환이 없으면 리프트는 0% 가 아니라 "잴 수 없음" 이다
+    await expect(page.getByText(/리프트를 낼 수 없습니다/)).toBeVisible();
+
+    // 목록에서도 접수와 **다른 열**이어야 한다. 토픽 필터 화면은 broadcast 를 걸러내 표가 없으므로 전체 목록에서 본다.
+    await page.goto(`/projects/${p.pid}/logs`);
+    await expect(page.getByRole("columnheader", { name: "단말 수신" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "성공/대상" })).toBeVisible();
+  });
+
+  test("발송 화면: 로케일 문구는 변형과 함께 쓸 수 없고, 대조군은 개별 발송에서 사라진다", async ({ page }) => {
+    const p = await seed(page, "send-ui");
+
+    await page.goto(`/projects/${p.pid}/send/broadcast`);
+    await page.getByRole("button", { name: "알림 옵션" }).click();
+    await expect(page.getByLabel("홀드아웃(대조군) %")).toBeVisible();
+    await page.getByLabel("홀드아웃(대조군) %").fill("10");
+    await expect(page.getByText(/10% 에게는 아무것도 보내지 않고/)).toBeVisible();
+    await page.getByLabel("방해금지 시간대 무시").check();
+    await expect(page.getByText("이 발송은 프로젝트 방해금지 시간대를 건너뛰고 바로 나갑니다.")).toBeVisible();
+
+    // 로케일 줄의 첫 칸은 default 로 채워진다 — 기본 문구 없이 보내면 빈 알림이 간다
+    await page.getByRole("button", { name: "언어 추가" }).click();
+    await expect(page.getByLabel("언어 태그")).toHaveValue("default");
+
+    // 변형과 로케일은 두 축을 곱해 버려 어느 쪽의 폴백인지 알 수 없다 — 서버도 422 다
+    await page.getByRole("button", { name: "변형 B 추가" }).click();
+    await expect(page.getByText(/A\/B 변형과 함께 쓸 수 없습니다/)).toBeVisible();
+
+    // 개별 발송은 받는 사람이 한 명이라 대조군이 성립하지 않는다
+    await page.goto(`/projects/${p.pid}/send/single`);
+    await page.getByRole("button", { name: "알림 옵션" }).click();
+    await expect(page.getByLabel("홀드아웃(대조군) %")).toHaveCount(0);
   });
 });
