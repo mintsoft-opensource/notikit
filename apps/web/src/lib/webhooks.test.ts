@@ -107,6 +107,7 @@ describe("webhook health", () => {
   it("starts clean and reports no dead letters", () => {
     resetWebhookHealth();
     expect(getWebhookHealth()).toEqual({
+      scope: "process", // replica 가 여럿이면 이 숫자는 인스턴스의 조각이다
       deadLetters: 0,
       lastDeadLetterAt: null,
       lastDeadLetterId: null,

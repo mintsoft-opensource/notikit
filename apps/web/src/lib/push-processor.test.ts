@@ -352,6 +352,7 @@ const ctx = {
   personalized: false,
   rateLimit: null,
   localTime: null,
+  ab: null,
 } satisfies SendContext;
 
 describe("runFollowUps", () => {

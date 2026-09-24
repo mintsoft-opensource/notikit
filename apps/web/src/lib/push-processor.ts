@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, lt, gt, ne, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs, projects, devices, pushUsers, pushUserSends, notifications, type PushLog } from "@/db/schema";
+import { pushLogs, projects, devices, pushClicks, pushUsers, pushUserSends, notifications, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import type { FcmResult } from "@/lib/fcm";
@@ -52,6 +52,18 @@ import {
   type LocalPass,
 } from "@/lib/local-delivery";
 import { nextWindow, purgeRateWindows, refundSendBudget, reserveSendBudget } from "@/lib/send-throttle";
+import {
+  abPart,
+  abPlan,
+  abResults,
+  abScale,
+  abTargets,
+  abWinnerKey,
+  decideWinner,
+  type AbDecision,
+  type AbTestPlan,
+} from "@/lib/ab-test";
+import { enqueuePush, type ReadyMessage } from "@/lib/messages";
 
 const PAGE = 2000; // DB 조회 페이지 (전체 토큰을 메모리에 한 번에 올리지 않음)
 const DRAIN_CONCURRENCY = 4; // 한 프로젝트에서 동시에 처리하는 로그 수
@@ -221,6 +233,7 @@ async function loadSendContext(db: Db, log: PushLog): Promise<SendContext | null
     cap: log.isTest ? null : project.frequencyCapPerDay,
     rateLimit: log.isTest ? null : project.maxSendsPerMinute,
     localTime: log.isTest ? null : parseLocalTime(log.localTime),
+    ab: log.isTest ? null : abPart(log.abTest),
     // 발송 한 건에 공통인 치환 값. 시각을 한 번 고정해야 페이지마다 {{time}} 이 달라지지 않는다.
     renderCtx: { appName: project.name, now: new Date() },
     personalized: hasPlaceholders(log.title, log.body, ...variants.flatMap((v) => [v.title, v.body])),
@@ -241,7 +254,8 @@ async function dueDevices(db: Db, log: PushLog, run: Run, page: ScopedDevice[]):
 async function sendPage(db: Db, log: PushLog, run: Run, page: ScopedDevice[], state: ResumeState): Promise<ResumeState> {
   const ctx = run.ctx;
   const cursor = page[page.length - 1].id;
-  const targets = await dueDevices(db, log, run, page);
+  // A/B 는 현지 시각보다 **먼저** 거른다 — 내 쪽이 아닌 기기는 회차 판정에도 끼면 안 된다
+  const targets = await dueDevices(db, log, run, abTargets(ctx.ab, page));
   const local = run.pass ? { local: passState(run.pass) } : {};
   if (targets.length === 0) return { ...state, cursor, ...local };
 
@@ -309,7 +323,7 @@ async function runPages(db: Db, log: PushLog, run: Run, now: Date): Promise<Page
   if (waitUntil && waitUntil.getTime() > now.getTime()) return { state: resumed!, deferredUntil: waitUntil };
 
   // 상태가 깨졌어도 시도 횟수는 이어받는다 — 아니면 같은 실패를 한도 없이 반복한다
-  let state: ResumeState = resumed ?? initialState(await countAudience(db, log), log.variants?.length ?? null, parseAttempts(progress.raw));
+  let state: ResumeState = resumed ?? initialState(abAudience(await countAudience(db, log), ctx.ab), log.variants?.length ?? null, parseAttempts(progress.raw));
   state = { ...state, nextPageAt: undefined };
   run.pass = ctx.localTime
     ? openLocalPass(ctx.localTime, state.local, now, now.getTime() - log.createdAt.getTime() >= LOCAL_WINDOW_MS)
@@ -337,6 +351,15 @@ async function runPages(db: Db, log: PushLog, run: Run, now: Date): Promise<Page
   return finishPass(db, log, run, state);
 }
 
+/**
+ * A/B 발송의 분모 — 대상 전체가 아니라 이 발송이 맡은 쪽만 받는다.
+ * 버킷이 정확히 비율대로 갈리지는 않으므로 어림값이지만, 전체 수를 그대로 두면
+ * 표본 발송의 클릭률이 비율만큼 낮게 나와 판정보다 화면이 먼저 거짓말을 한다.
+ */
+function abAudience(a: { users: number; devices: number }, part: SendContext["ab"]) {
+  return part ? { users: abScale(a.users, part), devices: abScale(a.devices, part) } : a;
+}
+
 /** 현지 시각 회차 마감 — 미룬 묶음이 있으면 커서를 처음으로 되돌리고 그 시각에 다시 깨어난다. */
 async function finishPass(db: Db, log: PushLog, run: Run, state: ResumeState): Promise<PageRun | null> {
   if (!run.pass) return { state, deferredUntil: null };
@@ -355,24 +378,41 @@ async function defer(db: Db, log: PushLog, run: Run, state: ResumeState, at: Dat
   return { state: next, deferredUntil: at };
 }
 
+/** 로그 행에 적는 집계 값 — 완료 처리와 중간 저장이 같은 값을 쓴다. */
+function countColumns(state: ResumeState) {
+  return {
+    totalCount: state.total,
+    successCount: state.success,
+    failureCount: state.failure,
+    audienceUserCount: state.audience.users,
+    audienceDeviceCount: state.audience.devices,
+    ...(state.errors ? { deliveryErrors: state.errors } : {}),
+    ...(state.variantStats ? { variantStats: state.variantStats } : {}),
+  };
+}
+
 /** 완료 처리 — 우리가 여전히 소유자일 때만(부작용 1회 보장). */
 async function finalizeLog(db: Db, log: PushLog, lockToken: string, state: ResumeState, status: string): Promise<boolean> {
   const finalized = await db
     .update(pushLogs)
-    .set({
-      status,
-      totalCount: state.total,
-      successCount: state.success,
-      failureCount: state.failure,
-      audienceUserCount: state.audience.users,
-      audienceDeviceCount: state.audience.devices,
-      resumeCursor: null,
-      ...(state.errors ? { deliveryErrors: state.errors } : {}),
-      ...(state.variantStats ? { variantStats: state.variantStats } : {}),
-    })
+    .set({ status, ...countColumns(state), resumeCursor: null })
     .where(and(eq(pushLogs.id, log.id), eq(pushLogs.lockToken, lockToken)))
     .returning({ id: pushLogs.id });
   return finalized.length > 0;
+}
+
+/**
+ * 아직 안 끝난 발송의 집계를 미리 적는다(상태·진행 상태는 건드리지 않는다).
+ * A/B 판정 대기는 몇 시간이 될 수 있는데, 그동안 로그가 "0건 발송"으로 보이면
+ * 운영자는 표본이 실제로 나갔는지조차 알 수 없다 — 변형별 결과도 여기서 먼저 보인다.
+ */
+async function saveCounts(db: Db, log: PushLog, lockToken: string, state: ResumeState): Promise<boolean> {
+  const saved = await db
+    .update(pushLogs)
+    .set(countColumns(state))
+    .where(and(eq(pushLogs.id, log.id), eq(pushLogs.lockToken, lockToken)))
+    .returning({ id: pushLogs.id });
+  return saved.length > 0;
 }
 
 type FollowUpUser = Recipient & { id: string; phone: string | null };
@@ -484,6 +524,93 @@ export async function runFollowUps(
   return true;
 }
 
+// ─── A/B 자동 승자 ───────────────────────────────────────────────────────────
+
+/** 판정 단계의 결과. `deferredUntil` 이면 그 시각에 다시 깨어나 판정한다. null 은 소유권 상실. */
+type AbSettled = { deferredUntil: Date | null } | null;
+
+/** 변형별 유니크 클릭 — push_clicks 는 (로그, 기기) 유니크라 행 수가 곧 유니크 클릭이다 */
+async function abClicks(db: Db, logId: string): Promise<Map<number, number>> {
+  const rows = await db
+    .select({ variant: pushClicks.variant, n: sql<number>`count(*)::int` })
+    .from(pushClicks)
+    .where(eq(pushClicks.logId, logId))
+    .groupBy(pushClicks.variant);
+  return new Map(rows.flatMap((r) => (r.variant === null ? [] : [[r.variant, Number(r.n)] as [number, number]])));
+}
+
+/** 판정 결과를 로그에 굳힌다 — 우리가 아직 소유자일 때만 */
+async function saveAbTest(db: Db, log: PushLog, lockToken: string, ab: AbTestPlan): Promise<boolean> {
+  const rows = await db
+    .update(pushLogs)
+    .set({ abTest: ab })
+    .where(and(eq(pushLogs.id, log.id), eq(pushLogs.lockToken, lockToken)))
+    .returning({ id: pushLogs.id });
+  return rows.length > 0;
+}
+
+/**
+ * 승자 본발송 — **나머지 버킷**에게 승자 변형의 내용으로 로그 1행.
+ * 변형 없이 나가므로 받는 사람은 그냥 한 통을 받는다. 멱등 키가 있어 재판정에도 한 행만 생긴다.
+ */
+async function sendAbWinner(db: Db, log: PushLog, ctx: SendContext, plan: AbTestPlan, winner: number): Promise<string> {
+  const content = (log.variants ?? [])[winner];
+  if (!content) throw new Error(`ab winner ${winner} has no variant content`);
+  const message: ReadyMessage = {
+    type: log.type as ReadyMessage["type"],
+    title: content.title,
+    body: content.body,
+    kakao_fallback: log.kakaoFallback,
+    ...(log.target ? { target: log.target } : {}),
+    ...(log.targets ? { targets: log.targets } : {}),
+    ...(log.deepLink ? { deep_link: log.deepLink } : {}),
+    ...(log.imageUrl ? { image_url: log.imageUrl } : {}),
+    ...(log.data ? { data: log.data } : {}),
+    ...(log.options ? { options: log.options } : {}),
+    ...(log.localTime ? { local_time: log.localTime } : {}),
+  };
+  const { message: row } = await enqueuePush(ctx.project, message, {
+    db,
+    sentBy: "ab-winner",
+    idempotencyKey: abWinnerKey(log.id),
+    abTest: { role: "winner", parentLogId: log.id, samplePercent: plan.samplePercent, variant: winner },
+  });
+  return row.id;
+}
+
+/**
+ * A/B 판정 단계 — 표본 발송이 끝난 **뒤에** 돈다.
+ *
+ * 스케줄러를 새로 두지 않는다: 판정 시각을 `ab_test.decideAt` 에 적고 로그를 반납하면
+ * (`releaseLog` 가 `locked_at` 을 `at - STALE_MS` 로 적는다) 워커의 기존 큐 스캔이 정확히
+ * 그 시각에 이 로그를 다시 집어 온다. 재클레임·at-least-once 규칙이 그대로 적용되고,
+ * 판정이 두 번 돌아도 승자 본발송은 멱등 키 때문에 한 행뿐이다.
+ */
+async function settleAbTest(db: Db, log: PushLog, run: Run, state: ResumeState, now: Date): Promise<AbSettled> {
+  // 승자 본발송(role:"winner")은 판정할 것이 없다 — 표본 쪽만 이 단계를 돈다
+  const plan = run.ctx.ab?.part === "sample" ? abPlan(log.abTest) : null;
+  if (!plan || plan.decision) return { deferredUntil: null };
+
+  // 대기 시각은 **처음 한 번만** 정한다. 매번 now + wait 로 다시 잡으면 재클레임마다 판정이 미뤄진다.
+  const decideAt = plan.decideAt ? new Date(plan.decideAt) : new Date(now.getTime() + plan.waitMinutes * 60_000);
+  if (decideAt.getTime() > now.getTime()) {
+    if (!(await saveCounts(db, log, run.lockToken, state))) return null;
+    if (!(await saveAbTest(db, log, run.lockToken, { ...plan, decideAt: decideAt.toISOString() }))) return null;
+    return { deferredUntil: decideAt };
+  }
+
+  const results = abResults(log.variants?.length ?? 0, state.variantStats, await abClicks(db, log.id));
+  const decision: AbDecision = decideWinner(results, now);
+  // 발송이 먼저, 기록이 나중 — 반대로 두면 기록만 남고 아무도 못 받는 판정이 생긴다
+  const followUpLogId = decision.winner === null ? undefined : await sendAbWinner(db, log, run.ctx, plan, decision.winner);
+  const settled: AbTestPlan = {
+    ...plan,
+    decideAt: decideAt.toISOString(),
+    decision: { ...decision, ...(followUpLogId ? { followUpLogId } : {}) },
+  };
+  return (await saveAbTest(db, log, run.lockToken, settled)) ? { deferredUntil: null } : null;
+}
+
 async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
   return (await db.select().from(pushLogs).where(eq(pushLogs.id, logId)).limit(1))[0];
 }
@@ -537,6 +664,14 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
 
     const finalStatus = ctx.sa ? "completed" : "logged";
     if (!(await runFollowUps(db, log, ctx, lockToken, paged.state, finalStatus, progress))) return reload(db, logId);
+
+    // A/B 표본 발송은 판정까지가 한 건이다 — 대기 중에는 완료로 닫지 않고 그 시각에 다시 깨어난다
+    const settled = await settleAbTest(db, log, run, paged.state, new Date());
+    if (!settled) return reload(db, logId);
+    if (settled.deferredUntil) {
+      await releaseLog(db, logId, lockToken, settled.deferredUntil);
+      return reload(db, logId);
+    }
     await finalizeLog(db, log, lockToken, paged.state, finalStatus);
   } catch (e) {
     // 한도 안이면 'processing' 으로 남아 stale 재클레임으로 이어진다.

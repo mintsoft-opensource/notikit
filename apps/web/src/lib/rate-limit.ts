@@ -1,18 +1,22 @@
 /**
  * 고정 윈도우 rate limiter.
  *
- * 두 가지 입구가 있다.
+ * 입구는 `rateLimitShared()` 하나다 — **권위 있는 판정**. Redis 가 있으면 INCR 결과를
+ * (예산 안에서) 기다려 전역 카운트로 판정한다. replica 가 몇 대든 한도는 하나다.
+ * Redis 가 진짜로 안 될 때만 로컬 계수로 떨어진다(요청은 막지 않는다 — Redis 가 죽었다고
+ * 발송 API 가 죽으면 안 된다).
  *
- * - `rateLimitShared()` — **권위 있는 판정**. Redis 가 있으면 INCR 결과를 (예산 안에서) 기다려
- *   전역 카운트로 판정한다. replica 가 몇 대든 한도는 하나다. Redis 가 진짜로 안 될 때만
- *   로컬 계수로 떨어진다(요청은 막지 않는다 — Redis 가 죽었다고 발송 API 가 죽으면 안 된다).
- * - `rateLimit()` — 동기 입구(레거시). 판정을 기다릴 수 없어 로컬 버킷으로 즉시 내리고,
- *   Redis 응답이 오면 로컬 카운트를 권위 있는 값으로 끌어올린다. 한 왕복만큼 늦게 수렴하므로
- *   **버스트 구간에서는 replica 배수만큼 느슨하다**. 새 호출부는 쓰지 말 것.
+ * 예전에는 동기 입구 `rateLimit()` 도 있었다. 판정을 기다리지 못해 버스트의 첫 왕복 동안
+ * replica 배수만큼 느슨했고, 마지막 호출부가 `rateLimitShared()` 로 옮겨 간 뒤로는
+ * 테스트만 그것을 부르고 있었다(= 가짜 커버리지). 지웠다.
+ *
+ * 창은 언제나 **epoch 정렬**이다. 인스턴스마다 창 시작이 다르면 같은 Redis 키를 두고
+ * 판정이 엇갈리고, Redis 가 빠졌다 돌아올 때 로컬 창과 공유 창이 어긋난다.
  *
  * 판정 로직(decideFixedWindow)은 전송 수단과 분리되어 있어 단위 테스트 대상이다.
  */
 import { createHash } from "node:crypto";
+import { logThrottled } from "@/lib/logger";
 import { getRedisHealth, isRedisEnabled, redisIncrementWindow, type RedisHealth } from "@/lib/redis";
 
 export type Bucket = { count: number; resetAt: number };
@@ -38,12 +42,11 @@ function sweep(now: number) {
 }
 
 /**
- * 창의 종료 시각.
- * - 로컬 전용: 첫 요청 시각 + window (지금까지의 동작 그대로)
- * - 공유 모드: epoch 정렬 — 인스턴스마다 창 시작이 달라지면 같은 Redis 키를 두고 판정이 엇갈린다
+ * 창의 종료 시각 — epoch 정렬. 인스턴스마다 창 시작이 달라지면 같은 Redis 키를 두고
+ * 판정이 엇갈리고, 폴백으로 오갈 때 로컬 창과 공유 창의 경계가 어긋난다.
  */
-export function windowResetAt(now: number, windowMs: number, alignToEpoch: boolean): number {
-  return alignToEpoch ? (Math.floor(now / windowMs) + 1) * windowMs : now + windowMs;
+export function windowResetAt(now: number, windowMs: number): number {
+  return (Math.floor(now / windowMs) + 1) * windowMs;
 }
 
 /** 공유 카운터 키 — 창 번호를 키에 넣어 만료를 Redis TTL 에 맡긴다(스윕 불필요) */
@@ -56,25 +59,18 @@ export function decideFixedWindow(
   prev: Bucket | undefined,
   now: number,
   limit: number,
-  windowMs: number,
-  alignToEpoch = false
+  windowMs: number
 ): { allowed: boolean; bucket: Bucket } {
   if (!prev || now > prev.resetAt) {
-    return { allowed: true, bucket: { count: 1, resetAt: windowResetAt(now, windowMs, alignToEpoch) } };
+    return { allowed: true, bucket: { count: 1, resetAt: windowResetAt(now, windowMs) } };
   }
   if (prev.count >= limit) return { allowed: false, bucket: prev };
   return { allowed: true, bucket: { count: prev.count + 1, resetAt: prev.resetAt } };
 }
 
-let memoryOnlyWarned = false;
-
-function warnMemoryOnlyOnce(): void {
-  if (memoryOnlyWarned || process.env.NODE_ENV === "test") return;
-  memoryOnlyWarned = true;
-  console.warn(
-    "[notikit] REDIS_URL is not set — rate limits are counted per instance (in-memory). " +
-      "Set REDIS_URL to share limits across replicas."
-  );
+/** REDIS_URL 이 없으면 한도는 인스턴스마다 따로 센다 — 조용히 넘기지 않는다. */
+function warnMemoryOnly(): void {
+  logThrottled("warn", "ratelimit.memory_only", { reason: "REDIS_URL is not set" }, 10 * 60_000);
 }
 
 /**
@@ -106,19 +102,9 @@ function evictIfFull(key: string): void {
   if (lru !== undefined) buckets.delete(lru);
 }
 
-/** Redis 카운터를 올리고, 돌아온 전역 카운트를 로컬 버킷에 반영한다(같은 창일 때만). */
-function publishShared(key: string, bucket: Bucket, now: number, windowMs: number): void {
-  void redisIncrementWindow(sharedWindowKey(key, now, windowMs), windowMs + SHARED_TTL_SLACK_MS).then((shared) => {
-    if (shared === null) return;
-    const current = buckets.get(key);
-    if (!current || current.resetAt !== bucket.resetAt) return; // 창이 바뀌었으면 버린다
-    if (shared > current.count) touch(key, { ...current, count: shared });
-  });
-}
-
 /** 로컬 버킷만으로 내리는 판정 — Redis 가 없거나 응답이 예산을 넘겼을 때의 경로. */
-function decideLocal(key: string, now: number, limit: number, windowMs: number, alignToEpoch: boolean): boolean {
-  const { allowed, bucket } = decideFixedWindow(buckets.get(key), now, limit, windowMs, alignToEpoch);
+function decideLocal(key: string, now: number, limit: number, windowMs: number): boolean {
+  const { allowed, bucket } = decideFixedWindow(buckets.get(key), now, limit, windowMs);
   // 거절도 접근이다 — 만지지 않으면 **한도에 걸린 버킷이 가장 먼저 축출되어** 한도가 풀린다
   if (!allowed) {
     touch(key, bucket);
@@ -142,8 +128,8 @@ export async function rateLimitShared(key: string, limit = 600, windowMs = 60_00
   if (++calls % 2000 === 0) sweep(now);
 
   if (!isRedisEnabled()) {
-    warnMemoryOnlyOnce();
-    return decideLocal(key, now, limit, windowMs, false);
+    warnMemoryOnly();
+    return decideLocal(key, now, limit, windowMs);
   }
 
   const shared = await redisIncrementWindow(
@@ -152,38 +138,11 @@ export async function rateLimitShared(key: string, limit = 600, windowMs = 60_00
     SHARED_WAIT_MS
   );
   // redis.ts 가 폴백 횟수를 세고 경고를 찍는다 — 여기서는 판정만 이어 간다
-  if (shared === null) return decideLocal(key, now, limit, windowMs, true);
+  if (shared === null) return decideLocal(key, now, limit, windowMs);
 
   evictIfFull(key);
-  touch(key, { count: shared, resetAt: windowResetAt(now, windowMs, true) });
+  touch(key, { count: shared, resetAt: windowResetAt(now, windowMs) });
   return shared <= limit;
-}
-
-/**
- * 동기 입구(레거시). 판정을 기다릴 수 없으므로 로컬 버킷으로 즉시 내리고, 같은 틱에 보낸
- * Redis INCR 의 응답으로 로컬 카운트를 끌어올린다 — 한 왕복 뒤부터 전역 카운트로 수렴한다.
- *
- * 즉 **버스트의 첫 왕복 동안은 replica 수만큼 느슨하다**. 공개 엔드포인트처럼 한도가
- * 실제로 지켜져야 하는 곳은 `rateLimitShared()` 를 쓴다.
- */
-export function rateLimit(key: string, limit = 600, windowMs = 60_000): boolean {
-  const now = Date.now();
-  if (++calls % 2000 === 0) sweep(now);
-
-  const shared = isRedisEnabled();
-  if (!shared) warnMemoryOnlyOnce();
-
-  const prev = buckets.get(key);
-  const { allowed, bucket } = decideFixedWindow(prev, now, limit, windowMs, shared);
-  if (!allowed) {
-    touch(key, bucket); // 거절도 접근 — decideLocal 과 같은 이유
-    return false;
-  }
-
-  evictIfFull(key);
-  touch(key, bucket);
-  if (shared) publishShared(key, bucket, now, windowMs);
-  return true;
 }
 
 /** 테스트용 — 프로세스 전역 버킷 초기화 */
@@ -192,9 +151,12 @@ export function resetRateLimits(): void {
   calls = 0;
 }
 
-/** 한도가 실제로 공유되고 있는지(= 인메모리로 떨어지고 있지 않은지) 운영이 읽는 지점. */
-export function getRateLimitHealth(): RedisHealth & { trackedKeys: number } {
-  return { ...getRedisHealth(), trackedKeys: buckets.size };
+/**
+ * 한도가 실제로 공유되고 있는지(= 인메모리로 떨어지고 있지 않은지) 운영이 읽는 지점.
+ * **프로세스 단위 값이다** — replica 가 여럿이면 이 숫자는 그 인스턴스의 조각이다.
+ */
+export function getRateLimitHealth(): RedisHealth & { scope: "process"; trackedKeys: number } {
+  return { ...getRedisHealth(), scope: "process", trackedKeys: buckets.size };
 }
 
 // ── 동시 처리 상한 (in-flight) — DB/해싱 이전에 admission 제어 ──

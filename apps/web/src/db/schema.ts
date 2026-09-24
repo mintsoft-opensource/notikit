@@ -18,6 +18,7 @@ import {
 import { sql } from "drizzle-orm";
 import type { RuleOp } from "@/lib/topic-rule-ops";
 import type { PushOptions } from "@/lib/fcm";
+import type { AbTest } from "@/lib/ab-test";
 
 /** 조직/워크스페이스 (테넌트 최상위) */
 export const organizations = pgTable("organizations", {
@@ -249,6 +250,9 @@ export const pushLogs = pgTable("push_logs", {
   // A/B 변형 (있으면 수신자를 해시로 변형에 배정) + 변형별 집계
   variants: jsonb("variants").$type<{ title: string; body: string }[]>(),
   variantStats: jsonb("variant_stats").$type<Record<string, { sent: number; success: number }>>(),
+  // A/B 자동 승자. 표본 발송이면 설정과 판정 결과(role:"test"), 승자 본발송이면 어느 발송의
+  // 어떤 변형인지(role:"winner"). 표본과 나머지는 토큰 해시 버킷으로 갈라 절대 겹치지 않는다.
+  abTest: jsonb("ab_test").$type<AbTest>(),
   // 카카오 알림톡 폴백 (단건 발송에서 device 실패/부재 시 phone 으로)
   kakaoFallback: boolean("kakao_fallback").notNull().default(false),
   kakaoCount: integer("kakao_count").notNull().default(0),

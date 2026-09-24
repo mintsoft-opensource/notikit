@@ -29,7 +29,6 @@ import {
   getRateLimitHealth,
   MAX_BUCKETS,
   principalKey,
-  rateLimit,
   rateLimitShared,
   resetRateLimits,
   sharedWindowKey,
@@ -43,7 +42,8 @@ describe("decideFixedWindow", () => {
   it("starts a window on the first hit", () => {
     const { allowed, bucket } = decideFixedWindow(undefined, 1_000, 3, WINDOW);
     expect(allowed).toBe(true);
-    expect(bucket).toEqual({ count: 1, resetAt: 61_000 });
+    // 창은 언제나 epoch 정렬 — 1_000 이 속한 창은 [0, 60_000)
+    expect(bucket).toEqual({ count: 1, resetAt: 60_000 });
   });
 
   it("counts up to the limit and then denies", () => {
@@ -73,10 +73,11 @@ describe("decideFixedWindow", () => {
     expect(after.bucket.count).toBe(1);
   });
 
-  it("aligns windows to the epoch in shared mode so replicas agree", () => {
-    expect(windowResetAt(90_000, 60_000, false)).toBe(150_000);
-    expect(windowResetAt(90_000, 60_000, true)).toBe(120_000);
-    expect(decideFixedWindow(undefined, 90_000, 3, WINDOW, true).bucket.resetAt).toBe(120_000);
+  // 인스턴스마다 창 시작이 다르면 같은 Redis 키를 두고 판정이 엇갈린다 — 언제나 epoch 정렬.
+  it("always aligns windows to the epoch so replicas agree", () => {
+    expect(windowResetAt(90_000, 60_000)).toBe(120_000);
+    expect(windowResetAt(119_999, 60_000)).toBe(120_000);
+    expect(decideFixedWindow(undefined, 90_000, 3, WINDOW).bucket.resetAt).toBe(120_000);
   });
 });
 
@@ -88,11 +89,14 @@ describe("sharedWindowKey", () => {
   });
 });
 
-describe("rateLimit (in-memory fallback)", () => {
+// REDIS_URL 이 없을 때의 경로 — 유일한 입구인 rateLimitShared 가 로컬 버킷으로 판정한다.
+// (레거시 동기 입구 rateLimit() 은 프로덕션 호출부가 사라져 삭제했다.)
+describe("rateLimitShared (in-memory fallback)", () => {
   const savedUrl = process.env.REDIS_URL;
 
   beforeEach(() => {
     delete process.env.REDIS_URL;
+    redisMock.enabled = false;
     resetRateLimits();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:30Z"));
@@ -104,22 +108,22 @@ describe("rateLimit (in-memory fallback)", () => {
     else process.env.REDIS_URL = savedUrl;
   });
 
-  it("allows up to the limit and then refuses", () => {
-    for (let i = 0; i < 3; i++) expect(rateLimit("k", 3, 60_000)).toBe(true);
-    expect(rateLimit("k", 3, 60_000)).toBe(false);
+  it("allows up to the limit and then refuses", async () => {
+    for (let i = 0; i < 3; i++) expect(await rateLimitShared("k", 3, 60_000)).toBe(true);
+    expect(await rateLimitShared("k", 3, 60_000)).toBe(false);
   });
 
-  it("keeps keys independent", () => {
-    expect(rateLimit("a", 1, 60_000)).toBe(true);
-    expect(rateLimit("a", 1, 60_000)).toBe(false);
-    expect(rateLimit("b", 1, 60_000)).toBe(true);
+  it("keeps keys independent", async () => {
+    expect(await rateLimitShared("a", 1, 60_000)).toBe(true);
+    expect(await rateLimitShared("a", 1, 60_000)).toBe(false);
+    expect(await rateLimitShared("b", 1, 60_000)).toBe(true);
   });
 
-  it("recovers once the window elapses", () => {
-    expect(rateLimit("k", 1, 60_000)).toBe(true);
-    expect(rateLimit("k", 1, 60_000)).toBe(false);
+  it("recovers once the window elapses", async () => {
+    expect(await rateLimitShared("k", 1, 60_000)).toBe(true);
+    expect(await rateLimitShared("k", 1, 60_000)).toBe(false);
     vi.advanceTimersByTime(60_001);
-    expect(rateLimit("k", 1, 60_000)).toBe(true);
+    expect(await rateLimitShared("k", 1, 60_000)).toBe(true);
   });
 });
 

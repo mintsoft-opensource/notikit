@@ -13,14 +13,15 @@ type Db = ReturnType<typeof getDb>;
  */
 export const CONVERSION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** 귀속 대상 클릭의 하한 시각 — 이보다 **나중에** 클릭한 것만 귀속한다 */
+/**
+ * 귀속 대상 클릭의 하한 시각 — 이보다 **나중에** 클릭한 것만 귀속한다.
+ * 경계(정확히 24시간 전)는 창 밖이다: 질의가 `>` 로 비교한다.
+ *
+ * 판정은 SQL 이 한다(`gt(pushClicks.clickedAt, attributionCutoff())`). 같은 규칙을 JS 로
+ * 한 번 더 구현해 두면 두 벌이 갈라지므로 두지 않는다.
+ */
 export function attributionCutoff(now: Date = new Date()): Date {
   return new Date(now.getTime() - CONVERSION_WINDOW_MS);
-}
-
-/** 그 클릭이 아직 귀속 창 안인가. 경계(정확히 24시간 전)는 창 밖이다. */
-export function isAttributable(clickedAt: Date, now: Date = new Date()): boolean {
-  return clickedAt.getTime() > attributionCutoff(now).getTime();
 }
 
 /**

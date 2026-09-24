@@ -5,6 +5,14 @@ import { applyTemplate, isReservedKey, MAX_TEMPLATE_FIELDS } from "@/lib/templat
 import { nextAllowedTime } from "@/lib/quiet-hours";
 import { buildMulticast, type PushOptions } from "@/lib/fcm";
 import { hasPlaceholders } from "@/lib/personalize";
+import {
+  AB_SAMPLE_MIN,
+  AB_SAMPLE_MAX,
+  AB_WAIT_MIN_MINUTES,
+  AB_WAIT_MAX_MINUTES,
+  type AbTest,
+  type AbTestPlan,
+} from "@/lib/ab-test";
 import { z } from "zod";
 
 type Db = ReturnType<typeof getDb>;
@@ -116,6 +124,17 @@ export const messageSchema = z.object({
     .min(2)
     .max(5)
     .optional(),
+  /**
+   * A/B 자동 승자. 표본(`sample_percent`)에게 먼저 보내고 `wait_minutes` 뒤 유니크 클릭률이
+   * 가장 좋은 변형을 **나머지**에게 한 번 더 보낸다(로그 1행 추가). 지표는 고정이라 받지 않는다.
+   * `variants` 가 있어야 하고, 한 사람에게 가는 발송(single)에는 쓸 수 없다 — `abTestError` 참고.
+   */
+  ab_test: z
+    .object({
+      sample_percent: z.number().int().min(AB_SAMPLE_MIN).max(AB_SAMPLE_MAX),
+      wait_minutes: z.number().int().min(AB_WAIT_MIN_MINUTES).max(AB_WAIT_MAX_MINUTES),
+    })
+    .optional(),
   kakao_fallback: z.boolean().optional(),
   /** 알림 옵션(소리·배지·collapse·TTL·우선순위·무음·액션 버튼) */
   options: pushOptionsSchema.optional(),
@@ -144,7 +163,7 @@ export async function prepareMessage(
   projectId: string,
   b: MessageInput
 ): Promise<{ message: ReadyMessage } | { error: string; status: number }> {
-  const targetErr = targetError(b);
+  const targetErr = targetError(b) ?? abTestError(b);
   if (targetErr) return { error: targetErr, status: 422 };
 
   const { template, fields, ...rest } = b;
@@ -232,6 +251,31 @@ export function payloadBytes(
   return max + (templated ? PERSONALIZE_HEADROOM : 0);
 }
 
+/**
+ * A/B 자동 승자를 쓸 수 있는 발송인지. null 이면 통과.
+ *
+ * 변형이 없으면 비교할 것이 없고, `single` 은 받는 사람이 하나라 표본과 나머지로 갈 수 없다
+ * (갈라 보면 한쪽은 0명이라 승자 본발송이 아무에게도 가지 않는다).
+ * 테스트 발송은 운영자 자신에게 가는 것이라 A/B 설정을 무시한다(거절하지는 않는다).
+ */
+export function abTestError(b: Pick<MessageInput, "type" | "variants" | "ab_test" | "test">): string | null {
+  if (!b.ab_test || b.test) return null;
+  if (!b.variants || b.variants.length < 2) return "ab_test requires at least 2 variants";
+  if (b.type === "single") return "ab_test is not available for type=single";
+  return null;
+}
+
+/** 입력 → 저장할 설정. 지표는 고정이라 여기서 채운다. */
+export function abTestPlan(b: Pick<MessageInput, "ab_test" | "test">): AbTestPlan | null {
+  if (!b.ab_test || b.test) return null;
+  return {
+    role: "test",
+    samplePercent: b.ab_test.sample_percent,
+    waitMinutes: b.ab_test.wait_minutes,
+    metric: "unique_click_rate",
+  };
+}
+
 /** 타입별 대상 필드 검사 — 콘솔(admin)과 SDK(v1) 발송이 같은 규칙을 쓴다. null 이면 통과. */
 export function targetError(b: Pick<MessageInput, "type" | "target" | "targets">): string | null {
   if (b.type === "multi") return b.targets?.length ? null : "targets is required for type=multi";
@@ -252,10 +296,15 @@ export type EnqueueProject = {
 };
 
 export type EnqueueOptions = {
-  /** 발송자 — 콘솔 멤버 이메일 · "admin-token" · "api" · "journey" */
+  /** 발송자 — 콘솔 멤버 이메일 · "admin-token" · "api" · "journey" · "ab-winner" */
   sentBy?: string;
   idempotencyKey?: string | null;
   db?: DbOrTx;
+  /**
+   * 저장할 A/B 표식을 직접 준다. 승자 본발송은 요청이 아니라 **처리기**가 만들어
+   * `role:"winner"` 를 붙이므로 본문(`ab_test`)으로는 표현할 수 없다.
+   */
+  abTest?: AbTest;
 };
 
 export const IDEMPOTENCY_HEADER = "idempotency-key";
@@ -329,6 +378,7 @@ export async function enqueuePush(
       isTest: b.test ?? false,
       data: b.data,
       variants: b.variants,
+      abTest: opts.abTest ?? abTestPlan(b),
       options: b.options ?? null,
       kakaoFallback: b.kakao_fallback ?? false,
       scheduledAt,

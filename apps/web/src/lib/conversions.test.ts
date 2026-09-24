@@ -3,7 +3,6 @@ import {
   admitConversionName,
   attributionCutoff,
   conversionEventSchema,
-  isAttributable,
   normalizeConversionName,
   recordConversionName,
   resetConversionNameCache,
@@ -23,11 +22,12 @@ describe("전환 귀속 창", () => {
     expect(CONVERSION_WINDOW_MS).toBe(86_400_000);
   });
 
-  it("창 안의 클릭만 귀속한다 — 경계(정확히 24시간 전)는 밖", () => {
-    expect(isAttributable(new Date(now.getTime() - 1), now)).toBe(true);
-    expect(isAttributable(new Date(now.getTime() - CONVERSION_WINDOW_MS + 1), now)).toBe(true);
-    expect(isAttributable(new Date(now.getTime() - CONVERSION_WINDOW_MS), now)).toBe(false);
-    expect(isAttributable(new Date(now.getTime() - CONVERSION_WINDOW_MS - 1), now)).toBe(false);
+  // 창 안/밖 판정은 SQL(`gt(clickedAt, attributionCutoff())`)이 한다 — 같은 규칙을 JS 로
+  // 한 벌 더 두면 두 구현이 갈라지므로, 여기서는 cutoff 값만 고정한다.
+  it("cutoff 보다 나중에 찍힌 클릭만 창 안이다(경계는 밖)", () => {
+    const cutoff = attributionCutoff(now).getTime();
+    expect(now.getTime() - 1).toBeGreaterThan(cutoff);
+    expect(now.getTime() - CONVERSION_WINDOW_MS).toBe(cutoff); // 경계는 `>` 에서 탈락
   });
 });
 

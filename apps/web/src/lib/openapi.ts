@@ -245,6 +245,19 @@ export const openapi = {
                       properties: { title: { type: "string", maxLength: 255 }, body: { type: "string", maxLength: 4000 } },
                     },
                   },
+                  ab_test: {
+                    type: "object",
+                    required: ["sample_percent", "wait_minutes"],
+                    description:
+                      "A/B 자동 승자. 표본(sample_percent %)에게 먼저 보내고 wait_minutes 뒤 **유니크 클릭률**이 가장 좋은 변형을 " +
+                      "나머지에게 한 번 더 보낸다(발송 로그 1행 추가). 표본과 나머지는 토큰 해시 버킷으로 갈라 겹치지 않는다. " +
+                      "변형이 2개 이상이어야 하고 type=single 에는 쓸 수 없다(422). 지표는 고정이라 받지 않는다. " +
+                      "변형마다 도달 100건을 못 채우거나 1·2위 차이가 1%p 미만이면 승자를 선언하지 않고 이유를 남긴다.",
+                    properties: {
+                      sample_percent: { type: "integer", minimum: 5, maximum: 50, description: "표본 비율(%)" },
+                      wait_minutes: { type: "integer", minimum: 5, maximum: 1440, description: "판정까지 기다리는 시간(분)" },
+                    },
+                  },
                   kakao_fallback: { type: "boolean", description: "미도달 유저에게 카카오 알림톡 대체 발송" },
                   options: {
                     type: "object",
@@ -855,6 +868,15 @@ export const openapi = {
                     minItems: 2,
                     maxItems: 5,
                     items: { type: "object", required: ["title", "body"], properties: { title: { type: "string" }, body: { type: "string" } } },
+                  },
+                  ab_test: {
+                    type: "object",
+                    required: ["sample_percent", "wait_minutes"],
+                    description: "A/B 자동 승자(표본 %·판정 대기 분). 지표는 유니크 클릭률 고정. v1 과 같은 규칙.",
+                    properties: {
+                      sample_percent: { type: "integer", minimum: 5, maximum: 50 },
+                      wait_minutes: { type: "integer", minimum: 5, maximum: 1440 },
+                    },
                   },
                 },
               },

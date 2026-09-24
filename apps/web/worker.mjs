@@ -9,13 +9,46 @@
 const BASE = (process.env.WORKER_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const ADMIN = process.env.ADMIN_TOKEN;
 
+/**
+ * 구조화 로그 — 웹(`src/lib/logger.ts`)과 **같은 한 줄 JSON 형식**을 쓴다.
+ * 워커는 별도 프로세스(빌드 없는 .mjs)라 그 모듈을 가져올 수 없어 최소한만 다시 쓴다.
+ * 형식이 같아야 web/worker 로그를 한 번에 jq 로 자를 수 있다.
+ */
+const LOG_RANK = { debug: 10, info: 20, warn: 30, error: 40, silent: 100 };
+const LOG_MIN = LOG_RANK[(process.env.NOTIKIT_LOG_LEVEL ?? "info").trim().toLowerCase()] ?? LOG_RANK.info;
+
+function logEvent(level, event, fields = {}) {
+  if ((LOG_RANK[level] ?? LOG_RANK.info) < LOG_MIN) return;
+  const clean = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (v === undefined) continue;
+    // 토큰·시크릿류는 키 이름으로 거른다 (웹 로거와 같은 규칙)
+    if (/(token|secret|password|phone|email|authorization|auth|cookie|credential|api[-_]?key|signature)/i.test(k)) continue;
+    clean[k] = typeof v === "string" && v.length > 300 ? `${v.slice(0, 300)}…` : v;
+  }
+  const line = JSON.stringify({ ts: new Date().toISOString(), level, event, instance: "worker", ...clean });
+  if ((LOG_RANK[level] ?? 0) >= LOG_RANK.warn) process.stderr.write(`${line}\n`);
+  else process.stdout.write(`${line}\n`);
+}
+
+const log = {
+  info: (event, fields) => logEvent("info", event, fields),
+  warn: (event, fields) => logEvent("warn", event, fields),
+  error: (event, fields) => logEvent("error", event, fields),
+};
+
+/** 예외 → 짧은 사유 문자열 */
+function reasonOf(e) {
+  return e?.name === "TimeoutError" ? "timeout" : (e?.message ?? String(e));
+}
+
 /** 숫자 env — 빈 문자열/쓰레기값이 조용히 0 이나 NaN 이 되지 않게. */
 function numEnv(name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
   const raw = process.env[name];
   if (raw === undefined || raw.trim() === "") return fallback;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < min || n > max) {
-    console.warn(`[worker] ${name}="${raw}" is invalid; using ${fallback}`);
+    log.warn("worker.env_invalid", { name, fallback });
     return fallback;
   }
   return n;
@@ -36,7 +69,9 @@ const SHUTDOWN_TIMEOUT_MS = numEnv("WORKER_SHUTDOWN_TIMEOUT_MS", 30_000, { min: 
 
 // 죽은 토큰 야간 스윕. FCM dry-run 이라 배달되지 않으므로 유저를 깨우지 않는다 —
 // 새벽에 도는 이유는 방해 회피가 아니라 부하와 FCM 할당량 때문이다.
-// 서버 로컬시각이 아니라 UTC 기준: 프로젝트 방해금지 시간대도 UTC 로 저장한다.
+// 창은 **서버 UTC** 기준이다. 프로젝트의 방해금지 시간대는 `projects.timezone`(IANA) 으로
+// 재므로 이 창과는 무관하다 — 여기서 UTC 를 쓰는 건 배포 지역이 달라도 부하 분산이
+// 같은 시각에 걸리게 하려는 것뿐이다.
 const TOKEN_CHECK_ENABLED = process.env.TOKEN_CHECK_ENABLED !== "false";
 const TOKEN_CHECK_HOUR_UTC = numEnv("TOKEN_CHECK_HOUR_UTC", 0, { min: 0, max: 23 });
 const TOKEN_CHECK_MIN_INTERVAL_HOURS = numEnv("TOKEN_CHECK_MIN_INTERVAL_HOURS", 20, { min: 0, max: 720 });
@@ -44,7 +79,7 @@ const TOKEN_CHECK_MIN_INTERVAL_HOURS = numEnv("TOKEN_CHECK_MIN_INTERVAL_HOURS", 
 const TOKEN_CHECK_MAX_ROUNDS = numEnv("TOKEN_CHECK_MAX_ROUNDS", 20, { min: 1 });
 
 if (!ADMIN) {
-  console.error("[worker] ADMIN_TOKEN is required");
+  log.error("worker.config_missing", { name: "ADMIN_TOKEN" });
   process.exit(1);
 }
 
@@ -59,12 +94,11 @@ async function post(path) {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     const json = await res.json().catch(() => null);
-    if (!res.ok) console.warn(`[worker] POST ${path} → ${res.status}${json?.error ? `: ${json.error}` : ""}`);
+    if (!res.ok) log.warn("worker.request_failed", { path, status: res.status, reason: json?.error ?? null });
     return json;
   } catch (e) {
     // 다음 tick 에서 재시도. 조용히 삼키면 서버가 죽어 있어도 워커 로그가 깨끗해 보인다.
-    const reason = e?.name === "TimeoutError" ? `timed out after ${REQUEST_TIMEOUT_MS}ms` : (e?.message ?? String(e));
-    console.warn(`[worker] POST ${path} failed: ${reason}`);
+    log.warn("worker.request_failed", { path, status: null, reason: reasonOf(e), timeout_ms: REQUEST_TIMEOUT_MS });
     return null;
   }
 }
@@ -78,7 +112,7 @@ async function runLimited(items, limit, fn) {
       try {
         await fn(item);
       } catch (e) {
-        console.error(`[worker] project ${item?.id} failed: ${e?.message ?? e}`);
+        log.error("worker.project_failed", { project_id: item?.id ?? null, reason: reasonOf(e) });
       }
     }
   });
@@ -128,17 +162,16 @@ async function sweepWebhooks(now) {
   lastWebhookSweep = now;
   const res = await post("/api/internal/webhooks/sweep");
   if (!res) {
-    console.warn("[worker] webhook sweep failed; will retry next window");
+    log.warn("worker.webhook_sweep_failed", { reason: "no response" });
     return;
   }
   const { retried = 0, skipped = 0, dead = 0, candidates = 0 } = res.data ?? {};
   if (retried > 0 || skipped > 0) {
-    console.log(`[worker] webhook sweep: retried ${retried}, skipped ${skipped} of ${candidates} candidates`);
+    log.info("worker.webhook_sweep", { retried, skipped, dead, candidates });
   }
   // 시도를 다 쓴 배달은 그냥 멈춘다 — 여기서 찍지 않으면 아무도 모른 채 이벤트가 사라진다
   if (dead > 0) {
-    const total = res.data?.webhooks?.deadLetters;
-    console.error(`[worker] ${dead} webhook deliveries exhausted all attempts and were dropped${total ? ` (${total} since this server started)` : ""}`);
+    log.error("worker.webhook_dead_letters", { dead, instance_total: res.data?.webhooks?.deadLetters ?? null });
   }
   reportLimiterHealth(res.data?.rateLimit);
 }
@@ -155,7 +188,7 @@ function reportLimiterHealth(rl) {
   const delta = fallbacks - lastFallbacks;
   lastFallbacks = fallbacks;
   if (delta > 0) {
-    console.warn(`[worker] shared rate limit fell back to per-instance counting ${delta} times since the last sweep (${fallbacks} total)`);
+    log.warn("worker.ratelimit_fallback", { delta, instance_total: fallbacks, short_circuits: rl.shortCircuits ?? null, scope: rl.scope ?? "process" });
   }
 }
 
@@ -180,7 +213,7 @@ async function tick() {
       if (!cursor) break;
     }
   } catch (e) {
-    console.warn(`[worker] listing projects failed: ${e?.message ?? e}`);
+    log.warn("worker.project_list_failed", { reason: reasonOf(e) });
     return;
   }
   // 사라진 프로젝트의 기록은 지운다 — 장기 실행 워커에서 무한히 쌓이지 않게
@@ -201,7 +234,7 @@ async function processProject(p) {
   const sched = await post(`/api/admin/projects/${p.id}/schedules/process`);
   if (sched?.data?.fired > 0 || sched?.data?.skipped > 0) {
     // 건너뛴 회차는 반드시 남긴다 — 다운타임 뒤 "안 온 푸시"의 유일한 근거다
-    console.log(`[worker] schedules for ${p.id}: fired ${sched.data.fired}, skipped ${sched.data.skipped}`);
+    log.info("worker.schedules", { project_id: p.id, fired: sched.data.fired, skipped: sched.data.skipped });
   }
   await post(`/api/admin/projects/${p.id}/process-queue`);
   await post(`/api/admin/projects/${p.id}/journeys/process`);
@@ -217,7 +250,7 @@ async function processProject(p) {
   if (sweeping) {
     const res = await post(`/api/admin/projects/${p.id}/logs/purge`);
     if (res?.data?.purged > 0) {
-      console.log(`[worker] purged ${res.data.purged} logs for ${p.id} (done=${res.data.done})`);
+      log.info("worker.logs_purged", { project_id: p.id, purged: res.data.purged, done: res.data.done });
     }
   }
 
@@ -230,29 +263,32 @@ async function processProject(p) {
       );
       if (!res) {
         // 네트워크/서버 오류 — 커서는 서버에 남아 있으므로 다음 tick 이 이어받는다
-        console.warn(`[worker] token sweep for ${p.id} failed; will retry`);
+        log.warn("worker.token_sweep_failed", { project_id: p.id, reason: "no response" });
         break;
       }
       if (res.data?.leaseLost) {
-        console.warn(`[worker] token sweep for ${p.id} lost its lease to another worker`);
+        log.warn("worker.token_sweep_lease_lost", { project_id: p.id });
         break;
       }
       if (res.data?.unverified > 0) {
-        console.warn(`[worker] token sweep for ${p.id}: ${res.data.unverified} tokens could not be validated`);
+        log.warn("worker.token_sweep_unverified", { project_id: p.id, unverified: res.data.unverified });
       }
       if (!res.data?.partial) break;
       if (round === TOKEN_CHECK_MAX_ROUNDS - 1) {
         // 커서는 남아 있으므로 다음 창에서 이어진다. 조용히 끝난 것처럼 보이지 않게 남긴다.
-        console.warn(`[worker] token sweep for ${p.id} hit the round cap; will resume next window`);
+        log.warn("worker.token_sweep_round_cap", { project_id: p.id, rounds: TOKEN_CHECK_MAX_ROUNDS });
       }
     }
   }
 }
 
-console.log(
-  `[worker] started — polling ${BASE} every ${INTERVAL}ms (concurrency ${CONCURRENCY}, timeout ${REQUEST_TIMEOUT_MS}ms)` +
-    (TOKEN_CHECK_ENABLED ? `; token sweep at ${TOKEN_CHECK_HOUR_UTC}:xx UTC (staggered per project)` : "; token sweep disabled")
-);
+log.info("worker.started", {
+  base: BASE,
+  interval_ms: INTERVAL,
+  concurrency: CONCURRENCY,
+  request_timeout_ms: REQUEST_TIMEOUT_MS,
+  token_sweep_hour_utc: TOKEN_CHECK_ENABLED ? TOKEN_CHECK_HOUR_UTC : null,
+});
 // tick 은 스윕 창에서 한 번에 수 분이 걸릴 수 있다.
 // 겹쳐 돌면 그동안 큐/저니/웹훅 호출이 중복으로 쌓인다.
 let inFlight = null;
@@ -263,7 +299,7 @@ async function safeTick() {
     try {
       await tick();
     } catch (e) {
-      console.error(`[worker] tick failed: ${e?.message ?? e}`); // 다음 tick 에서 재시도
+      log.error("worker.tick_failed", { reason: reasonOf(e) }); // 다음 tick 에서 재시도
     } finally {
       inFlight = null;
     }
@@ -284,10 +320,10 @@ async function shutdown(signal) {
   stopping = true;
   clearInterval(timer);
   if (!inFlight) {
-    console.log(`[worker] ${signal} — nothing in flight, exiting`);
+    log.info("worker.shutdown", { signal, waited_ms: 0 });
     process.exit(0);
   }
-  console.log(`[worker] ${signal} — waiting up to ${SHUTDOWN_TIMEOUT_MS}ms for the current tick`);
+  log.info("worker.shutdown_waiting", { signal, timeout_ms: SHUTDOWN_TIMEOUT_MS });
   let timedOut = false;
   const guard = new Promise((resolve) =>
     setTimeout(() => {
@@ -296,7 +332,7 @@ async function shutdown(signal) {
     }, SHUTDOWN_TIMEOUT_MS).unref()
   );
   await Promise.race([inFlight.catch(() => {}), guard]);
-  if (timedOut) console.warn("[worker] shutdown timed out; the next start will resume unfinished work");
+  if (timedOut) log.warn("worker.shutdown_timeout", { signal, timeout_ms: SHUTDOWN_TIMEOUT_MS });
   process.exit(0);
 }
 

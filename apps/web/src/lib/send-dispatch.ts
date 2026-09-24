@@ -10,6 +10,7 @@ import type { ServiceAccount } from "@/lib/firebase-credentials";
 import type { RenderContext } from "@/lib/personalize";
 import { sendToTokens, sendEachToTokens, SEND_EACH_LIMIT, type FcmMessage, type FcmResult } from "@/lib/fcm";
 import { variantIndex } from "@/lib/push-variant";
+import type { AbPart } from "@/lib/ab-test";
 import type { ScopedDevice } from "@/lib/audience-count";
 
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -51,6 +52,11 @@ export type SendContext = {
   rateLimit: number | null;
   /** 받는 사람 현지 시각("HH:MM") — 없으면 도래 즉시 전원에게 */
   localTime: { hour: number; minute: number } | null;
+  /**
+   * A/B 자동 승자에서 이 발송이 맡은 쪽(표본 · 나머지). null 이면 대상 전체에게 간다.
+   * 판정은 토큰 해시 버킷이라 표본 발송과 승자 본발송의 대상은 서로소다.
+   */
+  ab: AbPart | null;
 };
 
 export type SendItem = { token: string; vi: number | null; title: string; body: string; dataOnly: boolean };

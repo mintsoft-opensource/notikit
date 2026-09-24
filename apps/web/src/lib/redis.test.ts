@@ -178,6 +178,8 @@ describe("redis connection state machine", () => {
     return fake;
   };
 
+  const savedProbe = process.env.REDIS_DEGRADED_PROBE_MS;
+
   beforeEach(() => {
     process.env.REDIS_RECONNECT_COOLDOWN_MS = "0"; // 테스트에서 5초를 기다리지 않는다
     resetRedisHealth();
@@ -191,6 +193,8 @@ describe("redis connection state machine", () => {
     else process.env.REDIS_URL = savedUrl;
     if (savedCooldown === undefined) delete process.env.REDIS_RECONNECT_COOLDOWN_MS;
     else process.env.REDIS_RECONNECT_COOLDOWN_MS = savedCooldown;
+    if (savedProbe === undefined) delete process.env.REDIS_DEGRADED_PROBE_MS;
+    else process.env.REDIS_DEGRADED_PROBE_MS = savedProbe;
   });
 
   it("pairs each reply with its own command", async () => {
@@ -272,6 +276,83 @@ describe("redis connection state machine", () => {
     expect(await redisIncrementWindow("nk:rl:cd:1", 60_000)).toBeNull(); // 쿨다운 중 — 재연결하지 않는다
     expect(getRedisHealth().cooldownMs).toBeGreaterThan(0);
   });
+
+  /**
+   * 회귀: 예산이 **연결 대기**를 덮지 않으면, Redis 가 처음 느려지는 순간 모든 동시 요청이
+   * 같은 `ready` 를 연결 타임아웃(2초)까지 함께 기다린다. 호출자가 약속한 예산이 무의미해지고,
+   * in-flight 슬롯을 쥔 채 기다리는 라우트(로그인)는 인증과 무관하게 503 을 돌려준다.
+   *
+   * 연결이 매달리는 상황은 TLS 로 만든다 — 평문 서버에 rediss:// 로 붙으면 ClientHello 에
+   * 아무도 답하지 않아 `secureConnect` 가 영영 오지 않는다(외부 의존성 없이 재현된다).
+   */
+  it("counts the connect wait against the caller's budget", async () => {
+    fake = await startFakeRedis();
+    process.env.REDIS_URL = `rediss://127.0.0.1:${fake.port}`; // 핸드셰이크에 답하지 않는다
+    resetRedis();
+
+    const started = Date.now();
+    const results = await Promise.all([
+      redisIncrementWindow("nk:rl:cx:1", 60_000, 60),
+      redisIncrementWindow("nk:rl:cx:2", 60_000, 60),
+      redisIncrementWindow("nk:rl:cx:3", 60_000, 60),
+    ]);
+    const elapsed = Date.now() - started;
+
+    expect(results).toEqual([null, null, null]);
+    // 고치기 전에는 세 요청 모두 CONNECT_TIMEOUT_MS(2초)를 기다렸다
+    expect(elapsed).toBeLessThan(600);
+    expect(getRedisHealth().fallbacks).toBe(3);
+  }, 10_000);
+
+  /**
+   * "살아 있지만 느린" Redis — 연결은 멀쩡하니 재연결 쿨다운이 걸리지 않고, 예산만 매 요청
+   * 꽉 채워 문다. 차단기가 열리면 그 구간에서는 **묻지도 않는다**(예산 0).
+   */
+  it("stops paying the budget while redis is slow, then re-probes", async () => {
+    process.env.REDIS_DEGRADED_PROBE_MS = "300";
+    await use({ mute: true }); // 붙긴 붙지만 아무 명령에도 답하지 않는다
+
+    for (let i = 0; i < 3; i++) {
+      expect(await redisIncrementWindow("nk:rl:slow:1", 60_000, 40)).toBeNull();
+    }
+    expect(getRedisHealth().breakerMs).toBeGreaterThan(0); // 연속 예산 초과 3회 → 차단
+
+    const blocked = Date.now();
+    expect(await redisIncrementWindow("nk:rl:slow:1", 60_000, 40)).toBeNull();
+    expect(Date.now() - blocked).toBeLessThan(20); // 예산을 물지 않았다
+    expect(getRedisHealth().shortCircuits).toBe(1);
+
+    // 창이 지나면 한 요청만 통과시켜 회복을 확인한다 — 여전히 느리면 창이 다시 열린다
+    await new Promise((r) => setTimeout(r, 340));
+    const probed = Date.now();
+    expect(await redisIncrementWindow("nk:rl:slow:1", 60_000, 40)).toBeNull();
+    expect(Date.now() - probed).toBeGreaterThanOrEqual(30);
+    expect(getRedisHealth().breakerMs).toBeGreaterThan(0);
+  }, 10_000);
+
+  it("closes the breaker once a probe answers inside the budget", async () => {
+    process.env.REDIS_DEGRADED_PROBE_MS = "600";
+    // 앞의 3쌍(=6개 명령)만 늦게 답한다 — 그 뒤로는 즉시 답하는 건강한 서버다
+    await use({ delayFirst: 5, delayMs: 250 });
+
+    for (let i = 0; i < 3; i++) {
+      expect(await redisIncrementWindow("nk:rl:heal:1", 60_000, 40)).toBeNull();
+    }
+    expect(getRedisHealth().breakerMs).toBeGreaterThan(0);
+
+    // 늦은 응답이 도착해도 **그것만으로는 회복이 아니다** — 예산을 넘겨 도착한 답을 회복으로
+    // 치면 느린 Redis 에서 차단기가 매번 리셋되어 영영 열리지 않는다.
+    await new Promise((r) => setTimeout(r, 250));
+    expect(getRedisHealth().commands).toBeGreaterThan(0); // 응답은 짝지어졌다
+    expect(getRedisHealth().breakerMs).toBeGreaterThan(0); // 그래도 차단은 유지
+    expect(getRedisHealth().degradedSince).not.toBeNull();
+
+    // 창이 지난 뒤의 probe 는 예산 안에 답을 받는다 → 차단 해제 + 공유 카운트가 이어진다
+    await new Promise((r) => setTimeout(r, 450));
+    expect(await redisIncrementWindow("nk:rl:heal:1", 60_000, 500)).toBe(4);
+    expect(getRedisHealth().breakerMs).toBe(0);
+    expect(await redisIncrementWindow("nk:rl:heal:1", 60_000, 500)).toBe(5);
+  }, 10_000);
 
   it("stays disabled when REDIS_URL is unset", async () => {
     delete process.env.REDIS_URL;

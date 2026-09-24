@@ -4,6 +4,8 @@ import { journeys } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { compileJourney, journeyStepsSchema, normalizeSteps, toStoredSteps } from "@/lib/journey-triggers";
+import { stepCounts } from "@/lib/journeys";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -19,15 +21,8 @@ export const dynamic = "force-dynamic";
  * 배포된 앱의 `enroll({journey:"welcome"})` 이 조용히 404 가 된다 — 토픽 이름을
  * 막은 것과 같은 이유다. 이름을 바꾸려면 새로 만들고 앱을 함께 배포해야 한다.
  */
-const stepSchema = z.object({
-  type: z.enum(["send", "wait"]),
-  title: z.string().max(255).optional(),
-  body: z.string().max(4000).optional(),
-  hours: z.number().int().min(0).max(24 * 365).optional(),
-});
-
 const updateSchema = z.object({
-  steps: z.array(stepSchema).min(1).max(30),
+  steps: journeyStepsSchema,
 });
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string; journeyId: string }> }) {
@@ -52,13 +47,37 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; jou
    */
   const runs = await db.execute(
     raw`select count(*) filter (where status = 'active')::int as active,
+               count(*) filter (where status = 'exited')::int as exited,
                count(*)::int as total
           from journey_runs where journey_id = ${journeyId}`
   );
-  const c = (runs as unknown as { active: number; total: number }[])[0] ?? { active: 0, total: 0 };
+  const c = (runs as unknown as { active: number; exited: number; total: number }[])[0] ?? {
+    active: 0,
+    exited: 0,
+    total: 0,
+  };
+
+  /**
+   * 스텝별 인원. 진행 중 실행의 프로그램 카운터를 세어 트리 경로로 되돌린다 —
+   * 어느 갈래로 사람이 몰리는지 보이지 않으면 분기를 만들 이유가 없다.
+   *
+   * 집계는 DB 에서(그룹), 경로 변환은 여기서 한다. 실행 행을 전부 들고 오면 실행이 많은
+   * 저니에서 상세 화면 한 번에 수만 행이 올라온다.
+   */
+  const grouped = (await db.execute(
+    raw`select current_step, count(*)::int as n
+          from journey_runs where journey_id = ${journeyId} and status = 'active'
+         group by current_step`
+  )) as unknown as { current_step: number; n: number }[];
+  const program = compileJourney(normalizeSteps(row.steps));
+  const counts = stepCounts(program, []); // 모든 스텝을 0 으로 깔고 (빈 갈래도 화면에 남아야 한다)
+  for (const g of grouped) {
+    const path = program.instructions[g.current_step]?.path;
+    if (path !== undefined) counts[path] = g.n;
+  }
 
   // total 도 함께 준다 — 삭제는 완료된 실행 이력까지 cascade 로 지운다
-  return ok({ journey: row, activeRuns: c.active, totalRuns: c.total });
+  return ok({ journey: row, activeRuns: c.active, exitedRuns: c.exited, totalRuns: c.total, stepCounts: counts });
 }
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; journeyId: string }> }) {
@@ -78,7 +97,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; j
   const db = getDb();
   const rows = await db
     .update(journeys)
-    .set({ steps: parsed.data.steps })
+    .set({ steps: toStoredSteps(parsed.data.steps) })
     .where(and(eq(journeys.id, journeyId), eq(journeys.projectId, id)))
     .returning();
   if (rows.length === 0) return fail("Not found", 404);

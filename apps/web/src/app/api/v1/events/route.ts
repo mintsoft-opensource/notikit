@@ -5,6 +5,8 @@ import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimitShared, clientKey, principalKey } from "@/lib/rate-limit";
 import { verifyIdentity } from "@/lib/keys";
+import { onJourneyEvent } from "@/lib/journey-triggers";
+import { errorMessage, log } from "@/lib/logger";
 import {
   admitConversionName,
   attributionCutoff,
@@ -55,8 +57,16 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  // 대상 해석(DB 조회) 전에 주체별 한도를 먼저 본다 — 남용이 DB 까지 내려가지 않게.
-  // 키는 검증 전 값이지만 프로젝트 안에서만 유효하므로, 위조해 봐야 자기 버킷만 갈아탄다.
+  // user_id 는 공개 api-key 만으로 지목할 수 있으므로 **주체별 한도를 물리기 전에** 검증한다.
+  // 예전에는 한도를 먼저 깎았다 — 그러면 api-key 만 쥔 쪽이 남의 external_id 를 위조해
+  // 그 사람 버킷을 분당 30건으로 채워, **그 사용자의 전환 보고만 골라 429 로 막을 수 있었다**.
+  // HMAC 검증은 DB 를 타지 않으므로, 앞으로 당겨도 "남용이 DB 까지 내려가지 않게" 한다는
+  // 한도의 목적은 그대로다.
+  if (b.external_id && (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc))) {
+    return fail("identity_hash invalid or missing", 403);
+  }
+
+  // 여기부터 principal 은 **검증된 주체**다(토큰은 그 기기만 아는 값, user_id 는 서명으로 확인됨).
   const principal = b.token ?? (b.external_id as string);
   if (!(await rateLimitShared(principalKey(project.id, "events", principal), PRINCIPAL_LIMIT_PER_MIN))) {
     return fail("Rate limit exceeded", 429);
@@ -80,11 +90,7 @@ export async function POST(req: Request) {
     deviceId = device.id;
     scope = eq(pushClicks.deviceId, device.id);
   } else {
-    const userId = b.external_id as string;
-    // user_id 는 공개 api-key 만으로 지목할 수 있으므로 항상 검증한다(남의 전환 심기 방지)
-    if (!b.identity_hash || !verifyIdentity(userId, b.identity_hash, project.apiSecretEnc)) {
-      return fail("identity_hash invalid or missing", 403);
-    }
+    const userId = b.external_id as string; // identity_hash 는 위에서 이미 검증했다
     const user = (
       await db
         .select({ id: pushUsers.id })
@@ -94,6 +100,16 @@ export async function POST(req: Request) {
     )[0];
     if (!user) return fail("User not found", 404);
     scope = eq(pushClicks.userId, user.id);
+  }
+
+  // 저니 훅 — **인증·검증이 끝난 주체**에 대해서만 부른다(위조된 external_id 로 남의 저니를
+  // 진행시킬 수 없다). 귀속 여부와 무관하게 여기서 부르는 이유: 전환은 최근 24시간 안에 누른
+  // 발송이 있을 때만 저장되는데, 귀속되지 않은 행동도 "한 일"은 한 것이라 종료 조건은 봐야 한다.
+  // 실패해도 이벤트 보고 자체는 성공시킨다 — 저니가 막혀서 SDK 의 전환 보고가 죽으면 안 된다.
+  try {
+    await onJourneyEvent(db, project.id, b.name, { deviceId, externalId: b.token ? null : (b.external_id as string) });
+  } catch (e) {
+    log.error("journey.event_hook_failed", { project_id: project.id, conversion_name: b.name, reason: errorMessage(e) });
   }
 
   const click = (

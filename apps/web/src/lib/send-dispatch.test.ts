@@ -24,6 +24,7 @@ const ctx = {
   personalized: false,
   rateLimit: null,
   localTime: null,
+  ab: null,
 } satisfies SendContext;
 
 const items: SendItem[] = ["a", "b"].map((token) => ({ token, vi: null, title: "T", body: "B", dataOnly: false }));

@@ -4,6 +4,7 @@ import { journeys } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { journeyStepsSchema, toStoredSteps } from "@/lib/journey-triggers";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -17,16 +18,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   return ok({ journeys: rows });
 }
 
-const stepSchema = z.object({
-  type: z.enum(["send", "wait"]),
-  title: z.string().max(255).optional(),
-  body: z.string().max(4000).optional(),
-  hours: z.number().int().min(0).max(24 * 365).optional(),
-});
-
 const createSchema = z.object({
   name: z.string().min(1).max(120),
-  steps: z.array(stepSchema).min(1).max(30),
+  // 스텝 검증은 한 곳(journeyStepsSchema)에서만 — 생성과 수정이 따로 들고 있으면
+  // 한쪽에만 규칙이 붙어 "만들 수는 있는데 고치면 422" 가 된다
+  steps: journeyStepsSchema,
 });
 
 /** [Web Admin] 저니 생성 */
@@ -45,6 +41,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
 
   const db = getDb();
-  const row = (await db.insert(journeys).values({ projectId: id, name: parsed.data.name, steps: parsed.data.steps }).returning())[0];
+  const row = (await db.insert(journeys).values({ projectId: id, name: parsed.data.name, steps: toStoredSteps(parsed.data.steps) }).returning())[0];
   return ok({ journey: row }, undefined, 201);
 }

@@ -2,7 +2,10 @@ import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import { createHmac, randomUUID } from "node:crypto";
 import { getDb } from "@/db/client";
 import { webhooks, webhookDeliveries } from "@/db/schema";
+import { errorMessage, log } from "@/lib/logger";
+import { addSharedCounter } from "@/lib/redis";
 import { safeFetch, validateAndResolve } from "@/lib/safe-fetch";
+import { mapLimit } from "@/lib/send-dispatch";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -225,11 +228,17 @@ function recordDeadLetter(row: Candidate): void {
   deadLetter.lastAt = Date.now();
   deadLetter.lastId = row.id;
   deadLetter.lastEvent = row.event;
-  console.warn(`[webhooks] delivery ${row.id} (${row.event}) exhausted ${MAX_ATTEMPTS} attempts — giving up`);
+  // 프로세스 카운터는 replica 의 조각일 뿐이다 — 클러스터 합계는 Redis 에 따로 모은다
+  addSharedCounter("webhook.dead_letter");
+  log.error("webhook.dead_letter", { delivery_id: row.id, webhook_event: row.event, attempts: MAX_ATTEMPTS });
 }
 
 export type WebhookHealth = {
-  /** 이 프로세스가 포기한 배달 수(누적) */
+  /**
+   * **이 프로세스가** 포기한 배달 수(누적). replica 가 여럿이면 전체가 아니다 —
+   * 클러스터 합계는 `/api/internal/metrics` 의 `shared` 쪽에서 본다.
+   */
+  scope: "process";
   deadLetters: number;
   lastDeadLetterAt: string | null;
   lastDeadLetterId: string | null;
@@ -238,6 +247,7 @@ export type WebhookHealth = {
 
 export function getWebhookHealth(): WebhookHealth {
   return {
+    scope: "process",
     deadLetters: deadLetter.total,
     lastDeadLetterAt: deadLetter.lastAt === null ? null : new Date(deadLetter.lastAt).toISOString(),
     lastDeadLetterId: deadLetter.lastId,
@@ -252,26 +262,15 @@ export function resetWebhookHealth(): void {
   deadLetter.lastEvent = null;
 }
 
-/**
- * 동시성 제한 실행 — 느린 엔드포인트 하나가 스윕 전체를 붙잡지 않게.
- * push-processor 의 `mapLimit` 과 같은 패턴이지만 그쪽은 결과 배열을 모으고 이쪽은 모으지 않는다.
- * 합치려면 두 파일을 함께 고쳐야 해서(소유자가 다름) 여기서는 그대로 둔다.
- */
-async function runLimited<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
-  let i = 0;
-  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) await fn(items[i++]);
-  });
-  await Promise.all(lanes);
-}
-
 export type SweepResult = { retried: number; skipped: number; dead: number };
 
 async function deliverAll(db: Db, rows: Candidate[], deadline: number): Promise<SweepResult> {
   let retried = 0;
   let skipped = 0;
   let dead = 0;
-  await runLimited(rows, SWEEP_CONCURRENCY, async (row) => {
+  // 동시성 제한은 `mapLimit` 하나로 통일한다 — 같은 루프를 파일마다 새로 쓰면 한 곳만 고쳐진다.
+  // 결과 배열은 쓰지 않는다(집계는 클로저로 센다).
+  await mapLimit(rows, SWEEP_CONCURRENCY, async (row) => {
     // 예산을 넘겼으면 **클레임하지 않는다** — 클레임만 하고 못 보내면 시도 하나가 헛돈다
     if (Date.now() >= deadline) {
       skipped += 1;
@@ -284,7 +283,7 @@ async function deliverAll(db: Db, rows: Candidate[], deadline: number): Promise<
       if (r.dead) dead += 1;
     } catch (e) {
       skipped += 1;
-      console.warn(`[webhooks] delivery ${row.id} failed to retry: ${e instanceof Error ? e.message : String(e)}`);
+      log.warn("webhook.retry_failed", { delivery_id: row.id, webhook_event: row.event, reason: errorMessage(e) });
     }
   });
   return { retried, skipped, dead };

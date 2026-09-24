@@ -1,5 +1,6 @@
 import { ok, fail } from "@/lib/api-response";
 import { getAuthContext } from "@/lib/authz";
+import { errorMessage, INSTANCE_ID, log } from "@/lib/logger";
 import { getRateLimitHealth } from "@/lib/rate-limit";
 import { getWebhookHealth, sweepWebhookRetries } from "@/lib/webhooks";
 
@@ -14,6 +15,10 @@ export const dynamic = "force-dynamic";
  * 응답에는 스윕 결과와 함께 이 인스턴스의 **관측 카운터**를 실어 보낸다: 포기한 배달(dead letter)
  * 총량과, 공유 rate limit 이 인메모리로 떨어진 횟수. 워커가 주기적으로 부르는 유일한 내부
  * 엔드포인트라, 별도 지표 파이프라인 없이도 두 가지 조용한 실패가 로그에 남는다.
+ *
+ * 여기 숫자는 **이 인스턴스의 것**이다(`scope: "process"`). 클러스터 합계와 발송 통계는
+ * `GET /api/internal/metrics` 가 따로 준다 — 워커는 스윕 응답만으로 경고를 낼 수 있어야 해서
+ * 이 최소 집합을 여기 남긴다.
  *
  * 인증: `ADMIN_TOKEN`(서버-투-서버)만. 콘솔 세션 쿠키로는 열리지 않는다.
  */
@@ -33,10 +38,20 @@ export async function POST(req: Request) {
     const rl = getRateLimitHealth();
     return ok({
       ...result,
+      instance: INSTANCE_ID,
       webhooks: getWebhookHealth(),
-      rateLimit: { shared: rl.enabled, connected: rl.connected, fallbacks: rl.fallbacks, timeouts: rl.timeouts, degradedSince: rl.degradedSince },
+      rateLimit: {
+        scope: "process" as const,
+        shared: rl.enabled,
+        connected: rl.connected,
+        fallbacks: rl.fallbacks,
+        shortCircuits: rl.shortCircuits,
+        timeouts: rl.timeouts,
+        degradedSince: rl.degradedSince,
+      },
     });
   } catch (e) {
-    return fail(e instanceof Error ? e.message : "Sweep failed", 500);
+    log.error("webhook.sweep_failed", { reason: errorMessage(e) });
+    return fail(errorMessage(e), 500);
   }
 }
