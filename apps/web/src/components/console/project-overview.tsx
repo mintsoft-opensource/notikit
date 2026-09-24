@@ -14,6 +14,7 @@ import { StatTile, EmptyState, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
 import { ChartEmpty } from "@/components/ui/chart-empty";
 import { StatTileGrid, type StatDelta } from "@/components/ui/stat-tile";
+import { StatusChip } from "@/components/console/log-status";
 import { pctChange, ptChange, ratio } from "@/lib/stat-delta";
 import { useProjects, adminApi } from "@/lib/admin-client";
 
@@ -47,13 +48,6 @@ type Stats = {
 
 type RangeKey = "24h" | "7d" | "30d";
 const RANGE_KEYS: RangeKey[] = ["24h", "7d", "30d"];
-
-function statusVariant(s: string): "success" | "danger" | "neutral" | "primary" {
-  if (s === "completed") return "success";
-  if (s === "failed") return "danger";
-  if (s === "scheduled") return "primary";
-  return "neutral";
-}
 
 export function ProjectOverview({ projectId }: { projectId: string }) {
   const t = useTranslations("overview");
@@ -142,7 +136,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       />
 
       {project && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface px-3.5 py-2.5 shadow-sm shadow-foreground/[0.02]">
+        <Card className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5">
           <div className="min-w-0">
             <p className="text-2xs font-semibold text-muted-foreground">api-key</p>
             <div className="flex min-w-0 items-center gap-2">
@@ -161,7 +155,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             {project.hasFirebase ? <Badge variant="success">{t("firebaseConfigured")}</Badge> : <Badge variant="neutral">{tc("logOnly")}</Badge>}
             {project.hasKakao && <Badge variant="success">{t("kakaoConfigured")}</Badge>}
           </div>
-        </div>
+        </Card>
       )}
 
       <div className="flex items-center justify-between gap-3">
@@ -257,7 +251,8 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                     <span className="text-xs tabular-nums text-muted-foreground">
                       {l.successCount}/{l.totalCount}
                     </span>
-                    <Badge variant={statusVariant(l.status)}>{l.status}</Badge>
+                    {/* 목록 화면과 같은 칩을 쓴다 — 개요에만 번역 안 된 원문 상태를 띄우면 같은 값이 두 가지로 보인다 */}
+                    <StatusChip status={l.status} />
                   </div>
                 </li>
               ))}

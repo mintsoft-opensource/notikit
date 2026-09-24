@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { PageHeader } from "@/components/layout/page-header";
+import { Card } from "@/components/ui/card";
 import { ApiFrame } from "@/components/console/api-frame";
 
 export default async function ApiDocsPage() {
@@ -7,9 +8,9 @@ export default async function ApiDocsPage() {
   return (
     <div className="w-full space-y-4">
       <PageHeader title={t("apiDocs")} />
-      <div className="min-w-0 overflow-hidden border border-border bg-surface shadow-card">
+      <Card className="min-w-0 overflow-hidden">
         <ApiFrame title={t("apiDocs")} />
-      </div>
+      </Card>
     </div>
   );
 }

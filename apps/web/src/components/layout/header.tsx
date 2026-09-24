@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Menu, X, LogOut, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleSwitcher } from "./locale-switcher";
 import { SidebarBrand, SidebarNav } from "./sidebar";
@@ -27,6 +28,13 @@ function currentNavKeys(pathname: string): { groupKey: string; labelKey: string 
 }
 
 const CRUMB_ICON = "h-3.5 w-3.5 rtl:rotate-180";
+
+/**
+ * 헤더 조작 버튼은 전부 Button(h-9·rounded-lg·포커스 링)으로 만든다.
+ * 직접 만든 `<button>` 에는 포커스 링이 없어, 키보드로 헤더를 지날 때 지금 어디에
+ * 있는지 보이지 않았다. 헤더 톤(회색 → 진하게)만 여기서 덧씌운다.
+ */
+const ICON_BUTTON = "text-muted-foreground hover:text-foreground";
 
 export function Header() {
   const pathname = usePathname();
@@ -123,17 +131,19 @@ export function Header() {
   return (
     <>
       <header className="z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface/85 px-3 backdrop-blur md:h-14 md:px-4">
-        <button
+        <Button
           ref={openerRef}
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={() => setOpen(true)}
           aria-label={th("openMenu")}
           aria-haspopup="dialog"
           aria-expanded={open}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground md:hidden"
+          className={ICON_BUTTON + " md:hidden"}
         >
           <Menu aria-hidden="true" className="h-4 w-4" />
-        </button>
+        </Button>
 
         <nav aria-label={th("menu")} className="min-w-0 flex-1 text-sm">
           <ol className="flex min-w-0 items-center gap-1.5">
@@ -157,24 +167,23 @@ export function Header() {
           </ol>
         </nav>
 
-        <Link
-          href="/api-docs"
-          className="hidden h-9 items-center rounded-lg px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground sm:inline-flex"
-        >
-          {th("apiDocs")}
-        </Link>
+        <Button asChild variant="ghost" size="sm" className={ICON_BUTTON + " hidden sm:inline-flex"}>
+          <Link href="/api-docs">{th("apiDocs")}</Link>
+        </Button>
         <LocaleSwitcher />
         <ThemeToggle />
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={handleLogout}
           disabled={loggingOut}
           aria-busy={loggingOut}
           aria-label={th("logout")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          className={ICON_BUTTON}
         >
           <LogOut aria-hidden="true" className="h-4 w-4" />
-        </button>
+        </Button>
       </header>
 
       {/* 모바일 드로어 — backdrop-blur 헤더 밖(body)으로 portal 하여 fixed 가 뷰포트 기준이 되게 함 */}
@@ -186,15 +195,17 @@ export function Header() {
             <div ref={panelRef} role="dialog" aria-modal="true" aria-label={th("menu")} className="absolute inset-y-0 start-0 flex w-[320px] max-w-[88vw] flex-col bg-surface shadow-modal">
               <div className="flex items-center justify-between border-b border-border pe-2">
                 <SidebarBrand />
-                <button
+                <Button
                   ref={closeRef}
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setOpen(false)}
                   aria-label={th("closeMenu")}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+                  className={ICON_BUTTON}
                 >
                   <X aria-hidden="true" className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
               <SidebarNav pathname={pathname} />
             </div>

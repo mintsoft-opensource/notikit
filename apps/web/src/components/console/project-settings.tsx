@@ -16,10 +16,21 @@ type Policy = {
   quietStartHour: number | null;
   quietEndHour: number | null;
   frequencyCapPerDay?: number | null;
+  /** 분당 발송 상한(기기 수). null 이면 제한 없음 */
+  maxSendsPerMinute?: number | null;
 };
 
 const FREQ_CAP_MIN = 1;
 const FREQ_CAP_MAX = 100;
+const RATE_MIN = 1;
+const RATE_MAX = 100_000;
+
+/** 비움(=제한 없음)과 잘못된 값을 가른다 — 둘을 섞으면 상한을 끌 수가 없다 */
+function capState(raw: string, min: number, max: number): { value: number | null; invalid: boolean } {
+  if (raw.trim() === "") return { value: null, invalid: false };
+  const n = Number(raw);
+  return { value: n, invalid: !Number.isInteger(n) || n < min || n > max };
+}
 
 /** 프로젝트 설정 — 발송 정책(identity/방해금지) + Firebase/카카오 자격증명. 프로젝트 상세 전용. */
 export function ProjectSettings({ projectId }: { projectId: string }) {
@@ -33,6 +44,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
   const [quietEnd, setQuietEnd] = React.useState("");
   const [requireId, setRequireId] = React.useState(true);
   const [freqCap, setFreqCap] = React.useState("");
+  const [rateCap, setRateCap] = React.useState("");
   const [policyLoaded, setPolicyLoaded] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
@@ -46,6 +58,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         setQuietStart(p.quietStartHour == null ? "" : String(p.quietStartHour));
         setQuietEnd(p.quietEndHour == null ? "" : String(p.quietEndHour));
         setFreqCap(p.frequencyCapPerDay == null ? "" : String(p.frequencyCapPerDay));
+        setRateCap(p.maxSendsPerMinute == null ? "" : String(p.maxSendsPerMinute));
         setPolicyLoaded(true);
       })
       .catch((e) => {
@@ -54,9 +67,9 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
     return () => { alive = false; };
   }, [projectId, errorText, tc]);
 
-  const freqCapNum = freqCap.trim() === "" ? null : Number(freqCap);
-  const freqCapInvalid =
-    freqCapNum !== null && (!Number.isInteger(freqCapNum) || freqCapNum < FREQ_CAP_MIN || freqCapNum > FREQ_CAP_MAX);
+  const freq = capState(freqCap, FREQ_CAP_MIN, FREQ_CAP_MAX);
+  const rate = capState(rateCap, RATE_MIN, RATE_MAX);
+  const freqCapInvalid = freq.invalid;
 
   const [firebase, setFirebase] = React.useState("");
   const [firebaseBusy, setFirebaseBusy] = React.useState(false);
@@ -65,8 +78,12 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
 
   async function savePolicy() {
     if (saving) return;
-    if (freqCapInvalid) {
+    if (freq.invalid) {
       toast.error(t("frequencyCapInvalid", { min: FREQ_CAP_MIN, max: FREQ_CAP_MAX }));
+      return;
+    }
+    if (rate.invalid) {
+      toast.error(t("rateCapInvalid", { min: RATE_MIN, max: RATE_MAX }));
       return;
     }
     setSaving(true);
@@ -77,7 +94,8 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
           require_identity_verification: requireId,
           quiet_start_hour: quietStart === "" ? null : Number(quietStart),
           quiet_end_hour: quietEnd === "" ? null : Number(quietEnd),
-          frequency_cap_per_day: freqCapNum,
+          frequency_cap_per_day: freq.value,
+          max_sends_per_minute: rate.value,
         }),
       });
       toast.success(t("policySaved"));
@@ -202,9 +220,32 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
                 </p>
               )}
             </div>
+            {/* 분당 상한은 하루 상한 바로 옆에 둔다 — 둘 다 "얼마나 자주 나가는가"를 정하는 값이다 */}
+            <div className="space-y-1">
+              <Field label={t("rateCap")} hint={t("rateCapHint", { min: RATE_MIN, max: RATE_MAX })}>
+                <Input
+                  id="rate-cap"
+                  type="number"
+                  inputMode="numeric"
+                  min={RATE_MIN}
+                  max={RATE_MAX}
+                  step={1}
+                  value={rateCap}
+                  onChange={(e) => setRateCap(e.target.value)}
+                  placeholder={t("rateCapUnlimited")}
+                  aria-invalid={rate.invalid || undefined}
+                  aria-describedby={rate.invalid ? "rate-cap-error" : undefined}
+                />
+              </Field>
+              {rate.invalid && (
+                <p id="rate-cap-error" className="text-xs text-error">
+                  {t("rateCapInvalid", { min: RATE_MIN, max: RATE_MAX })}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex justify-end">
-            <Button onClick={savePolicy} disabled={saving || !policyLoaded || freqCapInvalid}>
+            <Button onClick={savePolicy} disabled={saving || !policyLoaded || freq.invalid || rate.invalid}>
               <Save aria-hidden="true" className="h-4 w-4" /> {saving ? t("saving") : t("savePolicy")}
             </Button>
           </div>

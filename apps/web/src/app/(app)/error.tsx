@@ -4,6 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 
 /**
@@ -28,7 +29,7 @@ export default function AppError({
   }, [error]);
 
   return (
-    <div role="alert" className="flex flex-1 items-center justify-center border border-border bg-surface shadow-card">
+    <Card role="alert" className="flex flex-1 items-center justify-center">
       <EmptyState
         icon={AlertTriangle}
         title={t("errorTitle")}
@@ -39,6 +40,6 @@ export default function AppError({
           </Button>
         }
       />
-    </div>
+    </Card>
   );
 }

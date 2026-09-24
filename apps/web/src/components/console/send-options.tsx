@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { BellOff, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { BellOff, ChevronDown, Clock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
@@ -14,6 +14,10 @@ export const TTL_SECONDS_MAX = 2_419_200;
 export const BADGE_MAX = 99_999;
 const SHORT_MAX = 64;
 const DEEP_LINK_MAX = 2048;
+/** 서버(messages.ts local_time)와 **같은** 판정 — 어긋나면 화면은 통과시키고 서버가 422 로 막는다 */
+const LOCAL_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+/** 서버 local-delivery.ts 의 LOCAL_WINDOW_MS 와 같은 값. 안내 문구에만 쓴다. */
+const LOCAL_WINDOW_HOURS = 24;
 
 export type SendActionDraft = { rowId: string; id: string; title: string; deepLink: string };
 
@@ -27,6 +31,8 @@ export type SendOptionsDraft = {
   ttlSeconds: string;
   priority: "normal" | "high";
   silent: boolean;
+  /** 받는 사람 현지 시각 "HH:MM". 빈 문자열이면 쓰지 않는다(=즉시 발송). */
+  localTime: string;
   actions: SendActionDraft[];
 };
 
@@ -44,9 +50,21 @@ export type PushOptionsPayload = {
   actions?: PushActionPayload[];
 };
 
-type ErrorKey = "errOptBadge" | "errOptTtl" | "errOptActionId" | "errOptActionTitle" | "errOptActionDup" | "errOptActionLink";
+type ErrorKey =
+  | "errOptBadge"
+  | "errOptTtl"
+  | "errOptLocalTime"
+  | "errOptActionId"
+  | "errOptActionTitle"
+  | "errOptActionDup"
+  | "errOptActionLink";
 
-export type SendOptionsErrors = { badge?: ErrorKey; ttl?: ErrorKey; actions: Record<string, ErrorKey> };
+export type SendOptionsErrors = {
+  badge?: ErrorKey;
+  ttl?: ErrorKey;
+  localTime?: ErrorKey;
+  actions: Record<string, ErrorKey>;
+};
 
 export function emptySendOptions(): SendOptionsDraft {
   return {
@@ -58,6 +76,7 @@ export function emptySendOptions(): SendOptionsDraft {
     ttlSeconds: "",
     priority: "high",
     silent: false,
+    localTime: "",
     actions: [],
   };
 }
@@ -93,7 +112,15 @@ function actionBlank(a: SendActionDraft): boolean {
  * 초안 → 발송 본문의 `options`. 아무것도 고르지 않았으면 undefined 를 돌려준다 —
  * 빈 객체를 보내면 서버가 priority 기본값을 채워 모든 발송 로그에 옵션이 붙는다.
  */
-export function buildSendOptions(d: SendOptionsDraft): { options?: PushOptionsPayload; errors: SendOptionsErrors } {
+export function buildSendOptions(d: SendOptionsDraft): {
+  options?: PushOptionsPayload;
+  /**
+   * 발송 본문의 `local_time` — `options` 안이 아니라 **본문 최상위** 필드다.
+   * 서버가 기기 시간대로 묶어 회차를 나누므로 알림 표현(options)과 층이 다르다.
+   */
+  localTime?: string;
+  errors: SendOptionsErrors;
+} {
   const errors: SendOptionsErrors = { actions: {} };
   const o: PushOptionsPayload = {};
 
@@ -117,6 +144,12 @@ export function buildSendOptions(d: SendOptionsDraft): { options?: PushOptionsPa
   // priority 는 서버 기본값이 high — 보통일 때만 실어 보낸다
   if (d.priority === "normal") o.priority = "normal";
   if (d.silent) o.silent = true;
+
+  // 빈칸은 "쓰지 않음"이다 — 형식이 틀린 것과 구분해야 한다(빈칸을 422 로 막으면 끌 수가 없다)
+  const localTimeRaw = d.localTime.trim();
+  let localTime: string | undefined;
+  if (localTimeRaw && !LOCAL_TIME_RE.test(localTimeRaw)) errors.localTime = "errOptLocalTime";
+  else if (localTimeRaw) localTime = localTimeRaw;
 
   const actions: PushActionPayload[] = [];
   const seen = new Set<string>();
@@ -146,11 +179,11 @@ export function buildSendOptions(d: SendOptionsDraft): { options?: PushOptionsPa
   }
   if (actions.length > 0) o.actions = actions.slice(0, MAX_SEND_ACTIONS);
 
-  return { options: Object.keys(o).length > 0 ? o : undefined, errors };
+  return { options: Object.keys(o).length > 0 ? o : undefined, localTime, errors };
 }
 
 export function hasSendOptionErrors(e: SendOptionsErrors): boolean {
-  return Boolean(e.badge || e.ttl) || Object.keys(e.actions).length > 0;
+  return Boolean(e.badge || e.ttl || e.localTime) || Object.keys(e.actions).length > 0;
 }
 
 /** 액션 오류가 세 칸 중 **어느 칸** 이야기인지. 아이디 칸에만 표시하면 엉뚱한 칸이 빨개진다 */
@@ -162,7 +195,7 @@ function actionErrorField(key: ErrorKey): "id" | "title" | "link" {
 
 /** 접힌 머리글에 "몇 개 켰는지" 를 보여 주려고 센다 — 접어 두면 설정한 걸 잊는다 */
 export function countSendOptions(d: SendOptionsDraft): number {
-  const filled = [d.sound, d.badge, d.collapseKey, d.androidChannelId, d.iosThreadId, d.ttlSeconds].filter((v) => v.trim()).length;
+  const filled = [d.sound, d.badge, d.collapseKey, d.androidChannelId, d.iosThreadId, d.ttlSeconds, d.localTime].filter((v) => v.trim()).length;
   const actions = d.actions.filter((a) => !actionBlank(a)).length;
   return filled + actions + (d.priority === "normal" ? 1 : 0) + (d.silent ? 1 : 0);
 }
@@ -193,6 +226,7 @@ export function SendOptions({
 
   const badgeError = errors.badge ? t(errors.badge, { max: BADGE_MAX }) : null;
   const ttlError = errors.ttl ? t(errors.ttl, { max: TTL_SECONDS_MAX }) : null;
+  const localTimeError = errors.localTime ? t(errors.localTime) : null;
   const actionError = (rowId: string) => {
     const key = errors.actions[rowId];
     return key ? t(key, { max: SHORT_MAX }) : null;
@@ -204,7 +238,7 @@ export function SendOptions({
    * 발송이 막혔을 때만 polite 로 한 번 알린다. 눈으로 보는 오류는 칸 옆에 계속 떠 있다.
    */
   const [liveError, setLiveError] = React.useState("");
-  const errorSummary = [badgeError, ttlError, ...value.actions.map((a) => actionError(a.rowId))]
+  const errorSummary = [badgeError, ttlError, localTimeError, ...value.actions.map((a) => actionError(a.rowId))]
     .filter(Boolean)
     .join(" · ");
   const announce = (message: string | null) => setLiveError(message ?? "");
@@ -358,6 +392,32 @@ export function SendOptions({
               placeholder="orders"
             />
           </Field>
+        </div>
+
+        {/*
+          현지 시각 발송 — 격자 안에 끼우지 않는다. "무엇을 하는지"보다 "언제 나가는지"를
+          바꾸는 설정이라, 설명 없이 칸 하나로 두면 예약 발송과 구분되지 않는다.
+        */}
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <Field label={t("optLocalTime")} hint={t("optLocalTimeHint")} error={localTimeError}>
+            <Input
+              type="time"
+              className="w-36"
+              value={value.localTime}
+              disabled={disabled}
+              onChange={(e) => set({ localTime: e.target.value })}
+              onBlur={() => announce(localTimeError)}
+            />
+          </Field>
+          {/* 켜는 순간 들리도록 polite 영역 안에서 나타난다 — 무음 푸시 안내와 같은 방식 */}
+          <div role="status" aria-live="polite">
+            {value.localTime.trim() !== "" && (
+              <p className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
+                <Clock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{t("optLocalTimeNotice", { hours: LOCAL_WINDOW_HOURS })}</span>
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2 rounded-lg border border-border p-3">

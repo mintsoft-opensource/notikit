@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
-import { TopicRuleFields, emptyRules, cleanRules, type Rule, type RuleDraft } from "./topic-rules-form";
+import { TopicRuleFields, emptyRules, cleanRules, isRuleDraftDirty, type Rule, type RuleDraft } from "./topic-rules-form";
 
 type Topic = {
   id: string;
@@ -74,7 +74,9 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
   }
 
   function closeDialog() {
-    const dirty = name.trim() || rules.some((r) => r.attribute.trim() || r.value.trim());
+    // 행동 조건(대상이 "유저 속성"이 아닌 줄)은 attribute·value 가 비어 있어도 입력한 것이다 —
+    // 직접 비교하면 "전환 2회 이상" 같은 줄을 통째로 못 알아보고 묻지 않은 채 닫아 버린다.
+    const dirty = name.trim() || rules.some(isRuleDraftDirty);
     if (dirty && !confirm(tc("unsavedConfirm"))) return;
     setOpen(false);
     reset();

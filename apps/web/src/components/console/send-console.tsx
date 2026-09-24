@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Send, Clock, FlaskConical, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input, Textarea, Field } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
@@ -53,6 +54,8 @@ type Content = {
   image_url?: string;
   variants?: Array<{ title: string; body: string }>;
   options?: PushOptionsPayload;
+  /** 받는 사람 현지 시각 "HH:MM" — options 안이 아니라 본문 최상위 필드다 */
+  local_time?: string;
 };
 
 /**
@@ -125,6 +128,52 @@ export function SendConsole({
   const scheduleTimeId = React.useId();
   const titleId = React.useId();
   const bodyId = React.useId();
+
+  /**
+   * 발송이 한 번이라도 막혔는가. 토스트는 몇 초 뒤 사라지므로, 그 뒤에도 **어느 칸이**
+   * 잘못됐는지 알 수 있게 칸 옆 메시지와 aria-invalid 를 켜 둔다(WCAG 3.3.1).
+   * 값이 채워지면 메시지는 저절로 사라진다 — 끄는 조작이 따로 필요 없다.
+   */
+  const [showErrors, setShowErrors] = React.useState(false);
+  /** 막힌 이유를 한 번만 읽어 준다. 타이핑 중에 끼어들지 않도록 polite 한 곳에서만. */
+  const [liveError, setLiveError] = React.useState("");
+  const [focusTick, setFocusTick] = React.useState(0);
+  const formRef = React.useRef<HTMLDivElement>(null);
+
+  /**
+   * 막힌 직후 **첫 번째** 잘못된 칸으로 포커스를 옮긴다. 옮기지 않으면 키보드·스크린리더
+   * 사용자는 어디가 틀렸는지 알아도 그 칸까지 직접 훑어 가야 한다.
+   * rAF 로 한 박자 미루는 이유: 알림 옵션 패널은 막힌 뒤에야 펼쳐지는데, 접혀 있는 동안엔
+   * 그 안의 칸에 포커스가 들어가지 않는다.
+   */
+  React.useEffect(() => {
+    if (focusTick === 0) return;
+    const id = requestAnimationFrame(() => {
+      const nodes = formRef.current?.querySelectorAll<HTMLElement>('[aria-invalid="true"]');
+      for (const el of nodes ?? []) {
+        if (el.offsetParent !== null) return el.focus();
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [focusTick]);
+
+  const titleError = showErrors && !silent && !title.trim() ? t("errTitleRequired") : null;
+  const bodyError = showErrors && !silent && !body.trim() ? t("errBodyRequired") : null;
+  /** 칸 이름(라벨)은 그대로 두고 설명만 잇는다 — 글자 수 안내를 잃지 않게 이어 붙인다 */
+  const describedBy = (id: string, error: string | null) => (error ? `${id}-count ${id}-error` : `${id}-count`);
+  /** 변형은 여러 줄이라 "변형 어딘가가 비었다"로는 못 고친다 — 빈 칸마다 따로 붙인다 */
+  const variantErrors = React.useMemo(() => {
+    if (!showErrors) return {};
+    const out: Record<string, { title?: string; body?: string }> = {};
+    for (const v of variants) {
+      const row = {
+        ...(v.title.trim() ? {} : { title: t("errVariantTitleRequired") }),
+        ...(v.body.trim() ? {} : { body: t("errVariantBodyRequired") }),
+      };
+      if (row.title || row.body) out[v.rowId] = row;
+    }
+    return out;
+  }, [showErrors, variants, t]);
 
   const picksUsers = type === "single" || type === "multi";
   const hasTarget = picksUsers ? users.length > 0 : type === "broadcast" || Boolean(target);
@@ -221,28 +270,27 @@ export function SendConsole({
 
   /** 내용 검사 + 발송 본문. 테스트 발송과 실제 발송이 같은 내용을 보낸다. */
   function buildContent(): Content | null {
-    if (!silent && (!title || !body)) {
-      toast.error(t("errTitleBody"));
+    // 토스트는 사라진다 — 막힌 이유를 칸 옆에 남기고(showErrors), 첫 잘못된 칸으로 포커스를 옮긴다
+    const blocked = (message: string): null => {
+      setShowErrors(true);
+      setLiveError(message);
+      setFocusTick((n) => n + 1);
+      toast.error(message);
       return null;
-    }
+    };
+    if (!silent && (!title || !body)) return blocked(t("errTitleBody"));
     if (optionsInvalid) {
       // 옵션 칸을 접어 뒀을 수 있다 — 토스트만 띄우면 어디가 틀렸는지 찾을 방법이 없다
       setOptionsReveal((n) => n + 1);
-      toast.error(t("errOptionsInvalid"));
-      return null;
+      return blocked(t("errOptionsInvalid"));
     }
-    if (custom.error) {
-      toast.error(custom.error);
-      return null;
-    }
+    if (custom.error) return blocked(custom.error);
     if (imageState === "notHttps" || imageState === "invalid") {
-      toast.error(imageState === "notHttps" ? t("imageNotHttps") : t("imageInvalid"));
-      return null;
+      return blocked(imageState === "notHttps" ? t("imageNotHttps") : t("imageInvalid"));
     }
-    if (variants.some((v) => !v.title.trim() || !v.body.trim())) {
-      toast.error(t("errVariantEmpty"));
-      return null;
-    }
+    if (variants.some((v) => !v.title.trim() || !v.body.trim())) return blocked(t("errVariantEmpty"));
+    setShowErrors(false);
+    setLiveError("");
     const content: Content = { title, body };
     if (variants.length > 0) {
       content.variants = [{ title, body }, ...variants.map((v) => ({ title: v.title, body: v.body }))];
@@ -251,6 +299,7 @@ export function SendConsole({
     if (custom.data) content.data = custom.data;
     if (validImage) content.image_url = validImage;
     if (builtOptions.options) content.options = builtOptions.options;
+    if (builtOptions.localTime) content.local_time = builtOptions.localTime;
     return content;
   }
 
@@ -395,7 +444,10 @@ export function SendConsole({
       <PageHeader title={t(TITLE_KEY[type])} description={t(SUBTITLE_KEY[type])} />
 
       <div className="grid flex-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="flex min-w-0 flex-col gap-4">
+        <div ref={formRef} className="flex min-w-0 flex-col gap-4">
+          {/* 막힌 이유를 한 번 읽어 준다. 눈으로 보는 메시지는 칸 옆에 계속 떠 있다. */}
+          <p role="status" aria-live="polite" className="sr-only">{liveError}</p>
+
           <StepCard step={1} title={t("sectionTarget")} done={hasTarget}>
             <SendTarget projectId={projectId} type={type} target={target} onTarget={setTarget} users={users} onUsers={setUsers} />
           </StepCard>
@@ -407,7 +459,8 @@ export function SendConsole({
               <Input
                 id={titleId}
                 ref={titleRef}
-                aria-describedby={`${titleId}-count`}
+                aria-describedby={describedBy(titleId, titleError)}
+                aria-invalid={titleError ? true : undefined}
                 value={title}
                 disabled={sending}
                 onFocus={() => (lastFieldRef.current = "title")}
@@ -415,13 +468,15 @@ export function SendConsole({
                 maxLength={255}
                 placeholder={t("titlePlaceholder")}
               />
+              {titleError && <p id={`${titleId}-error`} className="text-xs font-semibold text-error">{titleError}</p>}
             </div>
             <div className="space-y-1">
               <CountedLabel htmlFor={bodyId} label={t("bodyLabel")} counterId={`${bodyId}-count`} value={renderedBody} max={BODY_RECOMMENDED} />
               <Textarea
                 id={bodyId}
                 ref={bodyRef}
-                aria-describedby={`${bodyId}-count`}
+                aria-describedby={describedBy(bodyId, bodyError)}
+                aria-invalid={bodyError ? true : undefined}
                 className="min-h-32"
                 value={body}
                 disabled={sending}
@@ -430,6 +485,7 @@ export function SendConsole({
                 maxLength={4000}
                 placeholder={t("bodyPlaceholder")}
               />
+              {bodyError && <p id={`${bodyId}-error`} className="text-xs font-semibold text-error">{bodyError}</p>}
             </div>
             <SendVariables
               keys={attributeKeys}
@@ -438,7 +494,7 @@ export function SendConsole({
               basis={previewAs ? previewAs.name || previewAs.externalId : null}
               disabled={sending}
             />
-            <SendVariantFields variants={variants} onVariants={setVariants} render={renderPreview} disabled={sending} />
+            <SendVariantFields variants={variants} onVariants={setVariants} render={renderPreview} errors={variantErrors} disabled={sending} />
             <SendImageField value={imageUrl} onChange={setImageUrl} disabled={sending} />
             <Field label={t("deepLink")} hint={t("helpDeepLink")}>
               <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
@@ -493,7 +549,7 @@ export function SendConsole({
 
           {/* 발송 바 — 작성 카드들 맨 아래. 화면에 고정하지 않는다(내용을 가려서 사용자가 원치 않음). */}
           <div>
-            <div className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-surface px-3.5 py-2.5 shadow-sm">
+            <Card className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
               <p className="flex min-w-0 items-center gap-2 text-sm" aria-live="polite">
                 <Users aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="truncate font-semibold tabular-nums">
@@ -509,7 +565,7 @@ export function SendConsole({
                   {isScheduled ? t("reviewSubmitScheduled") : t("reviewSubmit")}
                 </Button>
               </div>
-            </div>
+            </Card>
           </div>
         </div>
 

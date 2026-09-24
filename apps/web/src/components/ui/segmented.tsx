@@ -47,7 +47,9 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn("inline-flex rounded-lg bg-surface-muted p-0.5 text-sm font-semibold", className)}
+      // 다른 컨트롤과 같은 36px·rounded-lg. 안쪽 여백 + rounded-[7px] 로 32px 를 만들던 것을
+      // 걷어냈다 — 선택 칸이 높이를 다 쓰고, 바깥 overflow-hidden 이 모서리를 대신 깎는다.
+      className={cn("inline-flex h-9 items-stretch overflow-hidden rounded-lg bg-surface-muted text-sm font-semibold", className)}
     >
       {options.map((opt, i) => (
         <button
@@ -63,7 +65,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(opt.value)}
           onKeyDown={(e) => onKeyDown(e, i)}
           className={cn(
-            "rounded-[7px] px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "rounded-lg px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             value === opt.value ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
           )}
         >

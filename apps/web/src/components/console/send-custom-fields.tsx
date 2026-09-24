@@ -90,6 +90,33 @@ export function SendCustomFields({
   const setExtra = (rowId: string, patch: Partial<ExtraField>) =>
     onExtras(extras.map((x) => (x.rowId === rowId ? { ...x, ...patch } : x)));
 
+  /**
+   * 줄을 더하거나 지우면 누르고 있던 버튼·칸이 사라져 포커스가 body 로 떨어진다 —
+   * 키보드 사용자는 폼 처음부터 다시 훑어야 한다. topic-rules-form 과 같은 pendingFocus 방식:
+   * 다음 렌더에서 갈 곳(새 줄의 키 칸 / 남은 앞줄 / 없으면 "추가" 버튼)으로 옮긴다.
+   */
+  const keyInputRefs = React.useRef(new Map<string, HTMLInputElement>());
+  const addRef = React.useRef<HTMLButtonElement>(null);
+  const pendingFocus = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const target = pendingFocus.current;
+    if (target === null) return;
+    pendingFocus.current = null;
+    (keyInputRefs.current.get(target) ?? addRef.current)?.focus();
+  }, [extras]);
+
+  const addExtra = () => {
+    const next: ExtraField = { rowId: newRowId(), key: "", value: "" };
+    pendingFocus.current = next.rowId;
+    onExtras([...extras, next]);
+  };
+
+  const removeExtra = (index: number) => {
+    const rest = extras.filter((_, i) => i !== index);
+    pendingFocus.current = rest[Math.max(0, index - 1)]?.rowId ?? ""; // 남은 줄이 없으면 "추가" 버튼
+    onExtras(rest);
+  };
+
   return (
     <div className="space-y-3">
       {fields.length > 0 && (
@@ -107,9 +134,20 @@ export function SendCustomFields({
         </div>
       )}
 
-      {extras.map((x) => (
+      {extras.map((x, i) => (
         <div key={x.rowId} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] items-center gap-2">
-          <Input aria-label={t("extraKey")} className="font-mono" spellCheck={false} value={x.key} onChange={(e) => setExtra(x.rowId, { key: e.target.value })} placeholder={t("extraKeyPlaceholder")} />
+          <Input
+            ref={(el) => {
+              if (el) keyInputRefs.current.set(x.rowId, el);
+              else keyInputRefs.current.delete(x.rowId);
+            }}
+            aria-label={t("extraKey")}
+            className="font-mono"
+            spellCheck={false}
+            value={x.key}
+            onChange={(e) => setExtra(x.rowId, { key: e.target.value })}
+            placeholder={t("extraKeyPlaceholder")}
+          />
           <Input aria-label={t("extraValue")} spellCheck={false} value={x.value} onChange={(e) => setExtra(x.rowId, { value: e.target.value })} placeholder={t("extraValuePlaceholder")} />
           {/* 삭제 버튼이 여러 개라 어느 행인지 이름에 키를 넣는다 — 스크린리더에선 전부 "필드 삭제"로만 들린다 */}
           <Button
@@ -117,7 +155,7 @@ export function SendCustomFields({
             variant="ghost"
             size="icon"
             aria-label={x.key.trim() ? t("removeExtraNamed", { key: x.key.trim() }) : t("removeExtra")}
-            onClick={() => onExtras(extras.filter((y) => y.rowId !== x.rowId))}
+            onClick={() => removeExtra(i)}
           >
             <X aria-hidden="true" className="h-4 w-4" />
           </Button>
@@ -125,7 +163,7 @@ export function SendCustomFields({
       ))}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" size="sm" onClick={() => onExtras([...extras, { rowId: newRowId(), key: "", value: "" }])}>
+        <Button ref={addRef} type="button" variant="outline" size="sm" onClick={addExtra}>
           <Plus aria-hidden="true" className="h-4 w-4" /> {t("addExtra")}
         </Button>
         <span className="text-xs text-muted-foreground">{t("customFieldsHint")}</span>

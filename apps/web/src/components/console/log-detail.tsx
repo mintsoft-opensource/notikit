@@ -40,6 +40,8 @@ type Log = {
   createdAt: string;
   isTest?: boolean;
   imageUrl?: string | null;
+  /** 토큰별 실패 사유 → 건수. 발송이 끝난 뒤에만 채워진다 */
+  deliveryErrors?: Record<string, number> | null;
   /** 콘솔 발송이면 멤버 이메일, API 발송이면 "api". 기록 이전 로그는 null */
   sentBy?: string | null;
 };
@@ -284,6 +286,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
               <DataRow label={tc("createdAt")} value={new Date(log.createdAt).toLocaleString(locale)} />
               <DataRow label="ID" value={log.id} />
             </dl>
+            <DeliveryErrors errors={log.deliveryErrors} />
           </CardContent>
         </Card>
       </div>
@@ -326,6 +329,65 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/** FCM 이 돌려주는 사유 중 자주 나오는 것 — 원문 코드는 운영자에게 아무 뜻이 없다 */
+const DELIVERY_ERROR_KEY: Record<string, "errUnregistered" | "errInvalidToken" | "errSenderMismatch" | "errQuotaExceeded" | "errUnavailable" | "errInternal"> = {
+  UNREGISTERED: "errUnregistered",
+  INVALID_ARGUMENT: "errInvalidToken",
+  SENDER_ID_MISMATCH: "errSenderMismatch",
+  QUOTA_EXCEEDED: "errQuotaExceeded",
+  UNAVAILABLE: "errUnavailable",
+  INTERNAL: "errInternal",
+};
+
+/** 사유가 많아도 화면을 잡아먹지 않게 — 나머지는 "그 외 N건"으로 접는다 */
+const DELIVERY_ERRORS_SHOWN = 5;
+
+/**
+ * 실패 사유 요약 — 사유별 건수를 많은 순으로. JSON 덩어리로 쏟지 않는다:
+ * 상세 화면에서 정작 알고 싶은 건 "무엇이 몇 건 실패했나" 한 줄이다.
+ * 아는 사유는 번역하고, 모르는 사유는 원문 코드를 그대로 둔다(신고할 때 그 값이 필요하다).
+ */
+function DeliveryErrors({ errors }: { errors?: Record<string, number> | null }) {
+  const t = useTranslations("logs");
+  const locale = useLocale();
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const rows = React.useMemo(
+    () => Object.entries(errors ?? {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]),
+    [errors]
+  );
+  if (rows.length === 0) return null;
+
+  const shown = rows.slice(0, DELIVERY_ERRORS_SHOWN);
+  const restCount = rows.slice(DELIVERY_ERRORS_SHOWN).reduce((n, [, v]) => n + v, 0);
+  const total = rows.reduce((n, [, v]) => n + v, 0);
+
+  return (
+    <div className="mt-3 space-y-1.5 border-t border-border pt-3">
+      <p className="text-xs font-semibold text-muted-foreground">
+        {t("deliveryErrorsTitle", { count: nf.format(total) })}
+      </p>
+      <ul className="space-y-1">
+        {shown.map(([reason, count]) => {
+          const key = DELIVERY_ERROR_KEY[reason];
+          return (
+            <li key={reason} className="flex min-w-0 items-baseline justify-between gap-3 text-xs">
+              {/* 번역된 이름 옆에 원문 코드 — 신고·검색은 코드로 한다 */}
+              <span className="min-w-0 truncate">
+                {key ? t(key) : <span className="font-mono">{reason}</span>}
+                {key && <span className="ms-1.5 font-mono text-2xs text-muted-foreground">{reason}</span>}
+              </span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">{nf.format(count)}</span>
+            </li>
+          );
+        })}
+        {restCount > 0 && (
+          <li className="text-xs text-muted-foreground">{t("deliveryErrorsMore", { count: nf.format(restCount) })}</li>
+        )}
+      </ul>
     </div>
   );
 }

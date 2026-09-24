@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Plus, Copy, ChevronRight, FolderKanban, AlertTriangle, RotateCw, Rocket, Flame, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
+import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -160,7 +161,7 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-card border border-border bg-surface shadow-card">
+      <Card className="overflow-hidden">
         {loading && projects.length === 0 && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
         {loadFailed && (
           <EmptyState
@@ -192,7 +193,7 @@ export default function ProjectsPage() {
             <ChevronRight aria-hidden="true" className="col-start-2 row-start-1 h-4 w-4 shrink-0 text-muted-foreground lg:col-start-4" />
           </Link>
         ))}
-      </div>
+      </Card>
     </div>
   );
 }

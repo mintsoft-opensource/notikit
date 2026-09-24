@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { MAX_BEHAVIOR_COUNT, MAX_BEHAVIOR_DAYS } from "@/lib/topic-rule-ops";
 import { TopicRuleFields, cleanRules, toRuleDrafts, type Rule, type RuleDraft } from "./topic-rules-form";
 
 type Topic = { id: string; name: string; rules: Rule[] | null; createdAt: string };
@@ -73,7 +74,17 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
 
   async function saveRules() {
     if (!rules || busyRef.current) return;
-    const cleaned = cleanRules(rules, { partial: t("partialRule"), needRule: t("needRule"), needNumber: t("ruleNeedNumber") }, (m) => toast.error(m));
+    const cleaned = cleanRules(
+      rules,
+      {
+        partial: t("partialRule"),
+        needRule: t("needRule"),
+        needNumber: t("ruleNeedNumber"),
+        needDays: t("ruleNeedDays", { max: MAX_BEHAVIOR_DAYS }),
+        needCount: t("ruleNeedCount", { max: MAX_BEHAVIOR_COUNT }),
+      },
+      (m) => toast.error(m)
+    );
     if (!cleaned) return;
     if (!begin()) return;
     try {

@@ -18,7 +18,10 @@ function NavLink({ item, label, pathname }: { item: NavItem; label: string; path
       rel={item.external ? "noopener noreferrer" : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-md font-semibold transition-colors",
+        // 조작 요소 규칙과 같은 36px·rounded-lg. 포커스 링이 없으면 키보드로 메뉴를 훑을 때
+        // 지금 어느 항목에 있는지 보이지 않는다(Button 과 같은 링을 쓴다).
+        "relative flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-md font-semibold transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
         active ? "bg-accent-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       )}
     >
@@ -37,7 +40,7 @@ export function SidebarNav({ pathname }: { pathname: string }) {
       {projectId && (
         <Link
           href="/projects"
-          className="flex items-center gap-1.5 px-2.5 text-md font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          className="flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-md font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <ChevronLeft aria-hidden="true" className="h-4 w-4 rtl:rotate-180" /> {t("projectList")}
         </Link>

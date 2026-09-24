@@ -30,12 +30,18 @@ export function SendVariantFields({
   variants,
   onVariants,
   render,
+  errors,
   disabled,
 }: {
   variants: VariantDraft[];
   onVariants: (v: VariantDraft[]) => void;
   /** 글자 수는 치환된 결과 기준으로 센다 — 기본 내용 카운터와 같은 규칙 */
   render: (tpl: string) => string;
+  /**
+   * rowId → 비어 있는 칸의 메시지. 변형이 여러 줄이라 "어딘가 비었다"로는 못 고친다 —
+   * 빈 칸 바로 아래에 붙이고 aria-invalid 로 표시한다.
+   */
+  errors?: Record<string, { title?: string; body?: string }>;
   disabled?: boolean;
 }) {
   const t = useTranslations("send");
@@ -60,12 +66,21 @@ export function SendVariantFields({
     onVariants(variants.filter((_, i) => i !== index));
   };
 
+  /** 새 변형의 첫 칸으로 — 4개째를 더하면 "추가" 버튼이 사라져 포커스가 body 로 떨어진다 */
+  const add = () => {
+    const next = newVariant();
+    pendingFocus.current = `${baseId}-${next.rowId}-title`;
+    onVariants([...variants, next]);
+  };
+
   return (
     <div className="space-y-4">
       {variants.map((v, i) => {
         const letter = variantLetter(i + 1);
         const titleId = `${baseId}-${v.rowId}-title`;
         const bodyId = `${baseId}-${v.rowId}-body`;
+        const err = errors?.[v.rowId];
+        const describedBy = (id: string, message?: string) => (message ? `${id}-count ${id}-error` : `${id}-count`);
         return (
           <div key={v.rowId} role="group" aria-labelledby={`${baseId}-${v.rowId}-name`} className="space-y-3 rounded-lg border border-border p-3">
             <div className="flex items-center justify-between gap-2">
@@ -91,13 +106,15 @@ export function SendVariantFields({
               />
               <Input
                 id={titleId}
-                aria-describedby={`${titleId}-count`}
+                aria-describedby={describedBy(titleId, err?.title)}
+                aria-invalid={err?.title ? true : undefined}
                 value={v.title}
                 disabled={disabled}
                 onChange={(e) => update(v.rowId, { title: e.target.value })}
                 maxLength={255}
                 placeholder={t("titlePlaceholder")}
               />
+              {err?.title && <p id={`${titleId}-error`} className="text-xs font-semibold text-error">{err.title}</p>}
             </div>
             <div className="space-y-1">
               <CountedLabel
@@ -109,7 +126,8 @@ export function SendVariantFields({
               />
               <Textarea
                 id={bodyId}
-                aria-describedby={`${bodyId}-count`}
+                aria-describedby={describedBy(bodyId, err?.body)}
+                aria-invalid={err?.body ? true : undefined}
                 className="min-h-24"
                 value={v.body}
                 disabled={disabled}
@@ -117,13 +135,14 @@ export function SendVariantFields({
                 maxLength={4000}
                 placeholder={t("bodyPlaceholder")}
               />
+              {err?.body && <p id={`${bodyId}-error`} className="text-xs font-semibold text-error">{err.body}</p>}
             </div>
           </div>
         );
       })}
       {variants.length < MAX_EXTRA_VARIANTS && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button ref={addRef} type="button" variant="outline" onClick={() => onVariants([...variants, newVariant()])} disabled={disabled}>
+          <Button ref={addRef} type="button" variant="outline" onClick={add} disabled={disabled}>
             <Plus aria-hidden="true" className="h-4 w-4" /> {t("addVariant", { letter: nextLetter })}
           </Button>
           <p className="text-xs text-muted-foreground">{t("variantHint")}</p>

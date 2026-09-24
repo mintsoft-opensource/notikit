@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { STAT_TILE_GRID, statTileSpan } from "./stat-tile-grid";
 import type { LucideIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "./card";
@@ -65,25 +66,15 @@ function DeltaLine({ delta }: { delta: StatDelta }) {
  * 2열에서는 홀수 마지막 타일이 가로 전체를, 3열(md, 6칸 격자에 2칸씩)에서는 마지막 줄의
  * 두 타일이 절반씩 나눠 갖는다. 5열(xl)은 5개가 정확히 한 줄이라 그대로 둔다.
  */
-const SPAN_DEFAULT = "col-span-1 md:col-span-2 xl:col-span-1";
-const SPAN_MD_HALF = "col-span-1 md:col-span-3 xl:col-span-1";
-const SPAN_WIDE_HALF = "col-span-2 md:col-span-3 xl:col-span-1";
-const SPAN_WIDE = "col-span-2 md:col-span-2 xl:col-span-1";
-
-function spanOf(index: number, count: number): string {
-  const mdTailPair = count % 3 === 2 && index >= count - 2; // 3열 마지막 줄에 둘만 남는다
-  const oddTail = count % 2 === 1 && index === count - 1; // 2열 마지막 줄에 하나만 남는다
-  if (oddTail) return mdTailPair ? SPAN_WIDE_HALF : SPAN_WIDE;
-  return mdTailPair ? SPAN_MD_HALF : SPAN_DEFAULT;
-}
+export { STAT_TILE_GRID, statTileSpan } from "./stat-tile-grid";
 
 export function StatTileGrid({ children }: { children: React.ReactNode }) {
   const items = React.Children.toArray(children);
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-6 xl:grid-cols-5">
+    <div className={STAT_TILE_GRID}>
       {items.map((child, i) => (
         // 감싼 칸이 줄 높이를 받고 타일이 그 높이를 채운다 — 힌트 줄이 있고 없고에 따라 키가 달라지지 않게
-        <div key={i} className={cn("min-w-0 [&>*]:h-full", spanOf(i, items.length))}>
+        <div key={i} className={cn("min-w-0 [&>*]:h-full", statTileSpan(i, items.length))}>
           {child}
         </div>
       ))}
