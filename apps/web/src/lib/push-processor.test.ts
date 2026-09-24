@@ -353,6 +353,8 @@ const ctx = {
   rateLimit: null,
   localTime: null,
   ab: null,
+  localeContent: null,
+  holdoutPercent: null,
 } satisfies SendContext;
 
 describe("runFollowUps", () => {

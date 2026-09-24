@@ -4,6 +4,7 @@ import { projects } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "project.settings.update", "project", authz, id);
   let payload: unknown;
   try {
     payload = await readJsonLimited(req);
@@ -61,9 +62,25 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (Object.keys(set).length === 0) return fail("no fields to update", 422);
 
   const db = getDb();
+  // 변경 **전** 값을 먼저 읽는다. update 의 returning 만으로는 "무엇이었는지" 를 영영 알 수 없고,
+  // 감사 로그가 답해야 하는 질문은 대개 "이걸 누가 켰고 원래 뭐였나" 다.
+  const previous = (await db.select(policyFields).from(projects).where(eq(projects.id, id)).limit(1))[0];
   const row = (
     await db.update(projects).set(set).where(eq(projects.id, id)).returning(policyFields)
   )[0];
   if (!row) return fail("Project not found", 404);
+
+  const diff = buildDiff(previous, row);
+  // 같은 값으로 다시 저장한 요청은 적지 않는다 — 잡음이 쌓이면 진짜 변경을 못 찾는다
+  if (diff) {
+    await recordAudit({
+      projectId: id,
+      actor: authz.ctx,
+      action: "project.settings.update",
+      targetType: "project",
+      targetId: id,
+      diff,
+    });
+  }
   return ok({ project: row });
 }

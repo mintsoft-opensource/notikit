@@ -6,6 +6,7 @@ import { requireProject, checkOrigin, type AuthContext } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimitShared } from "@/lib/rate-limit";
 import { messageSchema, enqueuePush, prepareMessage, MESSAGE_BODY_LIMIT, parseIdempotencyKey, findIdempotent } from "@/lib/messages";
+import { buildDiff, recordAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -67,5 +68,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     sentBy: await senderOf(authz.ctx),
     idempotencyKey: idem.key,
   });
+  // 발송은 되돌릴 수 없는 행위다 — 누가 무엇을 누구에게 보냈는지 남지 않으면 사후에 물을 방법이 없다.
+  // 재요청(replay)은 새 발송이 아니므로 적지 않는다. 기록 실패가 발송 응답을 막지는 않는다(recordAudit 이 삼킨다).
+  if (!replay) {
+    await recordAudit({
+      projectId: id,
+      actor: authz.ctx,
+      req,
+      action: "send.create",
+      targetType: "send",
+      targetId: message.id,
+      diff: buildDiff(null, {
+        type: message.type,
+        title: message.title,
+        target: message.target ?? (message.targets?.length ? `${message.targets.length} recipients` : null),
+        scheduledAt: message.scheduledAt?.toISOString() ?? null,
+      }),
+    });
+  }
   return ok({ message }, replay ? { scheduled, idempotent_replay: true } : { scheduled }, replay ? 200 : 202);
 }

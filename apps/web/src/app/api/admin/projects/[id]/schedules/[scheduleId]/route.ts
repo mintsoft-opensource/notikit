@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { deleteSchedule, getSchedule, scheduleInputSchema, setScheduleEnabled, updateSchedule } from "@/lib/schedules";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; s
   const { id, scheduleId } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "schedule.update", "schedule", authz, scheduleId);
 
   let payload: unknown;
   try {
@@ -40,8 +41,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; s
 
   const toggle = toggleSchema.safeParse(payload);
   if (toggle.success) {
+    // 켜고 끈 기록이 가장 자주 찾게 되는 항목이다("이 예약 누가 껐나")
+    const before = await getSchedule(id, scheduleId);
     const schedule = await setScheduleEnabled(id, scheduleId, toggle.data.enabled);
     if (!schedule) return fail("Not found", 404);
+    const diff = buildDiff({ enabled: before?.enabled }, { enabled: schedule.enabled });
+    if (diff) {
+      await recordAudit({
+        projectId: id,
+        actor: authz.ctx,
+        action: "schedule.update",
+        targetType: "schedule",
+        targetId: scheduleId,
+        diff,
+      });
+    }
     return ok({ schedule });
   }
 
@@ -51,6 +65,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; s
   if (!existing) return fail("Not found", 404);
   const schedule = await updateSchedule(id, scheduleId, parsed.data);
   if (!schedule) return fail("Not found", 404);
+  const diff = buildDiff({ ...existing }, { ...schedule });
+  if (diff) {
+    await recordAudit({
+      projectId: id,
+      actor: authz.ctx,
+      action: "schedule.update",
+      targetType: "schedule",
+      targetId: scheduleId,
+      diff,
+    });
+  }
   return ok({ schedule });
 }
 
@@ -58,8 +83,18 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string; 
   const { id, scheduleId } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "schedule.delete", "schedule", authz, scheduleId);
+  // 지우기 전 내용을 읽어 둔다 — 지운 뒤엔 무엇이 사라졌는지 물어볼 데가 없다
+  const existing = await getSchedule(id, scheduleId);
   const deleted = await deleteSchedule(id, scheduleId);
   if (!deleted) return fail("Not found", 404);
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    action: "schedule.delete",
+    targetType: "schedule",
+    targetId: scheduleId,
+    diff: buildDiff(existing ? { ...existing } : { id: scheduleId }, null),
+  });
   return ok({ deleted });
 }

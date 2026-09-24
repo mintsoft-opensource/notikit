@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, lt, or, sql as raw } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushLogs, webhookDeliveries, webhooks } from "@/db/schema";
 import { fail, ok } from "@/lib/api-response";
+import { buildDiff, recordAudit } from "@/lib/audit";
 import { checkOrigin, requireProject } from "@/lib/authz";
 import { MAX_ATTEMPTS } from "@/lib/webhooks";
 
@@ -25,7 +26,7 @@ export const dynamic = "force-dynamic";
  */
 
 /** 지워도 되는 상태 — 워커가 더 이상 건드리지 않는 것만 */
-const TERMINAL = ["completed", "failed", "logged"] as const;
+const TERMINAL = ["completed", "failed", "logged", "canceled"] as const;
 
 /** 한 번에 지우는 최대 행 수. 큰 테이블에서 단일 DELETE 는 락과 WAL 을 오래 잡는다. */
 const BATCH = 5_000;
@@ -121,6 +122,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     );
   }
 
+  // 로그 삭제도 되돌릴 수 없다. 리텐션 기준과 실제로 지워진 건수를 남긴다.
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    req,
+    action: "send.purge",
+    targetType: "send",
+    diff: buildDiff({ retentionDays: null, cutoff: null }, { retentionDays: days, cutoff: cutoff.toISOString(), purged, purgedWebhookDeliveries: deliveries.removed }),
+  });
+
   return ok({
     purged,
     purgedWebhookDeliveries: deliveries.removed,
@@ -147,7 +158,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         raw`select count(*)::int as n from push_logs
              where project_id = ${id}
                and created_at < now() - (${days} || ' days')::interval
-               and status in ('completed','failed','logged')`
+               and status in ('completed','failed','logged','canceled')`
       )
     : [{ n: 0 }];
 

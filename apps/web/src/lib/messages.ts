@@ -13,6 +13,14 @@ import {
   type AbTest,
   type AbTestPlan,
 } from "@/lib/ab-test";
+import {
+  isLocaleKey,
+  LOCALE_DEFAULT_KEY,
+  MAX_LOCALE_VARIANTS,
+  normalizeLocaleTag,
+  type LocaleContent,
+} from "@/lib/locale-content";
+import { HOLDOUT_MAX, HOLDOUT_MIN } from "@/lib/holdout";
 import { z } from "zod";
 
 type Db = ReturnType<typeof getDb>;
@@ -135,6 +143,43 @@ export const messageSchema = z.object({
       wait_minutes: z.number().int().min(AB_WAIT_MIN_MINUTES).max(AB_WAIT_MAX_MINUTES),
     })
     .optional(),
+  /**
+   * 로케일별 제목·본문 — `{ "default": {...}, "ko": {...}, "ja": {...} }`.
+   * fan-out 때 사람 > 기기의 `locale` 로 고르고, 맞는 것이 없으면 `default`(없으면 title/body).
+   * 폴백 건수는 로그(`locale_fallbacks`)와 상세 API 에 남는다 — 조용히 떨어지지 않는다.
+   */
+  locales: z
+    .record(z.object({ title: z.string().min(1).max(255), body: z.string().min(1).max(4000) }))
+    .refine((m) => Object.keys(m).length >= 1, "locales must not be empty")
+    .refine((m) => Object.keys(m).length <= MAX_LOCALE_VARIANTS, `at most ${MAX_LOCALE_VARIANTS} locales`)
+    .superRefine((m, ctx) => {
+      const bad = Object.keys(m).find((k) => !isLocaleKey(k));
+      if (bad) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `invalid locale key: ${bad}` });
+      // "ko" 와 "ko-KR" 은 다른 키지만 "ko_KR" 과 "ko-KR" 은 같은 언어다 — 같은 값으로 접히는
+      // 키를 둘 다 받으면 어느 쪽이 이기는지 입력만 보고 알 수 없다
+      const seen = new Set<string>();
+      for (const k of Object.keys(m)) {
+        const norm = normalizeLocaleTag(k);
+        if (seen.has(norm)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `duplicate locale key: ${k}` });
+        seen.add(norm);
+      }
+    })
+    .optional(),
+  /**
+   * 홀드아웃 — 이 비율(%)의 사람에게는 **아무것도 보내지 않고** 전환만 비교한다.
+   * 배정은 사람(없으면 기기) 단위로 고정이라 캠페인마다 대조군이 다시 뽑히지 않는다.
+   */
+  holdout_percent: z.number().int().min(HOLDOUT_MIN).max(HOLDOUT_MAX).optional(),
+  /**
+   * 캠페인별 재정의 — `false` 면 프로젝트 방해금지 시간대를 무시하고 즉시 보낸다.
+   * 거래성 발송(주문·인증)이 마케팅용 야간 금지에 걸려 아침으로 밀리는 것을 막는다.
+   */
+  quiet_hours: z.boolean().optional(),
+  /**
+   * 캠페인별 속도 제한(분당 건수) 재정의. `0` 은 "이 발송은 제한 없음"이다 —
+   * 주지 않으면 프로젝트 설정을 그대로 따른다.
+   */
+  max_sends_per_minute: z.number().int().min(0).max(1_000_000).optional(),
   kakao_fallback: z.boolean().optional(),
   /** 알림 옵션(소리·배지·collapse·TTL·우선순위·무음·액션 버튼) */
   options: pushOptionsSchema.optional(),
@@ -163,7 +208,7 @@ export async function prepareMessage(
   projectId: string,
   b: MessageInput
 ): Promise<{ message: ReadyMessage } | { error: string; status: number }> {
-  const targetErr = targetError(b) ?? abTestError(b);
+  const targetErr = targetError(b) ?? abTestError(b) ?? localeVariantsError(b) ?? holdoutError(b);
   if (targetErr) return { error: targetErr, status: 422 };
 
   const { template, fields, ...rest } = b;
@@ -228,9 +273,10 @@ const LOG_ID_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
  * 치환 변수가 있으면 여유분을 더한다.
  */
 export function payloadBytes(
-  m: Pick<ReadyMessage, "title" | "body" | "data" | "deep_link" | "image_url" | "variants" | "options">
+  m: Pick<ReadyMessage, "title" | "body" | "data" | "deep_link" | "image_url" | "variants" | "options" | "locales">
 ): number {
-  const contents = [{ title: m.title, body: m.body }, ...(m.variants ?? [])];
+  // 로케일 문구도 실제로 나가는 페이로드다 — 빼고 재면 긴 번역이 큐잉만 통과하고 FCM 에서 전부 거절된다
+  const contents = [{ title: m.title, body: m.body }, ...(m.variants ?? []), ...Object.values(m.locales ?? {})];
   let max = 0;
   for (const c of contents) {
     const msg = {
@@ -274,6 +320,32 @@ export function abTestPlan(b: Pick<MessageInput, "ab_test" | "test">): AbTestPla
     waitMinutes: b.ab_test.wait_minutes,
     metric: "unique_click_rate",
   };
+}
+
+/**
+ * 로케일 문구를 쓸 수 있는 발송인지. null 이면 통과.
+ *
+ * `variants`(A/B)와 함께 쓰지 못하게 막는다 — 두 축을 곱하면 운영자가 변형 × 로케일을 전부
+ * 채워야 하고, 빈 칸 하나가 기본 문구로 떨어질 때 그게 어느 축의 폴백인지 구분할 수 없다.
+ * `default` 없이 보내는 것은 허용한다: 그때는 발송 본문(title/body)이 기본 문구다.
+ */
+export function localeVariantsError(b: Pick<MessageInput, "locales" | "variants" | "title" | "body" | "template" | "options" | "type">): string | null {
+  if (!b.locales) return null;
+  if (b.variants?.length) return "locales cannot be combined with variants";
+  // 기본 문구가 어디에도 없으면 맞는 로케일이 없는 사람에게 빈 알림이 간다
+  const hasBase = Boolean((b.title && b.body) || b.template || b.locales[LOCALE_DEFAULT_KEY] || b.options?.silent);
+  return hasBase ? null : "locales requires title/body, a template, or a \"default\" entry";
+}
+
+/**
+ * 홀드아웃을 쓸 수 있는 발송인지. null 이면 통과.
+ * `single` 은 받는 사람이 한 명이라 대조군이 "전부 빼거나 아무도 안 빼거나"가 되어 의미가 없고,
+ * 하필 그 한 명이 빠지면 운영자는 "보냈는데 안 갔다"로 읽는다.
+ */
+export function holdoutError(b: Pick<MessageInput, "type" | "holdout_percent" | "test">): string | null {
+  if (!b.holdout_percent || b.test) return null;
+  if (b.type === "single") return "holdout_percent is not available for type=single";
+  return null;
 }
 
 /** 타입별 대상 필드 검사 — 콘솔(admin)과 SDK(v1) 발송이 같은 규칙을 쓴다. null 이면 통과. */
@@ -353,8 +425,9 @@ export async function enqueuePush(
   let scheduledAt = b.scheduled_at ? new Date(b.scheduled_at) : null;
   let isScheduled = !!scheduledAt && scheduledAt.getTime() > Date.now();
 
-  // 테스트 발송은 방해금지 시간대를 적용하지 않는다 — 운영자가 지금 받아 보려고 보내는 것이다
-  if (!b.scheduled_at && !b.test) {
+  // 테스트 발송은 방해금지 시간대를 적용하지 않는다 — 운영자가 지금 받아 보려고 보내는 것이다.
+  // `quiet_hours: false` 는 캠페인별 재정의다: 거래성 발송이 마케팅용 야간 금지에 밀리지 않는다.
+  if (!b.scheduled_at && !b.test && b.quiet_hours !== false) {
     const quietEnd = nextAllowedTime(project.quietStartHour, project.quietEndHour, new Date(), project.timezone);
     if (quietEnd) {
       scheduledAt = quietEnd;
@@ -379,6 +452,12 @@ export async function enqueuePush(
       data: b.data,
       variants: b.variants,
       abTest: opts.abTest ?? abTestPlan(b),
+      localeVariants: (b.locales as LocaleContent | undefined) ?? null,
+      // 테스트 발송에서 대조군을 뽑으면 운영자 자신이 빠져 "안 왔다"로 보인다
+      holdoutPercent: b.test ? null : (b.holdout_percent ?? null),
+      ignoreQuietHours: b.quiet_hours === false,
+      // 0 = "이 발송은 제한 없음". undefined 와 구분해야 프로젝트 설정을 덮는지 알 수 있다.
+      maxSendsPerMinute: b.max_sends_per_minute ?? null,
       options: b.options ?? null,
       kakaoFallback: b.kakao_fallback ?? false,
       scheduledAt,

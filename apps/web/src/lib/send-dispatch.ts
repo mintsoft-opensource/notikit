@@ -11,6 +11,7 @@ import type { RenderContext } from "@/lib/personalize";
 import { sendToTokens, sendEachToTokens, SEND_EACH_LIMIT, type FcmMessage, type FcmResult } from "@/lib/fcm";
 import { variantIndex } from "@/lib/push-variant";
 import type { AbPart } from "@/lib/ab-test";
+import type { LocaleContent, LocaleText } from "@/lib/locale-content";
 import type { ScopedDevice } from "@/lib/audience-count";
 
 const BATCH = 500; // FCM 멀티캐스트 한도
@@ -57,23 +58,32 @@ export type SendContext = {
    * 판정은 토큰 해시 버킷이라 표본 발송과 승자 본발송의 대상은 서로소다.
    */
   ab: AbPart | null;
+  /** 로케일별 제목·본문. null 이면 발송 본문 한 벌만 쓴다. */
+  localeContent: LocaleContent | null;
+  /** 이 발송에서 아무것도 보내지 않고 빼 둘 비율(%). null 이면 대조군 없음. */
+  holdoutPercent: number | null;
 };
 
 export type SendItem = { token: string; vi: number | null; title: string; body: string; dataOnly: boolean };
 
 /**
- * 기기마다 보낼 내용: A/B 변형 배정 → 치환. 웹은 data-only(사유는 fcm.ts 의 dataOnly 참조).
+ * 기기마다 보낼 내용: 로케일 문구 → A/B 변형 배정 → 치환. 웹은 data-only(사유는 fcm.ts 의 dataOnly 참조).
  * `render` 가 없으면 치환하지 않는다(순수 함수).
+ *
+ * 로케일 문구는 **변형이 없을 때만** 쓴다. 둘을 곱하면 "변형 3 × 로케일 12" 를 운영자가 다 써야
+ * 하고, 빈 칸 하나가 조용히 기본 문구로 떨어져 어느 축의 폴백인지 구분이 안 된다 — 입력 검증에서
+ * 두 축을 함께 주는 것을 막는다(`localeVariantsError`).
  */
 export function buildItems(
   rows: Array<Pick<ScopedDevice, "token" | "platform">>,
   base: { title: string; body: string },
   variants: { title: string; body: string }[] | null,
-  render: ((text: string, token: string) => string) | null
+  render: ((text: string, token: string) => string) | null,
+  contentOf?: Map<string, LocaleText> | null
 ): SendItem[] {
   return rows.map((r) => {
     const vi = variants ? variantIndex(r.token, variants.length) : null;
-    const content = vi === null ? base : variants![vi];
+    const content = vi === null ? (contentOf?.get(r.token) ?? base) : variants![vi];
     return {
       token: r.token,
       vi,

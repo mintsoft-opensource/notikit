@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { suppressions } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { failAudited, newBatchId, recordAudit } from "@/lib/audit";
 import { PayloadTooLargeError } from "@/lib/read-json";
 import {
   SUPPRESSION_REASONS,
@@ -97,7 +98,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "suppression.import", "suppression_batch", authz);
 
   let text: string;
   try {
@@ -114,15 +115,43 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const existing = await existingKeys(db, id, unique);
   const fresh = unique.filter((r) => !existing.has(r.externalId ? `u:${r.externalId}` : `t:${r.token}`));
 
+  // 배치 id — 이 회차로 들어간 행을 나중에 통째로 되돌리기 위한 손잡이.
+  // 억제 테이블에 배치 칼럼을 둘 수 없어(스키마 소유가 다르다) 감사 항목이 그 대장 역할을 한다.
+  const batchId = newBatchId();
+  const insertedIds: string[] = [];
+
   if (fresh.length > 0) {
     await db.transaction(async (tx) => {
       for (const part of chunk(fresh, INSERT_CHUNK)) {
-        await tx.insert(suppressions).values(
-          part.map((r) => ({ projectId: id, externalId: r.externalId, token: r.token, reason: r.reason }))
-        );
+        const rows = await tx
+          .insert(suppressions)
+          .values(part.map((r) => ({ projectId: id, externalId: r.externalId, token: r.token, reason: r.reason })))
+          .returning({ id: suppressions.id });
+        for (const r of rows) insertedIds.push(r.id);
       }
+      // **같은 트랜잭션**에 적는다. 밖에서 적으면 그 사이 프로세스가 죽었을 때
+      // 5,000명이 차단된 채 배치 id 가 없어 되돌릴 방법이 사라진다.
+      await recordAudit({
+        db: tx,
+        projectId: id,
+        actor: authz.ctx,
+        action: "suppression.import",
+        targetType: "suppression_batch",
+        targetId: batchId,
+        diff: {
+          // 대상(external_id·token)은 적지 않는다 — 전화번호·토큰이 섞여 들어온다.
+          // 되돌리기에 필요한 건 우리가 만든 행 id 뿐이다.
+          added: { before: 0, after: fresh.length },
+          skipped: { before: 0, after: parsed.invalid + duplicates + (unique.length - fresh.length) },
+          insertedIds: { before: null, after: insertedIds },
+        },
+      });
     });
   }
 
-  return ok({ added: fresh.length, skipped: parsed.invalid + duplicates + (unique.length - fresh.length) });
+  return ok({
+    batch_id: fresh.length > 0 ? batchId : null,
+    added: fresh.length,
+    skipped: parsed.invalid + duplicates + (unique.length - fresh.length),
+  });
 }

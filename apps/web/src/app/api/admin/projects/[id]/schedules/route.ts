@@ -1,6 +1,7 @@
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { createSchedule, listSchedules, scheduleInputSchema } from "@/lib/schedules";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "schedule.create", "schedule", authz);
 
   let payload: unknown;
   try {
@@ -31,5 +32,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const schedule = await createSchedule(id, parsed.data);
   if (!schedule) return fail("Not found", 404);
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    action: "schedule.create",
+    targetType: "schedule",
+    targetId: schedule.id,
+    diff: buildDiff(null, { ...schedule }),
+  });
   return ok({ schedule }, undefined, 201);
 }

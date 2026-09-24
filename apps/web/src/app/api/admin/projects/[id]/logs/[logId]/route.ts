@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { pushClicks, pushConversions, pushLogs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject } from "@/lib/authz";
+import { conversionLift } from "@/lib/holdout";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,21 @@ const columns = {
   totalCount: pushLogs.totalCount,
   successCount: pushLogs.successCount,
   failureCount: pushLogs.failureCount,
+  // 단말 수신 보고 수. FCM 접수(successCount)와 **다른 칸**이다 — 접수는 기기가 꺼져 있어도 성공한다.
+  deliveredCount: pushLogs.deliveredCount,
   readCount: pushLogs.readCount,
   scheduledAt: pushLogs.scheduledAt,
+  canceledAt: pushLogs.canceledAt,
+  canceledBy: pushLogs.canceledBy,
+  localTime: pushLogs.localTime,
+  // 로케일별 문구와 **폴백 관측**. 폴백 수를 숨기면 "번역을 넣었다"는 믿음만 남는다.
+  localeVariants: pushLogs.localeVariants,
+  localeFallbacks: pushLogs.localeFallbacks,
+  holdoutPercent: pushLogs.holdoutPercent,
+  holdoutCount: pushLogs.holdoutCount,
+  // 캠페인별 재정의 — 이 발송이 프로젝트 설정 중 무엇을 덮었는지
+  ignoreQuietHours: pushLogs.ignoreQuietHours,
+  maxSendsPerMinute: pushLogs.maxSendsPerMinute,
   variants: pushLogs.variants,
   variantStats: pushLogs.variantStats,
   // A/B 자동 승자 설정·판정 — 상세 화면이 "왜 승자가 없는지"를 말할 수 있는 유일한 값이다
@@ -75,11 +89,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
       .groupBy(pushClicks.variant),
     db
       .select({
+        holdout: pushConversions.holdout,
         count: sql<number>`count(*)::int`,
         valueCents: sql<number>`coalesce(sum(${pushConversions.valueCents}), 0)::int`,
       })
       .from(pushConversions)
-      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id))),
+      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id)))
+      // 대조군 전환과 보낸 쪽 전환은 **같은 칸에 담지 않는다** — 섞으면 리프트가 거꾸로 나온다
+      .groupBy(pushConversions.holdout),
     db
       .select({
         name: pushConversions.name,
@@ -87,20 +104,37 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
         valueCents: sql<number>`coalesce(sum(${pushConversions.valueCents}), 0)::int`,
       })
       .from(pushConversions)
-      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id)))
+      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id), eq(pushConversions.holdout, false)))
       .groupBy(pushConversions.name)
       .orderBy(desc(sql`count(*)`), pushConversions.name)
       .limit(CONVERSION_NAMES_SHOWN),
   ]);
+
+  const sentConv = conversionTotal.find((r) => !r.holdout);
+  const heldConv = conversionTotal.find((r) => r.holdout);
+  const holdoutConversions = { count: heldConv?.count ?? 0, valueCents: heldConv?.valueCents ?? 0 };
 
   return ok({
     log: row,
     // 변형이 없던 발송의 클릭은 variant 가 null 이다 — 0번으로 접어 넣지 않는다
     clicks: { byVariant: variantClicks },
     conversions: {
-      count: conversionTotal[0]?.count ?? 0,
-      valueCents: conversionTotal[0]?.valueCents ?? 0,
+      count: sentConv?.count ?? 0,
+      valueCents: sentConv?.valueCents ?? 0,
       byName: conversionNames,
+    },
+    /**
+     * 대조군. `lift` 는 "보낸 쪽 전환율 / 대조군 전환율 - 1" — 대조군 전환율이 0 이면 비율이
+     * 성립하지 않으므로 null 이다(0% 나 무한대로 적지 않는다).
+     */
+    holdout: {
+      percent: row.holdoutPercent,
+      devices: row.holdoutCount,
+      conversions: holdoutConversions,
+      lift: conversionLift(
+        { converted: sentConv?.count ?? 0, total: row.successCount },
+        { converted: holdoutConversions.count, total: row.holdoutCount }
+      ),
     },
   });
 }

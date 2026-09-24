@@ -6,6 +6,7 @@ import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimitShared, clientKey, principalKey } from "@/lib/rate-limit";
 import { verifyIdentity } from "@/lib/keys";
 import { onJourneyEvent } from "@/lib/journey-triggers";
+import { findHoldoutLog } from "@/lib/holdout";
 import { errorMessage, log } from "@/lib/logger";
 import {
   admitConversionName,
@@ -78,6 +79,8 @@ export async function POST(req: Request) {
   let scope: SQL | undefined;
   /** 토큰으로 보낸 경우의 기기. 익명 전환의 유니크 키가 이 값으로 갈린다. */
   let deviceId: string | null = null;
+  /** 검증된 주체의 push_users.id — 홀드아웃 조회가 사람 단위로 붙는다 */
+  let subjectUserId: string | null = null;
   if (b.token) {
     const device = (
       await db
@@ -99,6 +102,7 @@ export async function POST(req: Request) {
         .limit(1)
     )[0];
     if (!user) return fail("User not found", 404);
+    subjectUserId = user.id;
     scope = eq(pushClicks.userId, user.id);
   }
 
@@ -120,7 +124,14 @@ export async function POST(req: Request) {
       .orderBy(desc(pushClicks.clickedAt))
       .limit(1)
   )[0];
-  if (!click) return ok({ recorded: false, attributed: false }, undefined, 202);
+
+  // 클릭이 없으면 **대조군(홀드아웃)인지** 본다. 대조군은 정의상 푸시를 받지 않았으므로 클릭이
+  // 없고, 클릭만 보는 귀속으로는 영원히 0건이다 — 그러면 비교 대상이 없어 리프트를 낼 수 없다.
+  const holdoutLogId = click ? null : await findHoldoutLog(db, project.id, { deviceId, userId: subjectUserId }, attributionCutoff());
+  const target = click ? { logId: click.logId, userId: click.userId, deviceId: click.deviceId, holdout: false } : null;
+  const held = holdoutLogId ? { logId: holdoutLogId, userId: subjectUserId, deviceId, holdout: true } : null;
+  const attribution = target ?? held;
+  if (!attribution) return ok({ recorded: false, attributed: false }, undefined, 202);
 
   // 이름 상한은 여기서 본다 — 기기/사용자가 확인됐고 저장까지 갈 요청만 축을 건드리게.
   // 앞쪽(미검증 시점)에서 보면 공개 api-key 만으로 가짜 이름을 채워 넣어
@@ -133,12 +144,13 @@ export async function POST(req: Request) {
     .insert(pushConversions)
     .values({
       projectId: project.id,
-      logId: click.logId,
-      userId: click.userId,
+      logId: attribution.logId,
+      userId: attribution.userId,
+      holdout: attribution.holdout,
       // 익명(user_id null) 전환의 하루 1건 유니크는 기기로 갈린다 — 이 값이 비면
       // 서로 다른 익명 기기의 전환이 한 건으로 합쳐져 매출이 사라진다.
       // 토큰으로 보냈으면 그 기기, user_id 로 보냈으면 귀속된 클릭의 기기를 쓴다.
-      deviceId: deviceId ?? click.deviceId,
+      deviceId: deviceId ?? attribution.deviceId,
       name: b.name,
       valueCents: b.value_cents ?? null,
     })
@@ -148,5 +160,10 @@ export async function POST(req: Request) {
   // DB 에 실제로 남은 이름만 축으로 센다 — 충돌(하루 1건 유니크)이면 이미 세어져 있다.
   if (inserted.length > 0) recordConversionName(project.id, b.name);
 
-  return ok({ recorded: inserted.length > 0, attributed: true, message_id: click.logId }, undefined, 202);
+  // 대조군 전환은 `holdout: true` 로 알린다 — 같은 200 을 주면서 성격이 다른 귀속을 숨기지 않는다
+  return ok(
+    { recorded: inserted.length > 0, attributed: true, holdout: attribution.holdout, message_id: attribution.logId },
+    undefined,
+    202
+  );
 }

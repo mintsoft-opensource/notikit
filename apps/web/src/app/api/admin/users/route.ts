@@ -8,6 +8,7 @@ import { ROLES, canAssignRole } from "@/lib/user-roles";
 import { hashPassword, ScryptOverloadError } from "@/lib/session";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimitShared } from "@/lib/rate-limit";
+import { buildDiff, recordOrgAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,14 @@ export async function POST(req: Request) {
         .values({ orgId, email, passwordHash, role: b.role })
         .returning({ id: adminUsers.id, email: adminUsers.email, role: adminUsers.role, createdAt: adminUsers.createdAt })
     )[0];
+    // 비밀번호는 넘기지 않는다(해시조차). 남겨야 하는 건 "누가 누구를 어떤 권한으로 들였나" 다.
+    await recordOrgAudit({
+      orgId,
+      actor: auth.ctx,
+      action: "member.create",
+      targetId: user.id,
+      diff: buildDiff(null, { email: user.email, role: user.role }),
+    });
     return ok({ user }, undefined, 201);
   } catch (e) {
     // email 은 전역 unique index — 타 org 존재 여부를 노출하지 않도록 동일 메시지

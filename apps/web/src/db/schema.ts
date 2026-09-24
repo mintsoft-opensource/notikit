@@ -19,6 +19,7 @@ import { sql } from "drizzle-orm";
 import type { RuleOp } from "@/lib/topic-rule-ops";
 import type { PushOptions } from "@/lib/fcm";
 import type { AbTest } from "@/lib/ab-test";
+import type { LocaleContent, LocaleFallback } from "@/lib/locale-content";
 
 /** 조직/워크스페이스 (테넌트 최상위) */
 export const organizations = pgTable("organizations", {
@@ -225,7 +226,14 @@ export const pushLogs = pgTable("push_logs", {
   imageUrl: text("image_url"),
   // 콘솔에서 보낸 테스트 발송 — 로그에 "테스트" 로 표시
   isTest: boolean("is_test").notNull().default(false),
-  status: text("status").notNull().default("queued"), // queued | scheduled | processing | completed | logged | failed
+  // queued | scheduled | processing | completed | logged | failed | canceled
+  // canceled 는 운영자가 멈춘 발송이다. 클레임 조건(claimableLog)이 앞의 세 상태만 보므로
+  // 취소된 로그는 어떤 워커도 다시 집지 않는다 — 대기/예약/진행 중 어디서든 멈출 수 있다.
+  status: text("status").notNull().default("queued"),
+  // 취소 시각·취소한 사람. 취소는 "몇 명에게 이미 나갔는가"를 함께 굳힌다(countColumns) —
+  // 그 수를 감추면 운영자는 중단된 캠페인이 아무에게도 안 갔다고 오해한다.
+  canceledAt: timestamp("canceled_at", { withTimezone: true }),
+  canceledBy: text("canceled_by"),
   // failed 로 닫힌 이유(마지막 예외 + 소진한 시도 횟수). 일시적 실패는 한도까지 되살리므로
   // 여기 값이 있다는 건 "한도를 다 쓰고 포기했다"는 뜻이다 — 없으면 운영자가 원인을 볼 방법이 없다.
   failureReason: text("failure_reason"),
@@ -247,6 +255,23 @@ export const pushLogs = pgTable("push_logs", {
   // 알림 옵션(소리·배지·collapse·TTL·우선순위·무음·액션 버튼). 발송 한 건에 한 벌이라 컬럼 하나에 담는다 —
   // 컬럼으로 쪼개면 옵션이 늘 때마다 스키마가 바뀌고, 어차피 전부 FCM 페이로드로만 나간다.
   options: jsonb("options").$type<PushOptions>(),
+  // 로케일별 제목·본문. `{ default: {...}, ko: {...}, ja: {...} }` — fan-out 때 기기/사람의
+  // locale 로 고른다. 맞는 로케일이 없으면 default(없으면 title/body)로 떨어진다.
+  localeVariants: jsonb("locale_variants").$type<LocaleContent>(),
+  // 로케일 폴백 관측 — 몇 명이 무슨 로케일로 왔다가 기본 문구를 받았는지.
+  // 조용한 폴백은 "번역을 넣었다"는 믿음만 남기고 실제로는 아무도 못 받은 상태를 숨긴다.
+  localeFallbacks: jsonb("locale_fallbacks").$type<LocaleFallback>(),
+  // 홀드아웃 — 이 발송에서 **의도적으로 빼는** 비율(%). null 이면 홀드아웃 없음.
+  // 배정은 사람(없으면 기기) 단위 해시라 발송마다 다시 뽑히지 않는다.
+  holdoutPercent: smallint("holdout_percent"),
+  holdoutCount: integer("holdout_count").notNull().default(0),
+  // 단말이 **실제로 받았다**고 보고한 수(push_receipts). successCount(FCM 이 받아들인 수)와 다르다 —
+  // FCM 수락은 배달 보장이 아니라 접수 확인일 뿐이라 둘을 같은 칸에 두면 도달률이 늘 과대평가된다.
+  deliveredCount: integer("delivered_count").notNull().default(0),
+  // 캠페인별 재정의. null/false 면 프로젝트 설정을 그대로 따른다(칼럼이 없던 때와 같은 동작).
+  // 거래성 발송이 마케팅용 방해금지·속도 제한을 물려받지 않게 하는 탈출구다.
+  ignoreQuietHours: boolean("ignore_quiet_hours").notNull().default(false),
+  maxSendsPerMinute: integer("max_sends_per_minute"),
   // A/B 변형 (있으면 수신자를 해시로 변형에 배정) + 변형별 집계
   variants: jsonb("variants").$type<{ title: string; body: string }[]>(),
   variantStats: jsonb("variant_stats").$type<Record<string, { sent: number; success: number }>>(),
@@ -279,6 +304,78 @@ export const pushLogs = pgTable("push_logs", {
     .on(t.projectId, t.idempotencyKey)
     .where(sql`${t.idempotencyKey} is not null`),
 }));
+
+/**
+ * 단말 수신 보고 — 발송 × 기기 한 행. (log_id, device_id) 유니크라 SDK 가 재시도해도 한 번만 센다.
+ *
+ * FCM 이 토큰을 받아들인 것(successCount)은 "접수했다"일 뿐이다. 기기가 꺼져 있거나 앱이
+ * 지워졌어도 접수는 성공한다 — 그래서 접수 수를 도달로 읽으면 도달률이 늘 실제보다 높다.
+ */
+export const pushReceipts = pgTable("push_receipts", {
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  platform: text("platform"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ name: "push_receipts_pk", columns: [t.logId, t.deviceId] }),
+  projIdx: index("push_receipts_project_idx").on(t.projectId, t.receivedAt),
+}));
+
+/**
+ * 홀드아웃 명단 — 이 발송에서 **일부러 뺀** 기기.
+ *
+ * 변형끼리 비교하는 A/B 로는 "푸시가 없었을 때보다 나은가"를 말할 수 없다. 아무것도 받지 않은
+ * 대조군을 남겨야 리프트가 증명된다. 그래서 명단을 남긴다 — 남기지 않으면 나중에 누가
+ * 대조군이었는지 복원할 방법이 없다(기기 집합은 계속 변한다).
+ */
+export const pushHoldouts = pgTable("push_holdouts", {
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ name: "push_holdouts_pk", columns: [t.logId, t.deviceId] }),
+  // 전환 보고가 "이 주체가 최근 어느 홀드아웃에 있었나"를 찾는다 — 두 축 모두 필요하다
+  deviceIdx: index("push_holdouts_device_idx").on(t.projectId, t.deviceId, t.createdAt),
+  userIdx: index("push_holdouts_user_idx").on(t.projectId, t.userId, t.createdAt),
+}));
+
+/**
+ * 감사 로그 — 콘솔·관리 API 에서 일어난 변경 한 건당 한 행.
+ *
+ * `project_id` 는 nullable 이다: 조직 단위 행위(멤버 추가·업데이트 승인)는 프로젝트에 매이지 않는다.
+ * 프로젝트가 지워져도 "누가 언제 지웠는지"는 남아야 하므로 FK 는 set null 로 둔다.
+ */
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+  /** 행위자 표시값 — 멤버 이메일 · "admin-token" · "superadmin" */
+  actor: text("actor").notNull(),
+  actorUserId: uuid("actor_user_id").references(() => adminUsers.id, { onDelete: "set null" }),
+  /** 점 표기 동작 이름 — 예: "message.send", "project.update", "message.cancel" */
+  action: text("action").notNull(),
+  /** 대상 종류·식별자 — 예: ("push_log", uuid) */
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  /** 변경 내용 요약(변경 전후 값 등). 비밀값은 넣지 않는다. */
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  /** 마스킹한 요청 IP (IPv4 /24, IPv6 /48) — 원본은 개인정보라 남기지 않는다 */
+  ipMasked: text("ip_masked"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  // 목록·CSV 내보내기의 기본 정렬(조직 전체, 최신순) — 커서 페이징이 이 인덱스를 탄다
+  orgIdx: index("audit_logs_org_idx").on(t.orgId, t.createdAt),
+  projIdx: index("audit_logs_project_idx").on(t.projectId, t.createdAt),
+  actionIdx: index("audit_logs_action_idx").on(t.orgId, t.action, t.createdAt),
+  actorIdx: index("audit_logs_actor_idx").on(t.orgId, t.actor, t.createdAt),
+}));
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type PushReceipt = typeof pushReceipts.$inferSelect;
+export type PushHoldout = typeof pushHoldouts.$inferSelect;
 
 /**
  * 빈도 상한 판정용 수신 기록 — 사용자 × 발송 한 행.
@@ -448,6 +545,11 @@ export const pushConversions = pgTable("push_conversions", {
    */
   deviceId: uuid("device_id"),
   name: text("name").notNull(),
+  /**
+   * 홀드아웃(발송을 받지 않은 대조군)의 전환인가. 클릭이 없으므로 귀속 경로가 다르다 —
+   * 같은 칸에 섞으면 "보낸 쪽의 전환"이 부풀어 리프트가 거꾸로 나온다.
+   */
+  holdout: boolean("holdout").notNull().default(false),
   /** 금액(최소 화폐 단위). 금액 없는 전환은 null. */
   valueCents: integer("value_cents"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -524,9 +626,18 @@ export const journeyRuns = pgTable("journey_runs", {
   currentStep: integer("current_step").notNull().default(0),
   status: text("status").notNull().default("active"), // active | completed
   nextRunAt: timestamp("next_run_at", { withTimezone: true }).defaultNow(),
+  /**
+   * 이 런이 **마지막으로 만든** 발송 로그. 분기("직전 발송을 눌렀나")가 이 값을 본다.
+   * 없으면 "이 사람의 최근 발송"을 프로젝트 전체에서 찾게 되어, 다른 저니나 일반 캠페인이
+   * 보낸 푸시의 클릭으로 분기가 갈린다 — 같은 사람에게 두 저니가 도는 순간 조용히 틀린다.
+   */
+  lastSendLogId: uuid("last_send_log_id").references(() => pushLogs.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   dueIdx: index("journey_runs_due_idx").on(t.projectId, t.status, t.nextRunAt),
+  // 발송 로그가 지워질 때(리텐션 purge) set null 이 이 인덱스로 대상 런을 찾는다 —
+  // 없으면 로그 1건 삭제마다 journey_runs 전건 스캔이 붙는다
+  lastSendIdx: index("journey_runs_last_send_idx").on(t.lastSendLogId).where(sql`${t.lastSendLogId} is not null`),
   // 멱등성: 한 유저는 한 저니에 1회만 등록
   uniqRun: uniqueIndex("journey_runs_uniq_idx").on(t.journeyId, t.userId),
 }));

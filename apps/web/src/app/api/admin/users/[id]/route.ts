@@ -6,6 +6,7 @@ import { ok, fail } from "@/lib/api-response";
 import { requireAuth, checkOrigin, type AuthContext } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { ROLES, canAssignRole } from "@/lib/user-roles";
+import { buildDiff, recordOrgAudit, DENIED_SUFFIX } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,30 @@ async function withLastOwnerGuard<T>(orgId: string, targetIsOwner: boolean, run:
   });
 }
 
+/**
+ * 멤버 쓰기 거부를 감사에 남기고 그대로 실패 응답을 돌려준다.
+ *
+ * 403 만 적는다 — 404("그 사람 없음")는 타 org 존재 여부를 숨기려고 만든 응답이라
+ * 감사에 적으면 그 정보가 도로 새고, 401 은 인증 없는 요청이라 누구나 행을 밀어 넣을 수 있다.
+ */
+async function failMember(
+  actor: AuthContext,
+  action: string,
+  targetId: string,
+  denied: { status: number; error: string }
+) {
+  if (denied.status === 403 && actor.orgId) {
+    await recordOrgAudit({
+      orgId: actor.orgId,
+      actor,
+      action: `${action}${DENIED_SUFFIX}`,
+      targetId,
+      diff: { outcome: { before: "allowed", after: `denied (${denied.error})` } },
+    });
+  }
+  return fail(denied.error, denied.status);
+}
+
 /** [Web Admin] 멤버 역할 변경 */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
@@ -59,7 +84,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
 
   const loaded = await loadTarget(auth.ctx, id);
-  if (!loaded.ok) return fail(loaded.error, loaded.status);
+  if (!loaded.ok) return failMember(auth.ctx, "member.update", id, loaded);
 
   let payload: unknown;
   try {
@@ -71,7 +96,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const role = parsed.data.role;
 
-  if (!canAssignRole(auth.ctx, role)) return fail("Forbidden: owner 는 owner 만 지정할 수 있습니다", 403);
+  if (!canAssignRole(auth.ctx, role)) {
+    return failMember(auth.ctx, "member.update", id, { status: 403, error: "Forbidden: owner 는 owner 만 지정할 수 있습니다" });
+  }
   // 자기 자신을 강등하면 그 자리에서 관리 권한을 잃는다 — 실수 방지
   if (auth.ctx.userId === id && role !== auth.ctx.role) return fail("자기 자신의 역할은 변경할 수 없습니다", 400);
 
@@ -88,6 +115,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   });
   if (!updated) return fail("마지막 owner 는 강등할 수 없습니다", 409);
 
+  const diff = buildDiff({ role: loaded.target.role }, { role: updated.role });
+  if (diff) {
+    await recordOrgAudit({
+      orgId: loaded.target.orgId,
+      actor: auth.ctx,
+      action: "member.update",
+      targetId: updated.id,
+      diff: { ...diff, email: { before: updated.email, after: updated.email } },
+    });
+  }
   return ok({ user: updated });
 }
 
@@ -102,13 +139,20 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   if (auth.ctx.userId === id) return fail("자기 자신은 삭제할 수 없습니다", 400);
 
   const loaded = await loadTarget(auth.ctx, id);
-  if (!loaded.ok) return fail(loaded.error, loaded.status);
+  if (!loaded.ok) return failMember(auth.ctx, "member.delete", id, loaded);
 
   const deleted = await withLastOwnerGuard(loaded.target.orgId, loaded.target.role === "owner", async () => {
     const db = getDb();
-    return (await db.delete(adminUsers).where(eq(adminUsers.id, id)).returning({ id: adminUsers.id }))[0];
+    return (await db.delete(adminUsers).where(eq(adminUsers.id, id)).returning({ id: adminUsers.id, email: adminUsers.email }))[0];
   });
   if (!deleted) return fail("마지막 owner 는 삭제할 수 없습니다", 409);
 
+  await recordOrgAudit({
+    orgId: loaded.target.orgId,
+    actor: auth.ctx,
+    action: "member.delete",
+    targetId: deleted.id,
+    diff: buildDiff({ email: deleted.email, role: loaded.target.role }, null),
+  });
   return ok({ deleted: true });
 }

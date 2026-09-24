@@ -8,6 +8,7 @@ import { and, eq, or, isNull, lt, lte } from "drizzle-orm";
 import { pushLogs, type PushLog } from "@/db/schema";
 import type { Db } from "@/lib/audience-count";
 import type { LocalState } from "@/lib/local-delivery";
+import { addLocaleFallback, parseLocaleFallback, type LocaleFallback } from "@/lib/locale-content";
 
 /** 'processing' 에 멈춘 로그를 다른 워커가 재클레임하는 임계 */
 export const STALE_MS = 5 * 60 * 1000;
@@ -42,6 +43,10 @@ export type ResumeState = {
   local?: LocalState;
   /** 토큰별 실패 사유별 건수 — 끝나면 push_logs.delivery_errors 로 넘어간다 */
   errors?: Record<string, number>;
+  /** 로케일 폴백 누적 — 끝나면 push_logs.locale_fallbacks 로 넘어간다 */
+  localeFallback?: LocaleFallback;
+  /** 홀드아웃으로 **보내지 않은** 기기 수 누적 */
+  holdout?: number;
 };
 
 /** 후속 단계 완료 표시. 끝난 단계는 재클레임 때 다시 돌지 않는다. */
@@ -120,6 +125,7 @@ export function parseResumeState(raw: string | null | undefined): ResumeState | 
     }
   }
   const errors = parseErrors(s.errors);
+  const localeFallback = parseLocaleFallback(s.localeFallback);
   return {
     cursor: s.cursor,
     total: s.total,
@@ -132,6 +138,8 @@ export function parseResumeState(raw: string | null | undefined): ResumeState | 
     ...(isIso(s.nextPageAt) ? { nextPageAt: s.nextPageAt } : {}),
     ...(s.local !== undefined ? { local: parseLocal(s.local) ?? EMPTY_LOCAL } : {}),
     ...(errors ? { errors } : {}),
+    ...(localeFallback ? { localeFallback } : {}),
+    ...(isCount(s.holdout) ? { holdout: s.holdout } : {}),
   };
 }
 
@@ -168,6 +176,17 @@ export function addErrors(state: ResumeState, codes: string[]): ResumeState {
   const errors = { ...(state.errors ?? {}) };
   for (const c of codes) errors[c] = (errors[c] ?? 0) + 1;
   return { ...state, errors };
+}
+
+/** 로케일 폴백 누적(순수 함수). 0건이면 상태를 건드리지 않아 없던 발송에 빈 칸이 생기지 않는다. */
+export function addFallback(state: ResumeState, fallback: LocaleFallback): ResumeState {
+  if (fallback.total === 0) return state;
+  return { ...state, localeFallback: addLocaleFallback(state.localeFallback, fallback) };
+}
+
+/** 홀드아웃으로 뺀 기기 수 누적(순수 함수) */
+export function addHoldout(state: ResumeState, n: number): ResumeState {
+  return n <= 0 ? state : { ...state, holdout: (state.holdout ?? 0) + n };
 }
 
 /** FCM 결과를 상태에 더한다(순수 함수). 변형별 성공은 성공 토큰의 변형으로 센다. */

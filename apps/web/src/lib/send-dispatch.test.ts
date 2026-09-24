@@ -25,6 +25,8 @@ const ctx = {
   rateLimit: null,
   localTime: null,
   ab: null,
+  localeContent: null,
+  holdoutPercent: null,
 } satisfies SendContext;
 
 const items: SendItem[] = ["a", "b"].map((token) => ({ token, vi: null, title: "T", body: "B", dataOnly: false }));

@@ -90,6 +90,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       totalCount: pushLogs.totalCount,
       successCount: pushLogs.successCount,
       failureCount: pushLogs.failureCount,
+      // 단말이 실제로 받았다고 보고한 수 — successCount(FCM 접수)와 다른 축이다
+      deliveredCount: pushLogs.deliveredCount,
+      holdoutCount: pushLogs.holdoutCount,
+      canceledAt: pushLogs.canceledAt,
       // 토픽/세그먼트 이름, 단건의 external_id
       target: pushLogs.target,
       // 클릭률 = clickUserCount / audienceUserCount (분모는 발송 시점 스냅샷)

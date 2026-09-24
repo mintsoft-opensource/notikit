@@ -19,8 +19,13 @@ import {
   multicastGroups,
   type SendContext,
 } from "@/lib/send-dispatch";
+import { resolveLocaleContents } from "@/lib/locale-content";
+import { recordHoldout, splitHoldout } from "@/lib/holdout";
+import { recordCanceledProgress } from "@/lib/push-cancel";
 import {
   addErrors,
+  addFallback,
+  addHoldout,
   addVariantSent,
   claimableLog,
   failPermanently,
@@ -187,6 +192,15 @@ function distinctUserIds(rows: Array<{ userId: string | null }>): string[] {
 
 // ─── 발송 단계 ───────────────────────────────────────────────────────────────
 
+/**
+ * 이 발송에 적용할 분당 상한(순수 함수).
+ * 발송이 값을 주면 그게 이긴다 — `0` 은 명시적 해제이므로 프로젝트 값으로 되돌리지 않는다.
+ */
+export function sendRateLimit(log: Pick<PushLog, "maxSendsPerMinute">, projectLimit: number | null): number | null {
+  if (log.maxSendsPerMinute === null || log.maxSendsPerMinute === undefined) return projectLimit;
+  return log.maxSendsPerMinute === 0 ? null : log.maxSendsPerMinute;
+}
+
 /** 치환용 — 토큰마다 받는 사람의 아이디·속성. 익명 기기는 null(기본값으로 채워진다). */
 async function loadRecipients(db: Db, projectId: string, tokens: string[]): Promise<Map<string, Recipient>> {
   const rows = await db
@@ -211,6 +225,17 @@ async function loadRecipients(db: Db, projectId: string, tokens: string[]): Prom
   );
 }
 
+/** 토큰 → 로케일. 사람이 밝힌 값이 기기 등록값보다 정확하고, 기기를 바꿔도 따라간다. */
+async function loadLocales(db: Db, projectId: string, tokens: string[]): Promise<Map<string, string | null>> {
+  if (tokens.length === 0) return new Map();
+  const rows = await db
+    .select({ token: devices.token, locale: sql<string | null>`coalesce(${pushUsers.locale}, ${devices.locale})` })
+    .from(devices)
+    .leftJoin(pushUsers, eq(devices.userId, pushUsers.id))
+    .where(and(eq(devices.projectId, projectId), inArray(devices.token, tokens)));
+  return new Map(rows.map((r) => [r.token, r.locale]));
+}
+
 async function claimLog(db: Db, logId: string, lockToken: string): Promise<PushLog | undefined> {
   const now = new Date();
   const claimed = await db
@@ -231,17 +256,25 @@ async function loadSendContext(db: Db, log: PushLog): Promise<SendContext | null
     sa,
     // 테스트 발송은 운영자가 지금 받아 보려는 것이다 — 상한도 속도 제한도 현지 시각도 걸지 않는다
     cap: log.isTest ? null : project.frequencyCapPerDay,
-    rateLimit: log.isTest ? null : project.maxSendsPerMinute,
+    // 캠페인별 재정의가 프로젝트 설정을 덮는다. 0 은 "이 발송은 제한 없음"이라
+    // `?? project` 로 접으면 안 된다 — 그러면 명시적 해제가 조용히 프로젝트 값으로 돌아간다.
+    rateLimit: log.isTest ? null : sendRateLimit(log, project.maxSendsPerMinute),
     localTime: log.isTest ? null : parseLocalTime(log.localTime),
     ab: log.isTest ? null : abPart(log.abTest),
+    localeContent: log.localeVariants ?? null,
+    holdoutPercent: log.isTest ? null : log.holdoutPercent,
     // 발송 한 건에 공통인 치환 값. 시각을 한 번 고정해야 페이지마다 {{time}} 이 달라지지 않는다.
     renderCtx: { appName: project.name, now: new Date() },
     personalized: hasPlaceholders(log.title, log.body, ...variants.flatMap((v) => [v.title, v.body])),
   };
 }
 
-/** 한 실행이 페이지를 돌 때 들고 다니는 것 — 소유권·진행 상태·현지 시각 회차 */
-type Run = { ctx: SendContext; lockToken: string; progress: Progress; pass: LocalPass | null };
+/**
+ * 한 실행이 페이지를 돌 때 들고 다니는 것 — 소유권·진행 상태·현지 시각 회차.
+ * `state` 는 마지막으로 만든 진행 상태다. 소유권을 잃었을 때(취소) 여기 있는 수를 적어
+ * "이미 나간 건수"가 한 페이지만큼 사라지는 것을 막는다.
+ */
+type Run = { ctx: SendContext; lockToken: string; progress: Progress; pass: LocalPass | null; state: ResumeState | null };
 
 /** 현지 시각 발송: 지금 보낼 기기만 남긴다. 미룬 기기는 상한 예약 전에 빠져 슬롯을 태우지 않는다. */
 async function dueDevices(db: Db, log: PushLog, run: Run, page: ScopedDevice[]): Promise<ScopedDevice[]> {
@@ -250,28 +283,48 @@ async function dueDevices(db: Db, log: PushLog, run: Run, page: ScopedDevice[]):
   return splitDue(run.pass, page, (r) => zones.get(r.token) ?? run.ctx.project.timezone).send;
 }
 
+/**
+ * 보낼 내용 만들기 — 로케일 문구 배정 → 치환. 폴백 건수를 함께 돌려준다.
+ * 로케일 조회는 `localeVariants` 가 있을 때만 — 없는 발송에 질의 한 번을 더 붙이지 않는다.
+ */
+async function pageItems(db: Db, log: PushLog, ctx: SendContext, allowed: ScopedDevice[]) {
+  const base = { title: log.title, body: log.body };
+  const locales = ctx.localeContent && allowed.length ? await loadLocales(db, log.projectId, allowed.map((r) => r.token)) : null;
+  const picked = locales
+    ? resolveLocaleContents(allowed, (t) => locales.get(t), ctx.localeContent, base)
+    : null;
+  const recipients = ctx.personalized && allowed.length ? await loadRecipients(db, log.projectId, allowed.map((r) => r.token)) : null;
+  const render = recipients
+    ? (text: string, token: string) => renderTemplate(text, recipients.get(token) ?? null, ctx.renderCtx)
+    : null;
+  return {
+    items: buildItems(allowed, base, log.variants ?? null, render, picked?.contentOf ?? null),
+    fallback: picked?.fallback ?? null,
+  };
+}
+
 /** 한 페이지 발송 → 다음 상태. 무효·검증 토큰은 페이지마다 반영한다(끝까지 모으면 메모리가 대상 수에 비례). */
 async function sendPage(db: Db, log: PushLog, run: Run, page: ScopedDevice[], state: ResumeState): Promise<ResumeState> {
   const ctx = run.ctx;
   const cursor = page[page.length - 1].id;
   // A/B 는 현지 시각보다 **먼저** 거른다 — 내 쪽이 아닌 기기는 회차 판정에도 끼면 안 된다
-  const targets = await dueDevices(db, log, run, abTargets(ctx.ab, page));
+  const due = await dueDevices(db, log, run, abTargets(ctx.ab, page));
   const local = run.pass ? { local: passState(run.pass) } : {};
-  if (targets.length === 0) return { ...state, cursor, ...local };
+  // 홀드아웃은 상한 예약·속도 제한 예산보다 먼저 — 대조군이 남의 슬롯을 태우면 안 된다
+  const { send: targets, held } = splitHoldout(due, ctx.holdoutPercent);
+  if (held.length) await recordHoldout(db, log, held);
+  const withHeld = addHoldout(state, held.length);
+  if (targets.length === 0) return { ...withHeld, cursor, ...local };
 
   const { allowed, reserved } = await admitPage(db, log, ctx, targets);
-  const recipients = ctx.personalized && allowed.length ? await loadRecipients(db, log.projectId, allowed.map((r) => r.token)) : null;
-  const render = recipients
-    ? (text: string, token: string) => renderTemplate(text, recipients.get(token) ?? null, ctx.renderCtx)
-    : null;
-  const items = buildItems(allowed, { title: log.title, body: log.body }, log.variants ?? null, render);
+  const { items, fallback } = await pageItems(db, log, ctx, allowed);
 
   let next: ResumeState = {
-    ...state,
+    ...(fallback ? addFallback(withHeld, fallback) : withHeld),
     cursor,
     ...local,
-    total: state.total + items.length,
-    variantStats: addVariantSent(state.variantStats, items),
+    total: withHeld.total + items.length,
+    variantStats: addVariantSent(withHeld.variantStats, items),
   };
 
   if (ctx.sa && items.length) {
@@ -325,6 +378,7 @@ async function runPages(db: Db, log: PushLog, run: Run, now: Date): Promise<Page
   // 상태가 깨졌어도 시도 횟수는 이어받는다 — 아니면 같은 실패를 한도 없이 반복한다
   let state: ResumeState = resumed ?? initialState(abAudience(await countAudience(db, log), ctx.ab), log.variants?.length ?? null, parseAttempts(progress.raw));
   state = { ...state, nextPageAt: undefined };
+  run.state = state;
   run.pass = ctx.localTime
     ? openLocalPass(ctx.localTime, state.local, now, now.getTime() - log.createdAt.getTime() >= LOCAL_WINDOW_MS)
     : null;
@@ -342,6 +396,7 @@ async function runPages(db: Db, log: PushLog, run: Run, now: Date): Promise<Page
     const page = await scopedDevicePage(db, scope, state.cursor, size);
     const before = state.total;
     if (page.length > 0) state = await sendPage(db, log, run, page, state);
+    run.state = state;
     if (window) await refundSendBudget(db, log.projectId, window, size - (state.total - before));
     if (page.length === 0) break;
     // 전달 보장은 페이지 단위 at-least-once — FCM 발송 후 이 커서 저장 전에 죽으면 그 페이지를 다시 보낸다
@@ -386,8 +441,10 @@ function countColumns(state: ResumeState) {
     failureCount: state.failure,
     audienceUserCount: state.audience.users,
     audienceDeviceCount: state.audience.devices,
+    holdoutCount: state.holdout ?? 0,
     ...(state.errors ? { deliveryErrors: state.errors } : {}),
     ...(state.variantStats ? { variantStats: state.variantStats } : {}),
+    ...(state.localeFallback ? { localeFallbacks: state.localeFallback } : {}),
   };
 }
 
@@ -568,6 +625,11 @@ async function sendAbWinner(db: Db, log: PushLog, ctx: SendContext, plan: AbTest
     ...(log.data ? { data: log.data } : {}),
     ...(log.options ? { options: log.options } : {}),
     ...(log.localTime ? { local_time: log.localTime } : {}),
+    // 대조군과 캠페인별 재정의는 승자 본발송에도 그대로 이어진다. 빠뜨리면 표본에서 빼 둔
+    // 사람이 본발송을 받아 대조군이 사라지고, 거래성 발송이 다시 방해금지에 걸린다.
+    ...(log.holdoutPercent ? { holdout_percent: log.holdoutPercent } : {}),
+    ...(log.ignoreQuietHours ? { quiet_hours: false as const } : {}),
+    ...(log.maxSendsPerMinute !== null ? { max_sends_per_minute: log.maxSendsPerMinute } : {}),
   };
   const { message: row } = await enqueuePush(ctx.project, message, {
     db,
@@ -616,6 +678,20 @@ async function reload(db: Db, logId: string): Promise<PushLog | undefined> {
 }
 
 /**
+ * 소유권을 잃고 빠질 때. 취소로 잃은 것이면 **이 실행이 들고 있던 집계를 마저 적는다**.
+ *
+ * 취소는 그 순간의 `resume_cursor` 를 칼럼으로 굳히지만, 그 직전에 워커가 페이지 하나를 이미
+ * FCM 에 넘겼을 수 있다(커서 저장 전에 취소가 들어온 경우). 그 수를 버리면 "실제로는 나갔는데
+ * 로그에는 안 나간" 건이 생긴다 — 취소 화면이 가장 거짓말하기 쉬운 자리다.
+ */
+async function yieldOwnership(db: Db, logId: string, run: Run): Promise<PushLog | undefined> {
+  const row = await reload(db, logId);
+  if (row?.status !== "canceled" || !run.state) return row;
+  await recordCanceledProgress(db, logId, run.state);
+  return reload(db, logId);
+}
+
+/**
  * 말없이 죽은 실행을 시도 1회로 센다. 한도를 넘으면 닫고 true.
  * 세지 않으면 OOM 으로 죽는 발송이 5분마다 되살아나 같은 자리에서 영원히 다시 죽는다.
  */
@@ -654,20 +730,24 @@ export async function processPushLog(logId: string): Promise<PushLog | undefined
       await failPermanently(db, logId, lockToken, "project not found");
       return reload(db, logId);
     }
-    const run: Run = { ctx, lockToken, progress, pass: null };
+    const run: Run = { ctx, lockToken, progress, pass: null, state: null };
     const paged = await runPages(db, log, run, new Date());
-    if (!paged) return reload(db, logId); // 소유권 상실 → 새 소유자가 이어 간다
+    // 소유권 상실 → 새 소유자가 이어 간다. 취소로 잃었으면 여기까지 나간 수를 적고 빠진다.
+    if (!paged) return yieldOwnership(db, logId, run);
     if (paged.deferredUntil) {
       await releaseLog(db, logId, lockToken, paged.deferredUntil);
       return reload(db, logId);
     }
 
     const finalStatus = ctx.sa ? "completed" : "logged";
-    if (!(await runFollowUps(db, log, ctx, lockToken, paged.state, finalStatus, progress))) return reload(db, logId);
+    run.state = paged.state;
+    if (!(await runFollowUps(db, log, ctx, lockToken, paged.state, finalStatus, progress))) {
+      return yieldOwnership(db, logId, run);
+    }
 
     // A/B 표본 발송은 판정까지가 한 건이다 — 대기 중에는 완료로 닫지 않고 그 시각에 다시 깨어난다
     const settled = await settleAbTest(db, log, run, paged.state, new Date());
-    if (!settled) return reload(db, logId);
+    if (!settled) return yieldOwnership(db, logId, run);
     if (settled.deferredUntil) {
       await releaseLog(db, logId, lockToken, settled.deferredUntil);
       return reload(db, logId);

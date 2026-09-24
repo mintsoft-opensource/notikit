@@ -4,6 +4,7 @@ import { topics } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { countTopicAudience, isRuleFilled, rulesSchema, toStoredRules } from "@/lib/topic-membership";
 import { z } from "zod";
 
@@ -64,7 +65,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; t
   const { id, topicId } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "topic.update", "topic", authz, topicId);
 
   let payload: unknown;
   try {
@@ -85,6 +86,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; t
     .set({ rules: toStoredRules(parsed.data.rules) })
     .where(and(eq(topics.id, topicId), eq(topics.projectId, id)))
     .returning();
+  const diff = buildDiff({ rules: current.rules }, { rules: rows[0]?.rules ?? null });
+  if (diff) {
+    await recordAudit({
+      projectId: id,
+      actor: authz.ctx,
+      action: "topic.update",
+      targetType: "topic",
+      targetId: topicId,
+      diff,
+    });
+  }
   return ok({ topic: rows[0] });
 }
 
@@ -92,14 +104,22 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string; 
   const { id, topicId } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "topic.delete", "topic", authz, topicId);
 
   const db = getDb();
   // subscriptions 는 FK cascade 로 함께 지워진다 — 구독자들의 구독이 사라진다.
   const rows = await db
     .delete(topics)
     .where(and(eq(topics.id, topicId), eq(topics.projectId, id)))
-    .returning({ id: topics.id });
+    .returning();
   if (rows.length === 0) return fail("Not found", 404);
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    action: "topic.delete",
+    targetType: "topic",
+    targetId: rows[0].id,
+    diff: buildDiff({ name: rows[0].name, rules: rows[0].rules }, null),
+  });
   return ok({ deleted: rows[0].id });
 }

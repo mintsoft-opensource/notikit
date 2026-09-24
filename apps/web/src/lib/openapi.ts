@@ -258,6 +258,39 @@ export const openapi = {
                       wait_minutes: { type: "integer", minimum: 5, maximum: 1440, description: "판정까지 기다리는 시간(분)" },
                     },
                   },
+                  locales: {
+                    type: "object",
+                    description:
+                      "로케일별 제목·본문 — `{ \"default\": {…}, \"ko\": {…}, \"ja-JP\": {…} }`. fan-out 때 사람 > 기기의 locale 로 고른다. " +
+                      "정확히 맞는 태그 → 언어만 맞는 태그 → `default` → 발송 본문(title/body) 순. `ko_KR` 과 `ko-KR` 은 같은 값으로 접힌다. " +
+                      "기본 문구로 떨어진 인원은 로그의 `locale_fallbacks` 와 상세 API 에 남는다 — 조용히 떨어지지 않는다. " +
+                      "`variants`(A/B)와 함께 쓸 수 없고(422), 기본 문구가 어디에도 없으면 422.",
+                    additionalProperties: {
+                      type: "object",
+                      required: ["title", "body"],
+                      properties: { title: { type: "string", maxLength: 255 }, body: { type: "string", maxLength: 4000 } },
+                    },
+                  },
+                  holdout_percent: {
+                    type: "integer",
+                    minimum: 1,
+                    maximum: 50,
+                    description:
+                      "홀드아웃(대조군) 비율(%). 이 비율의 **사람에게는 아무것도 보내지 않고** 전환만 비교해 리프트를 낸다. " +
+                      "배정은 사람(없으면 기기) 단위 해시로 고정이라 캠페인마다 대조군이 다시 뽑히지 않는다. type=single 에는 쓸 수 없다(422).",
+                  },
+                  quiet_hours: {
+                    type: "boolean",
+                    description:
+                      "`false` 면 프로젝트 방해금지 시간대를 무시하고 즉시 보낸다. 거래성 발송(주문·인증)이 마케팅용 야간 금지에 밀리지 않게 하는 탈출구.",
+                  },
+                  max_sends_per_minute: {
+                    type: "integer",
+                    minimum: 0,
+                    maximum: 1000000,
+                    description:
+                      "이 발송에만 적용할 분당 상한. 프로젝트 설정을 덮는다. `0` 은 \"이 발송은 제한 없음\"이고, 주지 않으면 프로젝트 설정을 따른다.",
+                  },
                   kakao_fallback: { type: "boolean", description: "미도달 유저에게 카카오 알림톡 대체 발송" },
                   options: {
                     type: "object",
@@ -319,6 +352,46 @@ export const openapi = {
           "400": { description: "Idempotency-Key 형식 오류" },
           "413": { description: "페이로드 초과" },
           "422": { description: "검증 실패(치환 후 FCM 페이로드 4KB 초과 포함)" },
+          "429": { description: "rate limit" },
+        },
+      },
+    },
+    "/api/v1/messages/received": {
+      post: {
+        tags: ["App SDK"],
+        summary: "단말 수신 보고 (도달 확인)",
+        description:
+          "알림이 **기기에 실제로 도착했을 때** SDK 가 부른다. FCM 접수(`success_count`)는 기기가 꺼져 있어도 성공하므로 " +
+          "도달로 읽을 수 없다 — 이 값이 `delivered_count` 로 따로 쌓인다. " +
+          "(발송, 기기) 유니크라 재시도·중복 콜백으로 여러 번 보내도 한 번만 센다.",
+        security: [{ apiKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["log_id", "token"],
+                properties: {
+                  log_id: { type: "string", format: "uuid", description: "푸시 data 의 `notikit_log_id`" },
+                  token: { type: "string", maxLength: 4096, description: "알림을 받은 단말의 푸시 토큰" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "202": {
+            description: "접수. `{ recorded }` — `false` 면 이미 보고된 건(중복)이라 카운터를 올리지 않았다",
+            content: {
+              "application/json": {
+                schema: { type: "object", properties: { recorded: { type: "boolean" } } },
+              },
+            },
+          },
+          "403": { description: "이 발송의 대상이 아닌 기기" },
+          "404": { description: "발송 또는 기기 없음" },
+          "422": { description: "검증 실패" },
           "429": { description: "rate limit" },
         },
       },
@@ -533,6 +606,58 @@ export const openapi = {
         security: [{ adminToken: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: { "200": { description: "로그 목록" } },
+      },
+    },
+    "/api/admin/projects/{id}/logs/{logId}/cancel": {
+      post: {
+        tags: ["Web Admin"],
+        summary: "발송 취소",
+        description:
+          "대기·예약·진행 중인 발송을 멈춘다. 상태가 `canceled` 가 되면 클레임 조건에서 빠져 어떤 워커도 다시 집지 않고, " +
+          "진행 중이던 워커는 소유권을 잃어 다음 페이지를 넘기지 않는다. " +
+          "응답은 **취소 시점까지 이미 나간 수**(`sent`)를 함께 준다 — 대형 발송은 버튼을 누르는 순간 이미 수만 건이 나간 뒤일 수 있다. " +
+          "끝난 발송(completed/logged/failed)과 이미 취소된 것은 409.",
+        security: [{ adminToken: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "logId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "취소됨",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    log: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string", format: "uuid" },
+                        status: { type: "string", enum: ["canceled"] },
+                        canceled_at: { type: ["string", "null"], format: "date-time" },
+                        canceled_by: { type: ["string", "null"] },
+                        sent: {
+                          type: "object",
+                          description: "취소 시점까지 이미 나간 수. 숨기지 않는다.",
+                          properties: {
+                            total: { type: "integer" },
+                            success: { type: "integer" },
+                            failure: { type: "integer" },
+                            holdout: { type: "integer" },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "403": { description: "origin 또는 권한 없음" },
+          "404": { description: "발송 없음" },
+          "409": { description: "이미 끝났거나 취소된 발송" },
+        },
       },
     },
     "/api/admin/projects/{id}/stats": {

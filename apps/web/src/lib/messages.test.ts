@@ -1,6 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { finalizeMessage, messageSchema, messageDto, parseIdempotencyKey, payloadBytes, FCM_PAYLOAD_LIMIT, PERSONALIZE_HEADROOM, TTL_SECONDS_MAX } from "./messages";
+import {
+  enqueuePush,
+  finalizeMessage,
+  holdoutError,
+  localeVariantsError,
+  messageSchema,
+  messageDto,
+  parseIdempotencyKey,
+  payloadBytes,
+  FCM_PAYLOAD_LIMIT,
+  PERSONALIZE_HEADROOM,
+  TTL_SECONDS_MAX,
+  type DbOrTx,
+} from "./messages";
+import { sendRateLimit } from "./push-processor";
 import { applyTemplate } from "./templates";
+
+const PROJECT = "44444444-4444-4444-4444-444444444444";
+
+/** enqueuePush 가 무엇을 저장하는지만 보는 최소 가짜 DB — insert().values().returning() */
+function fakeInsertDb(rows: Array<Record<string, unknown>>): DbOrTx {
+  return {
+    insert: () => ({
+      values: (v: Record<string, unknown>) => {
+        rows.push(v);
+        return { returning: async () => [{ ...v, id: `log-${rows.length}` }] };
+      },
+    }),
+  } as unknown as DbOrTx;
+}
 
 const RESERVED = [{ notikit_log_id: "x" }, { deep_link: "x" }, { "google.x": "1" }];
 
@@ -150,5 +178,92 @@ describe("payloadBytes options", () => {
     const r = finalizeMessage({ type: "broadcast", title: "t", body: "b", options: { actions } });
     expect(r).toMatchObject({ status: 422 });
     if ("error" in r) expect(r.error).toContain("payload too large for FCM");
+  });
+});
+
+describe("로케일별 문구", () => {
+  const base = { type: "broadcast" as const, title: "Hi", body: "There" };
+
+  it("변형(A/B)과 함께 쓰지 못한다 — 두 축을 곱하면 어느 쪽 폴백인지 알 수 없다", () => {
+    expect(
+      localeVariantsError({ ...base, locales: { ko: { title: "안녕", body: "반가워" } }, variants: [
+        { title: "A", body: "a" },
+        { title: "B", body: "b" },
+      ] })
+    ).toBe("locales cannot be combined with variants");
+  });
+
+  it("기본 문구가 어디에도 없으면 거절한다 — 맞는 로케일이 없는 사람에게 빈 알림이 간다", () => {
+    const only = { type: "broadcast" as const, locales: { ko: { title: "안녕", body: "반가워" } } };
+    expect(localeVariantsError(only)).toContain("locales requires");
+    // title/body · template · default 중 하나만 있으면 통과
+    expect(localeVariantsError({ ...only, title: "Hi", body: "There" })).toBeNull();
+    expect(localeVariantsError({ ...only, template: "welcome" })).toBeNull();
+    expect(localeVariantsError({ type: "broadcast", locales: { default: { title: "Hi", body: "There" } } })).toBeNull();
+  });
+
+  it("잘못된 로케일 키와 같은 값으로 접히는 중복 키를 막는다", () => {
+    const parse = (locales: Record<string, { title: string; body: string }>) =>
+      messageSchema.safeParse({ ...base, locales });
+    expect(parse({ 한국어: { title: "a", body: "b" } }).success).toBe(false);
+    // ko_KR 과 ko-KR 은 같은 언어다 — 둘 다 받으면 어느 쪽이 이기는지 입력만 보고 알 수 없다
+    expect(parse({ ko_KR: { title: "a", body: "b" }, "ko-KR": { title: "c", body: "d" } }).success).toBe(false);
+    expect(parse({ ko: { title: "a", body: "b" }, "ko-KR": { title: "c", body: "d" } }).success).toBe(true);
+  });
+
+  it("페이로드 크기 검사에 로케일 문구가 들어간다 — 빼면 긴 번역이 FCM 에서만 거절된다", () => {
+    const short = payloadBytes({ title: "a", body: "b" });
+    const withLocale = payloadBytes({ title: "a", body: "b", locales: { ja: { title: "x".repeat(200), body: "y".repeat(3000) } } });
+    expect(withLocale).toBeGreaterThan(short + 3000);
+  });
+});
+
+describe("홀드아웃 입력", () => {
+  it("single 에는 쓸 수 없다 — 한 명뿐이라 대조군이 '전부 빼거나 안 빼거나'가 된다", () => {
+    expect(holdoutError({ type: "single", holdout_percent: 10 })).toBe("holdout_percent is not available for type=single");
+    expect(holdoutError({ type: "broadcast", holdout_percent: 10 })).toBeNull();
+    // 테스트 발송은 운영자 자신에게 가는 것이라 무시한다(거절하지 않는다)
+    expect(holdoutError({ type: "single", holdout_percent: 10, test: true })).toBeNull();
+  });
+
+  it("범위를 벗어난 비율은 거절한다", () => {
+    const parse = (n: number) => messageSchema.safeParse({ type: "broadcast", title: "a", body: "b", holdout_percent: n }).success;
+    expect(parse(0)).toBe(false);
+    expect(parse(51)).toBe(false);
+    expect(parse(10)).toBe(true);
+  });
+});
+
+describe("캠페인별 재정의", () => {
+  it("quiet_hours: false 면 프로젝트 방해금지 시간대를 무시하고 즉시 큐잉한다", async () => {
+    const rows: Array<Record<string, unknown>> = [];
+    const db = fakeInsertDb(rows);
+    // 0~23시 전체가 방해금지인 프로젝트 — 재정의가 없으면 반드시 미뤄진다
+    const project = { id: PROJECT, quietStartHour: 0, quietEndHour: 23, timezone: "UTC" };
+    const msg = { type: "broadcast" as const, title: "주문 확인", body: "결제됐습니다" };
+
+    const quiet = await enqueuePush(project, msg, { db });
+    expect(quiet.scheduled).toBe(true);
+
+    const now = await enqueuePush(project, { ...msg, quiet_hours: false }, { db });
+    expect(now.scheduled).toBe(false);
+    expect(rows.at(-1)).toMatchObject({ status: "queued", ignoreQuietHours: true, scheduledAt: null });
+  });
+
+  it("max_sends_per_minute 를 저장한다 — 0 은 '이 발송은 제한 없음'이다", async () => {
+    const rows: Array<Record<string, unknown>> = [];
+    const db = fakeInsertDb(rows);
+    const project = { id: PROJECT, quietStartHour: null, quietEndHour: null };
+    await enqueuePush(project, { type: "broadcast", title: "a", body: "b", max_sends_per_minute: 0 }, { db });
+    expect(rows.at(-1)?.maxSendsPerMinute).toBe(0);
+    await enqueuePush(project, { type: "broadcast", title: "a", body: "b" }, { db });
+    expect(rows.at(-1)?.maxSendsPerMinute).toBeNull();
+  });
+
+  it("발송이 준 값이 프로젝트 설정을 덮고, 0 은 프로젝트 값으로 되돌아가지 않는다", () => {
+    expect(sendRateLimit({ maxSendsPerMinute: null }, 500)).toBe(500);
+    expect(sendRateLimit({ maxSendsPerMinute: 100 }, 500)).toBe(100);
+    // `?? project` 로 접으면 명시적 해제가 조용히 프로젝트 값으로 되돌아간다
+    expect(sendRateLimit({ maxSendsPerMinute: 0 }, 500)).toBeNull();
   });
 });

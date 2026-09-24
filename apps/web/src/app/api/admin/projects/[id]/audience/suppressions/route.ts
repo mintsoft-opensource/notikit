@@ -5,6 +5,7 @@ import { suppressions } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +68,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "suppression.create", "suppression", authz);
 
   let payload: unknown;
   try {
@@ -86,6 +87,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       .values({ projectId: id, externalId: b.external_id ?? null, token: b.token ?? null, reason: b.reason })
       .returning()
   )[0];
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    action: "suppression.create",
+    targetType: "suppression",
+    targetId: row.id,
+    // token 은 키 이름으로 가려진다. externalId 가 전화번호면 값 판정으로 뒤 4자리만 남는다.
+    diff: buildDiff(null, { externalId: row.externalId, token: row.token, reason: row.reason }),
+  });
   return ok({ suppression: row }, undefined, 201);
 }
 
@@ -94,7 +104,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "suppression.delete", "suppression", authz);
 
   const sid = new URL(req.url).searchParams.get("id");
   if (!sid) return fail("id is required", 422);
@@ -104,7 +114,16 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   const deleted = await db
     .delete(suppressions)
     .where(and(eq(suppressions.projectId, id), eq(suppressions.id, sid)))
-    .returning({ id: suppressions.id });
+    .returning({ id: suppressions.id, externalId: suppressions.externalId, reason: suppressions.reason });
   if (deleted.length === 0) return fail("Suppression not found", 404);
+  // 해제는 "이 사람에게 다시 발송한다" 는 뜻이다 — 누가 풀었는지가 가장 중요한 기록이다
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    action: "suppression.delete",
+    targetType: "suppression",
+    targetId: deleted[0].id,
+    diff: buildDiff({ externalId: deleted[0].externalId, reason: deleted[0].reason }, null),
+  });
   return ok({ deleted: deleted.length });
 }

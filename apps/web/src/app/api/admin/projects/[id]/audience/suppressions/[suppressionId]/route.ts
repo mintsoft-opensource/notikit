@@ -4,6 +4,7 @@ import { suppressions } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; s
   const { id, suppressionId } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "suppression.update", "suppression", authz, suppressionId);
 
   let payload: unknown;
   try {
@@ -71,6 +72,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; s
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
 
   const db = getDb();
+  // 바뀌기 전 사유. update 의 returning 만 보면 "무엇에서 무엇으로" 를 알 수 없다.
+  const previous = (
+    await db
+      .select({ reason: suppressions.reason })
+      .from(suppressions)
+      .where(and(eq(suppressions.id, suppressionId), eq(suppressions.projectId, id)))
+      .limit(1)
+  )[0];
   const rows = await db
     .update(suppressions)
     .set({ reason: parsed.data.reason })
@@ -78,6 +87,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; s
     // returning() 도 전체 행이다 — 여기서도 토큰을 빼야 한다
     .returning(columns);
   if (rows.length === 0) return fail("Not found", 404);
+  const diff = buildDiff(previous, { reason: rows[0].reason });
+  if (diff) {
+    await recordAudit({
+      projectId: id,
+      actor: authz.ctx,
+      action: "suppression.update",
+      targetType: "suppression",
+      targetId: suppressionId,
+      diff,
+    });
+  }
   return ok({ suppression: rows[0] });
 }
 
@@ -85,13 +105,21 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string; 
   const { id, suppressionId } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "suppression.delete", "suppression", authz, suppressionId);
 
   const db = getDb();
   const rows = await db
     .delete(suppressions)
     .where(and(eq(suppressions.id, suppressionId), eq(suppressions.projectId, id)))
-    .returning({ id: suppressions.id });
+    .returning({ id: suppressions.id, externalId: suppressions.externalId, reason: suppressions.reason });
   if (rows.length === 0) return fail("Not found", 404);
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    action: "suppression.delete",
+    targetType: "suppression",
+    targetId: rows[0].id,
+    diff: buildDiff({ externalId: rows[0].externalId, reason: rows[0].reason }, null),
+  });
   return ok({ deleted: rows[0].id });
 }

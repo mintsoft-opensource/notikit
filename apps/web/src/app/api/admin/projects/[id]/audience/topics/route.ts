@@ -4,6 +4,7 @@ import { topics } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { countTopicAudience, isRuleFilled, rulesSchema, toStoredRules } from "@/lib/topic-membership";
 import { z } from "zod";
 
@@ -67,7 +68,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "topic.create", "topic", authz);
 
   let payload: unknown;
   try {
@@ -91,7 +92,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       .onConflictDoNothing({ target: [topics.projectId, topics.name] })
       .returning()
   )[0];
-  if (created) return ok({ topic: created }, undefined, 201);
+  if (created) {
+    await recordAudit({
+      projectId: id,
+      actor: authz.ctx,
+      action: "topic.create",
+      targetType: "topic",
+      targetId: created.id,
+      diff: buildDiff(null, { name: created.name, rules: created.rules }),
+    });
+    return ok({ topic: created }, undefined, 201);
+  }
 
   const existing = (
     await db
@@ -111,16 +122,27 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "topic.delete", "topic", authz);
 
   const name = new URL(req.url).searchParams.get("name");
   if (!name) return fail("name is required", 422);
 
   const db = getDb();
+  // 지워진 내용을 returning 으로 함께 받는다 — id 만 받으면 "무엇이 사라졌는지" 를 복구할 수 없다
   const deleted = await db
     .delete(topics)
     .where(and(eq(topics.projectId, id), eq(topics.name, name)))
-    .returning({ id: topics.id });
+    .returning();
   if (deleted.length === 0) return fail("Topic not found", 404);
+  for (const row of deleted) {
+    await recordAudit({
+      projectId: id,
+      actor: authz.ctx,
+      action: "topic.delete",
+      targetType: "topic",
+      targetId: row.id,
+      diff: buildDiff({ name: row.name, rules: row.rules }, null),
+    });
+  }
   return ok({ deleted: deleted.length });
 }

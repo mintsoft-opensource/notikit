@@ -4,6 +4,7 @@ import { webhooks } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
+import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
 import { generateWebhookSecret, assertSafeWebhookUrl } from "@/lib/webhooks";
 import { z } from "zod";
 
@@ -33,7 +34,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const authz = await requireProject(req, id, { write: true });
-  if (!authz.ok) return fail(authz.error, authz.status);
+  if (!authz.ok) return failAudited(req, id, "webhook.create", "webhook", authz);
   let payload: unknown;
   try {
     payload = await readJsonLimited(req);
@@ -58,5 +59,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       events: webhooks.events,
     })
   )[0];
+  // secret 은 diff 에 넣지 않는다. 키 이름으로 가려지긴 하지만 애초에 넘기지 않는 게 맞다 —
+  // 감사 로그를 읽을 수 있는 사람이 웹훅을 위조할 수 있게 되어서는 안 된다.
+  await recordAudit({
+    projectId: id,
+    actor: authz.ctx,
+    action: "webhook.create",
+    targetType: "webhook",
+    targetId: row.id,
+    diff: buildDiff(null, { url: row.url, events: row.events }),
+  });
   return ok({ webhook: row, secret }, { note: "secret shown once" }, 201);
 }

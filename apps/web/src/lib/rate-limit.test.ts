@@ -140,9 +140,14 @@ describe("bucket eviction (memory cap)", () => {
     delete process.env.REDIS_URL;
     redisMock.enabled = false;
     resetRateLimits();
+    // 창은 epoch 정렬이라 실제 시계로 돌리면 루프 도중 정시를 넘어 카운트가 초기화된다
+    // (그러면 한도보다 많이 통과해 실패한다 — 리미터가 아니라 시계 문제).
+    // 가짜 타이머는 6만 번 await 루프에서 100배 느려지므로 Date.now 만 고정한다.
+    vi.spyOn(Date, "now").mockReturnValue(Date.UTC(2026, 0, 1, 12, 0, 0));
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     if (savedUrl === undefined) delete process.env.REDIS_URL;
     else process.env.REDIS_URL = savedUrl;
   });
@@ -171,7 +176,7 @@ describe("bucket eviction (memory cap)", () => {
     // 창이 한 번도 넘어가지 않았으므로 통과 수는 정확히 한도여야 한다
     expect(allowed).toBe(LIMIT);
     expect(blocked).toBe(60_000 - LIMIT);
-  });
+  }, 30_000);
 
   it("keeps one tenant's flood from wiping another tenant's bucket", async () => {
     const victim = clientKey("victim", "events");
@@ -185,14 +190,14 @@ describe("bucket eviction (memory cap)", () => {
 
     // 남의 축출에 기대 한도가 되살아나면 안 된다
     expect(victimAllowed).toBe(2);
-  });
+  }, 30_000);
 
   it("still honours the memory cap — idle buckets are the ones that go", async () => {
     for (let i = 0; i < MAX_BUCKETS * 2; i++) {
       await rateLimitShared(principalKey("p1", "events", `tok-${i}`), 30, WINDOW);
     }
     expect(getRateLimitHealth().trackedKeys).toBeLessThanOrEqual(MAX_BUCKETS);
-  });
+  }, 30_000);
 });
 
 describe("clientKey", () => {
