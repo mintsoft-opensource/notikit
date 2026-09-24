@@ -140,7 +140,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
               </div>
               {secret && (
                 // 값은 글자로 보이고, 복사는 공용 Button 이 맡는다 — 포커스 링·크기 규칙을 따르게
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-accent-soft py-1.5 ps-3 pe-1.5">
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-accent-soft py-1.5 ps-3.5 pe-1.5">
                   <span className="min-w-0 truncate font-mono text-xs text-primary">{t("secretOnce")}: {secret}</span>
                   <Button variant="outline" size="sm" className="shrink-0" onClick={() => copySecret(secret)}>
                     <Copy aria-hidden="true" className="h-4 w-4" /> {tc("copy")}
@@ -156,7 +156,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
               {!hooks && <><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></>}
               {hooks?.length === 0 && <p className="text-sm text-muted-foreground">{t("empty")}</p>}
               {hooks?.map((h) => (
-                <div key={h.id} className="rounded-lg border border-border px-3.5 py-2">
+                <div key={h.id} className="rounded-lg border border-border p-3.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium">{h.url}</span>
                     <Badge variant={h.isActive ? "success" : "neutral"}>{h.isActive ? t("statusActive") : t("statusInactive")}</Badge>

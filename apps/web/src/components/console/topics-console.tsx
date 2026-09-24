@@ -178,7 +178,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
             {(["subscribe", "rules"] as const).map((m) => (
               <label
                 key={m}
-                className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border p-2.5 hover:bg-surface-muted/40 has-[:checked]:border-primary has-[:checked]:bg-accent-soft"
+                className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border p-3.5 hover:bg-surface-muted/40 has-[:checked]:border-primary has-[:checked]:bg-accent-soft"
               >
                 <input
                   type="radio"

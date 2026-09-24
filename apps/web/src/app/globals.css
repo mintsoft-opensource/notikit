@@ -163,16 +163,20 @@
   /* Typography scale — Tailwind text-* 유틸리티의 단일 출처.
    * 글씨 크기는 **여기서만** 조절한다. html{font-size} 를 건드리면 rem 기반 spacing
    * (padding/gap/width)까지 같이 움직여 레이아웃이 통째로 바뀐다.
-   * px 주석은 브라우저 기본 16px 기준. 관리 콘솔이라 goji 보다 한 단계 촘촘하게 잡았다. */
-  --text-2xs: 0.625rem;     /* 10 — caption. 아래 두 단계는 가독성 하한이라 더 줄이지 않는다 */
-  --text-xs: 0.6875rem;     /* 11 — small label */
-  --text-sm: 0.71875rem;    /* 11.5 — body */
-  --text-base: 0.75rem;     /* 12 — input text */
-  --text-md: 0.8125rem;     /* 13 — card title */
-  --text-lg: 0.9375rem;     /* 15 — page subtitle */
-  --text-xl: 1.125rem;      /* 18 — section header */
-  --text-2xl: 1.375rem;     /* 22 — h1 */
-  --text-3xl: 1.6875rem;    /* 27 — display */
+   * px 주석은 브라우저 기본 16px 기준.
+   *
+   * 단계는 **최소 1px 씩** 벌린다. 0.5px 차이는 렌더링에서 같은 픽셀로 떨어져
+   * 위계가 아니라 잡음이 된다 — 본문과 보조 글씨를 구분할 수 없게 된다.
+   * 본문(text-sm)은 13px — Linear 와 같은 하한이고, 관리 콘솔 밀도에서 더 줄이지 않는다. */
+  --text-2xs: 0.6875rem;    /* 11 — 뱃지·캡션. 가독성 하한이라 더 줄이지 않는다 */
+  --text-xs: 0.75rem;       /* 12 — 보조 라벨·힌트·표 헤더 */
+  --text-sm: 0.8125rem;     /* 13 — 본문 · 입력칸 */
+  --text-base: 0.875rem;    /* 14 — 강조 본문 */
+  --text-md: 0.9375rem;     /* 15 — 카드 제목 */
+  --text-lg: 1.0625rem;     /* 17 — 페이지 부제 */
+  --text-xl: 1.25rem;       /* 20 — 섹션 헤더·지표 숫자 */
+  --text-2xl: 1.5rem;       /* 24 — h1 */
+  --text-3xl: 1.875rem;     /* 30 — display */
 }
 
 /* 본문 바로가기 대상 — 포커스를 받아도 링을 그리지 않는다(스크롤 컨테이너 전체가 테두리로 덮인다) */
@@ -243,7 +247,7 @@ body {
 [role="cell"][data-label]:not([data-label=""]):not(.flex):not(.grid)::before {
   display: block;
   margin-bottom: 0.125rem;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted-foreground);
 }

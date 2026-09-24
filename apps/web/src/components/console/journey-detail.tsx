@@ -12,7 +12,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DataRow } from "@/components/ui/data-row";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { JourneyFields, cleanSteps, sameSteps, toStepDrafts, type Step, type StepDraft } from "@/components/console/journey-form";
+import {
+  JourneyFields,
+  cleanDraft,
+  sameDraft,
+  toDraft,
+  validateDraft,
+  type JourneyDraft,
+  type Step,
+  type StepErrors,
+} from "@/components/console/journey-form";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Journey = { id: string; name: string; steps: Step[]; createdAt: string };
@@ -25,36 +34,46 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
 
   const [loaded, setLoaded] = React.useState<Journey | null>(null);
   const [activeRuns, setActiveRuns] = React.useState(0);
+  const [exitedRuns, setExitedRuns] = React.useState(0);
   const [totalRuns, setTotalRuns] = React.useState(0);
+  const [stepCounts, setStepCounts] = React.useState<Record<string, number>>({});
   const [missing, setMissing] = React.useState(false);
   /** 404 가 아닌 실패 — 스켈레톤을 영원히 돌리지 않고 오류와 재시도를 보인다 */
   const [failed, setFailed] = React.useState(false);
   const [name, setName] = React.useState("");
-  const [steps, setSteps] = React.useState<StepDraft[]>(() => toStepDrafts([]));
+  const [draft, setDraft] = React.useState<JourneyDraft>(() => toDraft([]));
   /** 서버에 저장된 스텝을 드래프트로 — dirty 비교 기준. 렌더마다 rowId 를 새로 만들지 않게 불러올 때 한 번 만든다 */
-  const [savedSteps, setSavedSteps] = React.useState<StepDraft[]>([]);
+  const [savedDraft, setSavedDraft] = React.useState<JourneyDraft>(() => toDraft([]));
+  const [errors, setErrors] = React.useState<StepErrors>({});
   const [saving, setSaving] = React.useState(false);
   const reqRef = React.useRef(0);
 
   const apply = React.useCallback((journey: Journey) => {
     setLoaded(journey);
     setName(journey.name);
-    const drafts = toStepDrafts(journey.steps);
-    setSteps(drafts);
-    setSavedSteps(drafts);
+    const next = toDraft(journey.steps);
+    setDraft(next);
+    setSavedDraft(next);
+    setErrors({});
   }, []);
 
   const load = React.useCallback(async () => {
     const my = ++reqRef.current;
     setFailed(false);
     try {
-      const d = await adminApi<{ journey: Journey; activeRuns: number; totalRuns: number }>(
-        `/api/admin/projects/${projectId}/journeys/${journeyId}`
-      );
+      const d = await adminApi<{
+        journey: Journey;
+        activeRuns: number;
+        exitedRuns: number;
+        totalRuns: number;
+        stepCounts: Record<string, number>;
+      }>(`/api/admin/projects/${projectId}/journeys/${journeyId}`);
       if (my !== reqRef.current) return;
       apply(d.journey);
       setActiveRuns(d.activeRuns);
+      setExitedRuns(d.exitedRuns);
       setTotalRuns(d.totalRuns);
+      setStepCounts(d.stepCounts ?? {});
     } catch (e) {
       if (my !== reqRef.current) return;
       // 404 는 "없음"으로, 나머지는 오류로 구분한다 — 지워진 것과 장애는 대응이 다르다
@@ -70,15 +89,23 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
   }, [load]);
 
   // 이름은 잠겨 있으므로 스텝 변경만 본다
-  const dirty = !!loaded && !sameSteps(steps, savedSteps);
+  const dirty = !!loaded && !sameDraft(draft, savedDraft);
 
   async function save() {
     if (saving) return;
+    // 칸별 오류를 먼저 낸다 — 서버 422 를 토스트로만 보여 주면 어느 스텝이 문제인지 알 수 없다
+    const found = validateDraft(draft, t);
+    setErrors(found);
+    const firstBad = Object.keys(found)[0];
+    if (firstBad) {
+      document.querySelector<HTMLElement>(`[data-row="${firstBad}"] input`)?.focus();
+      return;
+    }
     setSaving(true);
     try {
       const d = await adminApi<{ journey: Journey }>(`/api/admin/projects/${projectId}/journeys/${journeyId}`, {
         method: "PATCH",
-        body: JSON.stringify({ steps: cleanSteps(steps) }),
+        body: JSON.stringify({ steps: cleanDraft(draft) }),
       });
       // 서버가 돌려준 값으로 되맞춘다 — 안 하면 dirty 가 영구히 true 로 남는다
       apply(d.journey);
@@ -171,7 +198,18 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
       <Card>
         <CardHeader><CardTitle>{tc("edit")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <JourneyFields idPrefix="journey" name={name} steps={steps} onName={setName} onSteps={setSteps} nameLocked disabled={saving} />
+          <JourneyFields
+            idPrefix="journey"
+            name={name}
+            draft={draft}
+            onName={setName}
+            onDraft={setDraft}
+            errors={errors}
+            // 스텝별 인원을 편집 화면 안에 함께 둔다 — 표를 따로 두면 어느 줄이 어느 스텝인지 맞춰 봐야 한다
+            stepCounts={stepCounts}
+            nameLocked
+            disabled={saving}
+          />
           <div className="flex justify-end">
             {/* 바뀐 게 없으면 비활성 — 누르면 저장된 것처럼 보이지만 아무 일도 안 일어난다 */}
             <Button onClick={save} disabled={saving || !dirty}>{tc("save")}</Button>
@@ -185,6 +223,7 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
           <dl className="space-y-1">
           <DataRow label="ID" value={loaded.id} />
           <DataRow label={t("activeRuns")} value={String(activeRuns)} />
+          <DataRow label={t("exitedRuns")} value={String(exitedRuns)} />
           <DataRow label={t("totalRuns")} value={String(totalRuns)} />
           <DataRow label={tc("createdAt")} value={new Date(loaded.createdAt).toLocaleString()} />
           </dl>

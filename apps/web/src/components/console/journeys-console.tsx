@@ -11,7 +11,18 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProjectPicker } from "@/components/console/shared";
-import { JourneyFields, EMPTY_STEPS, cleanSteps, sameSteps, toStepDrafts, type Step, type StepDraft } from "@/components/console/journey-form";
+import {
+  JourneyFields,
+  EMPTY_STEPS,
+  cleanDraft,
+  sameDraft,
+  toDraft,
+  validateDraft,
+  type JourneyDraft,
+  type Step,
+  type StepErrors,
+} from "@/components/console/journey-form";
+import { entryEventOf, normalizeSteps } from "@/lib/journey-steps";
 import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Journey = { id: string; name: string; steps: Step[] };
@@ -25,7 +36,8 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
   const sel = projectId ?? picked;
   const [journeys, setJourneys] = React.useState<Journey[]>([]);
   const [name, setName] = React.useState("");
-  const [steps, setSteps] = React.useState<StepDraft[]>(() => toStepDrafts(EMPTY_STEPS));
+  const [draft, setDraft] = React.useState<JourneyDraft>(() => toDraft(EMPTY_STEPS));
+  const [errors, setErrors] = React.useState<StepErrors>({});
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const reqRef = React.useRef(0);
@@ -55,27 +67,37 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
   function close() {
     // 저장 중에 닫으면 결과가 어디에도 안 보인다 — 끝날 때까지 막는다
     if (saving) return;
-    const dirty = name.trim() !== "" || !sameSteps(steps, toStepDrafts(EMPTY_STEPS));
+    const dirty = name.trim() !== "" || !sameDraft(draft, toDraft(EMPTY_STEPS));
     if (dirty && !confirm(tc("unsavedConfirm"))) return;
     setOpen(false);
     setName("");
-    setSteps(toStepDrafts(EMPTY_STEPS));
+    setDraft(toDraft(EMPTY_STEPS));
+    setErrors({});
   }
 
   async function create() {
     if (!sel || !name.trim() || saving) return;
+    // 칸별 오류를 먼저 낸다 — 서버 422 를 토스트로만 보여 주면 어느 스텝이 문제인지 알 수 없다
+    const found = validateDraft(draft, t);
+    setErrors(found);
+    const firstBad = Object.keys(found)[0];
+    if (firstBad) {
+      document.querySelector<HTMLElement>(`[data-row="${firstBad}"] input`)?.focus();
+      return;
+    }
     const target = sel;
     setSaving(true);
     try {
       await adminApi(`/api/admin/projects/${target}/journeys`, {
         method: "POST",
-        body: JSON.stringify({ name: name.trim(), steps: cleanSteps(steps) }),
+        body: JSON.stringify({ name: name.trim(), steps: cleanDraft(draft) }),
       });
       toast.success(t("created"));
       // 완료 시점에 다른 프로젝트로 전환됐으면 B 의 드래프트를 지우지 않음
       if (selRef.current === target) {
         setName("");
-        setSteps(toStepDrafts(EMPTY_STEPS));
+        setDraft(toDraft(EMPTY_STEPS));
+        setErrors({});
         setOpen(false);
         load(target);
       }
@@ -131,7 +153,15 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
               </>
             }
           >
-            <JourneyFields idPrefix="new-journey" name={name} steps={steps} onName={setName} onSteps={setSteps} disabled={saving} />
+            <JourneyFields
+              idPrefix="new-journey"
+              name={name}
+              draft={draft}
+              onName={setName}
+              onDraft={setDraft}
+              errors={errors}
+              disabled={saving}
+            />
           </Dialog>
 
           <Card>
@@ -149,9 +179,9 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
                   <div className="flex shrink-0 items-center gap-2">
                     <div className="hidden flex-wrap justify-end gap-1 sm:flex">
                       {/* 읽기 전용 목록이라 순서가 곧 정체성 — 인덱스 key 로 충분하다 */}
-                      {j.steps.map((s, i) => (
-                        <Badge key={i} variant={s.type === "send" ? "primary" : "neutral"}>
-                          {s.type === "send" ? t("stepTypeSend") : t("stepWaitBadge", { hours: s.hours ?? 0 })}
+                      {summarize(j.steps).map((b, i) => (
+                        <Badge key={i} variant={b.tone}>
+                          {b.key === "stepWaitBadge" ? t(b.key, { hours: b.hours ?? 0 }) : t(b.key)}
                         </Badge>
                       ))}
                     </div>
@@ -165,4 +195,24 @@ export function JourneysConsole({ projectId }: { projectId?: string }) {
       )}
     </div>
   );
+}
+
+type SummaryBadge = { key: "entryBadge" | "stepTypeSend" | "stepWaitBadge" | "stepTypeBranch" | "stepTypeExit"; tone: "primary" | "neutral" | "warning"; hours?: number };
+
+/**
+ * 목록의 한 줄 요약. 트리를 통째로 펼치면 줄이 끝없이 길어지므로 **루트 스텝만** 낸다 —
+ * 분기 안쪽은 상세 화면에서 본다. 진입 트리거가 있으면 맨 앞에 알린다: 트리거 저니와
+ * API 로만 들어오는 저니는 운영이 완전히 다르다.
+ */
+function summarize(steps: Step[]): SummaryBadge[] {
+  const tree = normalizeSteps(steps);
+  const out: SummaryBadge[] = [];
+  if (entryEventOf(tree)) out.push({ key: "entryBadge", tone: "warning" });
+  for (const s of tree) {
+    if (s.type === "send") out.push({ key: "stepTypeSend", tone: "primary" });
+    else if (s.type === "wait") out.push({ key: "stepWaitBadge", tone: "neutral", hours: s.hours ?? 0 });
+    else if (s.type === "branch") out.push({ key: "stepTypeBranch", tone: "primary" });
+    else if (s.type === "exit") out.push({ key: "stepTypeExit", tone: "neutral" });
+  }
+  return out;
 }

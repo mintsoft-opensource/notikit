@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Send, Clock, FlaskConical, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea, Field } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
@@ -24,7 +25,16 @@ import { SendSummary } from "@/components/console/send-summary";
 import { SendReviewDialog } from "@/components/console/send-review-dialog";
 import { useAudienceEstimate } from "@/components/console/send-estimate";
 import { SendResultCard, type SendResult } from "@/components/console/send-result";
-import { SendVariantFields, type VariantDraft } from "@/components/console/send-variants";
+import {
+  SendAbTestFields,
+  SendVariantFields,
+  buildAbTest,
+  emptyAbTest,
+  hasAbTestErrors,
+  type AbTestDraft,
+  type AbTestPayload,
+  type VariantDraft,
+} from "@/components/console/send-variants";
 import {
   SendOptions,
   buildSendOptions,
@@ -56,6 +66,8 @@ type Content = {
   options?: PushOptionsPayload;
   /** 받는 사람 현지 시각 "HH:MM" — options 안이 아니라 본문 최상위 필드다 */
   local_time?: string;
+  /** A/B 자동 승자 — 변형이 있는 발송에만 붙는다 */
+  ab_test?: AbTestPayload;
 };
 
 /**
@@ -76,6 +88,7 @@ export function SendConsole({
   initialTemplateId?: string;
 }) {
   const t = useTranslations("send");
+  const tc = useTranslations("common");
   const uiLocale = useLocale();
   const errorText = useAdminErrorText();
   const { projects } = useProjects();
@@ -94,6 +107,11 @@ export function SendConsole({
   const [title, setTitle] = React.useState("");
   const [body, setBody] = React.useState("");
   const [variants, setVariants] = React.useState<VariantDraft[]>([]);
+  /** 한 사람에게 가는 발송은 표본과 나머지로 가를 수 없다 — 서버도 같은 이유로 거절한다 */
+  const abAllowed = type !== "single" && variants.length > 0;
+  const [abTest, setAbTest] = React.useState<AbTestDraft>(emptyAbTest);
+  const builtAbTest = React.useMemo(() => buildAbTest(abTest, abAllowed), [abTest, abAllowed]);
+  const abInvalid = hasAbTestErrors(builtAbTest.errors);
   const [deepLink, setDeepLink] = React.useState("");
   const [imageUrl, setImageUrl] = React.useState("");
   const [sendOptions, setSendOptions] = React.useState<SendOptionsDraft>(emptySendOptions);
@@ -233,7 +251,15 @@ export function SendConsole({
     });
   }
 
-  /** 템플릿 적용 — 이미 쓴 내용이 있으면 덮어쓰기 전에 묻는다. false 면 선택을 되돌린다. */
+  /**
+   * 템플릿 적용 — 이미 쓴 내용이 있으면 덮어쓰기 전에 묻는다. false 면 선택을 되돌린다.
+   *
+   * 확인은 네이티브 `confirm()` 이 아니라 콘솔 다이얼로그로 받는다: confirm 의 버튼 글자는
+   * 브라우저 언어라 한국어 화면에 "OK/Cancel" 이 섞이고, 포커스 복원도 우리가 못 한다.
+   * 다이얼로그는 비동기라 이 함수 자리에서 답을 줄 수 없으므로, 일단 false 로 선택을 되돌린 뒤
+   * 확인을 받으면 고른 템플릿을 `initialId` 로 다시 마운트해 적용한다 — 그래야 고른 값과
+   * 화면의 선택이 어긋나지 않는다.
+   */
   function applyTemplate(tpl: MessageTemplate | null, { initial }: { initial: boolean }): boolean {
     if (!tpl) {
       setTemplateFields([]);
@@ -241,14 +267,38 @@ export function SendConsole({
       return true;
     }
     const overwrites = Boolean(title || body || deepLink) || Object.values(fieldValues).some((v) => v !== "");
-    const needsConfirm = initial ? overwrites || extras.length > 0 : overwrites;
-    if (needsConfirm && !confirm(t("confirmApplyTemplate", { name: tpl.name }))) return false;
+    const confirmed = forcedTemplate.current === tpl.id;
+    if ((initial ? overwrites || extras.length > 0 : overwrites) && !confirmed) {
+      setPendingTemplate(tpl);
+      return false;
+    }
     setTitle(tpl.title);
     setBody(tpl.body);
     setDeepLink(tpl.deepLink ?? "");
     setTemplateFields(tpl.fields);
     setFieldValues({});
+    // 다시 마운트하며 적용한 경우 포커스가 사라진 고르기 칸에 남아 있다 — 바뀐 제목 칸으로 옮긴다
+    if (confirmed) {
+      forcedTemplate.current = null;
+      requestAnimationFrame(() => titleRef.current?.focus());
+    }
     return true;
+  }
+
+  /** 확인 다이얼로그가 떠 있는 템플릿 */
+  const [pendingTemplate, setPendingTemplate] = React.useState<MessageTemplate | null>(null);
+  /** 확인을 받은 템플릿 id — 다시 마운트된 고르기가 이 값을 보고 묻지 않고 적용한다 */
+  const forcedTemplate = React.useRef<string | null>(null);
+  const [templateEpoch, setTemplateEpoch] = React.useState(0);
+  const [forcedTemplateId, setForcedTemplateId] = React.useState<string | undefined>(undefined);
+
+  function confirmTemplate() {
+    const tpl = pendingTemplate;
+    setPendingTemplate(null);
+    if (!tpl) return;
+    forcedTemplate.current = tpl.id;
+    setForcedTemplateId(tpl.id);
+    setTemplateEpoch((n) => n + 1);
   }
 
   /** 커스텀 필드 → 푸시 data. 문제가 있으면 사용자에게 보일 메시지를 돌려준다. */
@@ -289,6 +339,7 @@ export function SendConsole({
       return blocked(imageState === "notHttps" ? t("imageNotHttps") : t("imageInvalid"));
     }
     if (variants.some((v) => !v.title.trim() || !v.body.trim())) return blocked(t("errVariantEmpty"));
+    if (abInvalid) return blocked(t("errAbTestInvalid"));
     setShowErrors(false);
     setLiveError("");
     const content: Content = { title, body };
@@ -300,6 +351,7 @@ export function SendConsole({
     if (validImage) content.image_url = validImage;
     if (builtOptions.options) content.options = builtOptions.options;
     if (builtOptions.localTime) content.local_time = builtOptions.localTime;
+    if (builtAbTest.value) content.ab_test = builtAbTest.value;
     return content;
   }
 
@@ -365,6 +417,7 @@ export function SendConsole({
       setTitle("");
       setBody("");
       setVariants([]);
+      setAbTest(emptyAbTest());
       setImageUrl("");
       setDeepLink("");
       setScheduleDate("");
@@ -435,7 +488,7 @@ export function SendConsole({
 
   const variantsDone = variants.every((v) => v.title.trim() && v.body.trim());
   const contentDone =
-    (silent || Boolean(title && body)) && variantsDone && !custom.error && imageState !== "notHttps" && imageState !== "invalid";
+    (silent || Boolean(title && body)) && variantsDone && !abInvalid && !custom.error && imageState !== "notHttps" && imageState !== "invalid";
   const optionsDone = !optionsInvalid;
   const shown = audience.shown;
 
@@ -453,7 +506,12 @@ export function SendConsole({
           </StepCard>
 
           <StepCard step={2} title={t("sectionContent")} done={contentDone}>
-            <SendTemplatePicker projectId={projectId} initialId={initialTemplateId} onApply={applyTemplate} />
+            <SendTemplatePicker
+              key={templateEpoch}
+              projectId={projectId}
+              initialId={forcedTemplateId ?? initialTemplateId}
+              onApply={applyTemplate}
+            />
             <div className="space-y-1">
               <CountedLabel htmlFor={titleId} label={t("titleLabel")} counterId={`${titleId}-count`} value={renderedTitle} max={TITLE_RECOMMENDED} />
               <Input
@@ -495,6 +553,9 @@ export function SendConsole({
               disabled={sending}
             />
             <SendVariantFields variants={variants} onVariants={setVariants} render={renderPreview} errors={variantErrors} disabled={sending} />
+            {abAllowed && (
+              <SendAbTestFields value={abTest} onChange={setAbTest} errors={builtAbTest.errors} disabled={sending} />
+            )}
             <SendImageField value={imageUrl} onChange={setImageUrl} disabled={sending} />
             <Field label={t("deepLink")} hint={t("helpDeepLink")}>
               <Input inputMode="url" spellCheck={false} autoComplete="off" value={deepLink} onChange={(e) => setDeepLink(e.target.value)} placeholder="myapp://path · https://…" />
@@ -610,6 +671,21 @@ export function SendConsole({
         silent={silent}
         actions={builtOptions.options?.actions}
       />
+      <Dialog
+        open={pendingTemplate !== null}
+        onClose={() => setPendingTemplate(null)}
+        size="sm"
+        title={t("confirmApplyTemplateTitle")}
+        description={pendingTemplate ? t("confirmApplyTemplate", { name: pendingTemplate.name }) : undefined}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPendingTemplate(null)}>{tc("cancel")}</Button>
+            <Button onClick={confirmTemplate}>{t("applyTemplateAction")}</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">{t("confirmApplyTemplateDetail")}</p>
+      </Dialog>
       <UserSearchDialog
         open={testPickerOpen}
         projectId={projectId}
@@ -624,8 +700,8 @@ export function SendConsole({
   );
 }
 
-/** 테스트 발송은 한 사람에게 가므로 변형 배정 없이 기본 내용(A)을 보낸다 */
-function withoutVariants(content: Content): Omit<Content, "variants"> {
-  const { variants: _variants, ...rest } = content;
+/** 테스트 발송은 한 사람에게 가므로 변형 배정도 A/B 판정도 없이 기본 내용(A)을 보낸다 */
+function withoutVariants(content: Content): Omit<Content, "variants" | "ab_test"> {
+  const { variants: _variants, ab_test: _abTest, ...rest } = content;
   return rest;
 }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { LiveChart } from "@/components/system/live-chart";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 
 type Reader = {
@@ -86,7 +87,7 @@ export function ReaderDetail({ projectId, logId }: { projectId: string; logId: s
   return (
     <div className="space-y-3 border-t border-border bg-surface-muted/20 px-3.5 py-2.5">
       <section>
-        <h4 className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("readTrend")}</h4>
+        <Eyebrow as="h4" className="mb-2">{t("readTrend")}</Eyebrow>
         {data.series.some((p) => p.count > 0) ? (
           <LiveChart
             label={t("readTrend")}
@@ -107,31 +108,29 @@ export function ReaderDetail({ projectId, logId }: { projectId: string; logId: s
       </section>
 
       <section>
-        <h4 className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
-          {t("readerTable", { count: nf.format(data.readers.length) })}
-        </h4>
+        <Eyebrow as="h4" className="mb-2">{t("readerTable", { count: nf.format(data.readers.length) })}</Eyebrow>
         {data.readers.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">{t("noReaders")}</p>
         ) : (
           <div className="overflow-x-auto border border-border bg-surface">
             <table className="w-full min-w-[36rem] text-start">
               <thead className="border-b border-border">
-                <tr className="text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
-                  <th scope="col" className="px-3 py-2">{t("colUser")}</th>
-                  <th scope="col" className="px-3 py-2">{t("colPlatform")}</th>
-                  <th scope="col" className="px-3 py-2">{t("colDestination")}</th>
-                  <th scope="col" className="px-3 py-2 text-end">{t("colReadAt")}</th>
+                <tr className="bg-surface-muted/50 text-xs font-semibold text-muted-foreground">
+                  <th scope="col" className="px-3.5 py-2.5">{t("colUser")}</th>
+                  <th scope="col" className="px-3.5 py-2.5">{t("colPlatform")}</th>
+                  <th scope="col" className="px-3.5 py-2.5">{t("colDestination")}</th>
+                  <th scope="col" className="px-3.5 py-2.5 text-end">{t("colReadAt")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {data.readers.map((r) => (
                   <tr key={r.id}>
-                    <td className="max-w-0 truncate px-3 py-2 font-mono text-xs font-semibold">
+                    <td className="max-w-0 truncate px-3.5 py-2.5 font-mono text-xs font-semibold">
                       {r.externalId ?? <span className="font-sans font-normal text-muted-foreground">{t("anonymousReader")}</span>}
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">{r.platform ?? "—"}</td>
-                    <td className="max-w-0 truncate px-3 py-2 text-xs text-muted-foreground">{r.destination ?? "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-end text-xs tabular-nums text-muted-foreground">
+                    <td className="px-3.5 py-2.5 text-xs text-muted-foreground">{r.platform ?? "—"}</td>
+                    <td className="max-w-0 truncate px-3.5 py-2.5 text-xs text-muted-foreground">{r.destination ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 text-end text-xs tabular-nums text-muted-foreground">
                       <time dateTime={r.clickedAt}>{df.format(new Date(r.clickedAt))}</time>
                     </td>
                   </tr>

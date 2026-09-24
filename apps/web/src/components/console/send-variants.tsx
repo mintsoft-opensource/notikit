@@ -4,13 +4,25 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/input";
+import { Field, Input, Textarea } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
+// 판정 상수는 서버와 한 곳에서 나눠 쓴다 — 어긋나면 화면은 통과시키고 서버가 422 로 막는다
+import {
+  AB_MIN_VARIANT_SAMPLE,
+  AB_SAMPLE_MAX,
+  AB_SAMPLE_MIN,
+  AB_TIE_MARGIN,
+  AB_WAIT_MAX_MINUTES,
+  AB_WAIT_MIN_MINUTES,
+} from "@/lib/ab-test";
 import { CountedLabel } from "./send-content-fields";
 import { BODY_RECOMMENDED, TITLE_RECOMMENDED } from "./send-rules";
 
 /** 기본 내용이 변형 A, 여기서 더하는 것이 B 부터 — API 는 변형을 2~5개 받는다 */
 export const MAX_EXTRA_VARIANTS = 4;
+
+/** 동률 가드(0.01)를 화면 단위(%p)로 */
+const AB_TIE_MARGIN_POINTS = Math.round(AB_TIE_MARGIN * 100);
 
 export type VariantDraft = { rowId: string; title: string; body: string };
 
@@ -146,6 +158,122 @@ export function SendVariantFields({
             <Plus aria-hidden="true" className="h-4 w-4" /> {t("addVariant", { letter: nextLetter })}
           </Button>
           <p className="text-xs text-muted-foreground">{t("variantHint")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── A/B 자동 승자 ───────────────────────────────────────────────────────────
+
+/** 입력칸은 문자열로 들고 있는다 — 숫자로 바꿔 두면 "비움"과 0 을 구분할 수 없다 */
+export type AbTestDraft = { enabled: boolean; samplePercent: string; waitMinutes: string };
+
+export type AbTestPayload = { sample_percent: number; wait_minutes: number };
+
+type AbErrorKey = "errAbSample" | "errAbWait";
+export type AbTestErrors = { samplePercent?: AbErrorKey; waitMinutes?: AbErrorKey };
+
+export function emptyAbTest(): AbTestDraft {
+  return { enabled: false, samplePercent: "20", waitMinutes: "60" };
+}
+
+function intInRange(raw: string, min: number, max: number): number | null {
+  const s = raw.trim();
+  if (!/^\d+$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isSafeInteger(n) && n >= min && n <= max ? n : null;
+}
+
+/** 초안 → 발송 본문의 `ab_test`. 꺼져 있으면 null 이라 보내지 않는다. */
+export function buildAbTest(d: AbTestDraft, enabled: boolean): { value: AbTestPayload | null; errors: AbTestErrors } {
+  if (!enabled || !d.enabled) return { value: null, errors: {} };
+  const sample = intInRange(d.samplePercent, AB_SAMPLE_MIN, AB_SAMPLE_MAX);
+  const wait = intInRange(d.waitMinutes, AB_WAIT_MIN_MINUTES, AB_WAIT_MAX_MINUTES);
+  const errors: AbTestErrors = {
+    ...(sample === null ? { samplePercent: "errAbSample" as const } : {}),
+    ...(wait === null ? { waitMinutes: "errAbWait" as const } : {}),
+  };
+  if (sample === null || wait === null) return { value: null, errors };
+  return { value: { sample_percent: sample, wait_minutes: wait }, errors };
+}
+
+export function hasAbTestErrors(e: AbTestErrors): boolean {
+  return Boolean(e.samplePercent || e.waitMinutes);
+}
+
+/**
+ * A/B 자동 승자 설정 — 표본 비율과 판정 대기.
+ *
+ * 지표(유니크 클릭률)는 고르게 하지 않는다: 고를 수 있으면 판정 규칙이 지표마다 갈라지고,
+ * 무엇으로 이겼는지 나중에 읽는 사람이 매번 확인해야 한다.
+ * 최소 표본·동률 가드는 미리 문장으로 밝힌다 — 승자가 안 나왔을 때 "고장"으로 읽히지 않게.
+ */
+export function SendAbTestFields({
+  value,
+  onChange,
+  errors,
+  disabled,
+}: {
+  value: AbTestDraft;
+  onChange: (v: AbTestDraft) => void;
+  errors: AbTestErrors;
+  disabled?: boolean;
+}) {
+  const t = useTranslations("send");
+  const toggleId = React.useId();
+  const set = (patch: Partial<AbTestDraft>) => onChange({ ...value, ...patch });
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border p-3">
+      <div className="flex items-start gap-2">
+        <input
+          id={toggleId}
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          checked={value.enabled}
+          disabled={disabled}
+          onChange={(e) => set({ enabled: e.target.checked })}
+        />
+        <div className="min-w-0 space-y-1">
+          <label htmlFor={toggleId} className="block text-xs font-semibold text-foreground">{t("abTestLabel")}</label>
+          <p className="text-xs text-muted-foreground">{t("abTestHint")}</p>
+        </div>
+      </div>
+
+      {value.enabled && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-4">
+            <Field
+              label={t("abSampleLabel")}
+              error={errors.samplePercent ? t(errors.samplePercent, { min: AB_SAMPLE_MIN, max: AB_SAMPLE_MAX }) : null}
+              className="min-w-40 flex-1"
+            >
+              <Input
+                inputMode="numeric"
+                value={value.samplePercent}
+                disabled={disabled}
+                onChange={(e) => set({ samplePercent: e.target.value })}
+                placeholder="20"
+              />
+            </Field>
+            <Field
+              label={t("abWaitLabel")}
+              error={errors.waitMinutes ? t(errors.waitMinutes, { min: AB_WAIT_MIN_MINUTES, max: AB_WAIT_MAX_MINUTES }) : null}
+              className="min-w-40 flex-1"
+            >
+              <Input
+                inputMode="numeric"
+                value={value.waitMinutes}
+                disabled={disabled}
+                onChange={(e) => set({ waitMinutes: e.target.value })}
+                placeholder="60"
+              />
+            </Field>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("abTestNotice", { min: AB_MIN_VARIANT_SAMPLE, margin: AB_TIE_MARGIN_POINTS })}
+          </p>
         </div>
       )}
     </div>

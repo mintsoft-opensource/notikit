@@ -9,8 +9,24 @@ import { cn } from "@/lib/utils";
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** 본문의 첫 입력 → 본문의 첫 버튼 → 패널 순. 헤더의 닫기(X)가 DOM 상 먼저라 본문으로 범위를 좁힌다. */
-function initialFocusTarget(body: HTMLElement | null, panel: HTMLElement | null): HTMLElement | null {
+/**
+ * 첫 포커스 위치.
+ *
+ * `firstField`(기본): 본문의 첫 입력 → 본문의 첫 버튼 → 패널 순. 헤더의 닫기(X)가 DOM 상
+ *   먼저라 본문으로 범위를 좁힌다. 바로 타이핑을 시작하는 생성 폼에 맞다.
+ * `dialog`: 패널 자체. 본문이 **읽을 내용 먼저**인 창(검토·확인)에서 쓴다 — 첫 입력이
+ *   맨 아래 체크박스면 거기로 뛰어 버려서 스크린리더 사용자가 그 위의 대상·인원·경고를
+ *   통째로 건너뛴다(WCAG 2.4.3). 패널은 aria-labelledby/describedby 를 달고 있으므로
+ *   제목과 설명이 먼저 읽히고, 그다음 본문을 순서대로 훑게 된다.
+ */
+export type DialogInitialFocus = "firstField" | "dialog";
+
+function initialFocusTarget(
+  body: HTMLElement | null,
+  panel: HTMLElement | null,
+  mode: DialogInitialFocus
+): HTMLElement | null {
+  if (mode === "dialog") return panel;
   return (
     body?.querySelector<HTMLElement>(
       "input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])"
@@ -58,6 +74,7 @@ export function Dialog({
   children,
   footer,
   size = "md",
+  initialFocus = "firstField",
 }: {
   open: boolean;
   onClose: () => void;
@@ -66,6 +83,8 @@ export function Dialog({
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg";
+  /** 읽을 내용이 먼저인 창은 `dialog` 로 — 자세한 이유는 DialogInitialFocus 주석 */
+  initialFocus?: DialogInitialFocus;
 }) {
   const tc = useTranslations("common");
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -94,8 +113,8 @@ export function Dialog({
 
   React.useEffect(() => {
     if (!open) return;
-    initialFocusTarget(bodyRef.current, panelRef.current)?.focus();
-  }, [open]);
+    initialFocusTarget(bodyRef.current, panelRef.current, initialFocus)?.focus();
+  }, [open, initialFocus]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -113,7 +132,7 @@ export function Dialog({
       const target = e.target as Node | null;
       if (!target || container!.contains(target)) return;
       if (target instanceof Element && target.closest("[inert]")) {
-        initialFocusTarget(bodyRef.current, panel)?.focus();
+        initialFocusTarget(bodyRef.current, panel, initialFocus)?.focus();
       }
     }
 
@@ -126,7 +145,7 @@ export function Dialog({
       if (!isTopmost()) return;
       const active = document.activeElement;
       if (active && active !== document.body && document.contains(active)) return;
-      initialFocusTarget(bodyRef.current, panel)?.focus();
+      initialFocusTarget(bodyRef.current, panel, initialFocus)?.focus();
     });
     observer.observe(panel, { childList: true, subtree: true });
 
@@ -138,7 +157,7 @@ export function Dialog({
       // 배경 inert 를 푼 **뒤에** 돌려준다 — inert 인 동안엔 focus() 가 무시된다
       restoreRef.current?.focus?.();
     };
-  }, [open]);
+  }, [open, initialFocus]);
 
   React.useEffect(() => {
     if (!open) return;

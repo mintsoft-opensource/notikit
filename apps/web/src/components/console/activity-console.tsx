@@ -7,6 +7,8 @@ import { Activity, Users, Smartphone, Repeat, LineChart, RefreshCw } from "lucid
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, BarList, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
@@ -87,7 +89,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t(`range_${range}` as "range_7d")}</p>
+        <Eyebrow>{t(`range_${range}` as "range_7d")}</Eyebrow>
         <Segmented
           label={t("rangeLabel")}
           value={range}
@@ -136,9 +138,10 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
           </div>
         </CardHeader>
         <CardContent>
-          {stats ? (
-            stats.buckets.some((b) => b.devices > 0) ? (
-              <LiveChart
+          {busy ? (
+            <Skeleton className="h-50 w-full" />
+          ) : stats && stats.buckets.some((b) => b.devices > 0) ? (
+            <LiveChart
                 label={t("chartTitle")}
                 integerY
                 area
@@ -150,12 +153,9 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
                   { key: "devices", label: t("activeDevices"), color: "var(--chart-1)", values: stats.buckets.map((b) => b.devices) },
                   { key: "users", label: t("activeUsers"), color: "var(--chart-2)", values: stats.buckets.map((b) => b.users) },
                 ]}
-              />
-            ) : (
-              <EmptyState icon={Activity} title={t("empty")} />
-            )
+            />
           ) : (
-            <EmptyState icon={Activity} title={failed ? tc("loadFailed") : tc("loading")} />
+            <EmptyState icon={Activity} title={failed ? tc("loadFailed") : t("empty")} />
           )}
         </CardContent>
       </Card>
@@ -170,38 +170,40 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {ret && ret.cohorts.length > 0 ? (
+          {!ret && !retFailed ? (
+            <div className="p-3.5"><Skeleton className="h-40 w-full" /></div>
+          ) : ret && ret.cohorts.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[34rem] text-start">
                 <thead className="border-b border-border">
-                  <tr className="text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground">
-                    <th scope="col" className="px-5 py-2.5">{t("cohortDay")}</th>
-                    <th scope="col" className="px-3 py-2.5 text-end">{t("cohortSize")}</th>
+                  <tr className="bg-surface-muted/50 text-xs font-semibold text-muted-foreground">
+                    <th scope="col" className="px-3.5 py-2.5">{t("cohortDay")}</th>
+                    <th scope="col" className="px-3.5 py-2.5 text-end">{t("cohortSize")}</th>
                     {ret.offsets.map((n) => (
-                      <th key={n} scope="col" className="px-3 py-2.5 text-end">D{n}</th>
+                      <th key={n} scope="col" className="px-3.5 py-2.5 text-end">D{n}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   <tr className="bg-surface-muted/40">
-                    <th scope="row" className="px-5 py-2.5 text-xs font-bold">{t("cohortAverage")}</th>
-                    <td className="px-3 py-2.5 text-end text-xs tabular-nums text-muted-foreground">
+                    <th scope="row" className="px-3.5 py-2.5 text-xs font-bold">{t("cohortAverage")}</th>
+                    <td className="px-3.5 py-2.5 text-end text-xs tabular-nums text-muted-foreground">
                       {nf.format(ret.summary[0]?.base ?? 0)}
                     </td>
                     {ret.summary.map((sm) => (
-                      <td key={sm.offset} className="px-3 py-2.5 text-end text-xs font-bold tabular-nums">
+                      <td key={sm.offset} className="px-3.5 py-2.5 text-end text-xs font-bold tabular-nums">
                         {pct(sm.rate)}
                       </td>
                     ))}
                   </tr>
                   {ret.cohorts.map((c) => (
                     <tr key={c.day}>
-                      <th scope="row" className="px-5 py-2.5 text-xs font-medium tabular-nums">{c.day}</th>
-                      <td className="px-3 py-2.5 text-end text-xs tabular-nums text-muted-foreground">{nf.format(c.size)}</td>
+                      <th scope="row" className="px-3.5 py-2.5 text-xs font-medium tabular-nums">{c.day}</th>
+                      <td className="px-3.5 py-2.5 text-end text-xs tabular-nums text-muted-foreground">{nf.format(c.size)}</td>
                       {c.points.map((p) => (
                         <td
                           key={p.offset}
-                          className="px-3 py-2.5 text-end text-xs tabular-nums"
+                          className="px-3.5 py-2.5 text-end text-xs tabular-nums"
                           // 아직 관측 기간이 오지 않은 칸은 값이 아니라 공백이다
                           style={p.rate === null ? undefined : { background: `color-mix(in oklab, var(--chart-1) ${Math.round(p.rate * 60)}%, transparent)` }}
                         >
@@ -216,7 +218,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
           ) : (
             <EmptyState
               icon={LineChart}
-              title={ret ? t("empty") : retFailed ? tc("loadFailed") : tc("loading")}
+              title={retFailed ? tc("loadFailed") : t("empty")}
               action={
                 retFailed ? (
                   <Button variant="outline" onClick={() => setRetAttempt((n) => n + 1)}>
@@ -238,9 +240,10 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
             </div>
           </CardHeader>
           <CardContent>
-            {stats ? (
-              stats.buckets.some((b) => b.opens > 0) ? (
-                <LiveChart
+            {busy ? (
+              <Skeleton className="h-40 w-full" />
+            ) : stats && stats.buckets.some((b) => b.opens > 0) ? (
+              <LiveChart
                   label={t("opensTitle")}
                   integerY
                   area
@@ -249,12 +252,9 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
                   formatY={(v) => nf.format(Math.round(v))}
                   formatTime={(ms) => dayFmt.format(ms)}
                   series={[{ key: "opens", label: t("opensTitle"), color: "var(--chart-2)", values: stats.buckets.map((b) => b.opens) }]}
-                />
-              ) : (
-                <EmptyState icon={Activity} title={t("empty")} />
-              )
+              />
             ) : (
-              <EmptyState icon={Activity} title={failed ? tc("loadFailed") : tc("loading")} />
+              <EmptyState icon={Activity} title={failed ? tc("loadFailed") : t("empty")} />
             )}
           </CardContent>
         </Card>
@@ -267,14 +267,16 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
             </div>
           </CardHeader>
           <CardContent>
-            {stats && Object.keys(stats.platforms).length > 0 ? (
+            {busy ? (
+              <Skeleton className="h-28 w-full" />
+            ) : stats && Object.keys(stats.platforms).length > 0 ? (
               <BarList
                 rows={Object.entries(stats.platforms)
                   .sort((a, b) => b[1] - a[1])
                   .map(([p, v]) => ({ label: p, value: v }))}
               />
             ) : (
-              <EmptyState icon={Smartphone} title={stats ? t("empty") : failed ? tc("loadFailed") : tc("loading")} />
+              <EmptyState icon={Smartphone} title={failed ? tc("loadFailed") : t("empty")} />
             )}
           </CardContent>
         </Card>

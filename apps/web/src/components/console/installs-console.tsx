@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
@@ -130,7 +131,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
       <PageHeader title={t("title")} description={to("uninstallHint")} />
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{rangeLabelOf(range)}</p>
+        <Eyebrow>{rangeLabelOf(range)}</Eyebrow>
         <Segmented
           label={rangeLabelOf(range)}
           value={range}
@@ -159,9 +160,10 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
           </div>
         </CardHeader>
         <CardContent>
-          {stats ? (
-            lc && lc.buckets.some((b) => b.count > 0) ? (
-              <LiveChart
+          {busy ? (
+            <Skeleton className="h-50 w-full" />
+          ) : lc && lc.buckets.some((b) => b.count > 0) ? (
+            <LiveChart
                 label={to("chartUninstalls")}
                 integerY
                 area
@@ -170,18 +172,15 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
                 formatY={(v) => nf.format(Math.round(v))}
                 formatTime={(ms) => bucketFmt.format(ms)}
                 series={[{ key: "uninstalls", label: to("statUninstalled"), color: "var(--error)", values: lc.buckets.map((b) => b.count) }]}
-              />
-            ) : (
-              <EmptyState icon={PackageMinus} title={to("noUninstalls")} />
-            )
+            />
           ) : (
-            <EmptyState icon={PackageMinus} title={failed ? tc("loadFailed") : tc("loading")} />
+            <EmptyState icon={PackageMinus} title={failed ? tc("loadFailed") : to("noUninstalls")} />
           )}
         </CardContent>
       </Card>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("eventLog")}</p>
+        <Eyebrow>{t("eventLog")}</Eyebrow>
         <Select value={event} onChange={(e) => setEvent(e.target.value)} aria-label={t("filterEvent")} className="w-auto">
           <option value="">{t("allEvents")}</option>
           <option value="uninstalled">{to("eventUninstalled")}</option>

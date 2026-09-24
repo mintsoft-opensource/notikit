@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { AdminApiError, adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { RateBar, StatusChip, TestChip } from "./log-status";
+import { AB_MIN_VARIANT_SAMPLE, AB_TIE_MARGIN, type AbTest, type AbVariantResult } from "@/lib/ab-test";
 
 type Log = {
   id: string;
@@ -31,6 +32,8 @@ type Log = {
   scheduledAt: string | null;
   variants: Array<{ title: string; body: string }> | null;
   variantStats: Record<string, { sent: number; success: number }> | null;
+  /** A/B 자동 승자 — 표본 발송이면 설정·판정, 승자 본발송이면 어느 발송의 어떤 변형인지 */
+  abTest?: AbTest | null;
   kakaoFallback: boolean;
   kakaoCount: number;
   audienceUserCount: number;
@@ -208,10 +211,11 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
 
   /** 성공률은 분모가 0일 때 0%가 아니라 "—" 다 — 0/0 을 0% 로 쓰면 실패한 발송처럼 읽힌다 */
   const rate = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 1000) / 10}%` : "—");
-  const SENT_BY_KEY: Record<string, "sentByApi" | "sentByAdminToken" | "sentByJourney"> = {
+  const SENT_BY_KEY: Record<string, "sentByApi" | "sentByAdminToken" | "sentByJourney" | "sentByAbWinner"> = {
     api: "sentByApi",
     "admin-token": "sentByAdminToken",
     journey: "sentByJourney",
+    "ab-winner": "sentByAbWinner",
   };
   const sentByText = (v: string | null | undefined) => (!v ? "—" : SENT_BY_KEY[v] ? t(SENT_BY_KEY[v]) : v);
 
@@ -290,6 +294,8 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
           </CardContent>
         </Card>
       </div>
+
+      {log.abTest && <AbTestCard projectId={projectId} ab={log.abTest} />}
 
       {conversions && conversions.count > 0 && <ConversionsCard conversions={conversions} />}
 
@@ -477,6 +483,113 @@ function VariantComparison({
               </tr>
             );
           })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const variantLetter = (i: number) => String.fromCharCode(65 + i);
+
+/**
+ * A/B 자동 승자 — 표본 결과·승자(또는 승자가 없는 이유)·승자 본발송.
+ *
+ * 승자가 없을 때 **이유를 말하는 것**이 이 카드의 핵심이다. 조용히 A 를 고르면 운영자는
+ * A/B 를 했다고 믿지만 실제로는 아무것도 재지 않은 것이 된다.
+ */
+function AbTestCard({ projectId, ab }: { projectId: string; ab: AbTest }) {
+  const t = useTranslations("logs");
+  const locale = useLocale();
+  const at = (iso: string) => new Date(iso).toLocaleString(locale);
+
+  if (ab.role === "winner") {
+    return (
+      <Card>
+        <CardHeader><CardTitle>{t("abTitle")}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm">{t("abWinnerSend", { letter: variantLetter(ab.variant), percent: 100 - ab.samplePercent })}</p>
+          <Button asChild variant="outline">
+            <Link href={`/projects/${projectId}/logs/${ab.parentLogId}`}>{t("abParentLink")}</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const decision = ab.decision;
+  return (
+    <Card>
+      <CardHeader><CardTitle>{t("abTitle")}</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          {t("abConfig", { percent: ab.samplePercent, minutes: ab.waitMinutes })}
+        </p>
+        {!decision && (
+          <p className="text-sm">{ab.decideAt ? t("abPending", { at: at(ab.decideAt) }) : t("abPendingSample")}</p>
+        )}
+        {decision && (
+          <>
+            <p className="text-sm font-semibold">
+              {decision.winner !== null
+                ? t("abDecided", { letter: variantLetter(decision.winner) })
+                : t(
+                    decision.reason === "tie" ? "abNoWinnerTie"
+                      : decision.reason === "no_clicks" ? "abNoWinnerNoClicks"
+                      : "abNoWinnerSample",
+                    { min: AB_MIN_VARIANT_SAMPLE, margin: Math.round(AB_TIE_MARGIN * 100) }
+                  )}
+            </p>
+            <AbResultsTable results={decision.results} winner={decision.winner} />
+            <p className="text-xs text-muted-foreground">{t("abDecidedAt", { at: at(decision.at) })}</p>
+            {decision.followUpLogId && (
+              <Button asChild variant="outline">
+                <Link href={`/projects/${projectId}/logs/${decision.followUpLogId}`}>{t("abFollowUpLink")}</Link>
+              </Button>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** 판정에 쓴 표본 결과 — 나중에 다시 계산하지 않고 그때 굳힌 값을 그대로 보여 준다 */
+function AbResultsTable({ results, winner }: { results: AbVariantResult[]; winner: number | null }) {
+  const t = useTranslations("logs");
+  const locale = useLocale();
+  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <caption className="sr-only">{t("abResultsCaption")}</caption>
+        <thead className="border-b border-border bg-surface-muted/50">
+          <tr className="text-xs font-semibold text-muted-foreground">
+            <th scope="col" className="px-3.5 py-2 text-start">{t("variantColName")}</th>
+            <th scope="col" className="px-3.5 py-2 text-end">{t("variantColSuccess")}</th>
+            <th scope="col" className="px-3.5 py-2 text-end">{t("variantColClicks")}</th>
+            <th scope="col" className="px-3.5 py-2 text-end">{t("variantColClickRate")}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {results.map((r) => (
+            <tr key={r.variant}>
+              <th scope="row" className="px-3.5 py-2 text-start font-semibold">
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  {t("variantName", { letter: variantLetter(r.variant) })}
+                  {winner === r.variant && <Badge variant="success">{t("abWinnerBadge")}</Badge>}
+                </span>
+              </th>
+              <td className="px-3.5 py-2 text-end tabular-nums text-muted-foreground">{nf.format(r.success)}</td>
+              <td className="px-3.5 py-2 text-end tabular-nums text-muted-foreground">{nf.format(r.clicks)}</td>
+              <td className="px-3.5 py-2 text-end">
+                {r.rate === null ? (
+                  <span className="text-xs text-muted-foreground">{t("variantNoStat")}</span>
+                ) : (
+                  <RateBar num={r.clicks} den={r.success} tone="primary" />
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

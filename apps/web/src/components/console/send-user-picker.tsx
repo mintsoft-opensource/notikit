@@ -246,6 +246,21 @@ export function UserSearchDialog({
           />
         </div>
 
+        {/*
+          결과 수·로딩·"없음" 을 알린다. 아래 목록은 입력칸(combobox)이 조종하므로 포커스가
+          옮겨가지 않고, 화면을 보지 않는 사용자에게는 타이핑에 아무 반응이 없는 것처럼 느껴진다
+          (WCAG 4.1.3). 보이는 문구는 live 가 아니므로 두 번 읽히지 않는다.
+        */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {failed
+            ? tc("loadFailed")
+            : !users
+              ? tc("loading")
+              : users.length === 0
+                ? t("noUsersFound")
+                : t("searchResultCount", { count: users.length })}
+        </p>
+
         <div className="max-h-80 overflow-y-auto rounded-tile border border-border">
           {failed ? (
             <p className="p-4 text-center text-sm text-muted-foreground">{tc("loadFailed")}</p>
@@ -269,7 +284,7 @@ export function UserSearchDialog({
                     onMouseDown={(e) => e.preventDefault()}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => !off && pick(u)}
-                    className={`flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-start ${i === active ? "bg-surface-muted/50" : ""} ${off ? "cursor-not-allowed opacity-50" : ""}`}
+                    className={`flex w-full cursor-pointer items-center gap-3 px-3.5 py-2.5 text-start ${i === active ? "bg-surface-muted/50" : ""} ${off ? "cursor-not-allowed opacity-50" : ""}`}
                   >
                       <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${on ? "bg-primary text-primary-foreground" : "bg-accent-soft text-primary"}`}>
                         {on ? <Check aria-hidden="true" className="h-3.5 w-3.5" /> : <UserRound aria-hidden="true" className="h-3.5 w-3.5" />}

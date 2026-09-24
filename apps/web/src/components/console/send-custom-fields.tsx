@@ -134,6 +134,10 @@ export function SendCustomFields({
         </div>
       )}
 
+      {/*
+        줄마다 이름이 전부 "필드 키"/"필드 값"이면 스크린리더의 폼 요소 목록에서 줄을 구분할 수
+        없다(WCAG 2.4.6). 이름에 줄 번호를 넣고, 값 칸은 키가 채워졌으면 그 키를 대신 쓴다.
+      */}
       {extras.map((x, i) => (
         <div key={x.rowId} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] items-center gap-2">
           <Input
@@ -141,15 +145,20 @@ export function SendCustomFields({
               if (el) keyInputRefs.current.set(x.rowId, el);
               else keyInputRefs.current.delete(x.rowId);
             }}
-            aria-label={t("extraKey")}
+            aria-label={t("extraKeyRow", { n: i + 1 })}
             className="font-mono"
             spellCheck={false}
             value={x.key}
             onChange={(e) => setExtra(x.rowId, { key: e.target.value })}
             placeholder={t("extraKeyPlaceholder")}
           />
-          <Input aria-label={t("extraValue")} spellCheck={false} value={x.value} onChange={(e) => setExtra(x.rowId, { value: e.target.value })} placeholder={t("extraValuePlaceholder")} />
-          {/* 삭제 버튼이 여러 개라 어느 행인지 이름에 키를 넣는다 — 스크린리더에선 전부 "필드 삭제"로만 들린다 */}
+          <Input
+            aria-label={x.key.trim() ? t("extraValueNamed", { key: x.key.trim() }) : t("extraValueRow", { n: i + 1 })}
+            spellCheck={false}
+            value={x.value}
+            onChange={(e) => setExtra(x.rowId, { value: e.target.value })}
+            placeholder={t("extraValuePlaceholder")}
+          />
           <Button
             type="button"
             variant="ghost"
