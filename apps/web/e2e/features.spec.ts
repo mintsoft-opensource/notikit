@@ -518,3 +518,365 @@ test.describe("A 알림 옵션 · 전환 콘솔 UI", () => {
     await expect(page.getByText("전환", { exact: true }).first()).toBeVisible();
   });
 });
+
+test.describe("P3 반복 예약", () => {
+  test("반복 예약: 만들고 검증하고 끄고 지운다", async ({ request }) => {
+    const p = await createProject(request, "sched");
+    const base = `/api/admin/projects/${p.pid}/schedules`;
+
+    const create = await request.post(base, {
+      headers: admin,
+      data: {
+        name: "아침 리마인더",
+        kind: "daily",
+        hour: 9,
+        minute: 0,
+        message: { title: "좋은 아침", body: "오늘의 소식", type: "broadcast" },
+      },
+    });
+    expect(create.status()).toBe(201);
+    const s = (await create.json()).data.schedule;
+    expect(s.enabled).toBe(true);
+    // 만들자마자 다음 도래 시각이 잡힌다 — 비어 있으면 워커가 영영 집지 않는다
+    expect(new Date(s.nextRunAt).getTime()).toBeGreaterThan(Date.now());
+
+    // 주기에 필요한 칸이 비면 거절한다
+    const noWeekday = await request.post(base, {
+      headers: admin,
+      data: { name: "x", kind: "weekly", hour: 9, minute: 0, message: { title: "a", body: "b", type: "broadcast" } },
+    });
+    expect(noWeekday.status()).toBe(422);
+    // 토픽 발송인데 대상이 없으면 거절한다 (발송 스키마와 같은 규칙)
+    const noTarget = await request.post(base, {
+      headers: admin,
+      data: { name: "x", kind: "daily", hour: 9, minute: 0, message: { title: "a", body: "b", type: "topic" } },
+    });
+    expect(noTarget.status()).toBe(422);
+
+    // 끄면 도래 시각이 비워지고, 처리기가 집지 않는다
+    const off = await request.patch(`${base}/${s.id}`, { headers: admin, data: { enabled: false } });
+    expect(off.ok()).toBeTruthy();
+    expect((await off.json()).data.schedule.nextRunAt).toBeNull();
+    const idle = await request.post(`${base}/process`, { headers: admin, data: {} });
+    expect((await idle.json()).data).toMatchObject({ checked: 0, fired: 0, skipped: 0 });
+
+    // 다시 켜면 지금 기준으로 다시 잡는다
+    const on = await request.patch(`${base}/${s.id}`, { headers: admin, data: { enabled: true } });
+    expect(new Date((await on.json()).data.schedule.nextRunAt).getTime()).toBeGreaterThan(Date.now());
+
+    const del = await request.delete(`${base}/${s.id}`, { headers: admin });
+    expect(del.ok()).toBeTruthy();
+    const list = await request.get(base, { headers: admin });
+    expect((await list.json()).data.schedules).toHaveLength(0);
+  });
+
+  test("반복 예약: 도래하면 로그 1행 — 두 번 처리해도 늘지 않는다", async ({ request }) => {
+    const p = await createProject(request, "schedfire");
+    const base = `/api/admin/projects/${p.pid}/schedules`;
+    const create = await request.post(base, {
+      headers: admin,
+      data: {
+        name: "도래 테스트",
+        kind: "daily",
+        hour: 9,
+        minute: 0,
+        message: { title: "예약 발송", body: "본문", type: "broadcast" },
+      },
+    });
+    const id = (await create.json()).data.schedule.id as string;
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      // 1분 전 회차가 도래한 상태로 만든다 (유예 15분 안)
+      await sql`update push_schedules
+                   set hour = extract(hour from (now() - interval '1 minute') at time zone 'UTC')::int,
+                       minute = extract(minute from (now() - interval '1 minute') at time zone 'UTC')::int,
+                       next_run_at = now() - interval '1 minute'
+                 where id = ${id}`;
+
+      const first = await request.post(`${base}/process`, { headers: admin, data: {} });
+      expect((await first.json()).data).toMatchObject({ fired: 1, skipped: 0 });
+
+      // 같은 회차를 다시 도래시켜도 멱등 키가 두 번째 로그를 막는다
+      await sql`update push_schedules set next_run_at = now() - interval '1 minute', last_run_at = null where id = ${id}`;
+      const second = await request.post(`${base}/process`, { headers: admin, data: {} });
+      expect((await second.json()).data.fired).toBe(0);
+
+      const logs = await sql`select id from push_logs where project_id = ${p.pid} and sent_by = 'schedule'`;
+      expect(logs).toHaveLength(1);
+    } finally {
+      await sql.end();
+    }
+  });
+
+  test("반복 예약: 다운타임 뒤 밀린 회차를 몰아 보내지 않는다", async ({ request }) => {
+    const p = await createProject(request, "schedskip");
+    const base = `/api/admin/projects/${p.pid}/schedules`;
+    const create = await request.post(base, {
+      headers: admin,
+      data: {
+        name: "밀린 예약",
+        kind: "daily",
+        hour: 9,
+        minute: 0,
+        message: { title: "밀린 발송", body: "본문", type: "broadcast" },
+      },
+    });
+    const id = (await create.json()).data.schedule.id as string;
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      // 사흘 전부터 멈춰 있었고, 오늘 회차도 유예를 넘겼다 → 한 건도 나가면 안 된다
+      await sql`update push_schedules
+                   set hour = extract(hour from (now() - interval '3 hours') at time zone 'UTC')::int,
+                       minute = extract(minute from (now() - interval '3 hours') at time zone 'UTC')::int,
+                       next_run_at = now() - interval '3 days'
+                 where id = ${id}`;
+
+      const res = await request.post(`${base}/process`, { headers: admin, data: {} });
+      const data = (await res.json()).data;
+      expect(data.fired).toBe(0);
+      expect(data.skipped).toBeGreaterThan(0);
+
+      const logs = await sql`select id from push_logs where project_id = ${p.pid} and sent_by = 'schedule'`;
+      expect(logs).toHaveLength(0);
+
+      // 도래 시각은 앞으로 전진한다 — 안 그러면 매 tick 마다 같은 판정을 반복한다
+      const rows = await sql`select next_run_at from push_schedules where id = ${id}`;
+      expect(new Date(rows[0].next_run_at as string).getTime()).toBeGreaterThan(Date.now());
+    } finally {
+      await sql.end();
+    }
+  });
+
+  test("반복 예약 화면: 목록·다음 발송·켜고 끄기", async ({ page }) => {
+    await ensureLogin(page);
+    const created = await page.request.post("/api/admin/projects", {
+      data: { name: `schedui-${Date.now()}` },
+      headers: { origin: ORIGIN },
+    });
+    expect(created.status()).toBe(201);
+    const pid = (await created.json()).data.project.id as string;
+
+    await page.goto(`/projects/${pid}/schedules`);
+    await expect(page.getByRole("heading", { name: "반복 예약" })).toBeVisible();
+    await expect(page.getByText("아직 반복 예약이 없습니다.")).toBeVisible();
+
+    await page.getByRole("button", { name: "새 예약" }).click();
+    // 빈 폼으로 저장하면 칸마다 오류가 보인다
+    await page.getByRole("button", { name: "예약 만들기" }).click();
+    await expect(page.getByText("이름을 입력하세요.")).toBeVisible();
+    await expect(page.getByText("제목을 입력하세요.")).toBeVisible();
+
+    await page.getByLabel("이름").fill("주간 소식");
+    await page.getByLabel("주기").selectOption("weekly");
+    await expect(page.getByLabel("요일")).toBeVisible();
+    await page.getByLabel("요일").selectOption("3");
+    await page.getByLabel("시각").fill("10:30");
+    await page.getByLabel("제목").fill("이번 주 소식");
+    await page.getByLabel("본문").fill("새 소식이 도착했습니다");
+    await page.getByRole("button", { name: "예약 만들기" }).click();
+
+    await expect(page.getByText("주간 소식")).toBeVisible();
+    await expect(page.getByText("매주 수요일 10:30")).toBeVisible();
+    await expect(page.getByText(/다음 발송/)).toBeVisible();
+    await expect(page.getByText("켜짐")).toBeVisible();
+
+    await page.getByRole("button", { name: "주간 소식 — 끄기" }).click();
+    await expect(page.getByText("꺼짐")).toBeVisible();
+    await expect(page.getByText("예정 없음")).toBeVisible();
+  });
+});
+
+/**
+ * P1 행동 기반 세그먼트.
+ *
+ * 여기서 꼭 지켜보는 것: 행동 규칙 토픽이 **사람이 연결되지 않은 기기**를 세는가.
+ * 규칙식 경로가 push_users 를 inner join 하던 시절엔 익명 기기가 통째로 빠져
+ * "휴면 재활성" 같은 세그먼트가 조용히 반토막 났고, 줄어든 쪽은 오류를 내지 않았다.
+ */
+test.describe("P1 행동 기반 세그먼트", () => {
+  async function topicCounts(request: APIRequestContext, pid: string, name: string, rules: unknown) {
+    const mk = await request.post(`/api/admin/projects/${pid}/audience/topics`, { headers: admin, data: { name, rules } });
+    expect(mk.status()).toBe(201);
+    const tid = (await mk.json()).data.topic.id as string;
+    const d = (await (await request.get(`/api/admin/projects/${pid}/audience/topics/${tid}`, { headers: admin })).json()).data;
+    return { tid, devices: d.deviceCount as number, users: d.userCount as number };
+  }
+
+  test("행동 규칙 토픽이 사람 없는 기기도 센다 (속성 규칙은 그대로)", async ({ request }) => {
+    const p = await createProject(request, "behavior-seg");
+
+    // 사람이 붙은 기기 하나 + 익명 기기 하나
+    await identifyWithDevice(request, p, "beh-known", { plan: "pro" });
+    const anon = await request.post("/api/v1/devices", {
+      headers: { "api-key": p.apiKey },
+      data: { token: `beh-anon-${Date.now()}`, platform: "android" },
+    });
+    expect(anon.ok()).toBeTruthy();
+
+    // "최근 7일 안에 푸시를 클릭하지 않음" — 둘 다 클릭한 적이 없으니 둘 다 대상이다
+    const dormant = await topicCounts(request, p.pid, "beh-dormant", [
+      { source: "click", op: "not_within_days", days: 7 },
+    ]);
+    expect(dormant.devices).toBe(2);
+    expect(dormant.users).toBe(1); // 익명 기기는 사람 분모에 잡히지 않는다
+
+    // 속성 규칙의 뜻은 바뀌지 않는다 — 속성이 없는 익명 기기는 여전히 빠진다
+    const pro = await topicCounts(request, p.pid, "beh-pro", [{ attribute: "plan", value: "pro" }]);
+    expect(pro.devices).toBe(1);
+
+    // 섞어 써도 AND 로 걸린다
+    const both = await topicCounts(request, p.pid, "beh-both", [
+      { attribute: "plan", value: "pro" },
+      { source: "click", op: "not_within_days", days: 7 },
+    ]);
+    expect(both.devices).toBe(1);
+  });
+
+  test("반쪽짜리 행동 규칙은 422 로 막고 어느 칸이 틀렸는지 말한다", async ({ request }) => {
+    const p = await createProject(request, "behavior-bad");
+    const post = (rules: unknown) =>
+      request.post(`/api/admin/projects/${p.pid}/audience/topics`, {
+        headers: admin,
+        data: { name: `bad-${Math.random().toString(36).slice(2)}`, rules },
+      });
+
+    // 기간 없는 "최근 N일 안에 없음"을 통과시키면 대상이 프로젝트 전체로 부푼다
+    const noDays = await post([{ source: "activity", op: "not_within_days" }]);
+    expect(noDays.status()).toBe(422);
+    expect((await noDays.json()).error).toContain("days");
+
+    const noCount = await post([{ source: "click", op: "count_gte" }]);
+    expect(noCount.status()).toBe(422);
+    expect((await noCount.json()).error).toContain("count");
+
+    const unknownSource = await post([{ source: "login", op: "within_days", days: 7 }]);
+    expect(unknownSource.status()).toBe(422);
+
+    // 전환이 아닌 곳의 이름은 조건이 되지 않는다 — 조용히 무시하면 있지도 않은 조건을 있다고 읽는다
+    const strayName = await post([{ source: "click", op: "within_days", days: 7, name: "purchase" }]);
+    expect(strayName.status()).toBe(422);
+  });
+
+  test("토픽 상세: JSON 없이 화면에서 행동 조건을 만든다", async ({ page }) => {
+    await ensureLogin(page);
+    const pid = await sessionProjectId(page);
+    const mk = await page.request.post(`/api/admin/projects/${pid}/audience/topics`, {
+      headers: { origin: ORIGIN },
+      data: { name: `ui-behavior-${Date.now()}`, rules: [{ attribute: "plan", value: "pro" }] },
+    });
+    expect(mk.status()).toBe(201);
+    const tid = (await mk.json()).data.topic.id as string;
+
+    await page.goto(`/projects/${pid}/topics/${tid}`);
+    const row = page.getByRole("group", { name: "조건 1" });
+    await row.getByLabel("대상").selectOption("conversion");
+
+    // 속성 칸이 행동 칸으로 바뀐다
+    await expect(row.getByLabel("행동 조건")).toBeVisible();
+    await expect(row.getByLabel("속성")).toHaveCount(0);
+    await row.getByLabel("행동 조건").selectOption("count_gte");
+    await row.getByLabel("전환 이름").fill("purchase");
+    await row.getByLabel("횟수").fill("2");
+
+    // 범위 밖 기간은 그 칸에 붙어서 보인다
+    await row.getByLabel("기간(일)").fill("0");
+    await expect(page.getByText("기간은 1~365 사이의 정수여야 합니다")).toBeVisible();
+    await row.getByLabel("기간(일)").fill("30");
+    await expect(page.getByText("기간은 1~365 사이의 정수여야 합니다")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "저장" }).click();
+    await expect(page.getByText("조건을 저장했습니다")).toBeVisible();
+
+    // 저장된 규칙이 다시 읽혀 같은 칸으로 돌아온다
+    await page.reload();
+    const saved = page.getByRole("group", { name: "조건 1" });
+    await expect(saved.getByLabel("대상")).toHaveValue("conversion");
+    await expect(saved.getByLabel("횟수")).toHaveValue("2");
+    await expect(saved.getByLabel("전환 이름")).toHaveValue("purchase");
+
+    const detail = (await (await page.request.get(`/api/admin/projects/${pid}/audience/topics/${tid}`)).json()).data;
+    expect(detail.topic.rules).toEqual([
+      { source: "conversion", op: "count_gte", days: 30, count: 2, name: "purchase" },
+    ]);
+  });
+
+  test("조건 행을 더하고 지워도 초점이 화면 안에 남는다", async ({ page }) => {
+    await ensureLogin(page);
+    const pid = await sessionProjectId(page);
+    const mk = await page.request.post(`/api/admin/projects/${pid}/audience/topics`, {
+      headers: { origin: ORIGIN },
+      data: { name: `ui-focus-${Date.now()}`, rules: [{ source: "activity", op: "not_within_days", days: 30 }] },
+    });
+    expect(mk.status()).toBe(201);
+    const tid = (await mk.json()).data.topic.id as string;
+
+    await page.goto(`/projects/${pid}/topics/${tid}`);
+    await page.getByRole("button", { name: "조건 추가" }).click();
+    // 새 행의 첫 입력칸으로 간다 — 추가 버튼에 초점이 남으면 어디에 쓰는지 알 수 없다
+    await expect(page.getByRole("group", { name: "조건 2" }).getByLabel("속성")).toBeFocused();
+
+    await page.getByRole("group", { name: "조건 2" }).getByRole("button", { name: "조건 삭제" }).click();
+    await expect(page.getByRole("group", { name: "조건 2" })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "조건 1" }).getByLabel("기간(일)")).toBeFocused();
+  });
+});
+
+// ─── 발송 옵션: 현지 시각 · 속도 제한 ────────────────────────────────────────
+
+test.describe("현지 시각 발송과 속도 제한", () => {
+  test("분당 발송 상한을 저장하고 되읽는다 — 0 이나 음수는 거절", async ({ request }) => {
+    const p = await createProject(request, "throttle");
+
+    const set = await request.patch(`/api/admin/projects/${p.pid}`, {
+      headers: { ...admin, origin: ORIGIN },
+      data: { max_sends_per_minute: 500 },
+    });
+    expect(set.status()).toBe(200);
+    expect((await set.json()).data.project.maxSendsPerMinute).toBe(500);
+
+    const read = await request.get(`/api/admin/projects/${p.pid}`, { headers: admin });
+    expect((await read.json()).data.project.maxSendsPerMinute).toBe(500);
+
+    const bad = await request.patch(`/api/admin/projects/${p.pid}`, {
+      headers: { ...admin, origin: ORIGIN },
+      data: { max_sends_per_minute: 0 },
+    });
+    expect(bad.status()).toBe(422);
+
+    // null 은 "제한 없음" — 껐다 켤 수 있어야 한다
+    const off = await request.patch(`/api/admin/projects/${p.pid}`, {
+      headers: { ...admin, origin: ORIGIN },
+      data: { max_sends_per_minute: null },
+    });
+    expect((await off.json()).data.project.maxSendsPerMinute).toBeNull();
+  });
+
+  test("local_time 은 HH:MM 만 받고, 받은 값은 발송에 남는다", async ({ request }) => {
+    const p = await createProject(request, "localtime");
+    await identifyWithDevice(request, p, "lt-user", {});
+    const headers = { "api-key": p.apiKey, "api-secret": p.apiSecret };
+
+    const bad = await request.post("/api/v1/messages", {
+      headers,
+      data: { title: "t", body: "b", type: "broadcast", local_time: "9:00" },
+    });
+    expect(bad.status()).toBe(422);
+
+    const ok = await request.post("/api/v1/messages", {
+      headers,
+      data: { title: "아침 소식", body: "확인해 보세요", type: "broadcast", local_time: "09:00" },
+    });
+    expect(ok.status()).toBe(202);
+    const id = (await ok.json()).data.message.id as string;
+
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const rows = await sql`select local_time from push_logs where id = ${id}`;
+      expect(rows[0].local_time).toBe("09:00");
+    } finally {
+      await sql.end();
+    }
+  });
+});
