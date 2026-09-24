@@ -19,6 +19,15 @@ COPY apps/web apps/web
 # @notikit/core 는 dist 로 배포된다 — web 타입 검사(e2e 포함)가 그 타입을 읽는다
 RUN pnpm --filter @notikit/core build && pnpm --filter @notikit/web build
 
+# migrate.mjs 는 Next 의 트레이싱 대상이 아니다. Next 는 postgres/drizzle-orm 을 서버
+# 번들 안으로 말아 넣고 standalone 의 node_modules 에는 남기지 않으므로, 런타임 이미지에서
+# `node apps/web/migrate.mjs` 가 ERR_MODULE_NOT_FOUND 로 죽는다 — 개발용 compose 는
+# `target: build` 로 그 문제를 피해 가지만 레지스트리 이미지에는 그럴 방법이 없다.
+# lockfile 이 고른 **그 버전**을 심볼릭 링크를 풀어(-L) 따로 모아 런타임으로 넘긴다.
+# 둘 다 런타임 의존성이 없어서 디렉터리 두 개면 끝난다.
+RUN mkdir -p /migrate-deps \
+  && cp -RL apps/web/node_modules/postgres apps/web/node_modules/drizzle-orm /migrate-deps/
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -35,6 +44,9 @@ COPY --from=build --chown=node:node /app/apps/web/public ./apps/web/public
 COPY --from=build --chown=node:node /app/apps/web/worker.mjs ./apps/web/worker.mjs
 COPY --from=build --chown=node:node /app/apps/web/migrate.mjs ./apps/web/migrate.mjs
 COPY --from=build --chown=node:node /app/apps/web/drizzle ./apps/web/drizzle
+# migrate.mjs 가 쓰는 두 패키지. standalone 이 이미 만들어 둔 apps/web/node_modules(next)
+# 옆에 합쳐진다 — 그래야 `node apps/web/migrate.mjs` 가 이 이미지 그대로 돈다.
+COPY --from=build --chown=node:node /migrate-deps ./apps/web/node_modules
 
 # 소스맵은 클로즈드 배포에 쓸모가 없다. 내용이 비어 있어 원본 복원은 불가능하지만,
 # 굳이 고객 박스에 둘 이유도 없고 이미지만 커진다.

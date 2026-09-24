@@ -16,6 +16,8 @@ Notikit은 컴파일된 산출물입니다. 파일을 바꿔도 이미 돌고 �
 
 `updater` 컨테이너입니다. Docker 소켓을 쥐는 **유일한** 컨테이너이고, 포트를 열지 않습니다.
 
+`web` 과는 **다른 이미지**입니다. 업데이터에는 docker CLI 와 `pg_dump` 가 들어 있고 Next 서버는 없습니다. `NOTIKIT_UPDATER_IMAGE` 를 `.env` 에 반드시 지정하세요 — 비워 두면 compose 가 기동을 거부합니다. 예전에는 비어 있으면 web 이미지로 내려앉았는데, 그러면 Next 서버가 Docker 소켓을 쥔 채 뜨고(바로 위에서 막으려던 구성입니다) 업데이트 작업은 아무도 집어가지 않아 콘솔에서 영원히 대기했습니다.
+
 콘솔과는 데이터베이스로만 이야기합니다. 콘솔이 `update_jobs`에 행을 넣으면 업데이터가 집어 갑니다. 이렇게 나눈 이유는 `web`에 Docker 소켓을 주지 않기 위해서입니다 — 소켓은 사실상 호스트 root 권한이라, 공개 API를 서빙하는 프로세스가 쥐고 있으면 거기서 나는 사고 하나가 곧 호스트 장악이 됩니다.
 
 ## 순서가 곧 안전장치다
@@ -74,13 +76,34 @@ NOTIKIT_UPDATE_CHANNEL=stable
 REGISTRY_SERVER=registry.example.com
 REGISTRY_USERNAME=...
 REGISTRY_PASSWORD=...
+
+NOTIKIT_UPDATER_IMAGE=registry.example.com/notikit-updater:0.1.0
 ```
 
 돌고 있는 이미지는 `.notikit-image.env` 한 줄에 있고 업데이터가 갱신합니다. compose 파일 본문은 건드리지 않습니다 — 고객이 손댄 설정과 충돌하기 때문입니다.
+
+그 파일은 **업데이터 소유**입니다. 갱신할 때 통째로 덮어쓰므로 다른 설정을 같이 두지 마세요. 고객 설정은 `.env` 에 둡니다.
+
+## `--env-file` 을 빠뜨리지 않는다
+
+compose 는 프로젝트 디렉터리의 `.env` **하나만** 치환(`${NOTIKIT_IMAGE}`)에 씁니다. 서비스의 `env_file:` 은 컨테이너 환경변수일 뿐 치환과 무관합니다. 그래서 `.notikit-image.env` 는 **명시하지 않으면 아무도 읽지 않습니다.**
+
+빠뜨리면 업데이터가 그 줄을 바꿔도 compose 가 계속 예전 이미지를 띄웁니다 — 업데이트도 되돌리기도 "성공"으로 기록되는데 실제로는 아무것도 바뀌지 않습니다. 지금은 값이 비면 compose 가 기동을 거부하므로 조용히 어긋나지는 않습니다.
+
+```bash
+export COMPOSE_FILE=docker-compose.prod.yml
+export COMPOSE_ENV_FILES=.env,.notikit-image.env
+docker compose up -d        # 이후 모든 compose 명령이 두 파일을 읽는다
+```
+
+업데이터는 이 두 파일을 스스로 넘기므로 콘솔에서 누르는 업데이트에는 위 설정이 필요 없습니다. 손으로 `docker compose` 를 칠 때만 필요합니다.
 
 ## 최초 설치
 
 ```bash
 echo "NOTIKIT_IMAGE=registry.example.com/notikit@sha256:..." > .notikit-image.env
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml \
+  --env-file .env --env-file .notikit-image.env up -d
 ```
+
+`migrate` 는 web 과 **같은 런타임 이미지**로 돕니다. 레지스트리 이미지 하나로 마이그레이션까지 끝나야 하므로, 그 이미지에 `migrate.mjs` 가 쓰는 `postgres`·`drizzle-orm` 이 함께 들어 있습니다.

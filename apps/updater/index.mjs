@@ -15,7 +15,7 @@
  */
 import postgres from "postgres";
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -24,6 +24,8 @@ import path from "node:path";
 const DB_URL = process.env.DATABASE_URL;
 const COMPOSE_FILE = process.env.COMPOSE_FILE ?? "/project/docker-compose.yml";
 const PROJECT = process.env.COMPOSE_PROJECT ?? "notikit";
+/** compose 파일이 있는 디렉터리. `./bundles` 같은 상대 경로가 여기를 기준으로 풀린다. */
+const PROJECT_DIR = process.env.COMPOSE_PROJECT_DIR ?? path.dirname(COMPOSE_FILE);
 const BACKUP_DIR = process.env.BACKUP_DIR ?? "/backups";
 const POLL_MS = Number(process.env.UPDATER_POLL_MS ?? 5000);
 /** 새 web 이 이 안에 건강해지지 않으면 실패로 본다 */
@@ -37,8 +39,27 @@ const HEALTH_URL = process.env.UPDATER_HEALTH_URL ?? "http://web:3000/api/ready"
  * 지금 돌고 있는 이미지를 가리키는 한 줄짜리 파일. compose 가 `${NOTIKIT_IMAGE}` 로
  * 읽는다. 교체도 되돌리기도 이 줄 하나를 바꾸고 `up` 하는 것이 전부다 —
  * compose 파일 본문을 고치면 고객이 손댄 설정과 충돌한다.
+ *
+ * **이 파일은 업데이터 소유다.** writeImage 가 통째로 덮어쓰므로 다른 설정을 같이
+ * 두면 업데이트 한 번에 사라진다. 고객 설정은 `.env` 에 둔다.
  */
 const IMAGE_ENV_FILE = process.env.IMAGE_ENV_FILE ?? "/project/.notikit-image.env";
+/**
+ * compose 가 `${NOTIKIT_IMAGE}` 를 풀 때 읽을 파일들.
+ *
+ * compose 는 기본적으로 프로젝트 디렉터리의 `.env` **하나만** 치환에 쓴다. 서비스의
+ * `env_file:` 은 컨테이너 환경변수일 뿐 치환과 무관하다. 그래서 `--env-file` 로
+ * 명시하지 않으면 `.notikit-image.env` 를 아무도 읽지 않고, 업데이터가 그 파일을
+ * 갱신해도 compose 는 계속 **예전 이미지**를 띄운다 — 업데이트도 롤백도 성공했다고
+ * 기록되면서 실제로는 아무것도 바뀌지 않는다.
+ *
+ * 순서가 우선순위다(뒤가 이긴다). `.env` 에 NOTIKIT_IMAGE 를 적어 둔 설치본이 있어도
+ * 업데이터가 쓴 값이 이긴다.
+ */
+const ENV_FILES = (process.env.COMPOSE_ENV_FILES ?? `${path.join(PROJECT_DIR, ".env")},${IMAGE_ENV_FILE}`)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 /**
  * 폐쇄망 반입 번들을 놓는 곳. 레지스트리에 닿을 수 없는 고객은 여기에 파일을 두고
  * 콘솔에서 고른다. 콘솔로 업로드받지 않는 이유는 번들이 수 GB 라, HTTP 업로드가
@@ -94,8 +115,35 @@ function run(jobId, cmd, args, opts = {}) {
   });
 }
 
-const compose = (jobId, ...args) =>
-  run(jobId, "docker", ["compose", "-f", COMPOSE_FILE, "-p", PROJECT, ...args]);
+/**
+ * 존재하는 env 파일만 넘긴다. 없는 경로를 `--env-file` 로 주면 compose 가 즉시
+ * 실패한다 — 첫 업데이트라 `.notikit-image.env` 가 아직 없을 수 있다.
+ */
+async function envFileArgs() {
+  const args = [];
+  for (const file of ENV_FILES) {
+    try {
+      await access(file);
+      args.push("--env-file", file);
+    } catch {
+      // 없으면 조용히 건너뛴다. 치환은 나머지 파일과 프로세스 환경으로 이뤄진다.
+    }
+  }
+  return args;
+}
+
+const compose = async (jobId, ...args) =>
+  run(jobId, "docker", [
+    "compose",
+    "-f",
+    COMPOSE_FILE,
+    "--project-directory",
+    PROJECT_DIR,
+    ...(await envFileArgs()),
+    "-p",
+    PROJECT,
+    ...args,
+  ]);
 
 async function readCurrentImage() {
   try {
@@ -106,8 +154,14 @@ async function readCurrentImage() {
   }
 }
 
+/**
+ * 같은 디렉터리에 쓰고 rename 한다. 이 한 줄이 다음 `up` 이 띄울 버전을 결정하므로,
+ * 쓰다 만 파일이 남으면 compose 가 이미지를 풀지 못해 스택 전체가 뜨지 않는다.
+ */
 async function writeImage(ref) {
-  await writeFile(IMAGE_ENV_FILE, `NOTIKIT_IMAGE=${ref}\n`, "utf8");
+  const tmp = `${IMAGE_ENV_FILE}.tmp`;
+  await writeFile(tmp, `NOTIKIT_IMAGE=${ref}\n`, "utf8");
+  await rename(tmp, IMAGE_ENV_FILE);
 }
 
 /**

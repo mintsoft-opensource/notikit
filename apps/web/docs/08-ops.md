@@ -14,6 +14,22 @@ title: 운영
 실제 서버에 `docker-compose.yml` 을 그대로 올리지 마세요. 개발 편의를 위해 DB 포트를 호스트에
 내보내고 소스 빌드를 전제합니다.
 
+`docker-compose.prod.yml` 은 **`--env-file` 두 개**와 함께 씁니다. compose 는 프로젝트 디렉터리의
+`.env` 하나만 치환(`${NOTIKIT_IMAGE}`)에 쓰므로, 업데이터가 갱신하는 `.notikit-image.env` 는
+명시하지 않으면 읽히지 않습니다.
+
+```bash
+export COMPOSE_FILE=docker-compose.prod.yml
+export COMPOSE_ENV_FILES=.env,.notikit-image.env
+docker compose up -d
+# 또는: docker compose -f docker-compose.prod.yml \
+#         --env-file .env --env-file .notikit-image.env up -d
+```
+
+`NOTIKIT_IMAGE` 와 `NOTIKIT_UPDATER_IMAGE` 에는 **기본값이 없습니다.** 비어 있으면 compose 가
+기동을 거부합니다 — 업데이터를 web 이미지로 내려앉히면 Next 서버가 Docker 소켓을 쥔 채 뜨고
+업데이트 작업은 아무도 집어가지 않기 때문입니다.
+
 두 파일 모두 `POSTGRES_PASSWORD` 에 **기본값이 없습니다**. 비어 있으면 compose 가 기동을
 거부합니다 — compose 파일에 박힌 비밀번호는 아무도 바꾸지 않기 때문입니다.
 

@@ -42,7 +42,10 @@ docker compose down                 # 중지 (데이터 볼륨은 남는다)
 > ⚠️ **`docker-compose.yml` 은 개발·로컬 평가용이다.** 소스에서 빌드하고, 편의를 위해
 > Postgres·Redis 포트를 호스트(`127.0.0.1` 한정)에 내보낸다.
 > **실제 설치(고객사·VPS)는 `docker-compose.prod.yml`** — 레지스트리 이미지를 쓰고 DB 포트를
-> 열지 않으며 콘솔도 기본이 루프백이다(`NOTIKIT_BIND`). 자세한 내용은 `apps/web/docs/08-ops.md`.
+> 열지 않으며 콘솔도 기본이 루프백이다(`NOTIKIT_BIND`). 그쪽은 `--env-file` 을 두 개 넘긴다:
+> `docker compose -f docker-compose.prod.yml --env-file .env --env-file .notikit-image.env up -d`
+> (`.notikit-image.env` 는 업데이터가 갱신하는데, 명시하지 않으면 compose 가 읽지 않는다).
+> 자세한 내용은 `apps/web/docs/08-ops.md`.
 
 - **migrate** 서비스가 먼저 DB 마이그레이션을 적용(`migrate.mjs`, 멱등)하고, **web** 은 그 성공 후 시작한다. `web` 은 `/api/ready`(DB 연결까지 확인) 헬스체크가 통과해야 healthy 가 되고, **worker** 는 그 뒤에 뜬다.
 - **worker** 컨테이너가 주기적으로 각 프로젝트의 큐 발송(`process-queue`)·저니 진행(`journeys/process`)·웹훅 재시도(`webhooks/retry`)를 처리한다. worker 없이도 해당 admin 엔드포인트를 직접(cron 등) 호출하면 발송된다. 다만 worker 가 없으면 큐잉만 되고 자동 발송은 되지 않는다.

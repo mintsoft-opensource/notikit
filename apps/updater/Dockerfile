@@ -12,6 +12,11 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 COPY apps/updater/index.mjs ./
 
+# docker:cli 의 ENTRYPOINT(docker-entrypoint.sh)는 인자 앞에 `docker` 를 붙인다.
+# 그대로 두면 CMD 가 `docker node index.mjs` 로 해석돼 스웜 도움말만 찍고 죽고,
+# 컨테이너는 restart 루프를 돈다 — 업데이트 작업을 아무도 집어가지 않는다.
+# 그 엔트리포인트는 dind 용 TLS 설정을 위한 것이라 소켓을 마운트하는 여기엔 필요 없다.
+ENTRYPOINT []
 # 루트로 돈다 — Docker 소켓 접근에 필요하다. 그래서 포트를 열지 않고,
 # 바깥에서 닿을 수 있는 경로를 두지 않는다.
-CMD ["node", "index.mjs"]
+CMD ["node", "/app/index.mjs"]
