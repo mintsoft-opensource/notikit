@@ -83,6 +83,15 @@ function runWorker({ token = FCM_TOKEN, windows = 1 }: { token?: string | null; 
     pages,
     showNotification: self.registration.showNotification,
     receive: (payload: Payload) => onBackground?.(payload),
+    /** push 이벤트 — 배달된 모든 메시지에 대해 한 번 뜬다(알림을 그리기 전). */
+    async push(payload: Payload | string) {
+      const waited: unknown[] = [];
+      await listeners.push?.({
+        data: typeof payload === "string" ? { json: () => JSON.parse(payload) } : { json: () => payload },
+        waitUntil: (p: unknown) => waited.push(p),
+      });
+      await Promise.all(waited);
+    },
     /** 알림 클릭. 직전에 그린 알림의 data 를 그대로 쓴다 — 워커가 실제로 받는 모양이다. */
     async click(action?: string) {
       const waited: unknown[] = [];
@@ -221,6 +230,57 @@ describe("service worker: 클릭", () => {
     await w.click();
 
     expect(w.clients.openWindow).toHaveBeenCalledWith("/cart");
+    expect(w.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("service worker: 수신 보고", () => {
+  it("push 이벤트에서 수신을 보고한다", async () => {
+    // 발송 성공(FCM 접수)은 기기가 꺼져 있어도 성공한다 — 도달은 단말만 말해 줄 수 있다
+    const w = runWorker();
+    await w.push({ data: { notikit_log_id: "log-1", title: "제목", body: "본문" } });
+
+    const [url, init] = w.fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`${BASE}/api/v1/messages/received`);
+    expect((init.headers as Record<string, string>)["api-key"]).toBe(KEY);
+    expect(JSON.parse(String(init.body))).toEqual({ log_id: "log-1", token: FCM_TOKEN });
+  });
+
+  it("무음(data-only) 푸시도 도달로 센다", async () => {
+    // onBackgroundMessage 에 보고를 달았다면 여기가 통째로 빠진다 — 무음 발송은 알림을
+    // 그리지 않고, 열린 탭이 없으면 그 콜백이 하는 일도 없다.
+    const w = runWorker({ windows: 0 });
+    await w.push({ data: { notikit_log_id: "log-silent" } });
+    expect(w.fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String((w.fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body)).log_id).toBe("log-silent");
+  });
+
+  it("같은 발송이 다시 배달되면 요청을 내보내지 않는다", async () => {
+    const w = runWorker();
+    await w.push({ data: { notikit_log_id: "log-1" } });
+    await w.push({ data: { notikit_log_id: "log-1" } });
+    expect(w.fetch).toHaveBeenCalledTimes(1);
+
+    await w.push({ data: { notikit_log_id: "log-2" } });
+    expect(w.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("notikit 발송이 아니면 아무것도 보내지 않는다", async () => {
+    const w = runWorker();
+    await w.push({ data: { title: "남의 푸시" } });
+    expect(w.fetch).not.toHaveBeenCalled();
+  });
+
+  it("토큰이 없으면 보고하지 않는다", async () => {
+    // 등록 때와 같은 토큰이어야 서버가 기기를 찾는다 — 없는 채로 보내면 404 만 쌓인다
+    const w = runWorker({ token: null });
+    await w.push({ data: { notikit_log_id: "log-1" } });
+    expect(w.fetch).not.toHaveBeenCalled();
+  });
+
+  it("JSON 이 아닌 payload 에서 터지지 않는다", async () => {
+    const w = runWorker();
+    await expect(w.push("not json")).resolves.toBeUndefined();
     expect(w.fetch).not.toHaveBeenCalled();
   });
 });

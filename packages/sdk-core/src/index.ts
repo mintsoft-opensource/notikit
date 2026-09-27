@@ -9,14 +9,17 @@ import {
   type TopicMembershipResult,
   type TrackConversionInput,
   type TrackConversionResult,
+  type ReportReceivedInput,
   targetBody,
   pushOptionsBody,
   resolveUserId,
   NotikitError,
 } from "./types.js";
+import { ReceiptDedupe } from "./receipts.js";
 
 export * from "./types.js";
 export * from "./session.js";
+export * from "./receipts.js";
 
 /**
  * Notikit 코어 클라이언트 — 모든 플랫폼 SDK 의 공용 HTTP 계층.
@@ -27,6 +30,8 @@ export class NotikitClient {
   private readonly apiKey: string;
   private readonly apiSecret?: string;
   private readonly _fetch: typeof fetch;
+  /** 수신 보고 중복 방지 — 재배달된 푸시가 같은 요청을 다시 내보내지 않게 한다 */
+  private readonly receipts = new ReceiptDedupe();
 
   constructor(config: NotikitConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, "");
@@ -115,6 +120,37 @@ export class NotikitClient {
       token: input.token,
       destination: input.destination,
     });
+  }
+
+  /**
+   * 푸시 **수신** 보고 — 단말이 실제로 알림을 받았다는 사실을 남긴다.
+   *
+   * FCM 접수(발송 성공)는 기기가 꺼져 있어도, 앱이 지워져 있어도 성공한다. 그 수를 도달로
+   * 읽으면 도달률이 늘 실제보다 높고, 그 위에 올린 A/B·전환 비교도 같이 뜬다. 앱이 이걸
+   * 부르지 않으면 콘솔의 "도달" 칸은 영원히 0 이다.
+   *
+   * 부르는 자리는 **알림을 받은 순간**이다 — 백그라운드 메시지 핸들러(RN)와 서비스워커의
+   * `push` 이벤트(웹). 클릭 보고와 달리 사용자가 누르지 않아도 일어나야 한다.
+   *
+   * 같은 발송을 두 번 이상 부르면 **요청을 내보내지 않고** `null` 을 돌려준다(로컬 중복 방지).
+   * 재배달·재시도로 다시 불려도 안전하다는 뜻이다. 서버도 `(발송, 기기)` 유니크로 한 번만
+   * 센다 — 로컬 기억은 낭비되는 요청을 없애는 쪽이다.
+   *
+   * @returns 보고했으면 `{ recorded }`, 이미 보고한 발송이면 `null`
+   */
+  async reportReceived(input: ReportReceivedInput): Promise<{ recorded: boolean } | null> {
+    if (!this.receipts.claim(input.logId)) return null;
+    try {
+      return await this.request<{ recorded: boolean }>("/api/v1/messages/received", {
+        log_id: input.logId,
+        token: input.token,
+      });
+    } catch (e) {
+      // 4xx 는 다시 보내도 같은 답이다(없는 발송·수신자 아님·형식 오류) — 기억을 유지해
+      // 재배달마다 같은 요청을 반복하지 않는다. 네트워크 장애·5xx·429 만 풀어 준다.
+      if (!(e instanceof NotikitError) || e.status >= 500 || e.status === 429) this.receipts.release(input.logId);
+      throw e;
+    }
   }
 
   /**

@@ -193,6 +193,17 @@ export function targetBody(
   return { user_id: requiredUserId(target), identity_hash: target.identityHash };
 }
 
+/**
+ * 수신 보고 입력. 토큰이 필요한 이유는 클릭 보고와 같다 — 서버가 이 토큰으로 기기를 찾고,
+ * 그 기기가 정말 이 발송의 수신자였는지 검사한다(아무 토큰으로 도달 수를 부풀리지 못하게).
+ */
+export interface ReportReceivedInput {
+  /** 푸시 페이로드의 data.notikit_log_id */
+  logId: string;
+  /** 알림을 받은 디바이스의 푸시 토큰 — 등록할 때 쓴 것과 같아야 한다 */
+  token: string;
+}
+
 export interface ReportClickInput {
   /** 푸시 페이로드의 data.notikit_log_id */
   logId: string;

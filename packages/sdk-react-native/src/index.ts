@@ -1,4 +1,7 @@
-import { NotikitClient, type NotikitConfig } from "@notikit/core";
+import { NotikitClient, logIdFromPayload, type NotikitConfig } from "@notikit/core";
+
+/** `@react-native-firebase/messaging` 의 RemoteMessage 중 우리가 읽는 부분만 */
+export type NotikitRemoteMessage = { data?: Record<string, string | object> | null };
 
 export interface NotikitRNConfig extends Omit<NotikitConfig, "apiSecret"> {
   /** user id 바인딩 시 identity 검증 해시(고객 서버 계산) */
@@ -41,6 +44,39 @@ export class NotikitReactNative {
   /** 알림 설정 토글을 끄는 경로 — 이게 없으면 켠 토픽을 앱에서 끌 수 없다 */
   unsubscribe(topic: string, fcmToken: string) {
     return this.client.unsubscribe(topic, fcmToken);
+  }
+
+  /**
+   * 푸시 수신 보고. 콘솔의 "도달" 칸을 채우는 유일한 경로다 — 부르지 않으면 늘 0 이다.
+   * 같은 발송을 다시 부르면 요청 없이 `null` 이다(재배달 안전).
+   */
+  reportReceived(fcmToken: string, messageId: string) {
+    return this.client.reportReceived({ logId: messageId, token: fcmToken });
+  }
+
+  /**
+   * `messaging().setBackgroundMessageHandler(...)` 에 그대로 넣는 핸들러.
+   *
+   * ```ts
+   * messaging().setBackgroundMessageHandler(notikit.backgroundMessageHandler(token));
+   * ```
+   *
+   * **절대 throw 하지 않는다.** 백그라운드 핸들러가 거부된 Promise 를 돌려주면 안드로이드가
+   * 헤드리스 작업을 실패로 적고, iOS 는 다음 백그라운드 실행 예산을 깎는다 — 수신 보고 한
+   * 건 때문에 앱의 푸시 처리 전체가 나빠지는 건 맞바꿀 값이 아니다.
+   *
+   * notikit 발송이 아니면(=`notikit_log_id` 없음) 아무것도 하지 않는다.
+   */
+  backgroundMessageHandler(fcmToken: string): (message: NotikitRemoteMessage) => Promise<void> {
+    return async (message) => {
+      const logId = logIdFromPayload(message?.data);
+      if (!logId) return;
+      try {
+        await this.reportReceived(fcmToken, logId);
+      } catch {
+        // 보고 실패는 삼킨다 — 위 주석 참조
+      }
+    };
   }
 
   /**

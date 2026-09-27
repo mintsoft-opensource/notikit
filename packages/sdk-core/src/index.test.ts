@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { NotikitClient, NotikitError, NotikitSession, memoryStorage, readPushData } from "./index";
+import { NotikitClient, NotikitError, NotikitSession, ReceiptDedupe, memoryStorage, readPushData } from "./index";
 
 function mockFetch(response: unknown, ok = true, status = 200) {
   return vi.fn(async () =>
@@ -426,5 +426,92 @@ describe("readPushData actions", () => {
     expect(readPushData({ actions: '{"id":"x"}' }).actions).toEqual([]);
     expect(readPushData({ actions: '[{"id":"x"},{"id":"y","title":"Y"}]' }).actions).toEqual([{ id: "y", title: "Y" }]);
     expect(readPushData(null).actions).toEqual([]);
+  });
+});
+
+describe("reportReceived", () => {
+  it("posts log_id and token to the receipts endpoint", async () => {
+    const fetch = mockFetch({ success: true, data: { recorded: true }, error: null });
+    const client = new NotikitClient({ ...base, fetch });
+    const res = await client.reportReceived({ logId: "11111111-1111-1111-1111-111111111111", token: "t1" });
+
+    expect(res).toEqual({ recorded: true });
+    const [url, init] = (fetch as any).mock.calls[0];
+    expect(url).toBe("https://push.test/api/v1/messages/received");
+    expect(JSON.parse(init.body)).toEqual({ log_id: "11111111-1111-1111-1111-111111111111", token: "t1" });
+  });
+
+  it("does not send a second request for the same message", async () => {
+    // 재배달된 푸시가 같은 요청을 다시 내보내면 대형 발송 직후 수신 보고 한도를 깎아먹는다
+    const fetch = mockFetch({ success: true, data: { recorded: true }, error: null });
+    const client = new NotikitClient({ ...base, fetch });
+    await client.reportReceived({ logId: "log-1", token: "t1" });
+    const again = await client.reportReceived({ logId: "log-1", token: "t1" });
+
+    expect(again).toBeNull();
+    expect((fetch as any).mock.calls).toHaveLength(1);
+  });
+
+  it("still reports a different message", async () => {
+    const fetch = mockFetch({ success: true, data: { recorded: true }, error: null });
+    const client = new NotikitClient({ ...base, fetch });
+    await client.reportReceived({ logId: "log-1", token: "t1" });
+    await client.reportReceived({ logId: "log-2", token: "t1" });
+    expect((fetch as any).mock.calls).toHaveLength(2);
+  });
+
+  it("keeps two clients independent", async () => {
+    // 기억은 클라이언트 한 벌의 것이다 — 모듈 전역이면 테스트·멀티테넌트에서 서로를 삼킨다
+    const fetch = mockFetch({ success: true, data: { recorded: true }, error: null });
+    const a = new NotikitClient({ ...base, fetch });
+    const b = new NotikitClient({ ...base, fetch });
+    await a.reportReceived({ logId: "log-1", token: "t1" });
+    await b.reportReceived({ logId: "log-1", token: "t1" });
+    expect((fetch as any).mock.calls).toHaveLength(2);
+  });
+
+  it("retries after a 5xx but not after a 4xx", async () => {
+    const server = mockFetch({ success: false, data: null, error: "boom" }, false, 503);
+    const client = new NotikitClient({ ...base, fetch: server });
+    await expect(client.reportReceived({ logId: "log-1", token: "t1" })).rejects.toThrow(NotikitError);
+    // 5xx 는 다시 시도할 가치가 있다 — 기억을 풀어 준다
+    await expect(client.reportReceived({ logId: "log-1", token: "t1" })).rejects.toThrow(NotikitError);
+    expect((server as any).mock.calls).toHaveLength(2);
+
+    const denied = mockFetch({ success: false, data: null, error: "Device was not a recipient" }, false, 403);
+    const other = new NotikitClient({ ...base, fetch: denied });
+    await expect(other.reportReceived({ logId: "log-2", token: "t1" })).rejects.toThrow(NotikitError);
+    // 403 은 다시 보내도 같은 답이다 — 재배달마다 반복하지 않는다
+    expect(await other.reportReceived({ logId: "log-2", token: "t1" })).toBeNull();
+    expect((denied as any).mock.calls).toHaveLength(1);
+  });
+
+  it("ignores an empty log id instead of posting a doomed request", async () => {
+    const fetch = mockFetch({ success: true, data: { recorded: true }, error: null });
+    const client = new NotikitClient({ ...base, fetch });
+    expect(await client.reportReceived({ logId: "", token: "t1" })).toBeNull();
+    expect((fetch as any).mock.calls).toHaveLength(0);
+  });
+});
+
+describe("ReceiptDedupe", () => {
+  it("claims once and forgets on release", () => {
+    const d = new ReceiptDedupe();
+    expect(d.claim("a")).toBe(true);
+    expect(d.claim("a")).toBe(false);
+    d.release("a");
+    expect(d.claim("a")).toBe(true);
+  });
+
+  it("evicts the oldest id past its capacity", () => {
+    const d = new ReceiptDedupe(2);
+    d.claim("a");
+    d.claim("b");
+    d.claim("c");
+    expect(d.size).toBe(2);
+    // 가장 오래 전에 본 것부터 버린다 — 최근 것을 버리면 방금 온 재배달을 놓친다
+    expect(d.has("a")).toBe(false);
+    expect(d.has("b")).toBe(true);
+    expect(d.has("c")).toBe(true);
   });
 });

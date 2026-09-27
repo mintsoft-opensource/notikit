@@ -146,3 +146,46 @@ describe("NotikitReactNative", () => {
     expect(rn.core).toBeInstanceOf(NotikitClient);
   });
 });
+
+describe("수신 보고", () => {
+  it("reportReceived 가 발송 id 와 토큰을 보낸다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    await rn.reportReceived("fcm-1", "log-1");
+    const { url, body } = lastCall(fetch);
+    expect(url).toBe("https://push.test/api/v1/messages/received");
+    expect(body).toEqual({ log_id: "log-1", token: "fcm-1" });
+  });
+
+  it("백그라운드 핸들러가 페이로드에서 발송 id 를 꺼내 보고한다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    await rn.backgroundMessageHandler("fcm-1")({ data: { notikit_log_id: "log-9", title: "제목" } });
+    expect(lastCall(fetch).body).toEqual({ log_id: "log-9", token: "fcm-1" });
+  });
+
+  it("notikit 발송이 아니면 아무것도 보내지 않는다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    await rn.backgroundMessageHandler("fcm-1")({ data: { title: "남의 푸시" } });
+    await rn.backgroundMessageHandler("fcm-1")({});
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+  });
+
+  it("백그라운드 핸들러는 실패해도 throw 하지 않는다", async () => {
+    // 거부된 Promise 를 돌려주면 안드로이드가 헤드리스 작업을 실패로 적고
+    // iOS 가 다음 백그라운드 실행 예산을 깎는다 — 보고 한 건과 맞바꿀 값이 아니다
+    const fetch = vi.fn(async () => { throw new Error("offline"); }) as unknown as typeof fetch;
+    const rn = new NotikitReactNative({ ...base, fetch });
+    await expect(rn.backgroundMessageHandler("fcm-1")({ data: { notikit_log_id: "log-1" } })).resolves.toBeUndefined();
+  });
+
+  it("재배달된 같은 발송은 요청을 다시 내보내지 않는다", async () => {
+    const fetch = mockFetch(okEnvelope({ recorded: true }));
+    const rn = new NotikitReactNative({ ...base, fetch });
+    const handle = rn.backgroundMessageHandler("fcm-1");
+    await handle({ data: { notikit_log_id: "log-1" } });
+    await handle({ data: { notikit_log_id: "log-1" } });
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+});

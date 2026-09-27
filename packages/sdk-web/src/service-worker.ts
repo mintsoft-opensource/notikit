@@ -11,6 +11,8 @@
  * 클릭 보고에 쓸 FCM 토큰은 메인 스레드가 IndexedDB 에 남긴 것을 읽는다 —
  * 워커에서는 getToken 을 부를 수 없다.
  */
+import { RECEIPT_DEDUPE_SIZE } from "@notikit/core";
+
 /** 워커가 불러올 firebase compat SDK 기본 버전. 앱의 firebase 메이저와 맞추는 것을 권장. */
 export const DEFAULT_FIREBASE_SDK_VERSION = "12.0.0";
 
@@ -152,6 +154,60 @@ function notikitToken() {
     };
   });
 }
+
+/**
+ * 수신 보고 — 이미 보고한 발송은 다시 내보내지 않는다.
+ *
+ * 워커는 수시로 종료됐다 다시 뜨므로 이 기억은 오래 살지 못한다. 그래도 둔다: 한 번 깨어난
+ * 동안 같은 메시지가 다시 배달되는 경우를 여기서 걷어낸다. 최종 판정은 서버의
+ * (발송, 기기) 유니크가 한다 — 여기서 놓쳐도 도달 수가 부풀지는 않는다.
+ */
+var NOTIKIT_SEEN = [];
+var NOTIKIT_SEEN_MAX = ${RECEIPT_DEDUPE_SIZE};
+
+function notikitClaim(logId) {
+  if (!logId || NOTIKIT_SEEN.indexOf(logId) !== -1) return false;
+  NOTIKIT_SEEN.push(logId);
+  if (NOTIKIT_SEEN.length > NOTIKIT_SEEN_MAX) NOTIKIT_SEEN.shift();
+  return true;
+}
+
+/**
+ * **push 이벤트**에서 수신을 보고한다 — 알림을 그리는 자리(onBackgroundMessage)가 아니다.
+ *
+ * 무음(data-only) 푸시는 알림을 띄우지 않고, 열린 탭이 없으면 onBackgroundMessage 안에서
+ * 하는 일도 없다. 그쪽에 보고를 달면 무음 발송의 도달이 통째로 빠진다. push 는 배달된
+ * 모든 메시지에 대해 한 번 뜨므로 "받았다"의 정의와 정확히 겹친다.
+ *
+ * firebase compat 도 자기 push 리스너를 따로 단다 — 둘은 서로 간섭하지 않는다.
+ */
+self.addEventListener("push", function (event) {
+  if (!NOTIKIT.base || !NOTIKIT.key || !event.data) return;
+
+  var payload;
+  try {
+    payload = event.data.json();
+  } catch (e) {
+    return; // notikit 발송은 항상 JSON 이다
+  }
+  var data = (payload && payload.data) || {};
+  var logId = typeof data.notikit_log_id === "string" ? data.notikit_log_id : "";
+  if (!notikitClaim(logId)) return;
+
+  event.waitUntil(
+    notikitToken().then(function (token) {
+      if (!token) return;
+      // 등록 때와 **같은 FCM 토큰**이어야 서버가 이 기기를 찾는다.
+      return fetch(NOTIKIT.base + "/api/v1/messages/received", {
+        method: "POST",
+        headers: { "content-type": "application/json", "api-key": NOTIKIT.key },
+        body: JSON.stringify({ log_id: logId, token: token })
+      });
+    }).catch(function () {
+      // 보고 실패가 알림 표시를 막지 않는다 — 같은 push 이벤트를 firebase 가 함께 처리 중이다
+    })
+  );
+});
 
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
