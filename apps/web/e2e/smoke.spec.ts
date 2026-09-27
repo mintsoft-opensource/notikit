@@ -36,11 +36,6 @@ async function ensureLogin(page: Page) {
   expect(cachedSession).toBeTruthy();
 }
 
-/** 로그아웃 등으로 세션을 무효화한 테스트는 캐시를 버려야 다음 테스트가 새로 받는다 */
-function invalidateSessionCache() {
-  cachedSession = null;
-}
-
 /** 세션 org 의 첫 프로젝트 id (없으면 생성) */
 async function firstProjectId(page: Page): Promise<string> {
   const headers = { origin: ORIGIN };
@@ -420,13 +415,24 @@ test.describe("smoke", () => {
   });
 
   test("세션 무효화: 로그아웃 후 옛 쿠키 재사용은 거부", async ({ page }) => {
-    await ensureLogin(page);
+    // 공유 관리자(ADMIN)로 로그아웃하면 sessionVersion 이 올라 병렬로 도는 다른 스펙의
+    // 세션까지 끊긴다(features.spec 이 도중에 /login 으로 튕기던 flaky 의 원인). 전용 계정을 쓴다.
+    const email = `logout-${Date.now()}@notikit.dev`;
+    const pw = "logout-pass-1234";
+    const sql = postgres(DB_URL, { max: 1 });
+    try {
+      const [org] = await sql`insert into organizations (name) values ('LogoutOrg') returning id`;
+      await sql`insert into admin_users (org_id, email, password_hash, role) values (${org.id}, ${email}, ${scryptHash(pw)}, 'owner')`;
+    } finally {
+      await sql.end();
+    }
+    const login = await page.request.post("/api/admin/login", { headers: { origin: ORIGIN }, data: { email, password: pw } });
+    expect(login.ok()).toBeTruthy();
     const cookie = (await page.context().cookies()).find((c) => c.name === "notikit_session");
     expect(cookie?.value).toBeTruthy();
     // 로그아웃 → sessionVersion 증가
     const out = await page.request.post("/api/admin/logout", { headers: { origin: ORIGIN } });
     expect(out.ok()).toBeTruthy();
-    invalidateSessionCache(); // sessionVersion 증가 → 캐시된 쿠키도 무효
     // 옛 쿠키로 admin 호출 → 무효
     const replay = await page.request.get("/api/admin/projects", {
       headers: { cookie: `notikit_session=${cookie!.value}` },
