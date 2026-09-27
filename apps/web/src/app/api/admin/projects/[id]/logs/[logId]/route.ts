@@ -131,6 +131,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
       percent: row.holdoutPercent,
       devices: row.holdoutCount,
       conversions: holdoutConversions,
+      // 발송군의 전환/분모도 함께 준다 — 화면이 두 **비율**을 나란히 놓을 수 있어야
+      // 비교가 성립한다. 분모가 다른 건수 두 개만 주면 화면에서 비교할 방법이 없다.
+      sent: { converted: sentConv?.count ?? 0, total: row.successCount },
       lift: conversionLift(
         { converted: sentConv?.count ?? 0, total: row.successCount },
         { converted: holdoutConversions.count, total: row.holdoutCount }

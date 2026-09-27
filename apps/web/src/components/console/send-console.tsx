@@ -7,7 +7,7 @@ import { Send, Clock, FlaskConical, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Textarea, Field } from "@/components/ui/input";
+import { FIELD_ERROR_TEXT, FIELD_HINT_TEXT, Field, Input, Textarea } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
@@ -557,7 +557,7 @@ export function SendConsole({
                 maxLength={255}
                 placeholder={t("titlePlaceholder")}
               />
-              {titleError && <p id={`${titleId}-error`} className="text-xs font-semibold text-error">{titleError}</p>}
+              {titleError && <p id={`${titleId}-error`} className={FIELD_ERROR_TEXT}>{titleError}</p>}
             </div>
             <div className="space-y-1">
               <CountedLabel htmlFor={bodyId} label={t("bodyLabel")} counterId={`${bodyId}-count`} value={renderedBody} max={BODY_RECOMMENDED} />
@@ -574,7 +574,7 @@ export function SendConsole({
                 maxLength={4000}
                 placeholder={t("bodyPlaceholder")}
               />
-              {bodyError && <p id={`${bodyId}-error`} className="text-xs font-semibold text-error">{bodyError}</p>}
+              {bodyError && <p id={`${bodyId}-error`} className={FIELD_ERROR_TEXT}>{bodyError}</p>}
             </div>
             <SendVariables
               keys={attributeKeys}
@@ -629,7 +629,7 @@ export function SendConsole({
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">{t("scheduleHint")}</p>
+              <p className={FIELD_HINT_TEXT}>{t("scheduleHint")}</p>
             </fieldset>
             <SendOptions
               value={sendOptions}
@@ -651,7 +651,7 @@ export function SendConsole({
           <div>
             <Card className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
               <p className="flex min-w-0 items-center gap-2 text-sm" aria-live="polite">
-                <Users aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Users aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
                 <span className="truncate font-semibold tabular-nums">
                   {shown ? t("actionAudience", { users: shown.users, devices: shown.devices }) : t("actionAudienceUnknown")}
                 </span>

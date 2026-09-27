@@ -71,7 +71,7 @@ export function SidebarBrand() {
   const t = useTranslations("app");
   return (
     <div className="flex h-14 items-center border-b border-border px-4">
-      <Link href="/dashboard" className="flex items-center gap-2.5">
+      <Link href="/dashboard" className={cn("flex items-center gap-2.5 rounded-lg", FOCUS_RING)}>
         <LogoMark className="h-8 w-8" />
         <span translate="no" className="text-lg font-extrabold tracking-tight text-foreground">{t("name")}</span>
       </Link>

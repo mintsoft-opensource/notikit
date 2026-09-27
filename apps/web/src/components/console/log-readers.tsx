@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Reader = {
   id: string;
@@ -65,7 +66,7 @@ export function ReaderDetail({ projectId, logId }: { projectId: string; logId: s
   }
 
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const bucketFmt = React.useMemo(
     () =>
       data?.bucket === "day"
@@ -85,7 +86,7 @@ export function ReaderDetail({ projectId, logId }: { projectId: string; logId: s
   }
 
   return (
-    <div className="space-y-3 border-t border-border bg-surface-muted/20 px-3.5 py-2.5">
+    <div className="space-y-4 border-t border-border bg-surface-muted/20 px-3.5 py-2.5">
       <section>
         <Eyebrow as="h4" className="mb-2">{t("readTrend")}</Eyebrow>
         {data.series.some((p) => p.count > 0) ? (

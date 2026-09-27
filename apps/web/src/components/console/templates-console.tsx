@@ -61,7 +61,7 @@ export function TemplatesConsole({ projectId }: { projectId: string }) {
         description={t("subtitle")}
         actions={
           <Button onClick={() => openEditor(null)}>
-            <Plus aria-hidden="true" className="h-4 w-4" /> {t("newTitle")}
+            <Plus aria-hidden="true" className="size-4" /> {t("newTitle")}
           </Button>
         }
       />
@@ -81,7 +81,7 @@ export function TemplatesConsole({ projectId }: { projectId: string }) {
         <CardContent className="p-0">
           {failed && <EmptyState icon={FileText} title={tc("loadFailed")} />}
           {!failed && !items && (
-            <div className="space-y-3 p-3.5"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
+            <div className="space-y-4 p-3.5"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
           )}
           {items && items.length === 0 && <EmptyState icon={FileText} title={t("empty")} />}
           {items && items.length > 0 && (
@@ -106,14 +106,14 @@ export function TemplatesConsole({ projectId }: { projectId: string }) {
                     <span className="hidden text-2xs tabular-nums text-muted-foreground lg:inline">{df.format(new Date(tpl.updatedAt))}</span>
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/projects/${projectId}/send/single?template=${tpl.id}`}>
-                        <Send aria-hidden="true" className="h-3.5 w-3.5" /> {t("useToSend")}
+                        <Send aria-hidden="true" className="size-4" /> {t("useToSend")}
                       </Link>
                     </Button>
                     <Button variant="outline" size="icon" aria-label={`${t("edit")} ${tpl.name}`} onClick={() => openEditor(tpl)}>
-                      <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                      <Pencil aria-hidden="true" className="size-4" />
                     </Button>
                     <Button variant="outline" size="icon" aria-label={`${t("delete")} ${tpl.name}`} onClick={() => remove(tpl)}>
-                      <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+                      <Trash2 aria-hidden="true" className="size-4" />
                     </Button>
                   </div>
                 </li>

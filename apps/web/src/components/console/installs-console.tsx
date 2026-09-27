@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { PackageMinus, PackagePlus, TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Lifecycle = {
   devices_lifecycle: {
@@ -113,7 +114,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
     }
   }
 
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
   const bucketFmt = React.useMemo(
     () =>
@@ -190,7 +191,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          {!events && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!events && <div className="space-y-4 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {events && events.length === 0 && <EmptyState icon={PackageMinus} title={to("noUninstalls")} />}
           {events && events.length > 0 && (
             <>
@@ -217,7 +218,7 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
                     <TableCell label={t("colUser")} className="truncate font-mono text-sm font-semibold">
                       {e.externalId ?? <span className="font-sans font-normal text-muted-foreground">{to("anonymousDevice")}</span>}
                     </TableCell>
-                    <TableCell label={t("colPlatform")} className="text-xs text-muted-foreground">{e.platform ?? "—"}</TableCell>
+                    <TableCell label={t("colPlatform")} className={FIELD_HINT_TEXT}>{e.platform ?? "—"}</TableCell>
                     <TableCell label={t("colSource")} className="truncate text-xs text-muted-foreground">{to(`source_${e.source}` as "source_send")}</TableCell>
                     <TableCell label={t("colAt")} className="text-xs tabular-nums text-muted-foreground sm:text-end">
                       {df.format(new Date(e.at))}

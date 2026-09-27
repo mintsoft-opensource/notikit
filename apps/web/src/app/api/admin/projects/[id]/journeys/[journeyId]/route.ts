@@ -4,8 +4,8 @@ import { journeys } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
-import { compileJourney, journeyStepsSchema, normalizeSteps, toStoredSteps } from "@/lib/journey-triggers";
-import { stepCounts } from "@/lib/journeys";
+import { compileJourney, journeyStepsSchema, normalizeSteps, toStoredSteps, triggerEventsOf } from "@/lib/journey-triggers";
+import { stepCounts, stepFunnel, type StepSendAgg } from "@/lib/journeys";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -76,8 +76,43 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; jou
     if (path !== undefined) counts[path] = g.n;
   }
 
+  /**
+   * 스텝별 발송·클릭·전환 — `push_logs.step_path` 로 묶는다.
+   *
+   * 클릭은 로그에 캐시된 유니크 클릭 수(`click_count`)를 그대로 쓰고, 전환만 조인한다.
+   * `push_clicks` 까지 조인하면 스텝 하나가 수천 로그를 내는 저니에서 상세 화면 한 번이
+   * 클릭 테이블 전체를 훑는다 — 캐시는 이미 유니크 기준이라 같은 수다.
+   *
+   * 발송 수는 `success_count`(FCM 접수)가 아니라 `total_count`(그 스텝이 대상으로 잡은 기기)다.
+   * 둘 다 기기 단위라 클릭 수와 분모가 맞고, Firebase 자격이 없는 프로젝트(log-only)에서도
+   * 0 으로 주저앉지 않는다 — 접수 수를 쓰면 저니가 돌고 있는데 퍼널이 전부 0 으로 보인다.
+   */
+  const sends = (await db.execute(
+    raw`select l.step_path as step_path,
+               coalesce(sum(l.total_count), 0)::int as sent,
+               coalesce(sum(l.click_count), 0)::int as clicks,
+               count(distinct v.id)::int as conversions
+          from push_logs l
+          left join push_conversions v on v.log_id = l.id
+         where l.project_id = ${id} and l.journey_id = ${journeyId} and l.step_path is not null
+         group by l.step_path`
+  )) as unknown as { step_path: string; sent: number; clicks: number; conversions: number }[];
+  const agg: StepSendAgg[] = sends.map((s) => ({
+    stepPath: s.step_path,
+    sent: s.sent,
+    clicks: s.clicks,
+    conversions: s.conversions,
+  }));
+
   // total 도 함께 준다 — 삭제는 완료된 실행 이력까지 cascade 로 지운다
-  return ok({ journey: row, activeRuns: c.active, exitedRuns: c.exited, totalRuns: c.total, stepCounts: counts });
+  return ok({
+    journey: row,
+    activeRuns: c.active,
+    exitedRuns: c.exited,
+    totalRuns: c.total,
+    stepCounts: counts,
+    stepFunnel: stepFunnel(program, counts, agg),
+  });
 }
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; journeyId: string }> }) {
@@ -97,7 +132,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; j
   const db = getDb();
   const rows = await db
     .update(journeys)
-    .set({ steps: toStoredSteps(parsed.data.steps) })
+    .set({ steps: toStoredSteps(parsed.data.steps), triggerEvents: triggerEventsOf(parsed.data.steps) })
     .where(and(eq(journeys.id, journeyId), eq(journeys.projectId, id)))
     .returning();
   if (rows.length === 0) return fail("Not found", 404);

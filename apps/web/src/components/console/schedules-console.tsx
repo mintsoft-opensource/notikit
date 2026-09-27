@@ -255,7 +255,7 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
         description={t("subtitle")}
         actions={
           <Button ref={newBtnRef} onClick={startCreate}>
-            <Plus aria-hidden="true" className="h-4 w-4" /> {t("newSchedule")}
+            <Plus aria-hidden="true" className="size-4" /> {t("newSchedule")}
           </Button>
         }
       />
@@ -388,7 +388,7 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
                   <Badge variant={s.enabled ? "primary" : "neutral"}>{s.enabled ? t("on") : t("off")}</Badge>
                 </div>
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarClock aria-hidden="true" className="h-4 w-4 shrink-0" />
+                  <CalendarClock aria-hidden="true" className="size-4 shrink-0" />
                   <span>{recurrenceText(s)}</span>
                   <span aria-hidden="true">·</span>
                   <span>
@@ -408,9 +408,9 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
                   aria-label={`${s.name} — ${s.enabled ? t("disable") : t("enable")}`}
                 >
                   {s.enabled ? (
-                    <Pause aria-hidden="true" className="h-4 w-4" />
+                    <Pause aria-hidden="true" className="size-4" />
                   ) : (
-                    <Play aria-hidden="true" className="h-4 w-4" />
+                    <Play aria-hidden="true" className="size-4" />
                   )}
                   {s.enabled ? t("disable") : t("enable")}
                 </Button>
@@ -420,7 +420,7 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
                   onClick={() => startEdit(s)}
                   aria-label={`${s.name} — ${tc("edit")}`}
                 >
-                  <Pencil aria-hidden="true" className="h-4 w-4" />
+                  <Pencil aria-hidden="true" className="size-4" />
                 </Button>
                 <Button
                   id={`schedule-${s.id}-remove`}
@@ -430,7 +430,7 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
                   disabled={busyId === s.id}
                   aria-label={`${s.name} — ${tc("remove")}`}
                 >
-                  <Trash2 aria-hidden="true" className="h-4 w-4" />
+                  <Trash2 aria-hidden="true" className="size-4" />
                 </Button>
               </div>
             </div>

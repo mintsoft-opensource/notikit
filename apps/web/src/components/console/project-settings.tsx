@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Save, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea, Field } from "@/components/ui/input";
+import { FIELD_ERROR_TEXT, Field, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
@@ -160,8 +160,8 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         onChange={setTab}
         items={[
           { value: "policy", label: t("policyTitle") },
-          { value: "firebase", label: "Firebase", icon: <Upload aria-hidden="true" className="h-4 w-4" /> },
-          { value: "kakao", label: t("kakaoTitle"), icon: <Upload aria-hidden="true" className="h-4 w-4" /> },
+          { value: "firebase", label: "Firebase", icon: <Upload aria-hidden="true" className="size-4" /> },
+          { value: "kakao", label: t("kakaoTitle"), icon: <Upload aria-hidden="true" className="size-4" /> },
         ]}
       />
 
@@ -176,7 +176,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="flex min-h-9 items-center gap-2 text-sm">
-            <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="h-4 w-4 rounded-sm border-border accent-[var(--primary)]" />
+            <input type="checkbox" checked={requireId} onChange={(e) => setRequireId(e.target.checked)} className="size-4 rounded-sm border-border accent-[var(--primary)]" />
             {t("requireIdentity")}
           </label>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -215,7 +215,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
                 />
               </Field>
               {freqCapInvalid && (
-                <p id="freq-cap-error" className="text-xs text-error">
+                <p id="freq-cap-error" className={FIELD_ERROR_TEXT}>
                   {t("frequencyCapInvalid", { min: FREQ_CAP_MIN, max: FREQ_CAP_MAX })}
                 </p>
               )}
@@ -238,7 +238,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
                 />
               </Field>
               {rate.invalid && (
-                <p id="rate-cap-error" className="text-xs text-error">
+                <p id="rate-cap-error" className={FIELD_ERROR_TEXT}>
                   {t("rateCapInvalid", { min: RATE_MIN, max: RATE_MAX })}
                 </p>
               )}
@@ -246,7 +246,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
           </div>
           <div className="flex justify-end">
             <Button onClick={savePolicy} disabled={saving || !policyLoaded || freq.invalid || rate.invalid}>
-              <Save aria-hidden="true" className="h-4 w-4" /> {saving ? t("saving") : t("savePolicy")}
+              <Save aria-hidden="true" className="size-4" /> {saving ? t("saving") : t("savePolicy")}
             </Button>
           </div>
         </CardContent>
@@ -259,11 +259,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="h-4 w-4" /> Firebase</CardTitle>
+              <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="size-4" /> Firebase</CardTitle>
               <CardDescription>{project?.hasFirebase ? t("fbConfigured") : t("fbNotConfigured")}</CardDescription>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <Field label={t("serviceAccountJson")}>
               <Textarea value={firebase} onChange={(e) => setFirebase(e.target.value)} placeholder='{"type":"service_account",...}' className="min-h-40 font-mono text-xs" />
             </Field>
@@ -280,11 +280,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="h-4 w-4" /> {t("kakaoTitle")}</CardTitle>
+              <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="size-4" /> {t("kakaoTitle")}</CardTitle>
               <CardDescription>{project?.hasKakao ? t("fbConfigured") : t("kakaoNotConfigured")}</CardDescription>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <Field label={t("providerUrl")}>
               <Input
                 type="url"

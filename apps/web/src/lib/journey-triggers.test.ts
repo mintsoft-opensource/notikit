@@ -5,6 +5,7 @@ import {
   compileJourney,
   countNodes,
   entryEventOf,
+  triggerEventsOf,
   exitedBy,
   normalizeSteps,
   pathOf,
@@ -128,6 +129,23 @@ describe("entry trigger", () => {
 
   it("ignores an entry node that is not at the head", () => {
     expect(entryEventOf([send("a"), { type: "entry", event: "signup" }])).toBeNull();
+  });
+});
+
+describe("triggerEventsOf", () => {
+  it("lists the entry trigger and every exit event once", () => {
+    const steps: JourneyStep[] = [
+      { type: "entry", event: "signup" },
+      send("welcome"),
+      { type: "exit", event: "purchase" },
+      { type: "branch", yes: [{ type: "exit", event: "purchase" }], no: [{ type: "exit", event: "signup" }] },
+    ];
+    expect(triggerEventsOf(steps)).toEqual(["signup", "purchase"]);
+  });
+
+  it("is empty for a journey no event can touch", () => {
+    expect(triggerEventsOf([send("a"), wait(3)])).toEqual([]);
+    expect(triggerEventsOf(normalizeSteps("not-a-tree"))).toEqual([]);
   });
 });
 

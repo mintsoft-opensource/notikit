@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Input, Select } from "@/components/ui/input";
 import { adminApi } from "@/lib/admin-client";
 import { newRowId } from "@/lib/row-id";
 import type { TemplateField } from "@/lib/templates";
@@ -118,7 +118,7 @@ export function SendCustomFields({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {fields.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
           {fields.map((f) => (
@@ -166,16 +166,16 @@ export function SendCustomFields({
             aria-label={x.key.trim() ? t("removeExtraNamed", { key: x.key.trim() }) : t("removeExtra")}
             onClick={() => removeExtra(i)}
           >
-            <X aria-hidden="true" className="h-4 w-4" />
+            <X aria-hidden="true" className="size-4" />
           </Button>
         </div>
       ))}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button ref={addRef} type="button" variant="outline" size="sm" onClick={addExtra}>
-          <Plus aria-hidden="true" className="h-4 w-4" /> {t("addExtra")}
+          <Plus aria-hidden="true" className="size-4" /> {t("addExtra")}
         </Button>
-        <span className="text-xs text-muted-foreground">{t("customFieldsHint")}</span>
+        <span className={FIELD_HINT_TEXT}>{t("customFieldsHint")}</span>
       </div>
     </div>
   );

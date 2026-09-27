@@ -159,6 +159,12 @@ function prevSibling(steps: StepDraft[], rowId: string): string | null {
 export type StepErrors = Record<string, string>;
 
 /**
+ * 스텝 한 칸의 퍼널. `waiting` 은 **지금** 그 자리에 있는 실행 수이고 `sent`·`clicks` 는
+ * 그 스텝이 지금까지 낸 발송의 **누적**이다 — 출처가 다르므로 서로의 분모가 아니다.
+ */
+export type StepStat = { waiting: number; sent: number; clicks: number };
+
+/**
  * 칸별 오류. 저장 버튼 하나에 "저장 실패" 토스트만 띄우면 어느 칸이 문제인지 알 수 없다 —
  * 오류는 그 칸 바로 아래에 붙고(aria-describedby) 첫 오류로 초점이 간다.
  */
@@ -196,7 +202,7 @@ export function JourneyFields({
   onDraft,
   idPrefix,
   errors,
-  stepCounts,
+  stepStats,
   nameLocked = false,
   disabled = false,
 }: {
@@ -206,8 +212,8 @@ export function JourneyFields({
   onDraft: (v: JourneyDraft) => void;
   idPrefix: string;
   errors?: StepErrors;
-  /** 스텝 경로별 현재 인원 — 상세 화면에서만 넘어온다 */
-  stepCounts?: Record<string, number>;
+  /** 스텝 경로별 퍼널 — 상세 화면에서만 넘어온다 */
+  stepStats?: Record<string, StepStat>;
   /** 수정 화면에서는 이름을 잠근다 — SDK enroll 이 이름으로 저니를 찾는다 */
   nameLocked?: boolean;
   /** 저장 중에는 편집을 막는다 — 저장이 끝나며 서버 값으로 되맞출 때 그사이 고친 내용이 사라진다 */
@@ -285,7 +291,7 @@ export function JourneyFields({
           onRemove={remove}
           onAdd={add}
           errors={errors}
-          stepCounts={stepCounts}
+          stepStats={stepStats}
           disabled={disabled}
           full={full}
           canRemove={total > 1}
@@ -305,7 +311,7 @@ type ListProps = {
   onRemove: (rowId: string) => void;
   onAdd: (parentRowId: string | null, arm: "yes" | "no", type: StepDraft["type"]) => void;
   errors?: StepErrors;
-  stepCounts?: Record<string, number>;
+  stepStats?: Record<string, StepStat>;
   disabled: boolean;
   full: boolean;
   canRemove: boolean;
@@ -348,9 +354,9 @@ function StepList(props: ListProps) {
 
 function StepRow(props: ListProps & { step: StepDraft; path: string; index: number }) {
   const t = useTranslations("journeys");
-  const { step: s, path, index, errors, stepCounts, disabled, onUpdate, onRemove, canRemove, depth } = props;
+  const { step: s, path, index, errors, stepStats, disabled, onUpdate, onRemove, canRemove, depth } = props;
   const error = errors?.[s.rowId];
-  const here = stepCounts?.[path];
+  const stat = stepStats?.[path];
 
   return (
     <div
@@ -375,8 +381,19 @@ function StepRow(props: ListProps & { step: StepDraft; path: string; index: numb
           <option value="exit">{t("stepTypeExit")}</option>
         </Select>
         <span className={FIELD_HINT_TEXT}>{t("stepN", { n: index + 1 })}</span>
-        {here !== undefined && (
-          <span className={FIELD_HINT_TEXT}>{t("stepHere", { count: here })}</span>
+        {stat && (
+          /**
+           * 한 줄에 세 축: 지금 머문 수(현재) · 이 스텝이 낸 발송(누적) · 클릭률.
+           * 머문 수와 발송 수는 분모가 다르다 — 같은 줄에 두되 하나의 비율로 읽히지 않게
+           * 각각 이름을 붙인다. 발송이 없던 스텝의 클릭률은 0% 가 아니라 "—" 다.
+           */
+          <span className={FIELD_HINT_TEXT}>
+            {t("stepFunnel", {
+              waiting: stat.waiting,
+              sent: stat.sent,
+              rate: stat.sent > 0 ? `${Math.round((stat.clicks / stat.sent) * 1000) / 10}%` : "—",
+            })}
+          </span>
         )}
         <Button
           variant="ghost"

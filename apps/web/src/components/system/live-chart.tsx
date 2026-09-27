@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { numberFormat } from "@/lib/number-format";
 
 export type LiveSeries = { key: string; label: string; color: string; values: Array<number | null> };
 
@@ -158,7 +159,7 @@ export function formatBytes(v: number, locale?: string): string {
         : v >= 1024
           ? [v / 1024, "kilobyte", 0]
           : [v, "byte", 0];
-  return new Intl.NumberFormat(locale, {
+  return numberFormat(locale, {
     style: "unit",
     unit,
     unitDisplay: "short",

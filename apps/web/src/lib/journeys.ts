@@ -105,7 +105,14 @@ export async function processJourneyRun(runId: string): Promise<void> {
       console.warn(`[journey] run ${runId} step ${run.currentStep} skipped: ${ready.error}`);
       return;
     }
-    await enqueuePush(project, ready.message, { db: tx, sentBy: "journey" });
+    // 이 발송을 만든 스텝을 로그에 적는다 — 스텝별 퍼널(발송·클릭·전환)의 유일한 귀속 경로다.
+    // PC 가 아니라 `instr.path` 를 적는 이유: 운영자가 스텝을 고치면 PC 는 다른 명령으로
+    // 밀리지만 경로는 그 자리를 그대로 가리킨다.
+    await enqueuePush(project, ready.message, {
+      db: tx,
+      sentBy: "journey",
+      ...(instr ? { journey: { id: journey.id, stepPath: instr.path } } : {}),
+    });
   });
 }
 
@@ -126,7 +133,7 @@ export async function drainJourneys(projectId: string, limit = 100): Promise<{ p
  * 스텝별 인원 — 지금 그 스텝에 **머물러 있는** 실행 수.
  *
  * 누적 통과 인원이 아니다. 실행이 남기는 건 PC 하나뿐이라 지나간 자리는 복원할 수 없다.
- * (`journey_step_stats` 테이블이 생기면 누적으로 바꾼다 — 보고서 참조.)
+ * 대신 **발송이 일어난 스텝**은 `push_logs.step_path` 로 되짚을 수 있다 — `stepFunnel` 참조.
  */
 export function stepCounts(program: Program, runs: { currentStep: number }[]): Record<string, number> {
   const out: Record<string, number> = {};
@@ -136,4 +143,66 @@ export function stepCounts(program: Program, runs: { currentStep: number }[]): R
     if (path !== undefined) out[path] += 1;
   }
   return out;
+}
+
+/** 스텝 한 칸의 퍼널 — 지금 머문 실행 수 + 그 스텝이 낸 발송·클릭·전환 누적. */
+export type StepFunnelRow = {
+  path: string;
+  kind: Instruction["kind"];
+  /** 지금 이 스텝에 머물러 있는 실행 수 */
+  waiting: number;
+  /** 이 스텝이 낸 발송이 실제로 닿은 사람 수(FCM 접수 기준 누적) */
+  sent: number;
+  /** 유니크 클릭 수 — 발송 로그의 캐시된 분자를 그대로 더한다 */
+  clicks: number;
+  conversions: number;
+};
+
+/** 스텝별 집계의 원천 한 줄 — `push_logs` 를 step_path 로 묶은 결과. */
+export type StepSendAgg = {
+  stepPath: string | null;
+  sent: number;
+  clicks: number;
+  conversions: number;
+};
+
+/**
+ * 스텝별 퍼널을 만든다. 머문 수는 `journey_runs`, 발송·클릭·전환은 `push_logs.step_path` 에서 온다.
+ *
+ * 두 축의 출처가 다르다는 점이 중요하다 — 머문 수는 **지금**이고 발송 수는 **누적**이라,
+ * 같은 줄에 두되 같은 분모로 읽지 않는다. 발송이 한 번도 없던 스텝은 0 이 아니라
+ * "귀속 없음"이므로 sent 0 · clicks 0 으로 남기고 비율은 화면에서 판단한다.
+ *
+ * 발송 스텝이 아닌 칸(대기·분기·종료)도 줄을 남긴다. 빼 버리면 분기 아래 갈래가 화면에서
+ * 사라져 어디서 사람이 끊겼는지 보이지 않는다.
+ */
+export function stepFunnel(
+  program: Program,
+  waiting: Record<string, number>,
+  sends: StepSendAgg[]
+): StepFunnelRow[] {
+  const byPath = new Map<string, StepSendAgg>();
+  for (const s of sends) {
+    if (s.stepPath === null) continue;
+    const prev = byPath.get(s.stepPath);
+    // 같은 스텝이 여러 로그를 낸다(실행마다 1건) — DB 가 이미 묶어 줘도 방어적으로 더한다
+    if (prev) byPath.set(s.stepPath, {
+      stepPath: s.stepPath,
+      sent: prev.sent + s.sent,
+      clicks: prev.clicks + s.clicks,
+      conversions: prev.conversions + s.conversions,
+    });
+    else byPath.set(s.stepPath, s);
+  }
+  return program.instructions.map((instr) => {
+    const agg = byPath.get(instr.path);
+    return {
+      path: instr.path,
+      kind: instr.kind,
+      waiting: waiting[instr.path] ?? 0,
+      sent: agg?.sent ?? 0,
+      clicks: agg?.clicks ?? 0,
+      conversions: agg?.conversions ?? 0,
+    };
+  });
 }

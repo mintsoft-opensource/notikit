@@ -16,6 +16,8 @@ import { ProjectPicker } from "@/components/console/shared";
 import { formatDuration } from "@/components/console/panels";
 import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { CancelSendDialog, isCancelable, useCancelSend } from "@/components/console/send-cancel";
+import { FIELD_HINT_TEXT } from "@/components/ui/input";
+import { useNumberFormat } from "@/lib/number-format";
 
 type QueueItem = {
   id: string;
@@ -24,6 +26,8 @@ type QueueItem = {
   target: string | null;
   status: string;
   totalCount: number;
+  successCount: number;
+  failureCount: number;
   scheduledAt: string | null;
   lockedAt: string | null;
   createdAt: string;
@@ -100,7 +104,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
     () => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }),
     [locale]
   );
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const num = (v: number | undefined) => (v === undefined ? "—" : nf.format(v));
 
   const s = data?.summary;
@@ -114,10 +118,10 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => sel && load(sel)} disabled={!sel || loading}>
-              <RefreshCw aria-hidden="true" className="h-4 w-4" /> {tc("refresh")}
+              <RefreshCw aria-hidden="true" className="size-4" /> {tc("refresh")}
             </Button>
             <Button size="sm" onClick={processQueue} disabled={!sel || busy}>
-              <Play aria-hidden="true" className="h-4 w-4" /> {t("processQueue")}
+              <Play aria-hidden="true" className="size-4" /> {t("processQueue")}
             </Button>
           </>
         }
@@ -150,7 +154,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               {busyLoad && (
-                <div className="space-y-3 p-3.5">
+                <div className="space-y-4 p-3.5">
                   <Skeleton className="h-12 w-full" />
                   <Skeleton className="h-12 w-full" />
                 </div>
@@ -182,7 +186,7 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
                           className="grid min-h-14 gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 xl:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_10rem_7rem_6rem] xl:items-center"
                         >
                           <TableCell label={t("colTitle")} className="truncate text-sm font-semibold">{it.title}</TableCell>
-                          <TableCell label={t("colType")} className="text-xs text-muted-foreground">{it.type}</TableCell>
+                          <TableCell label={t("colType")} className={FIELD_HINT_TEXT}>{it.type}</TableCell>
                           <TableCell label={t("colTarget")} className="truncate font-mono text-xs text-muted-foreground">{it.target ?? "—"}</TableCell>
                           <TableCell label={t("colAudience")} className="text-xs tabular-nums text-muted-foreground xl:text-end">
                             {nf.format(it.totalCount)}
@@ -204,13 +208,19 @@ export function QueueConsole({ projectId }: { projectId?: string }) {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => cancel.ask({ id: it.id, title: it.title })}
+                                onClick={() =>
+                                  cancel.ask({
+                                    id: it.id,
+                                    title: it.title,
+                                    sent: { success: it.successCount, failure: it.failureCount, total: it.totalCount },
+                                  })
+                                }
                                 aria-label={tl("cancelNamed", { title: it.title })}
                               >
                                 <Ban aria-hidden="true" className="size-4" /> {tl("cancel")}
                               </Button>
                             ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
+                              <span className={FIELD_HINT_TEXT}>—</span>
                             )}
                           </TableCell>
                         </TableRow>

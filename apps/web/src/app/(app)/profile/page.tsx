@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { LogOut, UserCircle, KeyRound, Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
@@ -80,8 +80,8 @@ export default function ProfilePage() {
         value={tab}
         onChange={setTab}
         items={[
-          { value: "account", label: t("myAccount"), icon: <UserCircle aria-hidden="true" className="h-4 w-4" /> },
-          { value: "password", label: t("passwordTitle"), icon: <KeyRound aria-hidden="true" className="h-4 w-4" /> },
+          { value: "account", label: t("myAccount"), icon: <UserCircle aria-hidden="true" className="size-4" /> },
+          { value: "password", label: t("passwordTitle"), icon: <KeyRound aria-hidden="true" className="size-4" /> },
         ]}
       />
 
@@ -105,10 +105,10 @@ export default function ProfilePage() {
                   }
                 }}
               >
-                <LogOut aria-hidden="true" className="h-4 w-4" /> {th("logout")}
+                <LogOut aria-hidden="true" className="size-4" /> {th("logout")}
               </Button>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-primary">
                   <UserCircle aria-hidden="true" className="h-6 w-6" />
@@ -118,12 +118,12 @@ export default function ProfilePage() {
                   {user?.role && <Badge variant={user.role === "owner" ? "primary" : "neutral"}>{user.role}</Badge>}
                 </div>
               </div>
-              <dl className="space-y-3 border-t border-border pt-3 [&_dd]:min-w-0 [&_dd]:break-all">
-                <DataRow label={t("emailLabel")} value={user ? user.email : <Skeleton className="h-4 w-40" />} mono />
+              <dl className="space-y-4 border-t border-border pt-3 [&_dd]:min-w-0 [&_dd]:break-all">
+                <DataRow label={t("emailLabel")} value={user ? user.email : <Skeleton className="size-40" />} mono />
                 <DataRow label={t("roleLabel")} value={user ? user.role : <Skeleton className="h-4 w-16" />} />
               </dl>
               {/* 역할 이름만으로는 권한을 알 수 없다 — 할 수 있는 일을 한 줄로 적는다 */}
-              {roleDescKey && <p className="text-xs text-muted-foreground">{t(roleDescKey)}</p>}
+              {roleDescKey && <p className={FIELD_HINT_TEXT}>{t(roleDescKey)}</p>}
             </CardContent>
           </Card>
 
@@ -132,7 +132,7 @@ export default function ProfilePage() {
               <CardHeader>
                 <div>
                   <CardTitle className="flex items-center gap-1.5">
-                    <Building2 aria-hidden="true" className="h-4 w-4" /> {t("organization")}
+                    <Building2 aria-hidden="true" className="size-4" /> {t("organization")}
                   </CardTitle>
                   <CardDescription>{t("organizationDesc")}</CardDescription>
                 </div>
@@ -141,7 +141,7 @@ export default function ProfilePage() {
                 {orgFailed ? (
                   <p className="text-sm text-muted-foreground">{tc("loadFailed")}</p>
                 ) : (
-                  <dl className="space-y-3 [&_dd]:min-w-0">
+                  <dl className="space-y-4 [&_dd]:min-w-0">
                     <DataRow label={t("orgNameLabel")} value={org ? org.name : <Skeleton className="h-4 w-32" />} />
                     {/* 수치는 콘솔 전체와 같이 tabular-nums — 여기만 mono 면 같은 숫자가 다른 서체로 보인다 */}
                     <DataRow
@@ -168,7 +168,7 @@ export default function ProfilePage() {
             <CardHeader>
               <div>
                 <CardTitle className="flex items-center gap-1.5">
-                  <KeyRound aria-hidden="true" className="h-4 w-4" /> {t("passwordTitle")}
+                  <KeyRound aria-hidden="true" className="size-4" /> {t("passwordTitle")}
                 </CardTitle>
                 <CardDescription>{t("passwordDesc")}</CardDescription>
               </div>

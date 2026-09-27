@@ -108,7 +108,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <Button type="submit" disabled={busy} className="w-full">
-                  {mode === "register" ? <UserPlus aria-hidden="true" className="h-4 w-4" /> : <LogIn aria-hidden="true" className="h-4 w-4" />}
+                  {mode === "register" ? <UserPlus aria-hidden="true" className="size-4" /> : <LogIn aria-hidden="true" className="size-4" />}
                   {busy ? t("processing") : mode === "register" ? t("createAccount") : t("login")}
                 </Button>
               </form>

@@ -36,7 +36,7 @@ export function StepCard({
               done ? "bg-primary text-primary-foreground" : "border border-border-strong bg-surface text-muted-foreground"
             )}
           >
-            {done ? <Check className="h-4 w-4" strokeWidth={2.75} /> : step}
+            {done ? <Check className="size-4" strokeWidth={2.75} /> : step}
           </span>
           <h2 id={headingId} className="text-sm font-bold tracking-tight text-foreground">
             {title}

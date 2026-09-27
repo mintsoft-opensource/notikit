@@ -16,6 +16,7 @@ import { lockBackground } from "@/components/ui/dialog";
 import { useExitTransition } from "@/components/ui/use-exit-transition";
 import { cn } from "@/lib/utils";
 import { logout, useAdminErrorText } from "@/lib/admin-client";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
 
 /** 현재 경로에 해당하는 nav 그룹·항목 키 (없으면 null) */
 function currentNavKeys(pathname: string): { groupKey: string; labelKey: string } | null {
@@ -31,6 +32,8 @@ function currentNavKeys(pathname: string): { groupKey: string; labelKey: string 
 
 /** 글줄 안에 끼는 아이콘은 전부 16px(size-4) — 크기가 섞이면 같은 층위가 다르게 읽힌다 */
 const CRUMB_ICON = "size-4 rtl:rotate-180";
+/** 이동 경로 링크 — 조작 요소이므로 다른 링크와 같은 포커스 링을 쓴다 */
+const CRUMB_LINK = "rounded-sm text-muted-foreground transition-colors hover:text-foreground";
 
 /**
  * 헤더 조작 버튼은 전부 Button(h-9·rounded-lg·포커스 링)으로 만든다.
@@ -160,12 +163,12 @@ export function Header() {
         <nav aria-label={th("menu")} className="min-w-0 flex-1 text-sm">
           <ol className="flex min-w-0 items-center gap-1.5">
             <li className="hidden shrink-0 sm:block">
-              <Link href="/dashboard" className="text-muted-foreground transition-colors hover:text-foreground">{ta("name")}</Link>
+              <Link href="/dashboard" className={cn(CRUMB_LINK, FOCUS_RING)}>{ta("name")}</Link>
             </li>
             <li aria-hidden="true" className="hidden text-muted-foreground/60 sm:block"><ChevronRight className={CRUMB_ICON} /></li>
             {projectId && (
               <>
-                <li className="hidden shrink-0 sm:block"><Link href="/projects" className="text-muted-foreground hover:text-foreground">{t("projects")}</Link></li>
+                <li className="hidden shrink-0 sm:block"><Link href="/projects" className={cn(CRUMB_LINK, FOCUS_RING)}>{t("projects")}</Link></li>
                 <li aria-hidden="true" className="hidden text-muted-foreground/60 sm:block"><ChevronRight className={CRUMB_ICON} /></li>
               </>
             )}

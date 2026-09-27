@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Input, Textarea } from "@/components/ui/input";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { newRowId } from "@/lib/row-id";
 import type { TemplateField } from "@/lib/templates";
@@ -135,7 +135,7 @@ export function TemplateFormDialog({
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-semibold">{t("fields")}</legend>
-          <p className="text-xs text-muted-foreground">{t("fieldsHint")}</p>
+          <p className={FIELD_HINT_TEXT}>{t("fieldsHint")}</p>
           {draft.fields.length > 0 && (
             <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-2 text-2xs font-semibold text-muted-foreground sm:grid">
               <span>{t("fieldKey")}</span>
@@ -152,16 +152,16 @@ export function TemplateFormDialog({
               <Input aria-label={t("fieldDefault")} value={f.default ?? ""} onChange={(e) => setField(f.rowId, { default: e.target.value })} />
               {/* 체크박스 자체는 16px — 라벨을 36px 칸으로 키워 누를 수 있는 면적을 24px 이상으로 */}
               <label className="flex h-9 min-w-9 cursor-pointer items-center justify-center gap-1.5 text-xs">
-                <input type="checkbox" className="h-4 w-4 accent-primary" checked={Boolean(f.required)} onChange={(e) => setField(f.rowId, { required: e.target.checked })} />
+                <input type="checkbox" className="size-4 accent-primary" checked={Boolean(f.required)} onChange={(e) => setField(f.rowId, { required: e.target.checked })} />
                 <span className="sm:sr-only">{t("fieldRequired")}</span>
               </label>
               <Button type="button" variant="ghost" size="icon" aria-label={t("removeField")} onClick={() => set("fields", draft.fields.filter((x) => x.rowId !== f.rowId))}>
-                <X aria-hidden="true" className="h-4 w-4" />
+                <X aria-hidden="true" className="size-4" />
               </Button>
             </div>
           ))}
           <Button type="button" variant="outline" size="sm" onClick={() => set("fields", [...draft.fields, { key: "", rowId: newRowId() }])}>
-            <Plus aria-hidden="true" className="h-4 w-4" /> {t("addField")}
+            <Plus aria-hidden="true" className="size-4" /> {t("addField")}
           </Button>
         </fieldset>
       </fieldset>

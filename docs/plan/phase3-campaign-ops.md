@@ -94,3 +94,14 @@ tsc 0 · vitest · SDK 테스트 · Playwright 전부 통과, 24개 로케일 �
 검증: tsc 0 · vitest 394 · next build · Playwright **128 통과**. 24개 로케일 누락 0(전체 1,140키). 마이그레이션 `0027_ab_auto_winner`.
 
 남은 것: 저니 스텝별 **누적** 통과 수(지금은 현재 머문 수), `journeys.entry_event` 전용 컬럼·인덱스, `journey_runs.last_send_log_id`.
+
+## 5차 마무리 (2026-09-27)
+
+4차의 남은 것을 닫았다.
+
+- **스텝별 누적 성과**: 발송 로그에 `journey_id`·`step_path`(명령 번호가 아니라 트리 경로 — 스텝을 고쳐도 같은 자리를 가리킨다)를 적어 스텝별 발송·클릭·전환 퍼널을 만든다. 저니를 지워도 발송 이력은 남는다(set null). 마이그레이션 `0029_journey_send_attribution`.
+- **이벤트 → 저니 조회**: `entry_event` 단일 컬럼 대신 `journeys.trigger_events text[]`(진입 + 종료 이벤트) + GIN. 종료 조건도 같은 전체 스캔을 탔으므로 둘을 한 배열로 묶었다. 기존 행은 null 로 두고 조회가 함께 읽어 그 자리에서 채운다(조건부 갱신이라 동시 수정을 덮지 않는다). 마이그레이션 `0030_journey_trigger_events`.
+- `journey_runs.last_send_log_id` 는 이미 있었다(분기 판정용).
+- **e2e flaky**: `smoke.spec` 의 로그아웃 테스트가 공유 관리자의 `sessionVersion` 을 올려, 병렬로 도는 `features.spec` 이 도중에 `/login` 으로 튕겼다 → 로그아웃 테스트는 전용 계정을 쓴다.
+
+검증: tsc 0 · vitest 463(web) + SDK 104 · next build · Playwright **154 통과(재시도 0)** · Docker 스택 라이브 QA(발송 → 워커 처리, 조회 API 12종).

@@ -20,7 +20,7 @@ export function CharCounter({ id, value, max }: { id: string; value: string; max
         over ? "font-semibold text-warning" : "text-muted-foreground"
       )}
     >
-      {over && <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5" />}
+      {over && <AlertTriangle aria-hidden="true" className="size-4" />}
       <span className="sr-only">{t("charCountLabel", { count, max })}</span>
       <span aria-hidden="true">
         {count}/{max}
@@ -82,7 +82,7 @@ export function SendImageField({
       <Label htmlFor={id}>{t("imageUrl")}</Label>
       <div className="flex items-center gap-3">
         <div className="relative min-w-0 flex-1">
-          <ImageIcon aria-hidden="true" className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <ImageIcon aria-hidden="true" className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id={id}
             type="url"
@@ -103,7 +103,7 @@ export function SendImageField({
           {showThumb ? (
             <img src={src} alt={t("imagePreviewAlt")} className="h-full w-full object-cover" onError={() => setBrokenSrc(src)} />
           ) : (
-            <ImageIcon aria-hidden="true" className="h-4 w-4 text-muted-foreground/60" />
+            <ImageIcon aria-hidden="true" className="size-4 text-muted-foreground/60" />
           )}
         </div>
       </div>

@@ -296,10 +296,19 @@ export const pushLogs = pgTable("push_logs", {
   idempotencyKey: text("idempotency_key"),
   // 발송자 — 콘솔 멤버 이메일 · "admin-token" · "api" · "journey"
   sentBy: text("sent_by"),
+  // 이 발송을 만든 저니와 그 스텝의 트리 경로("0", "1.yes.0"). 저니 발송이 아니면 둘 다 null.
+  //
+  // `journey_runs.last_send_log_id` 는 분기 판정용 **마지막 한 건**이라 지나간 발송을 스텝별로
+  // 되짚을 수 없다. 여기 적어 두면 스텝별 발송·클릭·전환이 push_clicks / push_conversions 의
+  // log_id 조인만으로 따라온다. 경로를 쓰는 이유는 프로그램 카운터가 스텝 편집으로 밀리기 때문이다.
+  journeyId: uuid("journey_id").references(() => journeys.id, { onDelete: "set null" }),
+  stepPath: text("step_path"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   projIdx: index("push_logs_project_idx").on(t.projectId, t.createdAt),
   statusIdx: index("push_logs_status_idx").on(t.projectId, t.status),
+  // 저니 상세의 스텝별 집계가 타는 축 — 저니 발송은 전체 로그의 극히 일부라 부분 인덱스로 둔다
+  journeyIdx: index("push_logs_journey_idx").on(t.journeyId, t.stepPath).where(sql`${t.journeyId} is not null`),
   idempotencyIdx: uniqueIndex("push_logs_idempotency_idx")
     .on(t.projectId, t.idempotencyKey)
     .where(sql`${t.idempotencyKey} is not null`),
@@ -612,9 +621,12 @@ export const journeys = pgTable("journeys", {
   name: text("name").notNull(),
   // 스텝: [{type:'send', title, body} | {type:'wait', hours}]
   steps: jsonb("steps").$type<Array<{ type: "send" | "wait"; title?: string; body?: string; hours?: number }>>().notNull().default([]),
+  // 진입·종료 이벤트 이름(steps 에서 파생, 쓸 때마다 갱신). null 은 컬럼 이전에 저장돼 아직 모르는 행이다.
+  triggerEvents: text("trigger_events").array(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   nameIdx: uniqueIndex("journeys_name_idx").on(t.projectId, t.name),
+  triggerIdx: index("journeys_trigger_events_idx").using("gin", t.triggerEvents),
 }));
 
 /** 저니 실행 — 유저별 진행 상태 */

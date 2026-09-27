@@ -204,6 +204,20 @@
       "when": 1789090890492,
       "tag": "0028_cancel_locale_holdout_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1789090891492,
+      "tag": "0029_journey_send_attribution",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1789090892492,
+      "tag": "0030_journey_trigger_events",
+      "breakpoints": true
     }
   ]
 }

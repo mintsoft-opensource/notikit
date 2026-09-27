@@ -43,6 +43,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         target: pushLogs.target,
         status: pushLogs.status,
         totalCount: pushLogs.totalCount,
+        // 취소 확인창이 "이미 나간 수" 를 **누르기 전에** 보여 주려면 목록에 함께 있어야 한다
+        successCount: pushLogs.successCount,
+        failureCount: pushLogs.failureCount,
         scheduledAt: pushLogs.scheduledAt,
         lockedAt: pushLogs.lockedAt,
         createdAt: pushLogs.createdAt,

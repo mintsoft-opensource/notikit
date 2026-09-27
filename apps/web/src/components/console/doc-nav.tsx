@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import type { DocMeta } from "@/lib/docs";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
 
 /**
  * 문서 목차 — 파일 목록에서 그대로 만들어진다.
@@ -16,9 +18,8 @@ export function DocNav({ docs, label }: { docs: DocMeta[]; label: string }) {
 
   return (
     <nav aria-label={label} className="min-w-0 lg:sticky lg:top-4 lg:pt-3">
-      <p className="mb-1.5 hidden px-2.5 text-2xs font-bold uppercase tracking-[0.06em] text-muted-foreground lg:block">
-        {label}
-      </p>
+      {/* 구획 머리글은 Eyebrow 하나로 — 여기만 자간·굵기가 다르면 같은 층위가 다르게 읽힌다 */}
+      <Eyebrow className="mb-1.5 hidden px-2.5 lg:block">{label}</Eyebrow>
       <ul className="flex gap-1 overflow-x-auto pb-1 lg:block lg:space-y-0.5 lg:overflow-visible lg:pb-0">
         {docs.map((d, i) => {
           const active = pathname === `/guide/${d.slug}`;
@@ -29,6 +30,7 @@ export function DocNav({ docs, label }: { docs: DocMeta[]; label: string }) {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-colors lg:whitespace-normal",
+                  FOCUS_RING,
                   active
                     ? "bg-accent-soft text-primary"
                     : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"

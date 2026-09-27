@@ -137,7 +137,7 @@ export default function TesterPage() {
         </p>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {steps.map((s, i) => (
           <Card key={i}>
             <CardContent className="pt-6">

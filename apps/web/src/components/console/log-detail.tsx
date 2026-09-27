@@ -11,11 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataRow } from "@/components/ui/data-row";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DeltaLine } from "@/components/ui/stat-tile";
+import { FIELD_HINT_TEXT } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
+import { useNumberFormat } from "@/lib/number-format";
+import { cn } from "@/lib/utils";
 import { AdminApiError, adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { RateBar, StatusChip, TestChip } from "./log-status";
 import { CancelSendDialog, isCancelable, useCancelSend, type CanceledLog } from "./send-cancel";
 import { AB_MIN_VARIANT_SAMPLE, AB_TIE_MARGIN, type AbTest, type AbVariantResult } from "@/lib/ab-test";
+import { FOCUS_RING, FOCUS_RING_INSET } from "@/components/ui/focus-ring";
 
 type Log = {
   id: string;
@@ -76,6 +81,8 @@ type Holdout = {
   percent: number | null;
   devices: number;
   conversions: { count: number; valueCents: number };
+  /** 발송군의 전환/분모 — 대조군과 **같은 종류의 비율**로 놓기 위해 서버가 함께 준다 */
+  sent: { converted: number; total: number };
   lift: number | null;
 };
 
@@ -107,7 +114,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
   const t = useTranslations("logs");
   const tc = useTranslations("common");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
 
   const errorText = useAdminErrorText();
 
@@ -295,7 +302,13 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
         actions={
           <>
             {isCancelable(log.status) && (
-              <Button variant="destructive" onClick={() => cancel.ask({ id: log.id, title: log.title })}>
+              <Button variant="destructive" onClick={() =>
+                  cancel.ask({
+                    id: log.id,
+                    title: log.title,
+                    sent: { success: log.successCount, failure: log.failureCount, total: log.totalCount },
+                  })
+                }>
                 <Ban aria-hidden="true" className="size-4" /> {t("cancel")}
               </Button>
             )}
@@ -309,11 +322,11 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>{t("colTitle")}</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <p className="whitespace-pre-wrap break-words text-sm">{log.body}</p>
             {log.imageUrl && (
-              <a href={log.imageUrl} target="_blank" rel="noopener noreferrer" className="block w-fit max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <img src={log.imageUrl} alt={t("imageAlt")} className="max-h-48 max-w-full rounded-lg border border-border bg-surface-muted object-contain" />
+              <a href={log.imageUrl} target="_blank" rel="noopener noreferrer" className={cn("block w-fit max-w-full rounded-tile", FOCUS_RING)}>
+                <img src={log.imageUrl} alt={t("imageAlt")} className="max-h-48 max-w-full rounded-tile border border-border bg-surface-muted object-contain" />
                 <span className="mt-1 block break-all font-mono text-2xs text-muted-foreground">{log.imageUrl}</span>
               </a>
             )}
@@ -365,7 +378,16 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
                     <span className="text-2xs text-muted-foreground">{t("receiptsHint")}</span>
                   </span>
                 }
-                value={`${nf.format(log.deliveredCount ?? 0)} (${rate(log.deliveredCount ?? 0, log.successCount)})`}
+                /**
+                 * 보고가 **한 건도 없으면** 0 이 아니라 "—" 다. 0 은 "아무에게도 안 닿았다"로
+                 * 읽히는데, 실제로 흔한 원인은 앱이 수신 보고를 안 붙인 것이다 — 멀쩡히 배달된
+                 * 발송을 실패로 오해하게 만드는 쪽이 아무것도 안 보여 주는 것보다 나쁘다.
+                 */
+                value={
+                  (log.deliveredCount ?? 0) === 0
+                    ? <span title={t("receiptsNone")}>—</span>
+                    : `${nf.format(log.deliveredCount)} (${rate(log.deliveredCount, log.successCount)})`
+                }
               />
               <DataRow label={t("colReadRate")} value={`${nf.format(log.readCount)} (${rate(log.readCount, log.successCount)})`} />
               <DataRow label={t("readers")} value={`${nf.format(log.clickUserCount)} / ${nf.format(log.audienceUserCount)} (${rate(log.clickUserCount, log.audienceUserCount)})`} />
@@ -404,7 +426,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
                 holdout: nf.format(holdout?.devices ?? 0),
               })}
             </p>
-            <p className="text-xs text-muted-foreground">{t("canceledHint")}</p>
+            <p className={FIELD_HINT_TEXT}>{t("canceledHint")}</p>
           </CardContent>
         </Card>
       )}
@@ -415,9 +437,10 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
 
       {holdout && holdout.percent !== null && holdout.percent > 0 && <HoldoutCard holdout={holdout} />}
 
-      {log.abTest && <AbTestCard projectId={projectId} ab={log.abTest} />}
-
       {conversions && conversions.count > 0 && <ConversionsCard conversions={conversions} />}
+
+      {/* 전환(무엇이 일어났는가) 다음에 A/B(어느 변형이 그렇게 만들었는가) — 원인은 결과 뒤에 읽힌다 */}
+      {log.abTest && <AbTestCard projectId={projectId} ab={log.abTest} />}
 
       <Card>
         <CardHeader><CardTitle>{t("readers")}</CardTitle></CardHeader>
@@ -434,7 +457,10 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
                     else rowRefs.current.delete(i);
                   }}
                   tabIndex={-1}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 text-sm last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  className={cn(
+                    "flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 text-sm last:border-b-0",
+                    FOCUS_RING_INSET
+                  )}
                 >
                   <span className="font-mono text-xs">{r.externalId ?? t("anonymousReader")}</span>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -482,7 +508,7 @@ const DELIVERY_ERRORS_SHOWN = 5;
 function DeliveryErrors({ errors }: { errors?: Record<string, number> | null }) {
   const t = useTranslations("logs");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const rows = React.useMemo(
     () => Object.entries(errors ?? {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]),
     [errors]
@@ -513,7 +539,7 @@ function DeliveryErrors({ errors }: { errors?: Record<string, number> | null }) 
           );
         })}
         {restCount > 0 && (
-          <li className="text-xs text-muted-foreground">{t("deliveryErrorsMore", { count: nf.format(restCount) })}</li>
+          <li className={FIELD_HINT_TEXT}>{t("deliveryErrorsMore", { count: nf.format(restCount) })}</li>
         )}
       </ul>
     </div>
@@ -551,7 +577,7 @@ function VariantComparison({
 }) {
   const t = useTranslations("logs");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const rows = Array.from({ length: count }, (_, i) => variantStat(stats, i));
   const clickByVariant = React.useMemo(() => {
     const m = new Map<number, number>();
@@ -592,14 +618,14 @@ function VariantComparison({
                 <td className="px-3.5 py-2 text-end tabular-nums text-muted-foreground">{s ? nf.format(s.sent) : "—"}</td>
                 <td className="px-3.5 py-2 text-end tabular-nums text-muted-foreground">{s ? nf.format(s.success) : "—"}</td>
                 <td className="px-3.5 py-2 text-end">
-                  {s ? <RateBar num={s.success} den={s.sent} tone="success" /> : <span className="text-xs text-muted-foreground">{t("variantNoStat")}</span>}
+                  {s ? <RateBar num={s.success} den={s.sent} tone="success" /> : <span className={FIELD_HINT_TEXT}>{t("variantNoStat")}</span>}
                 </td>
                 <td className="px-3.5 py-2 text-end tabular-nums text-muted-foreground">{clicks ? nf.format(clicked ?? 0) : "—"}</td>
                 <td className="px-3.5 py-2 text-end">
                   {measurable && s ? (
                     <RateBar num={clicked ?? 0} den={s.success} tone="primary" />
                   ) : (
-                    <span className="text-xs text-muted-foreground">{t("variantNoStat")}</span>
+                    <span className={FIELD_HINT_TEXT}>{t("variantNoStat")}</span>
                   )}
                 </td>
               </tr>
@@ -628,7 +654,7 @@ function AbTestCard({ projectId, ab }: { projectId: string; ab: AbTest }) {
     return (
       <Card>
         <CardHeader><CardTitle>{t("abTitle")}</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <p className="text-sm">{t("abWinnerSend", { letter: variantLetter(ab.variant), percent: 100 - ab.samplePercent })}</p>
           <Button asChild variant="outline">
             <Link href={`/projects/${projectId}/logs/${ab.parentLogId}`}>{t("abParentLink")}</Link>
@@ -643,7 +669,7 @@ function AbTestCard({ projectId, ab }: { projectId: string; ab: AbTest }) {
     <Card>
       <CardHeader><CardTitle>{t("abTitle")}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-muted-foreground">
+        <p className={FIELD_HINT_TEXT}>
           {t("abConfig", { percent: ab.samplePercent, minutes: ab.waitMinutes })}
         </p>
         {!decision && (
@@ -662,7 +688,7 @@ function AbTestCard({ projectId, ab }: { projectId: string; ab: AbTest }) {
                   )}
             </p>
             <AbResultsTable results={decision.results} winner={decision.winner} />
-            <p className="text-xs text-muted-foreground">{t("abDecidedAt", { at: at(decision.at) })}</p>
+            <p className={FIELD_HINT_TEXT}>{t("abDecidedAt", { at: at(decision.at) })}</p>
             {decision.followUpLogId && (
               <Button asChild variant="outline">
                 <Link href={`/projects/${projectId}/logs/${decision.followUpLogId}`}>{t("abFollowUpLink")}</Link>
@@ -679,7 +705,7 @@ function AbTestCard({ projectId, ab }: { projectId: string; ab: AbTest }) {
 function AbResultsTable({ results, winner }: { results: AbVariantResult[]; winner: number | null }) {
   const t = useTranslations("logs");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   return (
     <div className="overflow-x-auto rounded-tile border border-border">
       <table className="w-full text-sm">
@@ -705,7 +731,7 @@ function AbResultsTable({ results, winner }: { results: AbVariantResult[]; winne
               <td className="px-3.5 py-2 text-end tabular-nums text-muted-foreground">{nf.format(r.clicks)}</td>
               <td className="px-3.5 py-2 text-end">
                 {r.rate === null ? (
-                  <span className="text-xs text-muted-foreground">{t("variantNoStat")}</span>
+                  <span className={FIELD_HINT_TEXT}>{t("variantNoStat")}</span>
                 ) : (
                   <RateBar num={r.clicks} den={r.success} tone="primary" />
                 )}
@@ -722,11 +748,11 @@ function AbResultsTable({ results, winner }: { results: AbVariantResult[]; winne
 function ConversionsCard({ conversions }: { conversions: Conversions }) {
   const t = useTranslations("logs");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   return (
     <Card>
       <CardHeader><CardTitle>{t("conversionsTitle")}</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         <dl className="grid grid-cols-2 gap-4">
           <div>
             <dt className="text-xs font-semibold text-muted-foreground">{t("conversionsCount")}</dt>
@@ -737,9 +763,9 @@ function ConversionsCard({ conversions }: { conversions: Conversions }) {
             <dd className="mt-1 text-xl font-extrabold tabular-nums">{nf.format(conversions.valueCents)}</dd>
           </div>
         </dl>
-        <p className="text-xs text-muted-foreground">{t("conversionsHint")}</p>
+        <p className={FIELD_HINT_TEXT}>{t("conversionsHint")}</p>
         {conversions.byName.length > 0 ? (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="divide-y divide-border rounded-tile border border-border">
             {conversions.byName.map((r) => (
               <li key={r.name} className="flex min-w-0 items-center justify-between gap-3 px-3 py-2 text-sm">
                 <span className="truncate font-mono text-xs">{r.name}</span>
@@ -767,7 +793,7 @@ function ConversionsCard({ conversions }: { conversions: Conversions }) {
 function LocaleCard({ content, fallback }: { content: LocaleContent; fallback: LocaleFallback | null }) {
   const t = useTranslations("logs");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const rows = React.useMemo(
     () => Object.entries(fallback?.byLocale ?? {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]),
     [fallback]
@@ -778,11 +804,11 @@ function LocaleCard({ content, fallback }: { content: LocaleContent; fallback: L
     <Card>
       <CardHeader><CardTitle>{t("localesTitle")}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2 rounded-lg border border-border p-3.5">
+        <div className="space-y-2 rounded-tile border border-border p-3.5">
           <p className="text-sm font-semibold">
             {total > 0 ? t("localeFallbackTotal", { count: nf.format(total) }) : t("localeFallbackNone")}
           </p>
-          <p className="text-xs text-muted-foreground">{t("localeFallbackHint")}</p>
+          <p className={FIELD_HINT_TEXT}>{t("localeFallbackHint")}</p>
           {rows.length > 0 && (
             <ul className="space-y-1 border-t border-border pt-2">
               {rows.map(([tag, count]) => (
@@ -821,39 +847,51 @@ function LocaleCard({ content, fallback }: { content: LocaleContent; fallback: L
  */
 function HoldoutCard({ holdout }: { holdout: Holdout }) {
   const t = useTranslations("logs");
-  const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const pf = React.useMemo(
-    () => new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1, signDisplay: "exceptZero" }),
-    [locale]
-  );
+  const nf = useNumberFormat();
+  const rf = useNumberFormat({ style: "percent", maximumFractionDigits: 2 });
+
+  /** 분모가 0이면 비율이 아니라 "잴 수 없음" 이다 — 0% 로 적으면 실패한 것처럼 읽힌다 */
+  const rate = (converted: number, total: number) => (total > 0 ? rf.format(converted / total) : "—");
+  const control = { converted: holdout.conversions.count, total: holdout.devices };
+  const treatment = holdout.sent;
+
   return (
     <Card>
       <CardHeader><CardTitle>{t("holdoutTitle")}</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div>
-            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutPercent")}</dt>
-            <dd className="mt-1 text-xl font-extrabold tabular-nums">{holdout.percent ?? 0}%</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutDevices")}</dt>
-            <dd className="mt-1 text-xl font-extrabold tabular-nums">{nf.format(holdout.devices)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutConversions")}</dt>
-            <dd className="mt-1 text-xl font-extrabold tabular-nums">{nf.format(holdout.conversions.count)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold text-muted-foreground">{t("holdoutLift")}</dt>
-            <dd className="mt-1 text-xl font-extrabold tabular-nums">
-              {holdout.lift === null ? "—" : pf.format(holdout.lift)}
-            </dd>
-          </div>
+      <CardContent className="space-y-4">
+        {/*
+          대조군과 발송군을 **같은 카드에서 비율로** 나란히 둔다. 원시 건수 네 개는 분모가
+          서로 달라(대조군 devices vs 발송 성공 건수) 눈으로 비교되지 않는다 — 비교하라고
+          놓은 숫자가 비교 불가능하면 없는 것만 못하다.
+        */}
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {[
+            { key: "holdoutControl", side: control, hint: t("holdoutControlHint", { percent: holdout.percent ?? 0 }) },
+            { key: "holdoutTreatment", side: treatment, hint: t("holdoutTreatmentHint") },
+          ].map(({ key, side, hint }) => (
+            <div key={key} className="rounded-tile border border-border p-3.5">
+              <dt className="text-xs font-semibold text-muted-foreground">{t(key as "holdoutControl")}</dt>
+              <dd className="mt-1 text-xl font-extrabold tabular-nums">{rate(side.converted, side.total)}</dd>
+              <p className={FIELD_HINT_TEXT}>
+                {t("holdoutRatio", { converted: nf.format(side.converted), total: nf.format(side.total) })}
+              </p>
+              <p className="mt-1 text-2xs text-muted-foreground">{hint}</p>
+            </div>
+          ))}
         </dl>
-        <p className="text-xs text-muted-foreground">
-          {holdout.lift === null ? t("holdoutLiftNone") : t("holdoutHint")}
-        </p>
+
+        <div className="rounded-tile border border-border p-3.5">
+          <p className="text-xs font-semibold text-muted-foreground">{t("holdoutLift")}</p>
+          {holdout.lift === null ? (
+            <p className="mt-1 text-xl font-extrabold tabular-nums text-muted-foreground">—</p>
+          ) : (
+            // 부호는 색·글리프·문장으로 — 중립 볼드 숫자는 +40% 와 −40% 가 같아 보인다
+            <DeltaLine delta={{ value: holdout.lift * 100, unit: "%", goodWhen: "up", label: t("holdoutLiftLabel") }} />
+          )}
+          <p className={cn(FIELD_HINT_TEXT, "mt-1")}>
+            {holdout.lift === null ? t("holdoutLiftNone") : t("holdoutHint")}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

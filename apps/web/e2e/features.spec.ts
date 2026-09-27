@@ -953,6 +953,28 @@ test.describe("트리거 저니", () => {
     expect((await other.json()).data.enrolled).toBe(0);
   });
 
+  test("trigger_events 이전에 저장된 저니도 이벤트로 등록되고, 그 자리에서 컬럼이 채워진다", async ({ request }) => {
+    const p = await createProject(request, "jrn-legacy");
+    const jid = await createJourney(request, p.pid, `legacy-${Date.now()}`, BRANCH_JOURNEY);
+    await identifyWithDevice(request, p, "jrn-legacy-user", {});
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      // 생성 시점에 파생값이 저장된다
+      expect((await sql`select trigger_events from journeys where id = ${jid}`)[0].trigger_events).toEqual(["signup", "purchase"]);
+      // 마이그레이션 직후의 기존 행을 흉내 낸다
+      await sql`update journeys set trigger_events = null where id = ${jid}`;
+
+      const res = await request.post("/api/v1/journeys/event", {
+        headers: { "api-key": p.apiKey },
+        data: { event: "signup", external_id: "jrn-legacy-user", identity_hash: idHash("jrn-legacy-user", p.apiSecret) },
+      });
+      expect((await res.json()).data).toMatchObject({ enrolled: 1, matched: true });
+      expect((await sql`select trigger_events from journeys where id = ${jid}`)[0].trigger_events).toEqual(["signup", "purchase"]);
+    } finally {
+      await sql.end();
+    }
+  });
+
   test("진입 이벤트는 identity_hash 없이는 거절된다", async ({ request }) => {
     const p = await createProject(request, "jrn-auth");
     await createJourney(request, p.pid, `auth-${Date.now()}`, BRANCH_JOURNEY);
@@ -1789,7 +1811,10 @@ test.describe("라운드 5 콘솔: 취소 · 로케일 · 대조군 · 수신 �
     await expect(page.getByText("세일 시작")).toBeVisible();
 
     await expect(page.getByRole("heading", { name: "홀드아웃(대조군)" })).toBeVisible();
-    await expect(page.getByText("대조군 비율")).toBeVisible();
+    // 분모가 다른 건수 네 개가 아니라, 같은 종류의 **비율** 둘이 나란히 있어야 비교가 된다
+    await expect(page.getByText("대조군 전환율")).toBeVisible();
+    await expect(page.getByText("발송군 전환율")).toBeVisible();
+    await expect(page.getByText(/푸시를 받지 않은 10% 입니다/)).toBeVisible();
     // 대조군 전환이 없으면 리프트는 0% 가 아니라 "잴 수 없음" 이다
     await expect(page.getByText(/리프트를 낼 수 없습니다/)).toBeVisible();
 
@@ -1822,5 +1847,160 @@ test.describe("라운드 5 콘솔: 취소 · 로케일 · 대조군 · 수신 �
     await page.goto(`/projects/${p.pid}/send/single`);
     await page.getByRole("button", { name: "알림 옵션" }).click();
     await expect(page.getByLabel("홀드아웃(대조군) %")).toHaveCount(0);
+  });
+});
+
+test.describe("라운드 6: 수신 보고 · 가져오기 되돌리기 · 저니 스텝 퍼널", () => {
+  const sdk = (p: { apiKey: string; apiSecret: string }) => ({ "api-key": p.apiKey, "api-secret": p.apiSecret });
+
+  async function seed(page: Page, prefix: string) {
+    await ensureLogin(page);
+    const created = await page.request.post("/api/admin/projects", {
+      data: { name: `${prefix}-${Date.now()}` },
+      headers: { origin: ORIGIN },
+    });
+    expect(created.status()).toBe(201);
+    const j = (await created.json()).data;
+    return { pid: j.project.id as string, apiKey: j.project.apiKey as string, apiSecret: j.api_secret as string };
+  }
+
+  test("수신 보고: 재보고는 한 번만 세고, 보고 전 도달 칸은 0 이 아니라 '—' 다", async ({ page }) => {
+    const p = await seed(page, "receipt-ui");
+    const token = `r6-recv-${Date.now()}`;
+    const dev = await page.request.post("/api/v1/devices", {
+      headers: { "api-key": p.apiKey },
+      data: { token, platform: "android" },
+    });
+    expect(dev.ok()).toBeTruthy();
+
+    const sent = await page.request.post("/api/v1/messages", {
+      headers: sdk(p),
+      data: { type: "broadcast", title: "도달 확인", body: "본문" },
+    });
+    expect(sent.status()).toBe(202);
+    const id = (await sent.json()).data.message.id as string;
+    await page.request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: { origin: ORIGIN }, data: {} });
+
+    // 아직 아무도 보고하지 않았다 — 0 을 찍으면 "아무에게도 안 닿았다" 로 읽힌다
+    await page.goto(`/projects/${p.pid}/logs/${id}`);
+    await expect(page.getByTitle(/아직 수신 보고가 없습니다/)).toBeVisible();
+
+    // SDK 가 보고한다. 같은 (발송, 기기) 는 두 번째부터 recorded:false — 도달이 부풀지 않는다.
+    const first = await page.request.post("/api/v1/messages/received", {
+      headers: { "api-key": p.apiKey },
+      data: { log_id: id, token },
+    });
+    expect(first.status()).toBe(202);
+    expect((await first.json()).data.recorded).toBe(true);
+    const again = await page.request.post("/api/v1/messages/received", {
+      headers: { "api-key": p.apiKey },
+      data: { log_id: id, token },
+    });
+    expect((await again.json()).data.recorded).toBe(false);
+
+    await page.reload();
+    // 보고가 한 건이라도 있으면 "—" 가 사라지고 수가 선다. 괄호 안 비율은 접수 수가
+    // 분모라 Firebase 자격이 없는 프로젝트에서는 "—" 로 남는다(0% 가 아니다).
+    await expect(page.getByTitle(/아직 수신 보고가 없습니다/)).toHaveCount(0);
+    await expect(page.getByText(/^1 \(/)).toBeVisible();
+  });
+
+  test("억제 가져오기: 콘솔에서 배치를 되돌리고 감사 로그에 남는다", async ({ page }) => {
+    const p = await seed(page, "revert-ui");
+    const stamp = Date.now();
+    const csv = `user_id\nrv-a-${stamp}\nrv-b-${stamp}\nrv-c-${stamp}\n`;
+    const imported = await page.request.post(`/api/admin/projects/${p.pid}/audience/suppressions/import`, {
+      headers: { origin: ORIGIN, "content-type": "application/json" },
+      data: { csv, reason: "manual" },
+    });
+    expect(imported.ok()).toBeTruthy();
+    expect((await imported.json()).data.added).toBe(3);
+
+    await page.goto(`/projects/${p.pid}/suppressions`);
+    await expect(page.getByRole("heading", { name: "최근 가져오기" })).toBeVisible();
+    await expect(page.getByText("3건 추가 · 0건 건너뜀")).toBeVisible();
+    await expect(page.getByText(`rv-a-${stamp}`)).toBeVisible();
+
+    // 수천 명의 억제가 한 번에 풀린다 — 네이티브 confirm() 이 아니라 콘솔 다이얼로그 뒤에 둔다
+    await page.getByRole("button", { name: "되돌리기" }).click();
+    const dialog = page.getByRole("dialog", { name: "가져오기 되돌리기" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(/원래부터 수신 거부였던 사람은 그대로 둡니다/)).toBeVisible();
+    await dialog.getByRole("button", { name: "되돌리기" }).click();
+
+    await expect(page.getByText("3건을 되돌렸습니다.")).toBeVisible();
+    // 되돌린 배치도 목록에 남는다 — 사라지면 같은 CSV 를 다시 올린다
+    await expect(page.getByText("되돌림")).toBeVisible();
+    await expect(page.getByText(`rv-a-${stamp}`)).toHaveCount(0);
+
+    // 두 번 되돌릴 수 없다(409) — 그사이 다시 억제된 사람을 지우지 않는다
+    const batches = await page.request.get(`/api/admin/projects/${p.pid}/audience/suppressions/import`, {
+      headers: { origin: ORIGIN },
+    });
+    const batchId = (await batches.json()).data.batches[0].batch_id as string;
+    const twice = await page.request.post(`/api/admin/projects/${p.pid}/audience/suppressions/import/revert`, {
+      headers: { origin: ORIGIN, "content-type": "application/json" },
+      data: { batch_id: batchId },
+    });
+    expect(twice.status()).toBe(409);
+
+    // 되돌리기는 감사 로그에 남는다 — 누가 수천 건을 풀었는지 남지 않으면 사고를 되짚을 수 없다
+    const audit = await page.request.get(`/api/admin/projects/${p.pid}/audit`, { headers: { origin: ORIGIN } });
+    const actions = (await audit.json()).data.entries.map((e: { action: string }) => e.action);
+    expect(actions).toContain("suppression.import.revert");
+  });
+
+  test("저니 스텝: 발송이 스텝에 귀속되어 대기·발송·클릭률이 한 줄로 보인다", async ({ page }) => {
+    const p = await seed(page, "funnel-ui");
+    const stamp = Date.now();
+    const ext = `jf-${stamp}`;
+    const token = `jf-tok-${stamp}`;
+    const h = idHash(ext, p.apiSecret);
+    const dev = await page.request.post("/api/v1/devices", {
+      headers: { "api-key": p.apiKey },
+      data: { token, platform: "android", user_id: ext, identity_hash: h },
+    });
+    expect(dev.ok()).toBeTruthy();
+
+    const created = await page.request.post(`/api/admin/projects/${p.pid}/journeys`, {
+      headers: { origin: ORIGIN },
+      data: {
+        name: `funnel-${stamp}`,
+        steps: [
+          { type: "send", title: "1단계", body: "환영합니다" },
+          { type: "wait", hours: 24 },
+          { type: "send", title: "2단계", body: "아직 계신가요" },
+        ],
+      },
+    });
+    expect(created.ok()).toBeTruthy();
+    const journeyId = (await created.json()).data.journey.id as string;
+
+    const enrolled = await page.request.post("/api/v1/journeys/enroll", {
+      headers: { "api-key": p.apiKey },
+      data: { journey: `funnel-${stamp}`, external_id: ext, identity_hash: h },
+    });
+    expect(enrolled.ok()).toBeTruthy();
+
+    // 저니가 첫 스텝을 보낸다 → push_logs 에 journey_id·step_path 가 붙는다
+    await page.request.post(`/api/admin/projects/${p.pid}/journeys/process`, { headers: { origin: ORIGIN }, data: {} });
+    await page.request.post(`/api/admin/projects/${p.pid}/process-queue`, { headers: { origin: ORIGIN }, data: {} });
+
+    const detail = await page.request.get(`/api/admin/projects/${p.pid}/journeys/${journeyId}`, {
+      headers: { origin: ORIGIN },
+    });
+    const funnel = (await detail.json()).data.stepFunnel as { path: string; waiting: number; sent: number }[];
+    // 줄은 스텝마다 하나 — 발송이 없던 스텝이 빠지면 화면에서 그 자리가 사라진다
+    expect(funnel.map((r) => r.path)).toEqual(["0", "1", "2"]);
+    expect(funnel[0].sent).toBeGreaterThan(0);
+    // 1단계는 지나갔고(머문 사람 0) 지금은 대기 스텝에 서 있다
+    expect(funnel[0].waiting).toBe(0);
+    expect(funnel[1].waiting).toBe(1);
+    expect(funnel[2].sent).toBe(0);
+
+    await page.goto(`/projects/${p.pid}/journeys/${journeyId}`);
+    await expect(page.getByText(/대기 0 · 발송 1 · 클릭 0%/)).toBeVisible();
+    // 발송이 없던 스텝의 클릭률은 0% 가 아니라 "—" 다
+    await expect(page.getByText(/대기 1 · 발송 0 · 클릭 —/)).toBeVisible();
   });
 });

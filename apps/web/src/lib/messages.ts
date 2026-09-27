@@ -377,6 +377,11 @@ export type EnqueueOptions = {
    * `role:"winner"` 를 붙이므로 본문(`ab_test`)으로는 표현할 수 없다.
    */
   abTest?: AbTest;
+  /**
+   * 이 발송을 만든 저니 스텝. 스텝별 퍼널(발송·클릭·전환)의 유일한 귀속 경로다 —
+   * 로그에 적지 않으면 나중에 "이 발송이 어느 단계에서 나갔는지"를 복원할 방법이 없다.
+   */
+  journey?: { id: string; stepPath: string };
 };
 
 export const IDEMPOTENCY_HEADER = "idempotency-key";
@@ -464,6 +469,8 @@ export async function enqueuePush(
       localTime: b.local_time ?? null,
       status: isScheduled ? "scheduled" : "queued",
       sentBy: opts.sentBy ?? null,
+      journeyId: opts.journey?.id ?? null,
+      stepPath: opts.journey?.stepPath ?? null,
       idempotencyKey: key,
     });
   const rows = key

@@ -115,7 +115,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
         description={t("subtitle")}
         actions={
           <Button variant="outline" size="sm" onClick={retry} disabled={!sel || retrying}>
-            <RotateCw aria-hidden="true" className="h-4 w-4" /> {t("retryFailedBtn")}
+            <RotateCw aria-hidden="true" className="size-4" /> {t("retryFailedBtn")}
           </Button>
         }
       />
@@ -125,7 +125,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
         <>
           <Card>
             <CardHeader><CardTitle>{t("register")}</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               {/* 넓은 화면은 입력 두 칸과 등록 버튼을 한 줄에 — 버튼은 입력칸 바닥선(items-end)에 맞춘다 */}
               <div className="grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_auto] md:items-end">
                 <Field label="URL">
@@ -135,7 +135,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
                   <Input value={events} onChange={(e) => setEvents(e.target.value)} placeholder="message.sent, message.failed" />
                 </Field>
                 <Button onClick={create} disabled={!url.trim() || creating} className="justify-self-end md:justify-self-auto">
-                  <Plus aria-hidden="true" className="h-4 w-4" /> {creating ? t("registering") : t("registerBtn")}
+                  <Plus aria-hidden="true" className="size-4" /> {creating ? t("registering") : t("registerBtn")}
                 </Button>
               </div>
               {secret && (
@@ -143,7 +143,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
                 <div className="flex items-center justify-between gap-3 rounded-lg bg-accent-soft py-1.5 ps-3.5 pe-1.5">
                   <span className="min-w-0 truncate font-mono text-xs text-primary">{t("secretOnce")}: {secret}</span>
                   <Button variant="outline" size="sm" className="shrink-0" onClick={() => copySecret(secret)}>
-                    <Copy aria-hidden="true" className="h-4 w-4" /> {tc("copy")}
+                    <Copy aria-hidden="true" className="size-4" /> {tc("copy")}
                   </Button>
                 </div>
               )}

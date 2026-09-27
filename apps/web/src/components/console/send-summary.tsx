@@ -8,6 +8,8 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { cn } from "@/lib/utils";
 import type { AudienceEstimate } from "./send-estimate";
 import { BODY_RECOMMENDED, TITLE_RECOMMENDED, platformEntries, type SendWarning } from "./send-rules";
+import { FIELD_ERROR_TEXT, FIELD_HINT_TEXT } from "@/components/ui/input";
+import { useNumberFormat } from "@/lib/number-format";
 
 const PLATFORM_LABEL: Record<string, string> = { ios: "iOS", android: "Android", web: "Web" };
 const PLATFORM_COLOR: Record<string, string> = { ios: "bg-chart-4", android: "bg-chart-1", web: "bg-chart-2" };
@@ -34,7 +36,7 @@ export function SendSummary({
 }) {
   const t = useTranslations("send");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const headingId = React.useId();
   const platforms = estimate ? platformEntries(estimate.platforms) : [];
   const platformTotal = platforms.reduce((sum, [, n]) => sum + n, 0);
@@ -46,7 +48,7 @@ export function SendSummary({
           <CardTitle id={headingId}>{t("summaryTitle")}</CardTitle>
           {loading && hasRequest && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" role="status">
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> {t("summaryEstimating")}
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" /> {t("summaryEstimating")}
             </span>
           )}
         </CardHeader>
@@ -56,8 +58,8 @@ export function SendSummary({
             <Stat label={t("summaryDevices")} value={estimate ? nf.format(estimate.devices) : "—"} />
           </dl>
 
-          {!hasRequest && <p className="text-xs text-muted-foreground">{t("summaryPickTarget")}</p>}
-          {failed && <p className="text-xs text-error">{t("summaryEstimateFailed")}</p>}
+          {!hasRequest && <p className={FIELD_HINT_TEXT}>{t("summaryPickTarget")}</p>}
+          {failed && <p className={FIELD_ERROR_TEXT}>{t("summaryEstimateFailed")}</p>}
 
           {estimate && platformTotal > 0 && (
             <div className="space-y-2">
@@ -80,7 +82,7 @@ export function SendSummary({
           )}
 
           <div className="flex items-center gap-2 rounded-lg bg-surface-muted/60 px-3.5 py-2.5 text-xs">
-            <Clock aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Clock aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
             <span className="text-muted-foreground">{t("summaryTime")}</span>
             <span className="ms-auto font-semibold tabular-nums">{timeLabel}</span>
           </div>
@@ -119,14 +121,14 @@ export function SendWarnings({ warnings, compact }: { warnings: SendWarning[]; c
     warnings.length === 0 ? (
       compact ? null : (
         <p className="flex items-center gap-1.5 text-xs text-success">
-          <CheckCircle2 aria-hidden="true" className="h-4 w-4" /> {t("summaryNoWarnings")}
+          <CheckCircle2 aria-hidden="true" className="size-4" /> {t("summaryNoWarnings")}
         </p>
       )
     ) : (
       <ul aria-label={t("summaryWarnings")} className="space-y-1.5">
         {warnings.map((w) => (
           <li key={w} className="flex items-start gap-1.5 rounded-lg bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning">
-            <AlertTriangle aria-hidden="true" className="mt-px h-4 w-4 shrink-0" />
+            <AlertTriangle aria-hidden="true" className="mt-px size-4 shrink-0" />
             <span>{text(w)}</span>
           </li>
         ))}

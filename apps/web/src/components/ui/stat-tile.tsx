@@ -3,7 +3,8 @@
 import * as React from "react";
 import { STAT_TILE_GRID, statTileSpan } from "./stat-tile-grid";
 import type { LucideIcon } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
+import { useNumberFormat } from "@/lib/number-format";
 import { Card, CardContent } from "./card";
 import { Skeleton } from "./skeleton";
 import { cn } from "@/lib/utils";
@@ -29,10 +30,16 @@ const accentClass: Record<StatTileAccent, string> = {
   muted: "text-muted-foreground",
 };
 
-function DeltaLine({ delta }: { delta: StatDelta }) {
+/**
+ * 변화량 한 줄 — ▲▼ 글리프 + success/error 색.
+ *
+ * 부호 있는 수를 중립색 볼드로만 찍으면 `+40%` 와 `−40%` 가 같은 무게로 보인다. 방향은
+ * 색·글리프·문장 셋으로 동시에 말한다(색맹 사용자에겐 글리프가, 스크린리더엔 문장이 남는다).
+ * KPI 타일 밖(예: 홀드아웃 리프트)에서도 같은 표시를 쓰도록 내보낸다.
+ */
+export function DeltaLine({ delta }: { delta: StatDelta }) {
   const t = useTranslations("common");
-  const locale = useLocale();
-  const nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  const nf = useNumberFormat({ maximumFractionDigits: 1 });
   const unit = delta.unit ?? "%";
   const amount = `${nf.format(Math.abs(delta.value))}${unit === "pt" ? "%p" : unit}`;
   const direction = delta.value > 0 ? "up" : delta.value < 0 ? "down" : "flat";

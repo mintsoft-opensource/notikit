@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FIELD_FOCUS_RING } from "@/components/ui/focus-ring";
 
 /** 명시적 라벨(id/aria-label/aria-labelledby)이 없으면 placeholder 를 접근성 이름으로 폴백 */
 function fallbackAriaLabel(props: { id?: string; placeholder?: string; "aria-label"?: string; "aria-labelledby"?: string }) {
@@ -23,7 +24,8 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
       type={type}
       aria-label={fallbackAriaLabel(props)}
       className={cn(
-        "flex h-9 w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors file:me-3 file:h-7 file:rounded-md file:border-0 file:bg-surface-muted file:px-2.5 file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-9 w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors file:me-3 file:h-7 file:rounded-md file:border-0 file:bg-surface-muted file:px-2.5 file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        FIELD_FOCUS_RING,
         invalidField,
         className
       )}
@@ -39,7 +41,8 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
       ref={ref}
       aria-label={fallbackAriaLabel(props)}
       className={cn(
-        "flex min-h-16 w-full resize-y rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        "flex min-h-16 w-full resize-y rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        FIELD_FOCUS_RING,
         invalidField,
         className
       )}
@@ -117,7 +120,8 @@ export function Select({ className, children, ...props }: React.SelectHTMLAttrib
     <div className="relative">
       <select
         className={cn(
-          "flex h-9 w-full appearance-none rounded-lg border border-border bg-surface px-2.5 pe-8 text-sm text-foreground shadow-sm transition-colors focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full appearance-none rounded-lg border border-border bg-surface px-2.5 pe-8 text-sm text-foreground shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+          FIELD_FOCUS_RING,
           invalidField,
           className
         )}

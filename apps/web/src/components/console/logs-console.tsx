@@ -18,6 +18,9 @@ import { ProjectPicker } from "@/components/console/shared";
 import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { localDayBoundaryIso } from "@/lib/local-day";
 import { RateBar, StatusChip, TestChip } from "./log-status";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { cn } from "@/lib/utils";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Log = {
   id: string;
@@ -156,7 +159,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
   }
 
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" }), [locale]);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
 
   const title = filter === "single" ? t("titleSingle") : filter === "topic" ? t("titleTopic") : t("title");
   const subtitle = filter === "single" ? t("subtitleSingle") : filter === "topic" ? t("subtitleTopic") : t("subtitle");
@@ -171,10 +174,10 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => sel && load(sel)} disabled={!sel}>
-              <RefreshCw aria-hidden="true" className="h-4 w-4" /> {tc("refresh")}
+              <RefreshCw aria-hidden="true" className="size-4" /> {tc("refresh")}
             </Button>
             <Button size="sm" onClick={processQueue} disabled={!sel}>
-              <Play aria-hidden="true" className="h-4 w-4" /> {t("processQueue")}
+              <Play aria-hidden="true" className="size-4" /> {t("processQueue")}
             </Button>
           </>
         }
@@ -219,7 +222,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           {!sel && <EmptyState icon={ScrollText} title={tc("selectProjectFirst")} />}
-          {sel && loading && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {sel && loading && <div className="space-y-4 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {sel && !loading && logs.length === 0 && <EmptyState icon={ScrollText} title={t("empty")} />}
           {logs.length > 0 && (
             <>
@@ -264,7 +267,7 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                       <TableCell label={t("colTitle")} className="flex min-w-0 items-center gap-2 text-sm font-semibold">
                         <Link
                           href={`/projects/${sel}/logs/${l.id}`}
-                          className="truncate hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className={cn("truncate rounded-sm hover:underline", FOCUS_RING)}
                         >
                           {l.title}
                         </Link>
@@ -285,8 +288,15 @@ export function LogsConsole({ projectId, filter }: { projectId?: string; filter?
                         "단말에 닿았다" 가 같은 수로 보이는데, 기기가 꺼져 있으면 앞은 성공하고 뒤는 0 이다.
                       */}
                       <TableCell label={t("colReceipts")} className="flex items-center justify-end gap-2 text-xs font-semibold tabular-nums">
-                        <span className="text-muted-foreground">{nf.format(l.deliveredCount ?? 0)}</span>
-                        <RateBar num={l.deliveredCount ?? 0} den={l.successCount} tone="primary" />
+                        {/* 보고가 없으면 0 이 아니라 "—" — 0% 막대는 배달 실패로 읽힌다 */}
+                        {(l.deliveredCount ?? 0) === 0 ? (
+                          <span className="text-muted-foreground" title={t("receiptsNone")}>—</span>
+                        ) : (
+                          <>
+                            <span className="text-muted-foreground">{nf.format(l.deliveredCount)}</span>
+                            <RateBar num={l.deliveredCount} den={l.successCount} tone="primary" />
+                          </>
+                        )}
                       </TableCell>
                       <TableCell label={t("colReadRate")} className="flex items-center justify-end text-xs font-semibold">
                         <RateBar num={l.clickUserCount} den={l.audienceUserCount} tone="primary" />

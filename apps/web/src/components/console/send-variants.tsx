@@ -17,6 +17,8 @@ import {
 } from "@/lib/ab-test";
 import { CountedLabel } from "./send-content-fields";
 import { BODY_RECOMMENDED, TITLE_RECOMMENDED } from "./send-rules";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { cn } from "@/lib/utils";
 
 /** 기본 내용이 변형 A, 여기서 더하는 것이 B 부터 — API 는 변형을 2~5개 받는다 */
 export const MAX_EXTRA_VARIANTS = 4;
@@ -230,7 +232,7 @@ export function SendAbTestFields({
         <input
           id={toggleId}
           type="checkbox"
-          className="mt-0.5 size-4 shrink-0 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn("mt-0.5 size-4 shrink-0 rounded border-border text-primary", FOCUS_RING)}
           checked={value.enabled}
           disabled={disabled}
           onChange={(e) => set({ enabled: e.target.checked })}

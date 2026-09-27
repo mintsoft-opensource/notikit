@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
-import { Input, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
@@ -16,6 +16,9 @@ import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { TopicRuleFields, emptyRules, cleanRules, isRuleDraftDirty, type Rule, type RuleDraft } from "./topic-rules-form";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { cn } from "@/lib/utils";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Topic = {
   id: string;
@@ -140,7 +143,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
     }
   }
 
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
 
   return (
     <div className="w-full space-y-4">
@@ -149,7 +152,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
         description={t("topicsSubtitle")}
         actions={
           <Button onClick={() => setOpen(true)}>
-            <Plus aria-hidden="true" className="h-4 w-4" /> {t("newTopic")}
+            <Plus aria-hidden="true" className="size-4" /> {t("newTopic")}
           </Button>
         }
       />
@@ -189,7 +192,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                 />
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold">{t(m === "subscribe" ? "fillSubscribe" : "fillRules")}</span>
-                  <span className="block text-xs text-muted-foreground">
+                  <span className={cn("block", FIELD_HINT_TEXT)}>
                     {t(m === "subscribe" ? "fillSubscribeHint" : "fillRulesHint")}
                   </span>
                 </span>
@@ -205,7 +208,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          {!topics && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!topics && <div className="space-y-4 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {topics && topics.length === 0 && <EmptyState icon={Radio} title={t("noTopics")} />}
           {topics && topics.length > 0 && (
             <>
@@ -224,7 +227,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
               {topics.map((tp) => (
                 <TableRow key={tp.id} className="grid gap-x-4 gap-y-1 px-3.5 py-2.5 transition-colors hover:bg-surface-muted/30 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto] sm:items-center">
                   <TableCell label={t("colTopic")} className="flex min-w-0 items-center gap-2">
-                    <Link href={`/projects/${projectId}/topics/${tp.id}`} className="truncate font-mono text-sm font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Link href={`/projects/${projectId}/topics/${tp.id}`} className={cn("truncate rounded-sm font-mono text-sm font-semibold hover:underline", FOCUS_RING)}>
                       {tp.name}
                     </Link>
                     <Badge variant={tp.rules?.length ? "warning" : "neutral"}>
@@ -240,7 +243,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                   <TableCell label={t("sendToTopic")} className="flex items-center gap-2 justify-self-end">
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/projects/${projectId}/send/topic?target=${encodeURIComponent(tp.name)}`}>
-                        <Send aria-hidden="true" className="h-3.5 w-3.5" /> {t("sendToTopic")}
+                        <Send aria-hidden="true" className="size-4" /> {t("sendToTopic")}
                       </Link>
                     </Button>
                     <Button
@@ -249,7 +252,7 @@ export function TopicsConsole({ projectId }: { projectId: string }) {
                       aria-label={`${t("deleteTopic")} ${tp.name}`}
                       onClick={() => remove(tp)}
                     >
-                      <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+                      <Trash2 aria-hidden="true" className="size-4" />
                     </Button>
                   </TableCell>
                 </TableRow>

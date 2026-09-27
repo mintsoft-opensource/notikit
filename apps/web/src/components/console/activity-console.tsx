@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { StatTile, BarList, Segmented } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Counts = { devices: number; users: number };
 type Stats = {
@@ -77,7 +78,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
       });
   }, [projectId, range, tc, errorText]);
 
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   // 버킷은 UTC 자정으로 찍힌 날짜다 — 로컬로 포맷하면 UTC 보다 뒤처진 지역에서 하루 앞 날짜로 보인다
   const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }), [locale]);
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
@@ -164,7 +165,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
         <CardHeader>
           <div>
             <CardTitle className="flex items-center gap-1.5">
-              <LineChart aria-hidden="true" className="h-4 w-4" /> {t("retentionTitle")}
+              <LineChart aria-hidden="true" className="size-4" /> {t("retentionTitle")}
             </CardTitle>
             <CardDescription>{t("retentionHint")}</CardDescription>
           </div>
@@ -222,7 +223,7 @@ export function ActivityConsole({ projectId }: { projectId: string }) {
               action={
                 retFailed ? (
                   <Button variant="outline" onClick={() => setRetAttempt((n) => n + 1)}>
-                    <RefreshCw aria-hidden="true" className="h-4 w-4" /> {tc("retry")}
+                    <RefreshCw aria-hidden="true" className="size-4" /> {tc("retry")}
                   </Button>
                 ) : undefined
               }

@@ -4,9 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Megaphone, Radio } from "lucide-react";
-import { Select, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Select } from "@/components/ui/input";
 import { adminApi } from "@/lib/admin-client";
 import { SendUserPicker, type PickedUser } from "@/components/console/send-user-picker";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { cn } from "@/lib/utils";
+import { useNumberFormat } from "@/lib/number-format";
 
 export type SendType = "single" | "multi" | "broadcast" | "topic";
 
@@ -41,7 +44,7 @@ export function SendTarget({
 
   return (
     <div className="flex items-start gap-3 rounded-tile border border-border bg-accent-soft px-3.5 py-3 text-sm">
-      <Megaphone aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <Megaphone aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
       <p className="leading-relaxed">{t("broadcastNotice")}</p>
     </div>
   );
@@ -51,7 +54,7 @@ function TopicTarget({ projectId, target, onTarget }: { projectId: string; targe
   const t = useTranslations("send");
   const ta = useTranslations("audience");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const [topics, setTopics] = React.useState<TopicOption[] | null>(null);
   const [failed, setFailed] = React.useState(false);
 
@@ -70,7 +73,10 @@ function TopicTarget({ projectId, target, onTarget }: { projectId: string; targe
     return (
       <div className="flex items-center justify-between gap-3 rounded-tile border border-dashed border-border px-3.5 py-3 text-sm">
         <span className="text-muted-foreground">{t("noTopics")}</span>
-        <Link href={`/projects/${projectId}/topics`} className="shrink-0 font-semibold text-primary hover:underline">
+        <Link
+          href={`/projects/${projectId}/topics`}
+          className={cn("shrink-0 rounded-sm font-semibold text-primary hover:underline", FOCUS_RING)}
+        >
           {t("manageTopics")}
         </Link>
       </div>
@@ -91,8 +97,8 @@ function TopicTarget({ projectId, target, onTarget }: { projectId: string; targe
         </Select>
       </Field>
       {selected && (
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Radio aria-hidden="true" className="h-3.5 w-3.5" />
+        <p className={cn("flex items-center gap-1.5", FIELD_HINT_TEXT)}>
+          <Radio aria-hidden="true" className="size-4" />
           {t("audienceTopic", { users: nf.format(selected.userCount), devices: nf.format(selected.deviceCount) })}
         </p>
       )}

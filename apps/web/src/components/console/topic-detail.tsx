@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { MAX_BEHAVIOR_COUNT, MAX_BEHAVIOR_DAYS } from "@/lib/topic-rule-ops";
 import { TopicRuleFields, cleanRules, toRuleDrafts, type Rule, type RuleDraft } from "./topic-rules-form";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Topic = { id: string; name: string; rules: Rule[] | null; createdAt: string };
 
@@ -25,7 +26,7 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
   const tc = useTranslations("common");
   const locale = useLocale();
   const router = useRouter();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
 
   type Detail = { topic: Topic; deviceCount: number; userCount: number };
   const [data, setData] = React.useState<Detail | null>(null);
@@ -134,7 +135,7 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
       <div className="w-full space-y-4">
         <PageHeader title={tc("notFound")} />
         <Button asChild variant="outline">
-          <Link href={backHref}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
+          <Link href={backHref}><ArrowLeft aria-hidden="true" className="size-4" /> {tc("back")}</Link>
         </Button>
       </div>
     );
@@ -148,7 +149,7 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
           title={tc("loadFailed")}
           action={
             <Button variant="outline" onClick={load}>
-              <RotateCw aria-hidden="true" className="h-4 w-4" /> {tc("retry")}
+              <RotateCw aria-hidden="true" className="size-4" /> {tc("retry")}
             </Button>
           }
         />
@@ -177,15 +178,15 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
         actions={
           <>
             <Button asChild variant="ghost">
-              <Link href={backHref}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> {tc("back")}</Link>
+              <Link href={backHref}><ArrowLeft aria-hidden="true" className="size-4" /> {tc("back")}</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href={`/projects/${projectId}/send/topic?target=${encodeURIComponent(data.topic.name)}`}>
-                <Send aria-hidden="true" className="h-4 w-4" /> {t("sendToTopic")}
+                <Send aria-hidden="true" className="size-4" /> {t("sendToTopic")}
               </Link>
             </Button>
             <Button variant="destructive" onClick={remove} disabled={busy}>
-              <Trash2 aria-hidden="true" className="h-4 w-4" /> {tc("remove")}
+              <Trash2 aria-hidden="true" className="size-4" /> {tc("remove")}
             </Button>
           </>
         }
@@ -205,7 +206,7 @@ export function TopicDetail({ projectId, topicId }: { projectId: string; topicId
 
       {ruleFilled && rules && (
         <Card>
-          <CardContent className="space-y-3 pt-3.5">
+          <CardContent className="space-y-4 pt-3.5">
             <TopicRuleFields rules={rules} onRules={setRules} idPrefix="topic-rules" disabled={busy} />
             <div className="flex justify-end">
               <Button onClick={saveRules} disabled={busy}>{busy ? tc("loading") : tc("save")}</Button>

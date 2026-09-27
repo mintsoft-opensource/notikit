@@ -4,9 +4,10 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { BellOff, ChevronDown, Clock, Gauge, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Input, Select } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
 import { cn } from "@/lib/utils";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
 
 /** 서버 스키마와 같은 상한. lib/messages 를 직접 import 하면 drizzle·db 가 클라이언트 번들에 끌려온다. */
 export const MAX_SEND_ACTIONS = 3;
@@ -358,9 +359,12 @@ export function SendOptions({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-full items-center gap-2 rounded-lg px-1 text-start text-xs font-semibold text-foreground transition-colors hover:bg-surface-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "flex h-9 w-full items-center gap-2 rounded-lg px-1 text-start text-xs font-semibold text-foreground transition-colors hover:bg-surface-muted/60",
+          FOCUS_RING
+        )}
       >
-        <ChevronDown aria-hidden="true" className={cn("h-4 w-4 shrink-0 transition-transform duration-200", open && "rotate-180")} />
+        <ChevronDown aria-hidden="true" className={cn("size-4 shrink-0 transition-transform duration-200", open && "rotate-180")} />
         <span>{t("optionsTitle")}</span>
         <span className="ms-auto truncate text-2xs font-medium text-muted-foreground">
           {count > 0 ? t("optionsCount", { count }) : t("optionsNone")}
@@ -371,7 +375,7 @@ export function SendOptions({
       <p role="status" aria-live="polite" className="sr-only">{liveError}</p>
 
       <div id={panelId} hidden={!open} className="space-y-4">
-        <p className="text-xs text-muted-foreground">{t("optionsHint")}</p>
+        <p className={FIELD_HINT_TEXT}>{t("optionsHint")}</p>
 
         {/* 7개 칸을 한 격자로 흘린다 — 칸 하나짜리 줄을 따로 두면 그 칸만 동떨어져 보인다 */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -480,8 +484,8 @@ export function SendOptions({
           {/* 켜는 순간 들리도록 polite 영역 안에서 나타난다 — 무음 푸시 안내와 같은 방식 */}
           <div role="status" aria-live="polite">
             {value.localTime.trim() !== "" && (
-              <p className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
-                <Clock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+              <p className={cn("flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5", FIELD_HINT_TEXT)}>
+                <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                 <span>{t("optLocalTimeNotice", { hours: LOCAL_WINDOW_HOURS })}</span>
               </p>
             )}
@@ -492,7 +496,7 @@ export function SendOptions({
           캠페인별 재정의 — 프로젝트 설정을 이 발송만 덮는 칸들이다. 알림 표현(소리·배지)과
           같은 격자에 섞으면 "이 발송만 다르게 나간다" 는 무게가 드러나지 않는다.
         */}
-        <div className="space-y-3 rounded-lg border border-border p-3">
+        <div className="space-y-4 rounded-lg border border-border p-3">
           <p className="text-xs font-semibold text-foreground">{t("optOverridesTitle")}</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("optMaxPerMinute")} hint={t("optMaxPerMinuteHint")} error={perMinuteError}>
@@ -535,13 +539,13 @@ export function SendOptions({
             />
             <span className="min-w-0">
               <span className="font-semibold">{t("optQuietHours")}</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{t("optQuietHoursHint")}</span>
+              <span className={cn("mt-0.5 block", FIELD_HINT_TEXT)}>{t("optQuietHoursHint")}</span>
             </span>
           </label>
           {/* 켜는 순간 들리도록 polite 영역 안에서 나타난다 */}
           <div role="status" aria-live="polite">
             {value.ignoreQuietHours && (
-              <p id={quietNoticeId} className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
+              <p id={quietNoticeId} className={cn("flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5", FIELD_HINT_TEXT)}>
                 <Gauge aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                 <span>{t("optQuietHoursNotice")}</span>
               </p>
@@ -549,7 +553,7 @@ export function SendOptions({
           </div>
           <div role="status" aria-live="polite">
             {holdoutAllowed && value.holdoutPercent.trim() !== "" && !holdoutError && (
-              <p className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
+              <p className={cn("flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5", FIELD_HINT_TEXT)}>
                 <Users aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                 <span>{t("optHoldoutNotice", { percent: value.holdoutPercent.trim() })}</span>
               </p>
@@ -568,27 +572,27 @@ export function SendOptions({
               // "무음 푸시는 제목·본문이 표시되지 않는다"는 사실을 끝내 듣지 못한다
               aria-describedby={value.silent ? silentNoticeId : undefined}
               onChange={(e) => set({ silent: e.target.checked })}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
+              className="mt-0.5 size-4 shrink-0 rounded-sm border-border accent-primary disabled:opacity-50"
             />
             <span className="min-w-0">
               <span className="font-semibold">{t("optSilent")}</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{t("optSilentHint")}</span>
+              <span className={cn("mt-0.5 block", FIELD_HINT_TEXT)}>{t("optSilentHint")}</span>
             </span>
           </label>
           {/* 체크를 켜는 순간에도 들리도록 polite 영역 안에서 나타난다 */}
           <div role="status" aria-live="polite">
             {value.silent && (
-              <p id={silentNoticeId} className="flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5 text-xs text-muted-foreground">
-                <BellOff aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+              <p id={silentNoticeId} className={cn("flex items-start gap-2 rounded-lg bg-surface-muted/60 p-2.5", FIELD_HINT_TEXT)}>
+                <BellOff aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                 <span>{t("optSilentNotice")}</span>
               </p>
             )}
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-xs font-semibold text-foreground">{t("optActions")}</p>
-          <p className="text-xs text-muted-foreground">{t("optActionsHint", { max: MAX_SEND_ACTIONS })}</p>
+          <p className={FIELD_HINT_TEXT}>{t("optActionsHint", { max: MAX_SEND_ACTIONS })}</p>
 
           {value.actions.map((a, i) => {
             const nameId = `${panelId}-${a.rowId}-name`;
@@ -597,7 +601,7 @@ export function SendOptions({
             // 오류는 틀린 칸 하나에만 — 아이디 칸에 몰아 두면 이름·딥링크가 틀려도 아이디가 빨개진다
             const field = err ? actionErrorField(err) : null;
             return (
-              <div key={a.rowId} role="group" aria-labelledby={nameId} className="space-y-3 rounded-lg border border-border p-3">
+              <div key={a.rowId} role="group" aria-labelledby={nameId} className="space-y-4 rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p id={nameId} className="text-xs font-semibold text-foreground">{t("optActionLegend", { index: i + 1 })}</p>
                   <Button
@@ -608,7 +612,7 @@ export function SendOptions({
                     disabled={disabled}
                     onClick={() => removeAction(i)}
                   >
-                    <Trash2 aria-hidden="true" className="h-4 w-4" />
+                    <Trash2 aria-hidden="true" className="size-4" />
                   </Button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -661,7 +665,7 @@ export function SendOptions({
 
           {value.actions.length < MAX_SEND_ACTIONS && (
             <Button ref={addActionRef} type="button" variant="outline" disabled={disabled} onClick={addAction}>
-              <Plus aria-hidden="true" className="h-4 w-4" /> {t("optAddAction")}
+              <Plus aria-hidden="true" className="size-4" /> {t("optAddAction")}
             </Button>
           )}
         </div>

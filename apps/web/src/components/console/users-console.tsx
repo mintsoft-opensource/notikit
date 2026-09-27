@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { Search, Users, Smartphone, MousePointerClick } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { useNumberFormat } from "@/lib/number-format";
 
 /** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
 type Cursor = { ts: string; id: string } | null;
@@ -102,14 +103,14 @@ export function UsersConsole({ projectId }: { projectId: string }) {
   }
 
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
 
   return (
     <div className="w-full space-y-4">
       <PageHeader title={t("usersTitle")} description={t("usersSubtitle")} />
 
       <div className="relative">
-        <Search aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -121,7 +122,7 @@ export function UsersConsole({ projectId }: { projectId: string }) {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          {!users && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!users && <div className="space-y-4 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {users && users.length === 0 && <EmptyState icon={Users} title={q ? t("noMatches") : t("noUsers")} />}
           {users && users.length > 0 && (
             <>
@@ -144,7 +145,7 @@ export function UsersConsole({ projectId }: { projectId: string }) {
                       <TableCell label={t("colUser")} className="min-w-0">
                         {u.name && <p className="truncate text-sm font-semibold">{u.name}</p>}
                         <p className={u.name ? "truncate font-mono text-xs text-muted-foreground" : "truncate font-mono text-sm font-semibold"}>{u.externalId}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className={FIELD_HINT_TEXT}>
                           {[u.locale, u.timezone].filter(Boolean).join(" · ") || "—"}
                         </p>
                       </TableCell>
@@ -153,13 +154,13 @@ export function UsersConsole({ projectId }: { projectId: string }) {
                           ? attrs.map(([k, v]) => (
                               <Badge key={k} variant="neutral">{k}={String(v)}</Badge>
                             ))
-                          : <span className="text-xs text-muted-foreground">{t("noAttributes")}</span>}
+                          : <span className={FIELD_HINT_TEXT}>{t("noAttributes")}</span>}
                       </TableCell>
                       <TableCell label={t("colDevices")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground xl:justify-end">
-                        <Smartphone aria-hidden="true" className="h-3.5 w-3.5" /> {nf.format(u.deviceCount)}
+                        <Smartphone aria-hidden="true" className="size-4" /> {nf.format(u.deviceCount)}
                       </TableCell>
                       <TableCell label={t("colClicks")} className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground xl:justify-end">
-                        <MousePointerClick aria-hidden="true" className="h-3.5 w-3.5" /> {nf.format(u.clickCount)}
+                        <MousePointerClick aria-hidden="true" className="size-4" /> {nf.format(u.clickCount)}
                       </TableCell>
                       <TableCell
                         label={t("colLastActive")}

@@ -1,9 +1,9 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { suppressions } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject, checkOrigin } from "@/lib/authz";
-import { failAudited, newBatchId, recordAudit } from "@/lib/audit";
+import { auditLogs, failAudited, newBatchId, recordAudit } from "@/lib/audit";
 import { PayloadTooLargeError } from "@/lib/read-json";
 import {
   SUPPRESSION_REASONS,
@@ -85,6 +85,68 @@ async function existingKeys(db: ReturnType<typeof getDb>, projectId: string, row
     for (const f of found) if (f.v) keys.add(`t:${f.v}`);
   }
   return keys;
+}
+
+/** 화면에 내놓는 최근 배치 수. 되돌리기는 사고 직후에 누르는 것이라 더 깊이 볼 이유가 없다. */
+const RECENT_BATCHES = 5;
+
+/** diff 항목(`{before, after}`)의 after 를 수로 읽는다 — 모양이 다르면 0 */
+function afterCount(metadata: Record<string, unknown> | null, field: string): number {
+  const entry = metadata?.[field] as { after?: unknown } | undefined;
+  return typeof entry?.after === "number" ? entry.after : 0;
+}
+
+/**
+ * [Web Admin] 최근 가져오기 배치 목록 — 되돌리기 버튼이 가리킬 대상.
+ *
+ * 억제 테이블에는 배치 칼럼이 없다(스키마 소유가 다르다). 가져오기가 **같은 트랜잭션**으로
+ * 적은 감사 항목이 그 대장이므로 여기서도 감사 로그를 읽는다.
+ *
+ * 되돌린 배치도 숨기지 않고 표시만 바꾼다 — 목록에서 사라지면 "되돌렸다"와 "그런 배치가
+ * 없다"가 구분되지 않아 운영자가 같은 CSV 를 다시 올린다.
+ */
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  const authz = await requireProject(req, id);
+  if (!authz.ok) return fail(authz.error, authz.status);
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      action: auditLogs.action,
+      actor: auditLogs.actor,
+      targetId: auditLogs.targetId,
+      metadata: auditLogs.metadata,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.projectId, id),
+        eq(auditLogs.targetType, "suppression_batch"),
+        inArray(auditLogs.action, ["suppression.import", "suppression.import.revert"])
+      )
+    )
+    .orderBy(desc(auditLogs.createdAt))
+    // 되돌리기 항목이 섞여 오므로 넉넉히 읽고 가져오기 5건으로 자른다
+    .limit(RECENT_BATCHES * 4);
+
+  const reverted = new Set(
+    rows.flatMap((r) => (r.action === "suppression.import.revert" && r.targetId ? [r.targetId] : []))
+  );
+  const batches = rows
+    .filter((r) => r.action === "suppression.import" && r.targetId)
+    .slice(0, RECENT_BATCHES)
+    .map((r) => ({
+      batch_id: r.targetId as string,
+      added: afterCount(r.metadata, "added"),
+      skipped: afterCount(r.metadata, "skipped"),
+      actor: r.actor,
+      created_at: r.createdAt.toISOString(),
+      reverted: reverted.has(r.targetId as string),
+    }));
+
+  return ok({ batches });
 }
 
 /**

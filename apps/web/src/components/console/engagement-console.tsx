@@ -15,6 +15,8 @@ import { ChartEmpty } from "@/components/ui/chart-empty";
 import { StatTileGrid, type StatDelta } from "@/components/ui/stat-tile";
 import { pctChange, ptChange } from "@/lib/stat-delta";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Stats = {
   clicks: {
@@ -117,7 +119,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
       });
   }, [projectId, range, tc, errorText]);
 
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
   const bucketFmt = React.useMemo(
     () =>
@@ -166,7 +168,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{rangeLabelOf(range)}</p>
+        <Eyebrow>{rangeLabelOf(range)}</Eyebrow>
         <Segmented
           label={rangeLabelOf(range)}
           value={range}
@@ -239,7 +241,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
           <CardHeader>
             <div>
               <CardTitle className="flex items-center gap-1.5">
-                <CalendarClock aria-hidden="true" className="h-4 w-4" /> {t("heatmapTitle")}
+                <CalendarClock aria-hidden="true" className="size-4" /> {t("heatmapTitle")}
               </CardTitle>
               <CardDescription>
                 {deep?.peak
@@ -272,7 +274,7 @@ export function EngagementConsole({ projectId }: { projectId: string }) {
             <CardHeader>
               <div>
                 <CardTitle className="flex items-center gap-1.5">
-                  <Timer aria-hidden="true" className="h-4 w-4" /> {t("latencyTitle")}
+                  <Timer aria-hidden="true" className="size-4" /> {t("latencyTitle")}
                 </CardTitle>
                 <CardDescription>
                   {deep?.latencyAvgSeconds !== null && deep?.latencyAvgSeconds !== undefined

@@ -11,10 +11,13 @@ import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { useProjects, adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { FOCUS_RING_INSET } from "@/components/ui/focus-ring";
+import { useNumberFormat } from "@/lib/number-format";
 
 export default function ProjectsPage() {
   const t = useTranslations("projects");
@@ -23,7 +26,7 @@ export default function ProjectsPage() {
   const tc = useTranslations("common");
   const locale = useLocale();
   // 요약 수치도 콘솔의 다른 수치와 같은 로케일 서식으로 — 여기만 1234 처럼 맨숫자로 보이지 않게
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const { projects, loading, error, reload } = useProjects();
   // 목록을 한 번도 못 받은 실패만 오류 화면으로 — 이미 보이는 목록을 재로드 실패로 지우지 않는다
   const loadFailed = !loading && !!error && projects.length === 0;
@@ -94,7 +97,7 @@ export default function ProjectsPage() {
         description={t("subtitle")}
         actions={
           <Button onClick={() => setOpen(true)}>
-            <Plus aria-hidden="true" className="h-4 w-4" /> {t("newProject")}
+            <Plus aria-hidden="true" className="size-4" /> {t("newProject")}
           </Button>
         }
       />
@@ -111,7 +114,7 @@ export default function ProjectsPage() {
             <>
               <Button variant="ghost" onClick={requestClose}>{t("close")}</Button>
               <Button onClick={create} disabled={creating || !name.trim()}>
-                <Plus aria-hidden="true" className="h-4 w-4" /> {t("create")}
+                <Plus aria-hidden="true" className="size-4" /> {t("create")}
               </Button>
             </>
           )
@@ -130,7 +133,7 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <form
-            className="space-y-3"
+            className="space-y-4"
             onSubmit={(e) => { e.preventDefault(); void create(); }}
           >
             <div className="space-y-1">
@@ -162,7 +165,7 @@ export default function ProjectsPage() {
       )}
 
       <Card className="overflow-hidden">
-        {loading && projects.length === 0 && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+        {loading && projects.length === 0 && <div className="space-y-4 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
         {loadFailed && (
           <EmptyState
             icon={AlertTriangle}
@@ -170,7 +173,7 @@ export default function ProjectsPage() {
             action={<Button size="sm" variant="outline" onClick={() => void reload()}><RotateCw aria-hidden="true" />{tc("retry")}</Button>}
           />
         )}
-        {!loading && !error && projects.length === 0 && <EmptyState icon={FolderKanban} title={t("empty")} description={t("subtitle")} action={<Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus aria-hidden="true" className="h-4 w-4" />{t("newProject")}</Button>} />}
+        {!loading && !error && projects.length === 0 && <EmptyState icon={FolderKanban} title={t("empty")} description={t("subtitle")} action={<Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus aria-hidden="true" className="size-4" />{t("newProject")}</Button>} />}
         {projects.length > 0 && <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem] gap-3 border-b border-border bg-surface-muted/50 px-3.5 py-2 text-xs font-semibold text-muted-foreground lg:grid"><span>{t("nameLabel")}</span><span>{ts("apiKeyLabel")}</span><span>{t("envLabel")}</span><span /></div>}
         {projects.map((p) => (
           <Link
@@ -179,10 +182,13 @@ export default function ProjectsPage() {
             // 행 전체가 링크다. 표 role 을 씌우면 링크 의미가 깨지므로, 대신 링크에
             // 이름을 준다 — 스크린리더는 이름 없이 "링크"로만 읽고 지나간다.
             aria-label={`${p.name} · ${p.environment} · ${p.hasFirebase ? "Firebase" : tc("logOnly")}`}
-            className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border px-3.5 py-2.5 transition-colors last:border-b-0 hover:bg-surface-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem]"
+            className={cn(
+              "grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border px-3.5 py-2.5 transition-colors last:border-b-0 hover:bg-surface-muted/50 lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1.5fr)_1rem]",
+              FOCUS_RING_INSET
+            )}
           >
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary"><FolderKanban aria-hidden="true" className="h-4 w-4" /></span>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-primary"><FolderKanban aria-hidden="true" className="size-4" /></span>
               <span className="truncate text-sm font-semibold">{p.name}</span>
             </div>
             <p className="col-start-1 row-start-2 truncate font-mono text-xs text-muted-foreground lg:col-start-auto lg:row-start-auto">{p.apiKey}</p>
@@ -190,7 +196,7 @@ export default function ProjectsPage() {
               <Badge variant={p.environment === "production" ? "primary" : "neutral"}>{p.environment}</Badge>
               {p.hasFirebase ? <Badge variant="success">Firebase</Badge> : <Badge variant="neutral">{tc("logOnly")}</Badge>}
             </div>
-            <ChevronRight aria-hidden="true" className="col-start-2 row-start-1 h-4 w-4 shrink-0 text-muted-foreground lg:col-start-4" />
+            <ChevronRight aria-hidden="true" className="col-start-2 row-start-1 size-4 shrink-0 text-muted-foreground lg:col-start-4" />
           </Link>
         ))}
       </Card>

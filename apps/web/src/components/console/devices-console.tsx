@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Smartphone, ShieldCheck, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile } from "@/components/console/panels";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Device = {
   id: string;
@@ -128,7 +129,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
   }
 
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }), [locale]);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const num = (v: number | undefined) => (typeof v === "number" ? nf.format(v) : "—");
 
   return (
@@ -138,7 +139,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
         description={t("devicesSubtitle")}
         actions={
           <Button variant="outline" size="sm" onClick={checkTokens} disabled={checking}>
-            <ShieldCheck aria-hidden="true" className="h-4 w-4" /> {checking ? t("checking") : t("checkTokens")}
+            <ShieldCheck aria-hidden="true" className="size-4" /> {checking ? t("checking") : t("checkTokens")}
           </Button>
         }
       />
@@ -177,7 +178,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          {!devices && <div className="space-y-3 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
+          {!devices && <div className="space-y-4 p-3.5"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>}
           {devices && devices.length === 0 && <EmptyState icon={Smartphone} title={t("noDevices")} />}
           {devices && devices.length > 0 && (
             <>
@@ -198,7 +199,7 @@ export function DevicesConsole({ projectId }: { projectId: string }) {
                     <TableCell label={t("colUser")} className="truncate text-sm font-semibold">{d.externalId ?? <span className="font-normal text-muted-foreground">{t("anonymousDevice")}</span>}</TableCell>
                     <TableCell label={t("colToken")} className="truncate font-mono text-xs text-muted-foreground">{d.tokenPreview}</TableCell>
                     <TableCell label={t("colPlatform")}><Badge variant="neutral">{d.platform}</Badge></TableCell>
-                    <TableCell label={t("colVersion")} className="text-xs text-muted-foreground">
+                    <TableCell label={t("colVersion")} className={FIELD_HINT_TEXT}>
                       {[d.appVersion, d.osVersion].filter(Boolean).join(" · ") || "—"}
                     </TableCell>
                     <TableCell label={t("colLastActive")} className="flex items-center justify-between gap-2 xl:justify-end">

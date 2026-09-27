@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { FIELD_ERROR_TEXT, FIELD_HINT_TEXT, Input, Select } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
 import {
   BEHAVIOR_OPS,
@@ -280,24 +280,24 @@ export function TopicRuleFields({
                 onClick={() => remove(i)}
                 disabled={disabled || rules.length === 1}
               >
-                <X aria-hidden="true" className="h-4 w-4" />
+                <X aria-hidden="true" className="size-4" />
               </Button>
             </div>
-            {err.value && <p id={errorId} className="text-xs text-error">{t("ruleNeedNumber")}</p>}
+            {err.value && <p id={errorId} className={FIELD_ERROR_TEXT}>{t("ruleNeedNumber")}</p>}
             {err.days && (
-              <p id={daysErrorId} className="text-xs text-error">{t("ruleNeedDays", { max: MAX_BEHAVIOR_DAYS })}</p>
+              <p id={daysErrorId} className={FIELD_ERROR_TEXT}>{t("ruleNeedDays", { max: MAX_BEHAVIOR_DAYS })}</p>
             )}
             {err.count && (
-              <p id={countErrorId} className="text-xs text-error">{t("ruleNeedCount", { max: MAX_BEHAVIOR_COUNT })}</p>
+              <p id={countErrorId} className={FIELD_ERROR_TEXT}>{t("ruleNeedCount", { max: MAX_BEHAVIOR_COUNT })}</p>
             )}
           </div>
         );
       })}
       <Button ref={addRef} type="button" variant="outline" size="sm" onClick={add} disabled={disabled}>
-        <Plus aria-hidden="true" className="h-4 w-4" /> {t("addRule")}
+        <Plus aria-hidden="true" className="size-4" /> {t("addRule")}
       </Button>
-      <p className="text-xs text-muted-foreground">{t("rulesHintOps")}</p>
-      <p className="text-xs text-muted-foreground">{t("rulesHintBehavior")}</p>
+      <p className={FIELD_HINT_TEXT}>{t("rulesHintOps")}</p>
+      <p className={FIELD_HINT_TEXT}>{t("rulesHintBehavior")}</p>
     </div>
   );
 }

@@ -3,10 +3,10 @@
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Download, ScrollText } from "lucide-react";
+import { AlertTriangle, Download, RefreshCw, ScrollText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -55,6 +55,8 @@ export function AuditConsole({ projectId }: { projectId: string }) {
   const [entries, setEntries] = React.useState<AuditEntryDto[]>([]);
   const [actors, setActors] = React.useState<Actor[]>([]);
   const [loading, setLoading] = React.useState(true);
+  // 실패와 "기록 없음" 은 다른 화면이다 — 같은 회색 빈 화면으로 합치면 다시 시도할 자리를 잃는다
+  const [failed, setFailed] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [next, setNext] = React.useState<Cursor>(null);
 
@@ -101,10 +103,14 @@ export function AuditConsole({ projectId }: { projectId: string }) {
       if (my !== reqRef.current) return;
       setEntries(d.entries);
       setNext(d.next);
+      setFailed(false);
     } catch (e) {
       if (my !== reqRef.current) return;
+      // 빈 배열로 떨어뜨리면 "기록된 변경이 없음" 으로 읽힌다 — 감사 로그에서 그 오해는
+      // 위험하다(아무 일도 없었다고 믿게 된다). 토스트는 4초 뒤 사라지므로 화면에 남긴다.
       setEntries([]);
       setNext(null);
+      setFailed(true);
       toast.error(errorText(e, tc("loadFailed")));
     } finally {
       if (my === reqRef.current) setLoading(false);
@@ -211,7 +217,7 @@ export function AuditConsole({ projectId }: { projectId: string }) {
                 {t("exportAudit")}
               </a>
             </Button>
-            <p className="text-xs text-muted-foreground">{t("exportLimit", { limit: CSV_ROW_LIMIT })}</p>
+            <p className={FIELD_HINT_TEXT}>{t("exportLimit", { limit: CSV_ROW_LIMIT })}</p>
           </div>
         </CardContent>
       </Card>
@@ -219,7 +225,7 @@ export function AuditConsole({ projectId }: { projectId: string }) {
       <Card>
         <CardContent className="flex flex-col gap-4 pt-4">
           <h2 className="text-sm font-extrabold text-foreground">{t("reportsTitle")}</h2>
-          <p className="text-xs text-muted-foreground">{t("reportsHint")}</p>
+          <p className={FIELD_HINT_TEXT}>{t("reportsHint")}</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Field label={t("logTypeLabel")} hint={t("logRangeHint")}>
               <Select value={logType} onChange={(e) => setLogType(e.target.value)}>
@@ -259,13 +265,28 @@ export function AuditConsole({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
+      {/* 표 머리글 배경이 rounded-card 밖으로 새지 않게 — logs-console 과 같은 방식 */}
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
             <div className="flex flex-col gap-2 p-3.5">
               {Array.from({ length: 6 }, (_, i) => (
                 <Skeleton key={i} className="h-10 w-full" />
               ))}
+            </div>
+          ) : failed ? (
+            <div className="p-3.5">
+              <EmptyState
+                icon={AlertTriangle}
+                tone="error"
+                title={tc("loadFailed")}
+                description={tc("loadFailedDesc")}
+                action={
+                  <Button variant="outline" onClick={() => void load()}>
+                    <RefreshCw aria-hidden="true" className="size-4" /> {tc("retry")}
+                  </Button>
+                }
+              />
             </div>
           ) : entries.length === 0 ? (
             <div className="p-3.5">
@@ -287,7 +308,7 @@ export function AuditConsole({ projectId }: { projectId: string }) {
                       <TableCell label={t("colAction")} className="flex flex-wrap items-center gap-1 text-sm text-foreground">
                         <span>{t(actionKey(baseAction(e.action)) as never)}</span>
                         {isDenied(e.action) && <Badge variant="danger">{t("denied")}</Badge>}
-                        <span className="text-xs text-muted-foreground">{e.targetId ?? ""}</span>
+                        <span className={FIELD_HINT_TEXT}>{e.targetId ?? ""}</span>
                       </TableCell>
                       <TableCell label={t("colChanges")} className="text-sm text-muted-foreground">
                         {e.diff ? (

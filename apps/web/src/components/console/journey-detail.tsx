@@ -21,24 +21,36 @@ import {
   type JourneyDraft,
   type Step,
   type StepErrors,
+  type StepStat,
 } from "@/components/console/journey-form";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Journey = { id: string; name: string; steps: Step[]; createdAt: string };
+
+/** 서버가 스텝 경로별로 묶어 주는 퍼널 한 줄 */
+type StepFunnelRow = { path: string; waiting: number; sent: number; clicks: number };
+
+/** 경로 → 퍼널 표. 응답이 없으면(구버전 서버) 빈 표 — 줄을 아예 그리지 않는다 */
+function toStepStats(rows: StepFunnelRow[] | undefined): Record<string, StepStat> {
+  const out: Record<string, StepStat> = {};
+  for (const r of rows ?? []) out[r.path] = { waiting: r.waiting, sent: r.sent, clicks: r.clicks };
+  return out;
+}
 
 export function JourneyDetail({ projectId, journeyId }: { projectId: string; journeyId: string }) {
   const t = useTranslations("journeys");
   const errorText = useAdminErrorText();
   const tc = useTranslations("common");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const router = useRouter();
 
   const [loaded, setLoaded] = React.useState<Journey | null>(null);
   const [activeRuns, setActiveRuns] = React.useState(0);
   const [exitedRuns, setExitedRuns] = React.useState(0);
   const [totalRuns, setTotalRuns] = React.useState(0);
-  const [stepCounts, setStepCounts] = React.useState<Record<string, number>>({});
+  const [stepStats, setStepStats] = React.useState<Record<string, StepStat>>({});
   const [missing, setMissing] = React.useState(false);
   /** 404 가 아닌 실패 — 스켈레톤을 영원히 돌리지 않고 오류와 재시도를 보인다 */
   const [failed, setFailed] = React.useState(false);
@@ -68,14 +80,14 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
         activeRuns: number;
         exitedRuns: number;
         totalRuns: number;
-        stepCounts: Record<string, number>;
+        stepFunnel?: StepFunnelRow[];
       }>(`/api/admin/projects/${projectId}/journeys/${journeyId}`);
       if (my !== reqRef.current) return;
       apply(d.journey);
       setActiveRuns(d.activeRuns);
       setExitedRuns(d.exitedRuns);
       setTotalRuns(d.totalRuns);
-      setStepCounts(d.stepCounts ?? {});
+      setStepStats(toStepStats(d.stepFunnel));
     } catch (e) {
       if (my !== reqRef.current) return;
       // 404 는 "없음"으로, 나머지는 오류로 구분한다 — 지워진 것과 장애는 대응이 다르다
@@ -217,7 +229,7 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
 
       <Card>
         <CardHeader><CardTitle>{tc("edit")}</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <JourneyFields
             idPrefix="journey"
             name={name}
@@ -225,8 +237,8 @@ export function JourneyDetail({ projectId, journeyId }: { projectId: string; jou
             onName={setName}
             onDraft={setDraft}
             errors={errors}
-            // 스텝별 인원을 편집 화면 안에 함께 둔다 — 표를 따로 두면 어느 줄이 어느 스텝인지 맞춰 봐야 한다
-            stepCounts={stepCounts}
+            // 스텝별 퍼널을 편집 화면 안에 함께 둔다 — 표를 따로 두면 어느 줄이 어느 스텝인지 맞춰 봐야 한다
+            stepStats={stepStats}
             nameLocked
             disabled={saving}
           />

@@ -17,6 +17,11 @@ import { StatTileGrid, type StatDelta } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/console/log-status";
 import { pctChange, ptChange, ratio } from "@/lib/stat-delta";
 import { useProjects, adminApi } from "@/lib/admin-client";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { cn } from "@/lib/utils";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { FIELD_HINT_TEXT } from "@/components/ui/input";
+import { useNumberFormat } from "@/lib/number-format";
 
 type RecentLog = { id: string; title: string; type: string; status: string; totalCount: number; successCount: number; createdAt: string };
 
@@ -84,7 +89,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
     router.replace(`/projects/${projectId}${q.size ? `?${q}` : ""}`, { scroll: false });
   }
 
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const bucketFmt = React.useMemo(
     () =>
       range === "24h"
@@ -128,7 +133,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             {project && <Badge variant={project.environment === "production" ? "primary" : "neutral"}>{project.environment}</Badge>}
             <Button size="sm" asChild>
               <Link href={`/projects/${projectId}/send/single`}>
-                <Send aria-hidden="true" className="h-4 w-4" /> {t("linkSend")}
+                <Send aria-hidden="true" className="size-4" /> {t("linkSend")}
               </Link>
             </Button>
           </div>
@@ -159,7 +164,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
       )}
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{rangeLabel}</p>
+        <Eyebrow>{rangeLabel}</Eyebrow>
         <Segmented
           label={rangeLabel}
           value={range}
@@ -174,7 +179,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           <button
             type="button"
             onClick={() => setStatsRetry((n) => n + 1)}
-            className="rounded-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn("rounded-sm font-semibold text-primary hover:underline", FOCUS_RING)}
           >
             {tc("retry")}
           </button>
@@ -243,7 +248,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
                 <li key={l.id} className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{l.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className={FIELD_HINT_TEXT}>
                       {l.type} · {df.format(new Date(l.createdAt))}
                     </p>
                   </div>
@@ -259,9 +264,9 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
             </ul>
             <Link
               href={`/projects/${projectId}/logs`}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn("mt-3 inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-primary hover:underline", FOCUS_RING)}
             >
-              {t("viewAll")} <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+              {t("viewAll")} <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           </div>
         ) : (

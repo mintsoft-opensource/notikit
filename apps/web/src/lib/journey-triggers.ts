@@ -1,10 +1,11 @@
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, arrayContains, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { devices, journeys, journeyRuns, pushClicks, pushConversions, pushLogs, pushUsers } from "@/db/schema";
 import type { DbOrTx } from "@/lib/messages";
 import {
   compileJourney,
   entryEventOf,
+  triggerEventsOf,
   branchDecision,
   exitedBy,
   planStep,
@@ -41,10 +42,7 @@ export async function onJourneyEvent(
   const userId = await resolveUserId(db, projectId, who);
   if (!userId) return { userId: null, enrolled: [], exited: [] };
 
-  const rows = await db
-    .select({ id: journeys.id, steps: journeys.steps })
-    .from(journeys)
-    .where(eq(journeys.projectId, projectId));
+  const rows = await journeysTouchedBy(db, projectId, name);
 
   const enrolled: string[] = [];
   const exited: string[] = [];
@@ -183,7 +181,30 @@ export function toStoredSteps(steps: JourneyStep[]): typeof journeys.$inferInser
 
 /** 이벤트 이름으로 진입 트리거가 걸린 저니가 있는지 (엔드포인트 응답용) */
 export async function journeysForEvent(projectId: string, name: string): Promise<string[]> {
-  const db = getDb();
-  const rows = await db.select({ id: journeys.id, steps: journeys.steps }).from(journeys).where(eq(journeys.projectId, projectId));
+  const rows = await journeysTouchedBy(getDb(), projectId, name);
   return rows.filter((j) => entryEventOf(normalizeSteps(j.steps)) === name).map((j) => j.id);
+}
+
+/**
+ * 이 이벤트가 진입이나 종료로 건드릴 수 있는 저니만 읽는다(`trigger_events` GIN).
+ *
+ * 컬럼 이전에 저장된 행(null)은 모르므로 함께 읽고, 그 자리에서 채워 다음부터는 인덱스로만 걸리게 한다.
+ * 채우기는 조건부(`is null`)라 동시에 들어온 이벤트나 그 사이의 수정과 겹쳐도 덮어쓰지 않는다.
+ */
+async function journeysTouchedBy(db: DbOrTx, projectId: string, name: string) {
+  const rows = await db
+    .select({ id: journeys.id, steps: journeys.steps, triggerEvents: journeys.triggerEvents })
+    .from(journeys)
+    .where(and(
+      eq(journeys.projectId, projectId),
+      or(arrayContains(journeys.triggerEvents, [name]), isNull(journeys.triggerEvents))
+    ));
+  for (const j of rows) {
+    if (j.triggerEvents !== null) continue;
+    await db
+      .update(journeys)
+      .set({ triggerEvents: triggerEventsOf(normalizeSteps(j.steps)) })
+      .where(and(eq(journeys.id, j.id), isNull(journeys.triggerEvents)));
+  }
+  return rows;
 }

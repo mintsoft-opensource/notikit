@@ -18,6 +18,9 @@ import { BarList } from "@/components/console/panels";
 import { LiveChart } from "@/components/system/live-chart";
 import { DonutChart } from "@/components/system/donut-chart";
 import { useProjects, adminApi } from "@/lib/admin-client";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { cn } from "@/lib/utils";
+import { useNumberFormat } from "@/lib/number-format";
 
 type SystemStats = {
   totals: { sends24h: number; recipients24h: number; success24h: number; queued: number; activeDevices: number; users: number };
@@ -59,7 +62,7 @@ export default function DashboardPage() {
     return () => { alive = false; };
   }, []);
 
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   // 일별 버킷은 UTC 자정으로 찍힌 날짜다 — 로컬로 포맷하면 UTC 보다 뒤처진 지역에서 하루 앞 날짜로 보인다
   const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }), [locale]);
   const hourFmt = React.useMemo(() => new Intl.DateTimeFormat(locale, { hour: "numeric" }), [locale]);
@@ -210,7 +213,7 @@ export default function DashboardPage() {
               <CardDescription>{ts("range24h")}</CardDescription>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <StatTile icon={PackageMinus} label={to("statUninstalled")} value={num(stats?.lifecycle.uninstalled)} accent="danger" loading={busy} />
               <StatTile icon={Rocket} label={to("statReinstalled")} value={num(stats?.lifecycle.reinstalled)} accent="success" loading={busy} />
@@ -225,7 +228,7 @@ export default function DashboardPage() {
               />
             ) : (
               <p className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-                <Webhook aria-hidden="true" className="h-3.5 w-3.5" /> {t("noWebhooks")}
+                <Webhook aria-hidden="true" className="size-4" /> {t("noWebhooks")}
               </p>
             )}
           </CardContent>
@@ -239,7 +242,7 @@ export default function DashboardPage() {
             <CardDescription>{t("productionHint", { count: prod })}</CardDescription>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/projects">{t("quickProjects")}<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+            <Link href="/projects">{t("quickProjects")}<ArrowRight aria-hidden="true" className="size-4" /></Link>
           </Button>
         </CardHeader>
         <CardContent className="grid gap-3 lg:grid-cols-2">
@@ -250,14 +253,17 @@ export default function DashboardPage() {
               icon={FolderKanban}
               title={t("noProjects")}
               description={t("quickProjectsDesc")}
-              action={<Button asChild size="sm"><Link href="/projects">{t("quickProjects")}<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link></Button>}
+              action={<Button asChild size="sm"><Link href="/projects">{t("quickProjects")}<ArrowRight aria-hidden="true" className="size-4" /></Link></Button>}
             />
           )}
           {projects.map((p) => (
             <Link
               key={p.id}
               href={`/projects/${p.id}`}
-              className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-tile border border-border px-3.5 py-2 transition-colors hover:border-primary/40 hover:bg-surface-muted"
+              className={cn(
+                "grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-tile border border-border px-3.5 py-2 transition-colors hover:border-primary/40 hover:bg-surface-muted",
+                FOCUS_RING
+              )}
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{p.name}</p>

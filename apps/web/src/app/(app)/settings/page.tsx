@@ -104,7 +104,7 @@ export default function SettingsPage() {
             </Field>
             {isOwner && (
               <Button className="justify-self-end" onClick={save} disabled={saving || !org || !name.trim() || name.trim() === org?.name}>
-                <Save aria-hidden="true" className="h-4 w-4" /> {saving ? t("saving") : t("save")}
+                <Save aria-hidden="true" className="size-4" /> {saving ? t("saving") : t("save")}
               </Button>
             )}
           </CardContent>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
+import { useNumberFormat } from "@/lib/number-format";
 
 export { StatTile } from "@/components/ui/stat-tile";
 export { EmptyState } from "@/components/ui/empty-state";
@@ -29,10 +30,10 @@ export function SectionTitle({ children, right }: { children: React.ReactNode; r
 /** 수평 바 목록 — 단일 측정값, 값 라벨 병기 */
 export function BarList({ rows, className }: { rows: Array<{ label: string; value: number; color?: string }>; className?: string }) {
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-4", className)}>
       {rows.map((r) => (
         // 라벨은 고정 w-24(96px) 로 두면 "Netherlands" 같은 이름이 잘리고, 값은 w-12 로
         // 두면 여섯 자리(100,000)가 넘친다. 라벨은 9rem 까지 늘었다 줄고, 값 칸은 내용

@@ -190,6 +190,15 @@ export function entryEventOf(steps: JourneyStep[]): string | null {
   return head && head.type === "entry" && head.event ? head.event : null;
 }
 
+/**
+ * 이 저니를 움직이는 이벤트 이름 전부(진입 + 종료, 중복 없이). `journeys.trigger_events` 에
+ * 저장해, 이벤트가 들어올 때 프로젝트의 저니를 전부 읽지 않고 걸린 것만 고른다.
+ */
+export function triggerEventsOf(steps: JourneyStep[]): string[] {
+  const { entryEvent, exitEvents } = compileJourney(steps);
+  return [...new Set([...(entryEvent ? [entryEvent] : []), ...exitEvents])];
+}
+
 /** 트리 앞에 진입 트리거를 넣거나(있으면 교체) 뺀다 */
 export function withEntryEvent(steps: JourneyStep[], event: string | null): JourneyStep[] {
   const rest = steps[0]?.type === "entry" ? steps.slice(1) : steps;

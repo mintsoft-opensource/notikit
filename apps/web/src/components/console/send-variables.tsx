@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { adminApi } from "@/lib/admin-client";
 import { BUILTIN_VARIABLES } from "@/lib/personalize";
 import { cn } from "@/lib/utils";
+import { FIELD_HINT_TEXT } from "@/components/ui/input";
 
 type UserAttrs = { attributes: Record<string, unknown> | null };
 
@@ -91,13 +92,13 @@ export function SendVariables({
   ];
 
   return (
-    <section aria-labelledby="send-variables-title" className="space-y-3 rounded-lg border border-border bg-surface-muted/30 p-3">
+    <section aria-labelledby="send-variables-title" className="space-y-4 rounded-lg border border-border bg-surface-muted/30 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 id="send-variables-title" className="flex items-center gap-1.5 text-sm font-semibold">
-            <Braces aria-hidden="true" className="h-4 w-4 text-muted-foreground" /> {t("variables")}
+            <Braces aria-hidden="true" className="size-4 text-muted-foreground" /> {t("variables")}
           </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className={cn("mt-0.5", FIELD_HINT_TEXT)}>
             {basis ? t("variablesBasis", { who: basis }) : t("variablesBasisDefault")}
           </p>
         </div>
@@ -114,7 +115,7 @@ export function SendVariables({
             {examples.map((ex) => (
               <li key={ex.input} className="grid gap-1 text-xs sm:grid-cols-[minmax(0,14rem)_auto_minmax(0,1fr)] sm:items-center sm:gap-2">
                 <code className="truncate rounded-md bg-surface-muted px-2 py-1 font-mono text-foreground">{ex.input}</code>
-                <ArrowRight aria-hidden="true" className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
+                <ArrowRight aria-hidden="true" className="hidden size-4 text-muted-foreground sm:block" />
                 <span className="min-w-0">
                   <span className="font-semibold text-foreground">{render(ex.input) || empty}</span>
                   {ex.alt && (

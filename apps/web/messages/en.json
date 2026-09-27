@@ -520,7 +520,7 @@
     "colTitle": "Title",
     "colTargetName": "Target",
     "colSentAt": "Sent at",
-    "colDelivered": "Delivered/Audience",
+    "colDelivered": "Accepted/Audience",
     "colReadRate": "Read rate",
     "colStatus": "Status",
     "rangeFrom": "From",
@@ -582,8 +582,8 @@
     "abWinnerSend": "This is the A/B winner send — variant {letter} went to the remaining {percent}%.",
     "abParentLink": "Open the sample send",
     "sentByAbWinner": "A/B auto-winner",
-    "colReceipts": "Delivered",
-    "receiptsHint": "Not the same as FCM accepted",
+    "colReceipts": "Device receipts",
+    "receiptsHint": "Confirmed by the device, not by FCM",
     "cancel": "Cancel send",
     "cancelNamed": "Cancel send: {title}",
     "cancelTitle": "Cancel this send?",
@@ -616,7 +616,18 @@
     "holdoutConversions": "Holdout conversions",
     "holdoutLift": "Lift",
     "holdoutHint": "Conversion rate of the sent group compared with the holdout group.",
-    "holdoutLiftNone": "No holdout conversions, so lift cannot be computed — that is “not measurable”, not 0%."
+    "holdoutLiftNone": "No holdout conversions, so lift cannot be computed — that is “not measurable”, not 0%.",
+    "receiptsNone": "No receipts reported yet — the app SDK has to call reportReceived. This does not mean delivery failed.",
+    "holdoutControl": "Holdout conversion rate",
+    "holdoutTreatment": "Sent-group conversion rate",
+    "holdoutControlHint": "The {percent}% that received no push.",
+    "holdoutTreatmentHint": "People the push was actually accepted for.",
+    "holdoutRatio": "{converted} converted of {total}",
+    "holdoutLiftLabel": "vs holdout",
+    "cancelAlreadySent": "{success} have already gone out (of {total}). Those cannot be recalled.",
+    "cancelAlreadySentUnknown": "The number already sent is unknown — whatever went out before the cancel cannot be recalled.",
+    "cancelAlreadySentFailed": "{failure} of them failed.",
+    "cancelIrreversible": "Canceling only affects what has not gone out yet."
   },
   "projects": {
     "title": "Projects",
@@ -743,7 +754,8 @@
     "errEventRequired": "Enter an event name",
     "errHoursInvalid": "Enter hours as a number",
     "emptyTitle": "No journeys yet",
-    "emptyDesc": "Create a journey to run send → wait → branch flows automatically."
+    "emptyDesc": "Create a journey to run send → wait → branch flows automatically.",
+    "stepFunnel": "{waiting} waiting · {sent} sent · {rate} clicked"
   },
   "system": {
     "title": "System",
@@ -1001,7 +1013,17 @@
     "ruleConversionNamePlaceholder": "conversion name (e.g. purchase)",
     "ruleNeedDays": "Days must be a whole number between 1 and {max}",
     "ruleNeedCount": "Times must be a whole number between 1 and {max}",
-    "rulesHintBehavior": "Behaviour conditions read what this device recorded, so devices with no user attached are included too. Only 'push received' is matched per person"
+    "rulesHintBehavior": "Behaviour conditions read what this device recorded, so devices with no user attached are included too. Only 'push received' is matched per person",
+    "importBatchesTitle": "Recent imports",
+    "importBatchesHint": "Undo a bad CSV by batch. The last 5 imports are shown.",
+    "importBatchRows": "{added} added · {skipped} skipped",
+    "importBatchReverted": "Reverted",
+    "importRevert": "Revert",
+    "importRevertTitle": "Revert this import",
+    "importRevertConfirm": "Removes the {added} suppressions this import added. This cannot be undone.",
+    "importRevertKeepsExisting": "People who were already suppressed stay suppressed — rows this import skipped are left alone.",
+    "importRevertDone": "Reverted {removed} suppressions.",
+    "importRevertFailed": "Could not revert this import."
   },
   "activity": {
     "title": "Activity",

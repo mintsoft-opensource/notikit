@@ -130,7 +130,7 @@ function CardBlock() {
       <div className="p-3.5 pb-2.5">
         <Skeleton className="h-5 w-32" />
       </div>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="flex justify-between gap-4">
             <Skeleton className="h-3.5 w-28" />
@@ -168,7 +168,7 @@ function DocsBlock() {
         ))}
       </div>
       <Card className="min-w-0 p-3.5">
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-3.5 w-full" />
           <Skeleton className="h-3.5 w-11/12" />

@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog } from "@/components/ui/dialog";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
-import { SuppressionsImport } from "./suppressions-import";
+import { SuppressionsImport, SuppressionsImportBatches } from "./suppressions-import";
 
 type Suppression = {
   id: string;
@@ -44,6 +44,8 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
   const [externalId, setExternalId] = React.useState("");
   const [reason, setReason] = React.useState("manual");
   const [busy, setBusy] = React.useState(false);
+  /** 가져오기가 끝날 때마다 올린다 — 배치 목록이 방금 올린 회차를 바로 보여야 한다 */
+  const [imported, setImported] = React.useState(0);
 
   const load = React.useCallback(async () => {
     try {
@@ -124,7 +126,7 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
         description={t("suppressionsSubtitle")}
         actions={
           <>
-            <SuppressionsImport projectId={projectId} onImported={() => void load()} />
+            <SuppressionsImport projectId={projectId} onImported={() => { setImported((n) => n + 1); void load(); }} />
             <Button onClick={() => setOpen(true)}>
               <Plus aria-hidden="true" className="size-4" /> {t("addSuppression")}
             </Button>
@@ -158,6 +160,13 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
           <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
         </form>
       </Dialog>
+
+      {/* 가져오기 사고는 목록보다 먼저 보여야 한다 — 되돌리기를 찾아 스크롤하게 두지 않는다 */}
+      <SuppressionsImportBatches
+        projectId={projectId}
+        refreshKey={imported}
+        onReverted={() => void load()}
+      />
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">

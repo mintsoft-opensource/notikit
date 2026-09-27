@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DataRow } from "@/components/ui/data-row";
 import { adminApi } from "@/lib/admin-client";
 import { StatusChip } from "./log-status";
+import { useNumberFormat } from "@/lib/number-format";
 
 /** 발송 뒤 하단에 남기는 결과 — 토스트는 사라지므로 확인할 수 있게 화면에 붙여둔다 */
 export type SendResult = {
@@ -69,7 +70,7 @@ export function SendResultCard({ projectId, result }: { projectId: string; resul
   const t = useTranslations("send");
   const tl = useTranslations("logs");
   const locale = useLocale();
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const [attempt, setAttempt] = React.useState(0);
   const { state, failed } = useMessageState(projectId, result.messageId, attempt);
 
@@ -85,22 +86,22 @@ export function SendResultCard({ projectId, result }: { projectId: string; resul
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5">
           {requestFailed || warn ? (
-            <AlertTriangle aria-hidden="true" className={`h-4 w-4 ${requestFailed || messageFailed ? "text-error" : "text-warning"}`} />
+            <AlertTriangle aria-hidden="true" className={`size-4 ${requestFailed || messageFailed ? "text-error" : "text-warning"}`} />
           ) : result.status === "scheduled" ? (
-            <Clock aria-hidden="true" className="h-4 w-4 text-primary" />
+            <Clock aria-hidden="true" className="size-4 text-primary" />
           ) : (
-            <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" />
+            <CheckCircle2 aria-hidden="true" className="size-4 text-success" />
           )}
           {t("resultTitle")}
         </CardTitle>
         {result.messageId && (
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setAttempt((n) => n + 1)}>
-              <RefreshCw aria-hidden="true" className="h-4 w-4" /> {t("resultRefresh")}
+              <RefreshCw aria-hidden="true" className="size-4" /> {t("resultRefresh")}
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href={`/projects/${projectId}/logs/${result.messageId}`}>
-                <ExternalLink aria-hidden="true" className="h-4 w-4" /> {t("resultOpenLog")}
+                <ExternalLink aria-hidden="true" className="size-4" /> {t("resultOpenLog")}
               </Link>
             </Button>
           </div>

@@ -76,6 +76,7 @@ export function Dialog({
   children,
   footer,
   size = "md",
+  tone = "default",
   initialFocus = "firstField",
 }: {
   open: boolean;
@@ -85,6 +86,12 @@ export function Dialog({
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg";
+  /**
+   * `danger` 는 **되돌릴 수 없는 결정**을 받는 창이다. 머리말에 오류 색 면을 깔아
+   * 중립 폼과 눈으로 구분되게 한다 — 파괴적 버튼 하나만 빨갛게 두면 창을 훑는 동안엔
+   * 여느 확인창과 똑같이 보인다.
+   */
+  tone?: "default" | "danger";
   /** 읽을 내용이 먼저인 창은 `dialog` 로 — 자세한 이유는 DialogInitialFocus 주석 */
   initialFocus?: DialogInitialFocus;
 }) {
@@ -249,7 +256,12 @@ export function Dialog({
           width
         )}
       >
-        <div className="flex items-start justify-between gap-2.5 border-b border-border p-3.5">
+        <div
+          className={cn(
+            "flex items-start justify-between gap-2.5 border-b border-border p-3.5",
+            tone === "danger" && "border-error/30 bg-error/5"
+          )}
+        >
           <div className="min-w-0">
             <h2 id={titleId} className="text-md font-bold tracking-tight text-foreground">
               {title}

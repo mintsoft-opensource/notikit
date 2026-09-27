@@ -9,6 +9,9 @@ import { StatTile, EmptyState, DataRow, SectionTitle, BarList, Segmented, format
 import { LiveChart, formatBytes } from "@/components/system/live-chart";
 import { GeoPanel } from "@/components/console/geo-panel";
 import { adminApi } from "@/lib/admin-client";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { cn } from "@/lib/utils";
+import { useNumberFormat } from "@/lib/number-format";
 
 type SystemStats = {
   totals: { sends24h: number; recipients24h: number; success24h: number; queued: number; activeDevices: number; users: number };
@@ -80,7 +83,7 @@ function HostSection() {
   const [error, setError] = React.useState(false);
   const [win, setWin] = React.useState<Window>("live");
   const [history, setHistory] = React.useState<HistoryPoint[] | null>(null);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
+  const nf = useNumberFormat({ maximumFractionDigits: 1 });
   const tfm = React.useMemo(() => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" }), [locale]);
   const tfLong = React.useMemo(
     () => new Intl.DateTimeFormat(locale, win === "7d" ? { month: "short", day: "numeric" } : { hour: "2-digit", minute: "2-digit" }),
@@ -287,7 +290,7 @@ function HostSection() {
         <Card className="min-w-0">
           <PanelHead title={t("queueTitle")} />
           <CardContent>
-            <dl className="space-y-3">
+            <dl className="space-y-4">
               <DataRow label={t("queueQueued")} value={val(q ? String(q.queued) : null)} />
               <DataRow label={t("queueProcessing")} value={val(q ? String(q.processing) : null)} />
               <DataRow label={t("queueScheduled")} value={val(q ? String(q.scheduled) : null)} />
@@ -312,7 +315,7 @@ export default function SystemPage() {
   const [stats, setStats] = React.useState<SystemStats | null>(null);
   const [error, setError] = React.useState(false);
   const [retryN, setRetryN] = React.useState(0);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const hf = React.useMemo(() => new Intl.DateTimeFormat(locale, { hour: "numeric" }), [locale]);
 
   React.useEffect(() => {
@@ -357,7 +360,7 @@ export default function SystemPage() {
             <button
               type="button"
               onClick={() => setRetryN((n) => n + 1)}
-              className="rounded-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={cn("rounded-sm font-bold text-primary hover:underline", FOCUS_RING)}
             >
               {tc("retry")}
             </button>
@@ -460,7 +463,7 @@ export default function SystemPage() {
           <Card className="min-w-0">
             <PanelHead title={t("webhooks")} sub={t("range24h")} />
             <CardContent>
-              <dl className="space-y-3">
+              <dl className="space-y-4">
                 <DataRow
                   label={
                     <span className="flex items-center gap-2">

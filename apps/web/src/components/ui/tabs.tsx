@@ -112,8 +112,10 @@ export function TabPanel({
       role="tabpanel"
       id={`${idPrefix}-panel-${value}`}
       aria-labelledby={`${idPrefix}-tab-${value}`}
+      // 패널 자체가 탭 순서에 들어간다(tabIndex 0) — outline 만 끄면 키보드로 내용에
+      // 들어온 순간 포커스가 화면에서 사라진다(WCAG 2.4.7). 링은 컨트롤과 같은 것을 쓴다.
       tabIndex={0}
-      className={cn("focus-visible:outline-none", className)}
+      className={cn(FOCUS_RING, className)}
     >
       {children}
     </div>

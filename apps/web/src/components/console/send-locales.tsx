@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Languages, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea, Field } from "@/components/ui/input";
+import { FIELD_HINT_TEXT, Field, Input, Textarea } from "@/components/ui/input";
 import { newRowId } from "@/lib/row-id";
 import { LOCALE_DEFAULT_KEY, MAX_LOCALE_VARIANTS, isLocaleKey, normalizeLocaleTag } from "@/lib/locale-content";
 
@@ -133,13 +133,13 @@ export function SendLocaleFields({
   };
 
   return (
-    <div className="space-y-3 border-t border-border pt-4">
+    <div className="space-y-4 border-t border-border pt-4">
       <div className="space-y-1">
         <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
           <Languages aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           {t("localesTitle")}
         </p>
-        <p className="text-xs text-muted-foreground">{t("localesHint", { max: MAX_LOCALE_VARIANTS })}</p>
+        <p className={FIELD_HINT_TEXT}>{t("localesHint", { max: MAX_LOCALE_VARIANTS })}</p>
       </div>
 
       {/* 켜는 순간 들리도록 polite 영역 안에서 나타난다 — 무음 푸시 안내와 같은 방식 */}
@@ -154,7 +154,7 @@ export function SendLocaleFields({
         const key = errors.rows[r.rowId];
         const message = key ? t(key) : null;
         return (
-          <div key={r.rowId} role="group" aria-labelledby={legendId} className="space-y-3 rounded-lg border border-border p-3">
+          <div key={r.rowId} role="group" aria-labelledby={legendId} className="space-y-4 rounded-lg border border-border p-3">
             <div className="flex items-center justify-between gap-2">
               <p id={legendId} className="text-xs font-semibold text-foreground">
                 {r.tag.trim() ? t("localeLegendNamed", { tag: r.tag.trim() }) : t("localeLegend", { index: i + 1 })}

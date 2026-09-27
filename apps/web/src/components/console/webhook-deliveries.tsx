@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Segmented } from "@/components/ui/segmented";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { cn } from "@/lib/utils";
+import { useNumberFormat } from "@/lib/number-format";
 
 type DeliveryStatus = "pending" | "delivered" | "failed";
 type Filter = "all" | DeliveryStatus;
@@ -101,7 +102,7 @@ export function WebhookDeliveries({ projectId, webhookId }: { projectId: string;
   }
 
   const df = React.useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" }), [locale]);
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
 
   return (
     <div className="mt-2 border-t border-border pt-2">
@@ -112,13 +113,13 @@ export function WebhookDeliveries({ projectId, webhookId }: { projectId: string;
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
       >
-        <History aria-hidden="true" className="h-4 w-4" />
+        <History aria-hidden="true" className="size-4" />
         {t("deliveriesToggle")}
-        <ChevronDown aria-hidden="true" className={cn("h-4 w-4 motion-safe:transition-transform", open && "rotate-180")} />
+        <ChevronDown aria-hidden="true" className={cn("size-4 motion-safe:transition-transform", open && "rotate-180")} />
       </Button>
 
       {open && (
-        <div id={panelId} className="mt-2 space-y-3">
+        <div id={panelId} className="mt-2 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Segmented<Filter>
               label={t("deliveriesFilter")}
@@ -132,7 +133,7 @@ export function WebhookDeliveries({ projectId, webhookId }: { projectId: string;
               ]}
             />
             <Button variant="outline" size="sm" onClick={() => setAttempt((n) => n + 1)}>
-              <RefreshCw aria-hidden="true" className="h-4 w-4" /> {t("deliveriesRefresh")}
+              <RefreshCw aria-hidden="true" className="size-4" /> {t("deliveriesRefresh")}
             </Button>
           </div>
 

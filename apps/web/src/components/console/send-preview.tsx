@@ -6,6 +6,8 @@ import { Bell, BellOff, ChevronDown, Link2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { FOCUS_RING } from "@/components/ui/focus-ring";
+import { FIELD_HINT_TEXT } from "@/components/ui/input";
 
 type Platform = "ios" | "android";
 
@@ -57,13 +59,13 @@ export function SendPreview({
       <CardHeader className="items-center pb-0">
         <CardTitle>{t("preview")}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 pt-1">
+      <CardContent className="space-y-4 pt-1">
         {silent ? (
           <div className="flex gap-2.5 rounded-lg border border-border bg-surface-muted/50 p-3">
-            <BellOff aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <BellOff aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 space-y-1">
               <p className="text-sm font-semibold">{t("previewSilent")}</p>
-              <p className="text-xs text-muted-foreground">{t("previewSilentHint")}</p>
+              <p className={FIELD_HINT_TEXT}>{t("previewSilentHint")}</p>
             </div>
           </div>
         ) : (
@@ -106,10 +108,10 @@ export function SendPreview({
             ))}
           </ul>
         )}
-        {note && !silent && <p className="text-xs text-muted-foreground">{note}</p>}
+        {note && !silent && <p className={FIELD_HINT_TEXT}>{note}</p>}
         {deepLink && (
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <Link2 aria-hidden="true" className="h-4 w-4 shrink-0" />
+            <Link2 aria-hidden="true" className="size-4 shrink-0" />
             <span className="truncate font-mono">{deepLink}</span>
           </p>
         )}
@@ -175,10 +177,15 @@ function AndroidMock({ appName, title, body, imageUrl, isEmpty }: MockProps) {
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
-            className="ms-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-[#e1e2ec] px-2 text-[11px] font-medium text-[#191c20] transition-colors hover:bg-[#d3d5e0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className={cn(
+              "ms-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-[#e1e2ec] px-2 text-[11px] font-medium text-[#191c20] transition-colors hover:bg-[#d3d5e0]",
+              // 미리보기는 기기 화면 색을 흉내 내는 면이라 오프셋 색만 그 면에 맞춘다
+              FOCUS_RING,
+              "focus-visible:ring-offset-[#e8eaf0]"
+            )}
           >
             {expanded ? t("previewCollapse") : t("previewExpand")}
-            <ChevronDown aria-hidden="true" className={cn("h-4 w-4 transition-transform duration-200", expanded && "rotate-180")} />
+            <ChevronDown aria-hidden="true" className={cn("size-4 transition-transform duration-200", expanded && "rotate-180")} />
           </button>
         </div>
         <div className="mt-2 flex gap-3">
@@ -205,7 +212,7 @@ function AndroidMock({ appName, title, body, imageUrl, isEmpty }: MockProps) {
 function AppIcon({ className, label }: { className?: string; label: string }) {
   return (
     <span role="img" aria-label={label} className={cn("grid shrink-0 place-items-center bg-primary text-primary-foreground shadow-sm", className)}>
-      <Bell aria-hidden="true" className="h-4 w-4" />
+      <Bell aria-hidden="true" className="size-4" />
     </span>
   );
 }
@@ -232,7 +239,7 @@ function VariantPanel({
 }) {
   if (!active) return <>{children}</>;
   return (
-    <TabPanel value={value} idPrefix={idPrefix} className="space-y-3">
+    <TabPanel value={value} idPrefix={idPrefix} className="space-y-4">
       {children}
     </TabPanel>
   );

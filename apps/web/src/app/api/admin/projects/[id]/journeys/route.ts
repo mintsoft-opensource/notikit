@@ -4,7 +4,7 @@ import { journeys } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
-import { journeyStepsSchema, toStoredSteps } from "@/lib/journey-triggers";
+import { journeyStepsSchema, toStoredSteps, triggerEventsOf } from "@/lib/journey-triggers";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +41,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
 
   const db = getDb();
-  const row = (await db.insert(journeys).values({ projectId: id, name: parsed.data.name, steps: toStoredSteps(parsed.data.steps) }).returning())[0];
+  const row = (await db.insert(journeys).values({ projectId: id, name: parsed.data.name, steps: toStoredSteps(parsed.data.steps), triggerEvents: triggerEventsOf(parsed.data.steps) }).returning())[0];
   return ok({ journey: row }, undefined, 201);
 }

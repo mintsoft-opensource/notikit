@@ -8,6 +8,7 @@ import { CalendarDays, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RTL_LOCALES } from "@/i18n/locales";
 import "react-day-picker/style.css";
+import { FIELD_FOCUS_RING, FOCUS_RING } from "@/components/ui/focus-ring";
 
 /** `YYYY-MM-DD` ↔ Date. 타임존 때문에 `new Date("2026-01-01")` 은 UTC 자정으로 해석돼
  *  로컬이 UTC-면 하루 전으로 밀린다. 반드시 로컬 기준으로 만든다. */
@@ -103,7 +104,7 @@ export function DatePicker({
             type="button"
             className={cn(
               "flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-sm shadow-sm transition-colors",
-              "focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              FIELD_FOCUS_RING,
               selected ? "text-foreground" : "text-muted-foreground"
             )}
           >
@@ -116,8 +117,11 @@ export function DatePicker({
             type="button"
             aria-label={clearLabel}
             onClick={() => onChange("")}
-            // 날짜 칸에 붙은 보조 조작 — 칸 안 요소 규칙(D3) 28px·14px 아이콘
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            // 날짜 칸에 붙은 보조 조작 — 칸 안 요소 규칙(D3) 28px 컨테이너, 아이콘은 size-4
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground",
+              FOCUS_RING
+            )}
           >
             <X aria-hidden="true" className="size-4" />
           </button>

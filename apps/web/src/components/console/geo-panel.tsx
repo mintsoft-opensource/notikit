@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatTile } from "@/components/ui/stat-tile";
 import { adminApi } from "@/lib/admin-client";
+import { useNumberFormat } from "@/lib/number-format";
 
 type Run = {
   id: string;
@@ -51,7 +52,7 @@ export function GeoPanel() {
     () => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" }),
     [locale]
   );
-  const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nf = useNumberFormat();
   const busy = !data && !error;
   const cur = data?.current;
   const never = data && cur && cur.countries === 0 && cur.ipv4 === 0;
@@ -67,7 +68,7 @@ export function GeoPanel() {
       {/* 데이터가 있어도 프록시를 신뢰하지 않으면 국가가 기록되지 않는다 — 그 상태를 드러낸다 */}
       {data?.trustedProxyHops === 0 && (
         <div className="flex gap-2 border-s-2 border-warning bg-warning/5 px-3 py-2">
-          <TriangleAlert aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
           <p className="text-sm leading-relaxed text-foreground/80">{t("geoProxyWarn")}</p>
         </div>
       )}
@@ -81,7 +82,7 @@ export function GeoPanel() {
         </CardHeader>
         <CardContent className="p-0">
           {busy && (
-            <div className="space-y-3 p-3.5">
+            <div className="space-y-4 p-3.5">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
             </div>
