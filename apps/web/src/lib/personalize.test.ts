@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasPlaceholders, renderTemplate } from "./personalize";
+import { hasPlaceholders, localizeDayPeriod, renderTemplate } from "./personalize";
 
 const user = { externalId: "u-1", attributes: { name: "민지", plan: "pro", visits: 3, vip: true } };
 
@@ -100,3 +100,24 @@ describe("locale edge cases", () => {
   });
 });
 
+
+describe("localizeDayPeriod", () => {
+  const parts = (period: string): Intl.DateTimeFormatPart[] => [
+    { type: "dayPeriod", value: period },
+    { type: "literal", value: " " },
+    { type: "hour", value: "3" },
+    { type: "literal", value: ":" },
+    { type: "minute", value: "30" },
+  ];
+
+  it("keeps Korean 오전/오후 when ICU's CLDR hands back AM/PM", () => {
+    // Node 공식 바이너리(ICU 78, CLDR 48)는 ko 에서 "PM 3:30" 을 낸다 — 이전 ICU 와 alpine 은 "오후 3:30"
+    expect(localizeDayPeriod(parts("PM"), "ko")).toBe("오후 3:30");
+    expect(localizeDayPeriod(parts("AM"), "ko-KR")).toBe("오전 3:30");
+    expect(localizeDayPeriod(parts("오후"), "ko")).toBe("오후 3:30");
+  });
+
+  it("leaves other languages alone", () => {
+    expect(localizeDayPeriod(parts("PM"), "en")).toBe("PM 3:30");
+  });
+});

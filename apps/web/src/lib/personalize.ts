@@ -50,9 +50,28 @@ function formatNow(recipient: Recipient, now: Date, options: Intl.DateTimeFormat
   // 언어가 잘못돼도 시간대는 살린다(서울 사용자에게 UTC 시각이 가면 날짜까지 틀린다). 둘 다 안 되면 기본값.
   for (const [loc, tz] of [[locale, timeZone], [DEFAULT_LOCALE, timeZone], [locale, DEFAULT_TIMEZONE]] as const) {
     const fmt = cachedFormat(loc, tz, options);
-    if (fmt) return fmt.format(now);
+    if (fmt) return localizeDayPeriod(fmt.formatToParts(now), fmt.resolvedOptions().locale);
   }
-  return cachedFormat(DEFAULT_LOCALE, DEFAULT_TIMEZONE, options)!.format(now);
+  const fallback = cachedFormat(DEFAULT_LOCALE, DEFAULT_TIMEZONE, options)!;
+  return localizeDayPeriod(fallback.formatToParts(now), fallback.resolvedOptions().locale);
+}
+
+/** CLDR 48 이 ko 의 오전/오후 약칭을 AM/PM 으로 바꿨다 — 받는 ICU 에 따라 한국 사용자에게 "PM 3:30" 이 간다 */
+const KO_DAY_PERIOD: Record<string, string> = { AM: "오전", PM: "오후" };
+
+/**
+ * 시각의 오전/오후 표기를 ICU 버전과 무관하게 고정한다.
+ *
+ * `dayPeriod` 옵션으로 되돌리면 "밤 10:30" 처럼 다른 시간대 이름이 나와 뜻이 바뀐다 — 그래서
+ * 포맷 결과의 dayPeriod 조각만 바꾼다. V8 은 `format()` 에서만 좁은 공백(U+202F)을 일반 공백으로
+ * 바꿔 주므로 `formatToParts` 를 쓰는 여기서도 같게 맞춘다(안 그러면 "2:30 AM" 이 문자 비교에서 갈린다).
+ */
+export function localizeDayPeriod(parts: Intl.DateTimeFormatPart[], locale: string): string {
+  const isKorean = locale.toLowerCase().split("-")[0] === "ko";
+  return parts
+    .map((p) => (isKorean && p.type === "dayPeriod" ? KO_DAY_PERIOD[p.value] ?? p.value : p.value))
+    .join("")
+    .replace(/ /g, " ");
 }
 
 /**
