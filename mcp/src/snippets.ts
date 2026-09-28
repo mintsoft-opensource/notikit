@@ -2,17 +2,17 @@
 export function integrationSnippet(platform: string, baseUrl: string, apiKey: string): string {
   switch (platform) {
     case "web":
-      return `import { NotikitWeb } from "@notikit/web-sdk";
+      return `import { NotikitWeb } from "@mint-soft/notikit-web";
 const notikit = new NotikitWeb({ baseUrl: "${baseUrl}", apiKey: "${apiKey}", vapidPublicKey: "<VAPID_PUBLIC_KEY>" });
 if (NotikitWeb.isSupported()) await notikit.register();`;
     case "react":
-      return `import { NotikitProvider, usePushRegistration } from "@notikit/react";
+      return `import { NotikitProvider, usePushRegistration } from "@mint-soft/notikit-react";
 <NotikitProvider config={{ baseUrl: "${baseUrl}", apiKey: "${apiKey}", vapidPublicKey: "<VAPID_PUBLIC_KEY>" }}>
   {/* usePushRegistration() 로 등록 버튼 연결 */}
 </NotikitProvider>`;
     case "react-native":
       return `import messaging from "@react-native-firebase/messaging";
-import { NotikitReactNative } from "@notikit/react-native";
+import { NotikitReactNative } from "@mint-soft/notikit-react-native";
 const notikit = new NotikitReactNative({ baseUrl: "${baseUrl}", apiKey: "${apiKey}" });
 const token = await messaging().getToken();
 await notikit.register(token, "android", "user-123");`;

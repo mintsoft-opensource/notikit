@@ -22,9 +22,9 @@ MCP 가 없으면 아래 수동 절차.
 ## 2. SDK 선택 & 설치
 | 플랫폼 | 패키지 |
 |---|---|
-| 웹(바닐라) | `@notikit/web-sdk` |
-| React/Next | `@notikit/react` |
-| React Native | `@notikit/react-native` + `@react-native-firebase/messaging` |
+| 웹(바닐라) | `@mint-soft/notikit-web` |
+| React/Next | `@mint-soft/notikit-react` |
+| React Native | `@mint-soft/notikit-react-native` + `@react-native-firebase/messaging` |
 | Flutter | `notikit` + `firebase_messaging` |
 | Android | `dev.notikit:notikit` + Firebase Messaging |
 | iOS | Swift `Notikit` (SPM/CocoaPods) |

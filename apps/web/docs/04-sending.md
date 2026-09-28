@@ -72,7 +72,7 @@ curl -X POST https://<notikit>/api/v1/messages \
 ```
 
 ```ts
-// @notikit/core (서버)
+// @mint-soft/notikit-core (서버)
 await notikit.send({ type: "single", target: "u-42", template: "주문 도착", fields: { order_id: "A-1024" } });
 ```
 
@@ -94,7 +94,7 @@ await notikit.send({ type: "single", target: "u-42", template: "주문 도착", 
 | Android | `Notikit.customDataFromPayload(remoteMessage.data)` |
 | iOS | `Notikit.customData(fromPayload: response.notification.request.content.userInfo)` |
 | Flutter | `Notikit.customDataFromPayload(message.data)` |
-| React Native · Web | `readPushData(data).custom` (`@notikit/core` 에서도 export) |
+| React Native · Web | `readPushData(data).custom` (`@mint-soft/notikit-core` 에서도 export) |
 
 앱에서 발송하는 기능은 없습니다. 발송에는 `api-secret` 이 필요한데, 앱에 넣으면 누구나 꺼내 푸시를 보낼 수 있기 때문입니다. 발송은 서버에서 하세요.
 
@@ -193,7 +193,7 @@ POST /api/v1/events
 `token` 대신 `user_id` + `identity_hash` 로도 보낼 수 있습니다(둘 중 **정확히 하나**). 공개 api-key 만 있으면 되므로 앱에서 직접 부릅니다.
 
 ```ts
-// @notikit/core · React Native · Web SDK
+// @mint-soft/notikit-core · React Native · Web SDK
 await notikit.trackConversion("purchase", 19900);
 ```
 
