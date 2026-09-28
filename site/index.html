@@ -16,39 +16,48 @@
       --bg: #ffffff;
       --bg-soft: #f6f7fb;
       --surface: #ffffff;
+      --surface-2: #f1f2f8;
       --border: #e4e6ef;
       --text: #14161f;
       --muted: #5b6072;
       --accent: #4f46e5;
+      --accent-2: #0ea5b7;
       --accent-soft: #eef0ff;
+      --glow-1: rgba(79, 70, 229, 0.22);
+      --glow-2: rgba(14, 165, 183, 0.18);
       --code-bg: #0f1220;
       --code-text: #e6e8f2;
+      --code-muted: #8b93b0;
       --ok: #0f8a5f;
       --ok-soft: #e6f6ef;
-      --soon: #9a6700;
-      --soon-soft: #fff5d6;
-      --radius: 12px;
+      --shadow: 0 1px 2px rgba(20, 22, 31, 0.04), 0 8px 24px rgba(20, 22, 31, 0.06);
+      --shadow-lift: 0 2px 4px rgba(20, 22, 31, 0.05), 0 18px 40px rgba(79, 70, 229, 0.14);
+      --radius: 14px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0d0f17;
-        --bg-soft: #131623;
-        --surface: #161a28;
+        --bg: #0b0d15;
+        --bg-soft: #11141f;
+        --surface: #151927;
+        --surface-2: #1b2031;
         --border: #262b3d;
         --text: #eceef6;
         --muted: #9aa0b6;
         --accent: #8b85ff;
+        --accent-2: #3fd0de;
         --accent-soft: #1f2140;
-        --code-bg: #0a0c14;
-        --code-text: #e6e8f2;
+        --glow-1: rgba(139, 133, 255, 0.20);
+        --glow-2: rgba(63, 208, 222, 0.12);
+        --code-bg: #090b12;
         --ok: #4cd4a0;
         --ok-soft: #10281f;
-        --soon: #f0c451;
-        --soon-soft: #2b2410;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+        --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px rgba(139, 133, 255, 0.16);
       }
     }
     * { box-sizing: border-box; }
-    html { -webkit-text-size-adjust: 100%; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
     body {
       margin: 0;
       background: var(--bg);
@@ -57,93 +66,234 @@
       font-size: 16px;
       line-height: 1.65;
       word-break: keep-all;
+      overflow-x: hidden;
     }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
-    header.top {
-      border-bottom: 1px solid var(--border);
-    }
-    header.top .wrap {
-      display: flex; align-items: center; justify-content: space-between;
-      height: 60px; gap: 16px;
-    }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    p code, li code { background: var(--surface-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
+
+    /* ── 헤더 ───────────────────────────────────────── */
+    header.top { border-bottom: 1px solid var(--border); position: relative; z-index: 2; }
+    header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); }
     .brand:hover { text-decoration: none; }
     .brand svg { flex: none; }
     nav.links { display: flex; gap: 20px; font-size: 15px; }
-    nav.links a { color: var(--muted); }
+    nav.links a { color: var(--muted); transition: color 0.2s; }
     nav.links a:hover { color: var(--text); text-decoration: none; }
     @media (max-width: 640px) { nav.links .hide-sm { display: none; } }
 
-    .hero { padding-top: 72px; padding-bottom: 56px; }
-    .eyebrow {
-      display: inline-block; font-size: 13px; font-weight: 600; color: var(--accent);
-      background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; margin-bottom: 20px;
+    /* ── 히어로 ─────────────────────────────────────── */
+    .hero-zone { position: relative; overflow: hidden; }
+    .glow { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: 0; }
+    .glow.g1 { width: 520px; height: 520px; background: var(--glow-1); top: -180px; left: -120px; animation: drift1 18s ease-in-out infinite alternate; }
+    .glow.g2 { width: 460px; height: 460px; background: var(--glow-2); bottom: -220px; right: -80px; animation: drift2 22s ease-in-out infinite alternate; }
+    @keyframes drift1 { to { transform: translate(120px, 60px) scale(1.1); } }
+    @keyframes drift2 { to { transform: translate(-100px, -40px) scale(1.15); } }
+    .hero {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 48px; align-items: center;
+      padding-top: 72px; padding-bottom: 72px;
     }
-    .hero h1 { font-size: clamp(32px, 5.5vw, 52px); line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 20px; }
-    .hero p.lead { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 680px; margin: 0 0 32px; }
+    @media (max-width: 880px) { .hero { grid-template-columns: minmax(0, 1fr); gap: 40px; padding-top: 48px; } }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--accent);
+      background: var(--accent-soft); padding: 4px 12px; border-radius: 999px; margin-bottom: 20px;
+    }
+    .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.3; transform: scale(0.7); } }
+    .hero h1 { font-size: clamp(34px, 5.6vw, 56px); line-height: 1.15; letter-spacing: -0.025em; margin: 0 0 20px; }
+    .hero h1 .grad {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+      background-size: 200% auto;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: shine 6s linear infinite;
+    }
+    @keyframes shine { to { background-position: 200% center; } }
+    .hero p.lead { font-size: clamp(17px, 2.1vw, 19px); color: var(--muted); max-width: 580px; margin: 0 0 32px; }
     .cta { display: flex; flex-wrap: wrap; gap: 12px; }
     .btn {
       display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px;
       border-radius: 10px; font-weight: 600; font-size: 15px; border: 1px solid var(--border);
       color: var(--text); background: var(--surface);
+      transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s;
     }
-    .btn:hover { text-decoration: none; border-color: var(--muted); }
-    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .btn.primary:hover { filter: brightness(1.08); }
+    .btn:hover { text-decoration: none; border-color: var(--muted); transform: translateY(-1px); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 6px 20px var(--glow-1); }
+    .btn.primary:hover { box-shadow: 0 10px 28px var(--glow-1); }
+    .btn .arrow { transition: transform 0.2s var(--ease); }
+    .btn:hover .arrow { transform: translateX(3px); }
 
-    section { padding: 56px 0; }
+    /* 폰 목업 — 한 사람의 여러 기기에 차례로 도착하는 알림 */
+    .stage { display: flex; justify-content: center; }
+    .phone {
+      position: relative; width: 280px; height: 520px; border-radius: 40px; padding: 14px;
+      background: linear-gradient(160deg, #1d2236, #0c0f1a); box-shadow: 0 30px 60px rgba(15, 18, 32, 0.35), inset 0 0 0 2px rgba(255,255,255,0.06);
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float { 50% { transform: translateY(-10px); } }
+    .screen {
+      position: relative; height: 100%; border-radius: 28px; overflow: hidden;
+      background: radial-gradient(120% 80% at 20% 0%, #3b3f9e 0%, #1a1d3a 55%, #0e1022 100%);
+    }
+    .notch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 90px; height: 24px; border-radius: 12px; background: #05060b; z-index: 2; }
+    .clock { position: absolute; top: 58px; width: 100%; text-align: center; color: rgba(255,255,255,0.92); font-size: 52px; font-weight: 300; letter-spacing: -0.02em; }
+    .date { position: absolute; top: 124px; width: 100%; text-align: center; color: rgba(255,255,255,0.7); font-size: 14px; }
+    .stack { position: absolute; left: 12px; right: 12px; top: 176px; display: flex; flex-direction: column; gap: 8px; }
+    .notif {
+      display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 16px;
+      background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      color: #fff; font-size: 12.5px; line-height: 1.4; border: 1px solid rgba(255,255,255,0.12);
+      opacity: 0; transform: translateY(-14px) scale(0.96);
+      animation: arrive 12s var(--ease) infinite;
+    }
+    .notif:nth-child(2) { animation-delay: 1.4s; }
+    .notif:nth-child(3) { animation-delay: 2.8s; }
+    @keyframes arrive {
+      0% { opacity: 0; transform: translateY(-14px) scale(0.96); }
+      5%, 80% { opacity: 1; transform: translateY(0) scale(1); }
+      90%, 100% { opacity: 0; transform: translateY(0) scale(0.98); }
+    }
+    .notif .ic { flex: none; width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #6d66ff, #22c3d6); display: grid; place-items: center; }
+    .notif b { display: block; font-size: 12.5px; }
+    .notif span { color: rgba(255,255,255,0.78); }
+    .notif .time { margin-left: auto; font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; }
+    .devices { position: absolute; bottom: -6px; right: -34px; display: flex; flex-direction: column; gap: 8px; }
+    .chip-dev {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 6px 10px;
+      border-radius: 999px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow);
+      opacity: 0; animation: chip 12s var(--ease) infinite;
+    }
+    .chip-dev:nth-child(1) { animation-delay: 0.2s; }
+    .chip-dev:nth-child(2) { animation-delay: 1.6s; }
+    .chip-dev:nth-child(3) { animation-delay: 3s; }
+    .chip-dev i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); font-style: normal; }
+    @keyframes chip { 0% { opacity: 0; transform: translateX(10px); } 5%, 80% { opacity: 1; transform: none; } 90%, 100% { opacity: 0; } }
+    @media (max-width: 520px) { .devices { right: -8px; } .phone { width: 250px; height: 470px; } }
+
+    /* ── 섹션 공통 ──────────────────────────────────── */
+    section { padding: 72px 0; }
     section.soft { background: var(--bg-soft); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    h2 { font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.01em; margin: 0 0 12px; }
-    .sub { color: var(--muted); margin: 0 0 32px; max-width: 680px; }
+    .kicker { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; }
+    h2 { font-size: clamp(26px, 3.6vw, 36px); letter-spacing: -0.015em; line-height: 1.25; margin: 0 0 12px; }
+    .sub { color: var(--muted); margin: 0 0 36px; max-width: 680px; }
 
-    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); }
     .card {
-      min-width: 0;
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+      min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px;
+      transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s;
     }
     .card h3 { font-size: 17px; margin: 0 0 8px; }
     .card p { margin: 0; color: var(--muted); font-size: 15px; }
 
     .compare { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    @media (max-width: 720px) { .compare { grid-template-columns: minmax(0, 1fr); } }
-    .compare .card h3 { font-size: 15px; color: var(--muted); font-weight: 600; }
-    .compare .card.us { border-color: var(--accent); }
+    @media (max-width: 760px) { .compare { grid-template-columns: minmax(0, 1fr); } }
+    .compare .card h3 { font-size: 14px; color: var(--muted); font-weight: 600; }
+    .compare .card.us { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
     .compare .card.us h3 { color: var(--accent); }
 
     pre {
       margin: 0; background: var(--code-bg); color: var(--code-text); border-radius: 10px;
-      padding: 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.6;
+      padding: 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.65;
     }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    p code, li code, td code { background: var(--bg-soft); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
-    .c { color: #8b93b0; }
+    .c { color: var(--code-muted); }
 
-    .sdk-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .sdk-table th, .sdk-table td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; vertical-align: top; }
-    .sdk-table th { font-size: 13px; color: var(--muted); font-weight: 600; background: var(--bg-soft); }
-    .sdk-table tr:last-child td { border-bottom: 0; }
-    .table-scroll { overflow-x: auto; border-radius: var(--radius); }
-    .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-    .badge.ok { color: var(--ok); background: var(--ok-soft); }
-    .badge.soon { color: var(--soon); background: var(--soon-soft); }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+    .feature:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+    .feature .icon {
+      width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 14px;
+      background: var(--accent-soft); color: var(--accent); transition: transform 0.3s var(--ease);
+    }
+    .feature:hover .icon { transform: rotate(-6deg) scale(1.08); }
 
-    .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
-    .steps .card, .compare .card { min-width: 0; }
+    /* ── SDK 탐색기 ─────────────────────────────────── */
+    .sdk { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; }
+    @media (max-width: 860px) { .sdk { grid-template-columns: minmax(0, 1fr); } }
+    .tabs { display: flex; flex-direction: column; gap: 8px; }
+    @media (max-width: 860px) {
+      .tabs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+      .tabs::-webkit-scrollbar { display: none; }
+    }
+    .tab {
+      display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 15px;
+      text-align: left; cursor: pointer; position: relative;
+      transition: border-color 0.2s, box-shadow 0.25s var(--ease), transform 0.2s var(--ease);
+    }
+    @media (max-width: 860px) { .tab { width: auto; flex: none; padding: 10px 14px; } }
+    .tab:hover { transform: translateX(3px); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+    @media (max-width: 860px) { .tab:hover { transform: none; } }
+    .tab[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow); }
+    .tab .logo {
+      flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+      font-size: 12px; font-weight: 800; color: #fff; letter-spacing: -0.02em;
+    }
+    .tab .meta { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+    .tab .meta small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    @media (max-width: 860px) { .tab .meta small { display: none; } }
+
+    .panel {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 24px; box-shadow: var(--shadow);
+      min-width: 0; position: relative; overflow: hidden;
+    }
+    .panel::before {
+      content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    }
+    .panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 18px; }
+    .panel-head h3 { margin: 0; font-size: 20px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; color: var(--ok); background: var(--ok-soft); }
+    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .panel-links { margin-left: auto; display: flex; gap: 14px; font-size: 14px; }
+    .panel-desc { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+    .step-label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+    .code-box { margin-bottom: 18px; background: var(--code-bg); border-radius: 12px; overflow: hidden; }
+    .code-box:last-child { margin-bottom: 0; }
+    .code-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 8px 8px 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.07);
+      color: var(--code-muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .code-bar .dots { display: inline-flex; gap: 6px; margin-right: 10px; vertical-align: middle; }
+    .code-bar .dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.14); }
+    .code-box pre { border-radius: 0; background: transparent; }
+    .copy {
+      flex: none; height: 28px; padding: 0 10px; border-radius: 8px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #cfd3e6; font: inherit; font-size: 12px; font-weight: 600;
+      transition: background 0.2s, color 0.2s;
+    }
+    .copy:hover { background: rgba(255,255,255,0.14); }
+    .copy.done { color: #4cd4a0; border-color: rgba(76, 212, 160, 0.5); }
+    .swap-in { animation: swapIn 0.45s var(--ease); }
+    @keyframes swapIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* ── 시작하기 ───────────────────────────────────── */
+    .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); counter-reset: step; }
     .steps .card h3 { display: flex; align-items: center; gap: 10px; }
     .num {
-      display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
-      border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 700; flex: none;
+      display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none;
+      border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 13px; font-weight: 700;
     }
-    .steps pre { margin-top: 12px; }
+    .steps .code-box { margin-top: 16px; margin-bottom: 0; }
 
     footer { border-top: 1px solid var(--border); padding: 32px 0; color: var(--muted); font-size: 14px; }
     footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
     footer nav { display: flex; flex-wrap: wrap; gap: 16px; }
     footer a { color: var(--muted); }
+
+    /* ── 스크롤 등장 — JS 가 켜졌을 때만 숨긴다(없으면 그대로 보인다) ── */
+    .js .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); transition-delay: var(--d, 0s); }
+    .js .reveal.in { opacity: 1; transform: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+      .js .reveal { opacity: 1; transform: none; }
+      .notif, .chip-dev { opacity: 1; transform: none; }
+    }
   </style>
+  <script>document.documentElement.classList.add("js");</script>
 </head>
 <body>
   <header class="top">
@@ -162,29 +312,55 @@
   </header>
 
   <main>
-    <div class="wrap hero">
-      <span class="eyebrow">Apache-2.0 · 셀프호스트</span>
-      <h1>토큰이 아니라<br>사람에게 보내는 푸시</h1>
-      <p class="lead">Notikit 은 FCM 위에 사용자 identity 레이어를 얹은 푸시 알림 툴킷입니다. 기기 토큰을 관리하는 대신 “유저 X 에게” 보내면, 그 사람의 모든 기기로 갑니다. 서버·콘솔·SDK 를 우리 인프라에 그대로 띄웁니다.</p>
-      <div class="cta">
-        <a class="btn primary" href="#start">로컬에서 띄워 보기</a>
-        <a class="btn" href="https://github.com/mintsoft-opensource/notikit">GitHub 에서 보기</a>
+    <div class="hero-zone">
+      <div class="glow g1" aria-hidden="true"></div>
+      <div class="glow g2" aria-hidden="true"></div>
+      <div class="wrap hero">
+        <div>
+          <span class="eyebrow reveal"><span class="dot" aria-hidden="true"></span>Apache-2.0 · 셀프호스트</span>
+          <h1 class="reveal" style="--d: 0.05s">토큰이 아니라<br><span class="grad">사람에게</span> 보내는 푸시</h1>
+          <p class="lead reveal" style="--d: 0.1s">Notikit 은 FCM 위에 사용자 identity 레이어를 얹은 푸시 알림 툴킷입니다. 기기 토큰을 관리하는 대신 “유저 X 에게” 보내면, 그 사람의 모든 기기로 갑니다. 서버·콘솔·SDK 를 우리 인프라에 그대로 띄웁니다.</p>
+          <div class="cta reveal" style="--d: 0.15s">
+            <a class="btn primary" href="#start">로컬에서 띄워 보기 <span class="arrow" aria-hidden="true">→</span></a>
+            <a class="btn" href="#sdk">SDK 둘러보기</a>
+          </div>
+        </div>
+        <div class="stage reveal" style="--d: 0.2s" aria-hidden="true">
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="clock">9:41</div>
+              <div class="date">9월 29일 화요일</div>
+              <div class="stack">
+                <div class="notif"><div class="ic"><svg width="16" height="16" viewBox="0 0 32 32"><path d="M16 7a6 6 0 0 0-6 6v4l-2 3h16l-2-3v-4a6 6 0 0 0-6-6zm-2.5 15a2.5 2.5 0 0 0 5 0z" fill="#fff"/></svg></div><div><b>주문이 출발했어요</b><span>민지님, 내일 도착 예정입니다</span></div><span class="time">지금</span></div>
+                <div class="notif"><div class="ic"><svg width="16" height="16" viewBox="0 0 32 32"><path d="M16 7a6 6 0 0 0-6 6v4l-2 3h16l-2-3v-4a6 6 0 0 0-6-6zm-2.5 15a2.5 2.5 0 0 0 5 0z" fill="#fff"/></svg></div><div><b>장바구니에 담긴 상품</b><span>오늘 자정까지 10% 할인</span></div><span class="time">1분 전</span></div>
+                <div class="notif"><div class="ic"><svg width="16" height="16" viewBox="0 0 32 32"><path d="M16 7a6 6 0 0 0-6 6v4l-2 3h16l-2-3v-4a6 6 0 0 0-6-6zm-2.5 15a2.5 2.5 0 0 0 5 0z" fill="#fff"/></svg></div><div><b>새 기기에서 로그인</b><span>태블릿에도 알림이 옵니다</span></div><span class="time">3분 전</span></div>
+              </div>
+            </div>
+            <div class="devices">
+              <span class="chip-dev"><i></i>iPhone</span>
+              <span class="chip-dev"><i></i>Galaxy Tab</span>
+              <span class="chip-dev"><i></i>Chrome</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <section class="soft" aria-labelledby="why">
       <div class="wrap">
-        <h2 id="why">왜 토큰이 아니라 사람인가</h2>
-        <p class="sub">FCM 은 기기 토큰 단위로 동작합니다. 사용자가 폰을 바꾸거나, 태블릿을 추가하거나, 로그아웃하는 순간 “이 토큰은 누구 것인가”를 앱이 직접 관리해야 합니다.</p>
+        <p class="kicker reveal">Why</p>
+        <h2 id="why" class="reveal">왜 토큰이 아니라 사람인가</h2>
+        <p class="sub reveal">FCM 은 기기 토큰 단위로 동작합니다. 사용자가 폰을 바꾸거나, 태블릿을 추가하거나, 로그아웃하는 순간 “이 토큰은 누구 것인가”를 앱이 직접 관리해야 합니다.</p>
         <div class="compare">
-          <div class="card">
+          <div class="card reveal">
             <h3>FCM 만 쓸 때</h3>
             <pre><code><span class="c">// 이 사람의 토큰을 전부 찾아서, 죽은 건 골라내고…</span>
 for (const token of await findTokens(userId)) {
   await messaging.send({ token, notification })
 }</code></pre>
           </div>
-          <div class="card us">
+          <div class="card us reveal" style="--d: 0.1s">
             <h3>Notikit</h3>
             <pre><code><span class="c">// 사람에게 보낸다. 기기는 Notikit 이 안다</span>
 await notikit.send({
@@ -198,88 +374,60 @@ await notikit.send({
 
     <section id="features" aria-labelledby="features-h">
       <div class="wrap">
-        <h2 id="features-h">한 번에 갖춰진 것</h2>
-        <p class="sub">발송 API 만이 아니라, 운영하면서 결국 만들게 되는 것들까지.</p>
+        <p class="kicker reveal">Features</p>
+        <h2 id="features-h" class="reveal">한 번에 갖춰진 것</h2>
+        <p class="sub reveal">발송 API 만이 아니라, 운영하면서 결국 만들게 되는 것들까지.</p>
         <div class="grid">
-          <div class="card"><h3>유저 · 멀티디바이스</h3><p>계정 하나에 여러 기기를 묶고, <code>identity_hash</code>(HMAC)로 남의 계정에 기기를 붙이는 것을 막습니다. 무효 토큰은 발송 응답을 보고 자동 정리합니다.</p></div>
-          <div class="card"><h3>개인 · 토픽 · 전체 발송</h3><p>예약 발송, 받는 사람 현지 시각 발송, 조용한 시간, 딥링크, 언어별 문구, <code>{{name}}</code> 같은 개인화 변수.</p></div>
-          <div class="card"><h3>세그먼트</h3><p>유저 속성 규칙과 “최근 7일 안에 눌렀다” 같은 행동 규칙으로 대상을 고릅니다. 수신 거부 목록은 항상 먼저 걸러집니다.</p></div>
-          <div class="card"><h3>저니 · A/B</h3><p>이벤트로 시작하는 자동화 흐름, “눌렀는가”에 따른 분기, 스텝별 성과. A/B 는 표본 발송 후 승자를 자동으로 본발송합니다.</p></div>
-          <div class="card"><h3>도달 · 참여 분석</h3><p>발송·수신·클릭·전환을 캠페인과 스텝 단위로. 대조군(홀드아웃)으로 푸시가 실제로 만든 차이를 봅니다.</p></div>
-          <div class="card"><h3>멀티테넌트 콘솔</h3><p>조직 → 프로젝트, 환경 분리, 프로젝트별 Firebase 자격증명을 AES-GCM 으로 격리 저장. 감사 로그와 역할 권한. 25개 언어.</p></div>
+          <div class="card feature reveal"><div class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><rect x="16" y="9" width="5" height="9" rx="1.2"/></svg></div><h3>유저 · 멀티디바이스</h3><p>계정 하나에 여러 기기를 묶고, <code>identity_hash</code>(HMAC)로 남의 계정에 기기를 붙이는 것을 막습니다. 무효 토큰은 발송 응답을 보고 자동 정리합니다.</p></div>
+          <div class="card feature reveal" style="--d: 0.06s"><div class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></div><h3>개인 · 토픽 · 전체 발송</h3><p>예약 발송, 받는 사람 현지 시각 발송, 조용한 시간, 딥링크, 언어별 문구, <code>{{name}}</code> 같은 개인화 변수.</p></div>
+          <div class="card feature reveal" style="--d: 0.12s"><div class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 9v6l-4 2v-8z"/></svg></div><h3>세그먼트</h3><p>유저 속성 규칙과 “최근 7일 안에 눌렀다” 같은 행동 규칙으로 대상을 고릅니다. 수신 거부 목록은 항상 먼저 걸러집니다.</p></div>
+          <div class="card feature reveal"><div class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7 7.5 10.5 16M17 7.5 13.5 16"/></svg></div><h3>저니 · A/B</h3><p>이벤트로 시작하는 자동화 흐름, “눌렀는가”에 따른 분기, 스텝별 성과. A/B 는 표본 발송 후 승자를 자동으로 본발송합니다.</p></div>
+          <div class="card feature reveal" style="--d: 0.06s"><div class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><h3>도달 · 참여 분석</h3><p>발송·수신·클릭·전환을 캠페인과 스텝 단위로. 대조군(홀드아웃)으로 푸시가 실제로 만든 차이를 봅니다.</p></div>
+          <div class="card feature reveal" style="--d: 0.12s"><div class="icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/></svg></div><h3>멀티테넌트 콘솔</h3><p>조직 → 프로젝트, 환경 분리, 프로젝트별 Firebase 자격증명을 AES-GCM 으로 격리 저장. 감사 로그와 역할 권한. 25개 언어.</p></div>
         </div>
       </div>
     </section>
 
     <section id="sdk" class="soft" aria-labelledby="sdk-h">
       <div class="wrap">
-        <h2 id="sdk-h">플랫폼별 SDK</h2>
-        <p class="sub">SDK 는 플랫폼마다 저장소가 따로 있습니다. 모두 Apache-2.0 입니다.</p>
-        <div class="table-scroll">
-          <table class="sdk-table">
-            <thead><tr><th scope="col">플랫폼</th><th scope="col">설치</th><th scope="col">상태</th></tr></thead>
-            <tbody>
-              <tr>
-                <td><a href="https://github.com/mintsoft-opensource/notikit-ios">iOS (Swift)</a></td>
-                <td>Swift Package Manager<br><code>https://github.com/mintsoft-opensource/notikit-ios</code></td>
-                <td><span class="badge ok">사용 가능</span></td>
-              </tr>
-              <tr>
-                <td><a href="https://github.com/mintsoft-opensource/notikit-android">Android (Kotlin)</a></td>
-                <td>JitPack<br><code>com.github.mintsoft-opensource:notikit-android:0.1.0</code></td>
-                <td><span class="badge ok">사용 가능</span></td>
-              </tr>
-              <tr>
-                <td><a href="https://github.com/mintsoft-opensource/notikit-js/tree/master/packages/sdk-react-native">React Native</a></td>
-                <td><code>npm i @mint-soft/notikit-react-native @react-native-firebase/messaging</code><br>iOS · Android 한 코드로. 백그라운드 수신 보고까지</td>
-                <td><span class="badge ok">사용 가능</span></td>
-              </tr>
-              <tr>
-                <td><a href="https://github.com/mintsoft-opensource/notikit-js/tree/master/packages/sdk-web">Web</a></td>
-                <td><code>npm i @mint-soft/notikit-web firebase</code><br>브라우저 Web Push, 서비스 워커 포함</td>
-                <td><span class="badge ok">사용 가능</span></td>
-              </tr>
-              <tr>
-                <td><a href="https://github.com/mintsoft-opensource/notikit-js/tree/master/packages/sdk-react">React · Next.js</a></td>
-                <td><code>npm i @mint-soft/notikit-react</code><br>Provider 와 hooks</td>
-                <td><span class="badge ok">사용 가능</span></td>
-              </tr>
-              <tr>
-                <td><a href="https://github.com/mintsoft-opensource/notikit-flutter">Flutter (Dart)</a></td>
-                <td><a href="https://pub.dev/packages/notikit">pub.dev</a><br><code>flutter pub add notikit</code></td>
-                <td><span class="badge ok">사용 가능</span></td>
-              </tr>
-            </tbody>
-          </table>
+        <p class="kicker reveal">SDK</p>
+        <h2 id="sdk-h" class="reveal">어느 플랫폼이든, 몇 줄이면 연결</h2>
+        <p class="sub reveal">플랫폼마다 저장소와 배포처가 따로 있고, 모두 Apache-2.0 입니다. 플랫폼을 고르면 설치와 연결 코드를 바로 보여 드립니다.</p>
+
+        <div class="sdk reveal">
+          <div class="tabs" role="tablist" aria-label="SDK 플랫폼"></div>
+          <div class="panel" id="sdk-panel" role="tabpanel" tabindex="0"></div>
         </div>
+        <noscript><p class="sub">자바스크립트를 켜면 플랫폼별 설치 방법이 보입니다. 저장소: <a href="https://github.com/mintsoft-opensource/notikit-js">JS</a> · <a href="https://github.com/mintsoft-opensource/notikit-ios">iOS</a> · <a href="https://github.com/mintsoft-opensource/notikit-android">Android</a> · <a href="https://github.com/mintsoft-opensource/notikit-flutter">Flutter</a></p></noscript>
       </div>
     </section>
 
     <section id="start" aria-labelledby="start-h">
       <div class="wrap">
-        <h2 id="start-h">시작하기</h2>
-        <p class="sub">Docker 만 있으면 됩니다. Firebase 자격증명이 없으면 실제 발송 대신 로그만 남기는 모드로 돌아서, 먼저 둘러보기에 좋습니다.</p>
+        <p class="kicker reveal">Get started</p>
+        <h2 id="start-h" class="reveal">시작하기</h2>
+        <p class="sub reveal">Docker 만 있으면 됩니다. Firebase 자격증명이 없으면 실제 발송 대신 로그만 남기는 모드로 돌아서, 먼저 둘러보기에 좋습니다.</p>
         <div class="steps">
-          <div class="card">
+          <div class="card reveal">
             <h3><span class="num">1</span>받고 설정하기</h3>
             <p>비밀값 세 개만 채우면 됩니다: 암호화 키(32자 이상), 관리자 토큰, DB 비밀번호.</p>
-            <pre><code>git clone https://github.com/mintsoft-opensource/notikit
+            <div class="code-box"><pre><code>git clone https://github.com/mintsoft-opensource/notikit
 cd notikit
-cp .env.example .env</code></pre>
+cp .env.example .env</code></pre></div>
           </div>
-          <div class="card">
+          <div class="card reveal" style="--d: 0.08s">
             <h3><span class="num">2</span>띄우기</h3>
             <p>마이그레이션 → 웹 → 워커 순으로 올라옵니다. 웹이 DB 준비까지 확인해야 healthy 가 됩니다.</p>
-            <pre><code>docker compose up -d --build
-docker compose ps</code></pre>
+            <div class="code-box"><pre><code>docker compose up -d --build
+docker compose ps</code></pre></div>
           </div>
-          <div class="card">
+          <div class="card reveal" style="--d: 0.16s">
             <h3><span class="num">3</span>콘솔 열기</h3>
             <p>첫 관리자 계정을 만들고 프로젝트를 추가하면 API 키가 나옵니다. API 문서는 콘솔의 <code>/docs</code> 에 있습니다.</p>
-            <pre><code>open http://localhost:3000</code></pre>
+            <div class="code-box"><pre><code>open http://localhost:3000</code></pre></div>
           </div>
         </div>
-        <p class="sub" style="margin-top: 24px">운영 서버에는 소스 빌드 대신 서명된 이미지(<code>ghcr.io/mintsoft-opensource/notikit</code>)와 <code>docker-compose.prod.yml</code> 을 씁니다. 자세한 절차는 <a href="https://github.com/mintsoft-opensource/notikit#readme">README</a> 를 보세요.</p>
+        <p class="sub reveal" style="margin: 28px 0 0">운영 서버에는 소스 빌드 대신 서명된 공개 이미지(<code>ghcr.io/mintsoft-opensource/notikit</code>)와 <code>docker-compose.prod.yml</code> 을 씁니다. 자세한 절차는 <a href="https://github.com/mintsoft-opensource/notikit#readme">README</a> 를 보세요.</p>
       </div>
     </section>
   </main>
@@ -296,5 +444,181 @@ docker compose ps</code></pre>
       </nav>
     </div>
   </footer>
+
+  <script>
+    (function () {
+      var GH = "https://github.com/mintsoft-opensource/";
+      var SDKS = [
+        {
+          id: "ios", installLang: "Package.swift", usageLang: "Swift", name: "iOS", sub: "Swift · SPM", logo: "iOS", color: "linear-gradient(135deg,#1c1c1e,#48484a)",
+          desc: "async/await API. Swift Package Manager 로 저장소 URL 을 그대로 추가합니다.",
+          registry: { label: "GitHub", url: GH + "notikit-ios" }, repo: GH + "notikit-ios",
+          install: '// Package.swift\n.package(url: "https://github.com/mintsoft-opensource/notikit-ios", from: "0.1.0")',
+          usage: 'import Notikit\n\nlet notikit = Notikit(baseUrl: "https://push.example.com", apiKey: "nk_xxx")\n\ntry await notikit.registerDevice(\n    token: fcmToken,\n    platform: "ios",\n    userId: "user-123",\n    identityHash: "<서버에서 계산한 HMAC>"\n)'
+        },
+        {
+          id: "android", installLang: "Gradle (Kotlin DSL)", usageLang: "Kotlin", name: "Android", sub: "Kotlin · JitPack", logo: "Kt", color: "linear-gradient(135deg,#7f52ff,#e24462)",
+          desc: "모든 메서드가 suspend 라 메인 스레드에서 불러도 안전합니다. Java 는 NotikitBlocking 을 씁니다.",
+          registry: { label: "JitPack", url: "https://jitpack.io/#mintsoft-opensource/notikit-android" }, repo: GH + "notikit-android",
+          install: '// settings.gradle.kts\nmaven("https://jitpack.io")\n\n// build.gradle.kts\nimplementation("com.github.mintsoft-opensource:notikit-android:0.1.0")',
+          usage: 'import com.google.firebase.messaging.FirebaseMessaging\nimport dev.notikit.Notikit\n\nval notikit = Notikit(baseUrl = "https://push.example.com", apiKey = "nk_xxx")\n\nlifecycleScope.launch {\n    val token = FirebaseMessaging.getInstance().token.await()\n    notikit.registerDevice(\n        token = token,\n        platform = "android",\n        userId = "user-123",\n        identityHash = "<서버에서 계산한 HMAC>",\n    )\n}'
+        },
+        {
+          id: "react-native", installLang: "terminal", usageLang: "TypeScript", name: "React Native", sub: "iOS · Android", logo: "RN", color: "linear-gradient(135deg,#149eca,#61dafb)",
+          desc: "한 코드로 iOS·Android. 백그라운드 핸들러에 꽂으면 앱이 꺼져 있을 때의 수신 보고까지 됩니다.",
+          registry: { label: "npm", url: "https://www.npmjs.com/package/@mint-soft/notikit-react-native" }, repo: GH + "notikit-js/tree/master/packages/sdk-react-native",
+          install: "npm i @mint-soft/notikit-react-native @react-native-firebase/messaging",
+          usage: 'import { Platform } from "react-native";\nimport messaging from "@react-native-firebase/messaging";\nimport { NotikitReactNative } from "@mint-soft/notikit-react-native";\n\nconst notikit = new NotikitReactNative({\n  baseUrl: "https://push.example.com",\n  apiKey: "nk_xxx",\n  identityHash: "<서버에서 계산한 HMAC>",\n});\n\nawait messaging().requestPermission();\nconst token = await messaging().getToken();\nawait notikit.register(token, Platform.OS === "ios" ? "ios" : "android", "user-123");'
+        },
+        {
+          id: "web", installLang: "terminal", usageLang: "TypeScript", name: "Web", sub: "브라우저 Web Push", logo: "JS", color: "linear-gradient(135deg,#e8b10a,#f7df1e)",
+          desc: "FCM 웹 푸시. 서비스 워커 코드가 SDK 에 들어 있어 파일로 저장만 하면 됩니다.",
+          registry: { label: "npm", url: "https://www.npmjs.com/package/@mint-soft/notikit-web" }, repo: GH + "notikit-js/tree/master/packages/sdk-web",
+          install: "npm i @mint-soft/notikit-web firebase",
+          usage: 'import { NotikitWeb } from "@mint-soft/notikit-web";\n\nconst notikit = new NotikitWeb({\n  baseUrl: "https://push.example.com",\n  apiKey: "nk_xxx",\n  vapidPublicKey: "B...",\n  userId: "user-123",\n  firebase: { apiKey: "AIza...", projectId: "my-project", messagingSenderId: "…", appId: "…" },\n});'
+        },
+        {
+          id: "react", installLang: "terminal", usageLang: "TSX", name: "React · Next.js", sub: "Provider · hooks", logo: "⚛", color: "linear-gradient(135deg,#087ea4,#58c4dc)",
+          desc: "Provider 하나와 usePushRegistration 훅. Next.js App Router 에서 그대로 씁니다.",
+          registry: { label: "npm", url: "https://www.npmjs.com/package/@mint-soft/notikit-react" }, repo: GH + "notikit-js/tree/master/packages/sdk-react",
+          install: "npm i @mint-soft/notikit-react",
+          usage: '"use client";\nimport { NotikitProvider, usePushRegistration } from "@mint-soft/notikit-react";\n\nfunction PushButton() {\n  const { status, register } = usePushRegistration();\n  return <button onClick={register}>{status === "registered" ? "알림 켜짐" : "알림 받기"}</button>;\n}\n\n<NotikitProvider config={{ baseUrl: "https://push.example.com", apiKey: "nk_xxx", vapidPublicKey: "B...", userId: "user-123" }}>\n  <PushButton />\n</NotikitProvider>'
+        },
+        {
+          id: "flutter", installLang: "terminal", usageLang: "Dart", name: "Flutter", sub: "Dart · pub.dev", logo: "F", color: "linear-gradient(135deg,#0468d7,#47c5fb)",
+          desc: "순수 Dart 패키지. firebase_messaging 으로 받은 토큰을 넘기면 됩니다.",
+          registry: { label: "pub.dev", url: "https://pub.dev/packages/notikit" }, repo: GH + "notikit-flutter",
+          install: "flutter pub add notikit firebase_messaging",
+          usage: "import 'dart:io';\nimport 'package:firebase_messaging/firebase_messaging.dart';\nimport 'package:notikit/notikit.dart';\n\nfinal notikit = Notikit(baseUrl: 'https://push.example.com', apiKey: 'nk_xxx');\n\nfinal token = await FirebaseMessaging.instance.getToken();\nawait notikit.registerDevice(\n  token: token!,\n  platform: Platform.isIOS ? 'ios' : 'android',\n  userId: 'user-123',\n  identityHash: '<서버에서 계산한 HMAC>',\n);"
+        }
+      ];
+
+      var tablist = document.querySelector(".tabs");
+      var panel = document.getElementById("sdk-panel");
+      if (!tablist || !panel) return;
+
+      function el(tag, attrs, children) {
+        var n = document.createElement(tag);
+        Object.keys(attrs || {}).forEach(function (k) {
+          if (k === "text") n.textContent = attrs[k];
+          else if (k === "style") n.style.cssText = attrs[k];
+          else n.setAttribute(k, attrs[k]);
+        });
+        (children || []).forEach(function (c) { if (c) n.appendChild(c); });
+        return n;
+      }
+
+      function copyButton(getText, label) {
+        var b = el("button", { type: "button", class: "copy", "aria-label": label + " 복사", text: "복사" });
+        b.addEventListener("click", function () {
+          var done = function () {
+            b.textContent = "복사됨"; b.classList.add("done");
+            setTimeout(function () { b.textContent = "복사"; b.classList.remove("done"); }, 1600);
+          };
+          var text = getText();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () {});
+          }
+        });
+        return b;
+      }
+
+      function codeBar(lang, getText, label) {
+        var left = el("span", {}, [
+          el("span", { class: "dots", "aria-hidden": "true" }, [el("i"), el("i"), el("i")]),
+          el("span", { text: lang })
+        ]);
+        return el("div", { class: "code-bar" }, [left, copyButton(getText, label)]);
+      }
+
+      function codeBox(text, lang, label) {
+        return el("div", { class: "code-box" }, [
+          codeBar(lang, function () { return text; }, label),
+          el("pre", {}, [el("code", { text: text })])
+        ]);
+      }
+
+      function render(sdk, animate) {
+        panel.replaceChildren(
+          el("div", { class: "panel-head" }, [
+            el("h3", { text: sdk.name }),
+            el("span", { class: "badge", text: "사용 가능" }),
+            el("div", { class: "panel-links" }, [
+              el("a", { href: sdk.registry.url, text: sdk.registry.label }),
+              el("a", { href: sdk.repo, text: "소스" })
+            ])
+          ]),
+          el("p", { class: "panel-desc", text: sdk.desc }),
+          el("p", { class: "step-label", text: "1. 설치" }),
+          codeBox(sdk.install, sdk.installLang, sdk.name + " 설치 명령"),
+          el("p", { class: "step-label", text: "2. 연결" }),
+          codeBox(sdk.usage, sdk.usageLang, sdk.name + " 연결 코드")
+        );
+        panel.setAttribute("aria-labelledby", "tab-" + sdk.id);
+        if (animate) {
+          panel.classList.remove("swap-in");
+          void panel.offsetWidth;
+          panel.classList.add("swap-in");
+        }
+      }
+
+      var tabs = SDKS.map(function (sdk, i) {
+        var t = el("button", {
+          type: "button", role: "tab", id: "tab-" + sdk.id, "aria-controls": "sdk-panel",
+          "aria-selected": i === 0 ? "true" : "false", tabindex: i === 0 ? "0" : "-1", class: "tab"
+        }, [
+          el("span", { class: "logo", style: "background:" + sdk.color, "aria-hidden": "true", text: sdk.logo }),
+          el("span", { class: "meta" }, [el("span", { text: sdk.name }), el("small", { text: sdk.sub })])
+        ]);
+        t.addEventListener("click", function () { select(i, true); });
+        tablist.appendChild(t);
+        return t;
+      });
+
+      function select(i, animate) {
+        tabs.forEach(function (t, j) {
+          t.setAttribute("aria-selected", j === i ? "true" : "false");
+          t.tabIndex = j === i ? 0 : -1;
+        });
+        render(SDKS[i], animate);
+      }
+
+      tablist.addEventListener("keydown", function (e) {
+        var cur = tabs.indexOf(document.activeElement);
+        if (cur < 0) return;
+        var next = null;
+        if (e.key === "ArrowDown" || e.key === "ArrowRight") next = (cur + 1) % tabs.length;
+        if (e.key === "ArrowUp" || e.key === "ArrowLeft") next = (cur - 1 + tabs.length) % tabs.length;
+        if (e.key === "Home") next = 0;
+        if (e.key === "End") next = tabs.length - 1;
+        if (next === null) return;
+        e.preventDefault();
+        tabs[next].focus();
+        select(next, true);
+      });
+
+      var fromHash = SDKS.findIndex(function (s) { return location.hash === "#sdk-" + s.id; });
+      select(fromHash >= 0 ? fromHash : 0, false);
+
+      document.querySelectorAll("#start .code-box").forEach(function (box) {
+        var text = box.querySelector("code").textContent;
+        box.insertBefore(codeBar("terminal", function () { return text; }, "명령"), box.firstChild);
+      });
+    })();
+
+    (function () {
+      var items = document.querySelectorAll(".reveal");
+      if (!("IntersectionObserver" in window)) {
+        items.forEach(function (n) { n.classList.add("in"); });
+        return;
+      }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+        });
+      }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+      items.forEach(function (n) { io.observe(n); });
+    })();
+  </script>
 </body>
 </html>
