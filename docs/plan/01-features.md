@@ -1,5 +1,7 @@
 # 기능 카탈로그
 
+> ⚠️ 클로즈드 상용 전제로 쓴 과거 문서다. 2026-09-28 에 오픈소스(Apache-2.0)로 공개됐다 — [기획서 README](README.md) 머리말 참고.
+
 > (← [README](README.md) · 아키텍처는 [03-server-architecture.md](03-server-architecture.md))
 >
 > 개정일: 2026-09-11

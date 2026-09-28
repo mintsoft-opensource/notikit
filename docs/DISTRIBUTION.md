@@ -1,17 +1,14 @@
-# 배포 — 클로즈드 솔루션
+# 배포 — 릴리스와 운영 설치
 
-고객사마다 인스턴스를 세우고 운영하는 형태의 배포 절차.
-고객이 읽는 문서가 아니라 **우리가 읽는 문서**다.
+Notikit 은 Apache-2.0 오픈소스다. 서버 이미지(`ghcr.io/mintsoft-opensource/notikit`)는 공개돼 있어
+누구나 로그인 없이 받아 셀프호스트할 수 있다.
 
-## 소스 보호에 대해 먼저
+이 문서는 **메인테이너가 읽는 문서**다. 릴리스를 만드는 절차와, 지원 계약을 맺은 설치에
+업데이트를 관리형으로 내려보내는 절차(선택)를 다룬다.
 
-기대치를 정확히 두는 편이 낫다.
-
-원본 TypeScript는 이미지에 들어가지 않는다. 소스맵은 내용이 비어 있어 복원되지 않고, 빌드 마지막에 지운다.
-
-하지만 **번들된 서버 JavaScript는 들어간다.** 압축돼 있을 뿐 로직이다. 고객 박스에서 돌리는 이상 이걸 막을 방법은 없다. 난독화나 bytenode는 스택트레이스를 망가뜨려 온프렘 장애 대응 비용만 몇 배로 만들고, 작정한 사람은 막지 못한다.
-
-그러니 방어선을 옳은 데 둔다: **계약 + 라이선스 + 회수 가능한 레지스트리 자격증명.** 정말 내줄 수 없는 로직이 있다면 온프렘에 두지 말고 우리 서버에 남긴다.
+라이선스는 **공식 업데이트 채널을 쓰는 설치에만** 필요하다. 라이선스가 없어도 발송·콘솔·API 는
+모두 그대로 동작하고, 업데이트 서버를 통한 자동 업데이트만 받지 않는다 — 셀프호스트는 새 이미지를
+직접 받아 올리면 된다.
 
 ## 구성 요소
 
@@ -19,11 +16,11 @@
 |---|---|---|
 | `packages/license` | 모두가 공유 | Ed25519 서명·검증. 빌드 단계가 없어 web·서버·CLI 가 같은 코드를 쓴다 |
 | `tools/license/issue.mjs` | 우리 장비 | 라이선스 발급 |
-| `apps/update-server` | **우리** 인프라 | 라이선스 확인 후 이 고객이 받을 릴리스를 알려 준다 |
-| `apps/updater` | **고객사** 박스 | 실제 교체. Docker 소켓을 쥐는 유일한 컨테이너 |
+| `apps/update-server` | **우리** 인프라 | 라이선스 확인 후 이 설치가 받을 릴리스를 알려 준다 (관리형 업데이트용) |
+| `apps/updater` | **설치된** 서버 | 실제 교체. Docker 소켓을 쥐는 유일한 컨테이너 |
 | `tools/release/*` | CI | 매니페스트 생성, 폐쇄망 번들 제작 |
 
-## 1. 최초 준비 (한 번)
+## 1. 관리형 업데이트 최초 준비 (한 번, 선택)
 
 ```bash
 node tools/license/issue.mjs keygen
@@ -33,7 +30,7 @@ node tools/license/issue.mjs keygen
 
 비밀키를 잃으면 기존 라이선스는 그대로 동작하지만 **새로 발급할 수 없다.** 공개키를 바꾸면 **모든 고객의 라이선스가 한꺼번에 무효가 된다.** 둘 다 복구 불가이므로 오프라인 백업을 둔다.
 
-## 2. 고객 온보딩
+## 2. 지원 계약 설치 등록 (선택)
 
 ```bash
 NOTIKIT_LICENSE_PRIVATE_KEY_FILE=./license-private.pem \
@@ -42,7 +39,7 @@ NOTIKIT_LICENSE_PRIVATE_KEY_FILE=./license-private.pem \
     --months 12 --projects 10 --devices 500000 --sends 20000000
 ```
 
-레지스트리에 **고객 전용 계정**을 만든다. 계약이 끝나면 그 계정만 죽이면 새 버전을 받지 못한다 — 돌고 있는 설치는 계속 동작한다.
+라이선스는 업데이트 서버가 이 설치에 어떤 릴리스를 내려보낼지 정하는 데 쓴다. 계약이 끝나 라이선스가 만료돼도 돌고 있는 설치는 그대로 동작하고, 관리형 업데이트만 멈춘다.
 
 ## 3. 릴리스
 
@@ -61,13 +58,12 @@ CI(`.github/workflows/release.yml`)가 나머지를 한다.
   - `UPDATE_SERVER_URL` 시크릿이 없으면 등록만 건너뛰고 나머지는 그대로 한다(업데이트 서버 없이 시작할 때)
 - 폐쇄망 번들을 만들어 아티팩트로 올린다
 
-레지스트리는 `REGISTRY_SERVER` 변수가 없으면 **GHCR**(`ghcr.io/<조직>/notikit`, `…/notikit-updater`)이다.
-CI 는 `GITHUB_TOKEN` 으로 푸시하므로 준비할 계정·시크릿이 없다. 저장소가 비공개면 패키지도 비공개다 —
-설치할 서버는 `read:packages` 권한만 준 토큰으로 한 번 로그인한다:
+레지스트리는 `REGISTRY_SERVER` 변수가 없으면 **GHCR**(`ghcr.io/mintsoft-opensource/notikit`, `…/notikit-updater`)이다.
+CI 는 `GITHUB_TOKEN` 으로 푸시하므로 준비할 계정·시크릿이 없다. 두 패키지 모두 공개라 설치할 서버는
+로그인 없이 받는다:
 
 ```bash
-echo "$GHCR_TOKEN" | docker login ghcr.io -u <github-user> --password-stdin
-echo "NOTIKIT_IMAGE=ghcr.io/<조직>/notikit:0.1.0" > .notikit-image.env
+echo "NOTIKIT_IMAGE=ghcr.io/mintsoft-opensource/notikit:0.1.0" > .notikit-image.env
 docker compose -f docker-compose.prod.yml --env-file .env --env-file .notikit-image.env up -d
 ```
 
@@ -87,13 +83,15 @@ docker compose -f docker-compose.prod.yml --env-file .env --env-file .notikit-im
 
 문제가 있는 릴리스는 해당 `releases/*.json` 에 `"yanked": true` 를 넣으면 아무에게도 나가지 않는다.
 
-## 5. 폐쇄망 고객
+## 5. 폐쇄망 설치
 
 금융·공공에서는 사실상 기본값이다.
 
 1. CI 아티팩트에서 `notikit-<버전>-airgap.tar` 와 `.sha256`, `.tar.json` 을 받는다
-2. 세 파일을 고객 박스의 `./bundles/` 에 반입한다
+2. 세 파일을 설치 서버의 `./bundles/` 에 반입한다
 3. 콘솔 **업데이트** 화면에 번들이 나타난다 → 설치
+
+번들은 라이선스 없이도 설치할 수 있다.
 
 `.sha256` 이 없으면 콘솔이 설치를 거부한다. 번들은 USB 와 사람 손을 거쳐 오므로, 받은 것이 보낸 것과 같은지 확인하지 못하면 무엇을 설치하는지 모르는 채로 설치하는 것이다.
 
@@ -113,7 +111,7 @@ DB 를 되돌려야 하는 상황은 [BACKUP-RESTORE.md](BACKUP-RESTORE.md) 를 
 
 ## 자주 틀리는 것
 
-**공개키를 바꾸지 마라.** 모든 고객이 한꺼번에 잠긴다.
+**공개키를 바꾸지 마라.** 관리형 업데이트를 받는 모든 설치의 라이선스가 한꺼번에 무효가 된다.
 
 **이미 배포된 마이그레이션 파일을 고치지 마라.** drizzle 저널은 적용된 것을 다시 실행하지 않아, 고친 내용이 기존 설치에 영원히 반영되지 않는다. 새 마이그레이션을 추가한다.
 

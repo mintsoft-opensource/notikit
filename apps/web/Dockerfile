@@ -45,8 +45,7 @@ COPY --from=build --chown=node:node /app/apps/web/drizzle ./apps/web/drizzle
 # 옆에 합쳐진다 — 그래야 `node apps/web/migrate.mjs` 가 이 이미지 그대로 돈다.
 COPY --from=build --chown=node:node /migrate-deps ./apps/web/node_modules
 
-# 소스맵은 클로즈드 배포에 쓸모가 없다. 내용이 비어 있어 원본 복원은 불가능하지만,
-# 굳이 고객 박스에 둘 이유도 없고 이미지만 커진다.
+# 소스맵은 운영 이미지에 쓸모가 없다(원본은 공개 저장소에 있다). 두면 이미지만 커진다.
 # Next 가 런타임에 쓰는 캐시(.next/cache — 이미지 최적화 등)는 node 가 쓸 수 있어야 한다.
 RUN find . -name "*.js.map" -delete \
   && mkdir -p apps/web/.next/cache \
