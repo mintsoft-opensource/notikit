@@ -58,7 +58,18 @@ CI(`.github/workflows/release.yml`)가 나머지를 한다.
 - cosign 으로 서명한다
 - `hasMigrations` 를 **저널 비교로 판정한다.** 손으로 적으면 언젠가 틀리고, 틀리는 날은 고객 스키마가 백업 없이 바뀌는 날이다
 - 다이제스트를 업데이트 서버에 등록한다. 태그가 아니다 — 태그는 나중에 다른 이미지를 가리키게 바뀔 수 있다
+  - `UPDATE_SERVER_URL` 시크릿이 없으면 등록만 건너뛰고 나머지는 그대로 한다(업데이트 서버 없이 시작할 때)
 - 폐쇄망 번들을 만들어 아티팩트로 올린다
+
+레지스트리는 `REGISTRY_SERVER` 변수가 없으면 **GHCR**(`ghcr.io/<조직>/notikit`, `…/notikit-updater`)이다.
+CI 는 `GITHUB_TOKEN` 으로 푸시하므로 준비할 계정·시크릿이 없다. 저장소가 비공개면 패키지도 비공개다 —
+설치할 서버는 `read:packages` 권한만 준 토큰으로 한 번 로그인한다:
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u <github-user> --password-stdin
+echo "NOTIKIT_IMAGE=ghcr.io/<조직>/notikit:0.1.0" > .notikit-image.env
+docker compose -f docker-compose.prod.yml --env-file .env --env-file .notikit-image.env up -d
+```
 
 ## 4. 배포 제어
 
