@@ -3,7 +3,7 @@
 > **오픈소스 · 셀프호스트 가능 · 유저 중심(user-centric) 푸시 알림 툴킷.**
 > FCM 위에 **사용자·계정 identity 레이어**를 얹고, 멀티플랫폼 SDK + 관리 대시보드를 제공.
 
-`notikit.dev` · Apache-2.0 · 운영: MintSoft
+[notikit.mint-soft.com](https://notikit.mint-soft.com) · Apache-2.0 · 운영: MintSoft · 이미지: `ghcr.io/mintsoft-opensource/notikit`
 
 ## 무엇인가
 - **유저 중심 푸시**: 토큰이 아니라 "유저 X"에게 발송, 계정↔다중기기 연결
