@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notikit — 유저 중심 푸시 알림</title>
+  <meta name="description" content="토큰이 아니라 사람에게 보내는 셀프호스트 푸시 알림 툴킷. FCM 위에 사용자 identity, 멀티플랫폼 SDK, 관리 콘솔.">
+  <meta property="og:title" content="Notikit — 유저 중심 푸시 알림">
+  <meta property="og:description" content="토큰이 아니라 사람에게 보내는 셀프호스트 푸시 알림 툴킷.">
+  <meta property="og:url" content="https://notikit.mint-soft.com/">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M16 7a6 6 0 0 0-6 6v4l-2 3h16l-2-3v-4a6 6 0 0 0-6-6zm-2.5 15a2.5 2.5 0 0 0 5 0z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-soft: #f6f7fb;
+      --surface: #ffffff;
+      --border: #e4e6ef;
+      --text: #14161f;
+      --muted: #5b6072;
+      --accent: #4f46e5;
+      --accent-soft: #eef0ff;
+      --code-bg: #0f1220;
+      --code-text: #e6e8f2;
+      --ok: #0f8a5f;
+      --ok-soft: #e6f6ef;
+      --soon: #9a6700;
+      --soon-soft: #fff5d6;
+      --radius: 12px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d0f17;
+        --bg-soft: #131623;
+        --surface: #161a28;
+        --border: #262b3d;
+        --text: #eceef6;
+        --muted: #9aa0b6;
+        --accent: #8b85ff;
+        --accent-soft: #1f2140;
+        --code-bg: #0a0c14;
+        --code-text: #e6e8f2;
+        --ok: #4cd4a0;
+        --ok-soft: #10281f;
+        --soon: #f0c451;
+        --soon-soft: #2b2410;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      word-break: keep-all;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+    header.top {
+      border-bottom: 1px solid var(--border);
+    }
+    header.top .wrap {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); }
+    .brand:hover { text-decoration: none; }
+    .brand svg { flex: none; }
+    nav.links { display: flex; gap: 20px; font-size: 15px; }
+    nav.links a { color: var(--muted); }
+    nav.links a:hover { color: var(--text); text-decoration: none; }
+    @media (max-width: 640px) { nav.links .hide-sm { display: none; } }
+
+    .hero { padding-top: 72px; padding-bottom: 56px; }
+    .eyebrow {
+      display: inline-block; font-size: 13px; font-weight: 600; color: var(--accent);
+      background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; margin-bottom: 20px;
+    }
+    .hero h1 { font-size: clamp(32px, 5.5vw, 52px); line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 20px; }
+    .hero p.lead { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 680px; margin: 0 0 32px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px;
+      border-radius: 10px; font-weight: 600; font-size: 15px; border: 1px solid var(--border);
+      color: var(--text); background: var(--surface);
+    }
+    .btn:hover { text-decoration: none; border-color: var(--muted); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { filter: brightness(1.08); }
+
+    section { padding: 56px 0; }
+    section.soft { background: var(--bg-soft); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    h2 { font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.01em; margin: 0 0 12px; }
+    .sub { color: var(--muted); margin: 0 0 32px; max-width: 680px; }
+
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+    }
+    .card h3 { font-size: 17px; margin: 0 0 8px; }
+    .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+    .compare { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    @media (max-width: 720px) { .compare { grid-template-columns: 1fr; } }
+    .compare .card h3 { font-size: 15px; color: var(--muted); font-weight: 600; }
+    .compare .card.us { border-color: var(--accent); }
+    .compare .card.us h3 { color: var(--accent); }
+
+    pre {
+      margin: 0; background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+      padding: 16px; overflow-x: auto; font-size: 13.5px; line-height: 1.6;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    p code, li code, td code { background: var(--bg-soft); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
+    .c { color: #8b93b0; }
+
+    .sdk-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .sdk-table th, .sdk-table td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; vertical-align: top; }
+    .sdk-table th { font-size: 13px; color: var(--muted); font-weight: 600; background: var(--bg-soft); }
+    .sdk-table tr:last-child td { border-bottom: 0; }
+    .table-scroll { overflow-x: auto; border-radius: var(--radius); }
+    .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .badge.ok { color: var(--ok); background: var(--ok-soft); }
+    .badge.soon { color: var(--soon); background: var(--soon-soft); }
+
+    .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+    .steps .card, .compare .card { min-width: 0; }
+    .steps .card h3 { display: flex; align-items: center; gap: 10px; }
+    .num {
+      display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+      border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 700; flex: none;
+    }
+    .steps pre { margin-top: 12px; }
+
+    footer { border-top: 1px solid var(--border); padding: 32px 0; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+    footer nav { display: flex; flex-wrap: wrap; gap: 16px; }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="#" aria-label="Notikit 홈">
+        <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor" style="color: var(--accent)"/><path d="M16 7a6 6 0 0 0-6 6v4l-2 3h16l-2-3v-4a6 6 0 0 0-6-6zm-2.5 15a2.5 2.5 0 0 0 5 0z" fill="#fff"/></svg>
+        Notikit
+      </a>
+      <nav class="links" aria-label="주요 링크">
+        <a class="hide-sm" href="#features">기능</a>
+        <a class="hide-sm" href="#sdk">SDK</a>
+        <a href="#start">시작하기</a>
+        <a href="https://github.com/mintsoft-opensource/notikit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap hero">
+      <span class="eyebrow">Apache-2.0 · 셀프호스트</span>
+      <h1>토큰이 아니라<br>사람에게 보내는 푸시</h1>
+      <p class="lead">Notikit 은 FCM 위에 사용자 identity 레이어를 얹은 푸시 알림 툴킷입니다. 기기 토큰을 관리하는 대신 “유저 X 에게” 보내면, 그 사람의 모든 기기로 갑니다. 서버·콘솔·SDK 를 우리 인프라에 그대로 띄웁니다.</p>
+      <div class="cta">
+        <a class="btn primary" href="#start">로컬에서 띄워 보기</a>
+        <a class="btn" href="https://github.com/mintsoft-opensource/notikit">GitHub 에서 보기</a>
+      </div>
+    </div>
+
+    <section class="soft" aria-labelledby="why">
+      <div class="wrap">
+        <h2 id="why">왜 토큰이 아니라 사람인가</h2>
+        <p class="sub">FCM 은 기기 토큰 단위로 동작합니다. 사용자가 폰을 바꾸거나, 태블릿을 추가하거나, 로그아웃하는 순간 “이 토큰은 누구 것인가”를 앱이 직접 관리해야 합니다.</p>
+        <div class="compare">
+          <div class="card">
+            <h3>FCM 만 쓸 때</h3>
+            <pre><code><span class="c">// 이 사람의 토큰을 전부 찾아서, 죽은 건 골라내고…</span>
+for (const token of await findTokens(userId)) {
+  await messaging.send({ token, notification })
+}</code></pre>
+          </div>
+          <div class="card us">
+            <h3>Notikit</h3>
+            <pre><code><span class="c">// 사람에게 보낸다. 기기는 Notikit 이 안다</span>
+await notikit.send({
+  type: "single", target: "user-42",
+  title: "주문이 출발했어요", body: "{{name}}님, 내일 도착 예정입니다"
+})</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" aria-labelledby="features-h">
+      <div class="wrap">
+        <h2 id="features-h">한 번에 갖춰진 것</h2>
+        <p class="sub">발송 API 만이 아니라, 운영하면서 결국 만들게 되는 것들까지.</p>
+        <div class="grid">
+          <div class="card"><h3>유저 · 멀티디바이스</h3><p>계정 하나에 여러 기기를 묶고, <code>identity_hash</code>(HMAC)로 남의 계정에 기기를 붙이는 것을 막습니다. 무효 토큰은 발송 응답을 보고 자동 정리합니다.</p></div>
+          <div class="card"><h3>개인 · 토픽 · 전체 발송</h3><p>예약 발송, 받는 사람 현지 시각 발송, 조용한 시간, 딥링크, 언어별 문구, <code>{{name}}</code> 같은 개인화 변수.</p></div>
+          <div class="card"><h3>세그먼트</h3><p>유저 속성 규칙과 “최근 7일 안에 눌렀다” 같은 행동 규칙으로 대상을 고릅니다. 수신 거부 목록은 항상 먼저 걸러집니다.</p></div>
+          <div class="card"><h3>저니 · A/B</h3><p>이벤트로 시작하는 자동화 흐름, “눌렀는가”에 따른 분기, 스텝별 성과. A/B 는 표본 발송 후 승자를 자동으로 본발송합니다.</p></div>
+          <div class="card"><h3>도달 · 참여 분석</h3><p>발송·수신·클릭·전환을 캠페인과 스텝 단위로. 대조군(홀드아웃)으로 푸시가 실제로 만든 차이를 봅니다.</p></div>
+          <div class="card"><h3>멀티테넌트 콘솔</h3><p>조직 → 프로젝트, 환경 분리, 프로젝트별 Firebase 자격증명을 AES-GCM 으로 격리 저장. 감사 로그와 역할 권한. 25개 언어.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sdk" class="soft" aria-labelledby="sdk-h">
+      <div class="wrap">
+        <h2 id="sdk-h">플랫폼별 SDK</h2>
+        <p class="sub">SDK 는 플랫폼마다 저장소가 따로 있습니다. 모두 Apache-2.0 입니다.</p>
+        <div class="table-scroll">
+          <table class="sdk-table">
+            <thead><tr><th scope="col">플랫폼</th><th scope="col">설치</th><th scope="col">상태</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><a href="https://github.com/mintsoft-opensource/notikit-ios">iOS (Swift)</a></td>
+                <td>Swift Package Manager<br><code>https://github.com/mintsoft-opensource/notikit-ios</code></td>
+                <td><span class="badge ok">사용 가능</span></td>
+              </tr>
+              <tr>
+                <td><a href="https://github.com/mintsoft-opensource/notikit-android">Android (Kotlin)</a></td>
+                <td>JitPack<br><code>com.github.mintsoft-opensource:notikit-android:0.1.0</code></td>
+                <td><span class="badge ok">사용 가능</span></td>
+              </tr>
+              <tr>
+                <td><a href="https://github.com/mintsoft-opensource/notikit-js">Web · React · React Native</a></td>
+                <td><code>@notikit/web-sdk</code> · <code>@notikit/react</code> · <code>@notikit/react-native</code></td>
+                <td><span class="badge soon">npm 배포 예정</span></td>
+              </tr>
+              <tr>
+                <td><a href="https://github.com/mintsoft-opensource/notikit-flutter">Flutter (Dart)</a></td>
+                <td><code>notikit</code></td>
+                <td><span class="badge soon">pub.dev 배포 예정</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="start" aria-labelledby="start-h">
+      <div class="wrap">
+        <h2 id="start-h">시작하기</h2>
+        <p class="sub">Docker 만 있으면 됩니다. Firebase 자격증명이 없으면 실제 발송 대신 로그만 남기는 모드로 돌아서, 먼저 둘러보기에 좋습니다.</p>
+        <div class="steps">
+          <div class="card">
+            <h3><span class="num">1</span>받고 설정하기</h3>
+            <p>비밀값 세 개만 채우면 됩니다: 암호화 키(32자 이상), 관리자 토큰, DB 비밀번호.</p>
+            <pre><code>git clone https://github.com/mintsoft-opensource/notikit
+cd notikit
+cp .env.example .env</code></pre>
+          </div>
+          <div class="card">
+            <h3><span class="num">2</span>띄우기</h3>
+            <p>마이그레이션 → 웹 → 워커 순으로 올라옵니다. 웹이 DB 준비까지 확인해야 healthy 가 됩니다.</p>
+            <pre><code>docker compose up -d --build
+docker compose ps</code></pre>
+          </div>
+          <div class="card">
+            <h3><span class="num">3</span>콘솔 열기</h3>
+            <p>첫 관리자 계정을 만들고 프로젝트를 추가하면 API 키가 나옵니다. API 문서는 콘솔의 <code>/docs</code> 에 있습니다.</p>
+            <pre><code>open http://localhost:3000</code></pre>
+          </div>
+        </div>
+        <p class="sub" style="margin-top: 24px">운영 서버에는 소스 빌드 대신 서명된 이미지(<code>ghcr.io/mintsoft-opensource/notikit</code>)와 <code>docker-compose.prod.yml</code> 을 씁니다. 자세한 절차는 <a href="https://github.com/mintsoft-opensource/notikit#readme">README</a> 를 보세요.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© MintSoft · Apache-2.0</span>
+      <nav aria-label="바닥글 링크">
+        <a href="https://github.com/mintsoft-opensource/notikit">서버</a>
+        <a href="https://github.com/mintsoft-opensource/notikit-js">JS</a>
+        <a href="https://github.com/mintsoft-opensource/notikit-ios">iOS</a>
+        <a href="https://github.com/mintsoft-opensource/notikit-android">Android</a>
+        <a href="https://github.com/mintsoft-opensource/notikit-flutter">Flutter</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

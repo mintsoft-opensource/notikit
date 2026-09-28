@@ -1,0 +1,33 @@
+# 소개 사이트(notikit.mint-soft.com) — site/ 가 바뀌면 GitHub Pages 로 올린다.
+# 커스텀 도메인은 저장소 Pages 설정에 있다(Actions 배포는 CNAME 파일을 읽지 않는다).
+name: pages
+
+on:
+  push:
+    branches: [master]
+    paths: ["site/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
