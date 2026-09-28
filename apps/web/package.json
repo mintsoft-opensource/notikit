@@ -41,7 +41,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@notikit/core": "workspace:*",
     "@playwright/test": "^1.49.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",

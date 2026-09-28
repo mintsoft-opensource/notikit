@@ -4,20 +4,17 @@ RUN corepack enable && corepack prepare pnpm@8.12.1 --activate
 WORKDIR /app
 
 # 워크스페이스 매니페스트 + lockfile 만 먼저 복사 — 소스가 바뀌어도 설치 레이어는 캐시된다.
-# web 이 쓰는 워크스페이스 패키지(@notikit/license, @notikit/core)도 함께 설치해야 링크가 걸린다.
+# web 이 쓰는 워크스페이스 패키지(@notikit/license)도 함께 설치해야 링크가 걸린다.
 FROM base AS deps
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/license/package.json packages/license/
-COPY packages/sdk-core/package.json packages/sdk-core/
 RUN pnpm install --frozen-lockfile --filter "@notikit/web..."
 
 FROM deps AS build
 COPY packages/license packages/license
-COPY packages/sdk-core packages/sdk-core
 COPY apps/web apps/web
-# @notikit/core 는 dist 로 배포된다 — web 타입 검사(e2e 포함)가 그 타입을 읽는다
-RUN pnpm --filter @notikit/core build && pnpm --filter @notikit/web build
+RUN pnpm --filter @notikit/web build
 
 # migrate.mjs 는 Next 의 트레이싱 대상이 아니다. Next 는 postgres/drizzle-orm 을 서버
 # 번들 안으로 말아 넣고 standalone 의 node_modules 에는 남기지 않으므로, 런타임 이미지에서

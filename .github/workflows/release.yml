@@ -51,13 +51,6 @@ jobs:
       - name: 의존성 설치
         run: pnpm install --frozen-lockfile
 
-      # SDK 는 dist 로 서로를 참조한다(react → web-sdk → core). web e2e 도 core 를 import 한다.
-      - name: SDK 빌드
-        run: pnpm -r --filter "./packages/*" build
-
-      - name: SDK 테스트
-        run: pnpm -r --filter "./packages/*" test
-
       - name: web 타입 검사
         working-directory: apps/web
         run: pnpm exec tsc --noEmit

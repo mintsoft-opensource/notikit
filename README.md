@@ -15,16 +15,23 @@
 ```
 apps/web                    # Next.js 대시보드 + API + Swagger (+ worker.mjs, migrate.mjs)
 packages/design             # 디자인 시스템(Tailwind v4 + shadcn/ui 토큰)
-packages/sdk-core           # 공통 전송·API 클라이언트·타입
-packages/sdk-web            # 브라우저 Web Push
-packages/sdk-react          # React/Next hooks
-packages/sdk-react-native   # React Native
-sdks/android                # Kotlin/Java (Maven/JitPack)
-sdks/swift                  # Swift (SPM/CocoaPods)
-sdks/flutter                # Dart (pub.dev)
+apps/updater                # 고객사 박스의 자동 업데이트 실행기
+apps/update-server          # 릴리스 배포처 (라이선스 확인)
+packages/license            # Ed25519 라이선스 서명·검증
 mcp/                        # 독립 실행 MCP 서버 (stdio; AI 개발 가속)
 docs/plan/                  # 기획 문서 세트
 ```
+
+SDK 는 플랫폼별 저장소로 나뉘어 있다(버전·배포 주기가 서버와 다르고, 고객이 받아 쓰는 코드라 공개 대상이다).
+
+| 플랫폼 | 저장소 | 배포 |
+|---|---|---|
+| JS (core · web · react · react-native) | [notikit-js](https://github.com/mintsoft-opensource/notikit-js) | npm |
+| iOS | [notikit-ios](https://github.com/mintsoft-opensource/notikit-ios) | SwiftPM |
+| Android | [notikit-android](https://github.com/mintsoft-opensource/notikit-android) | JitPack |
+| Flutter | [notikit-flutter](https://github.com/mintsoft-opensource/notikit-flutter) | pub.dev |
+
+API 가 바뀌면 SDK 쪽 계약 테스트가 먼저 깨진다 — `notikit-js` README 의 계약 테스트 절 참고.
 
 ## 빠른 시작 (로컬 평가)
 ```bash

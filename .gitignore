@@ -18,14 +18,6 @@ coverage/
 .idea/
 .vscode/
 
-# mobile build artifacts
-sdks/android/**/build/
-sdks/android/**/.gradle/
-sdks/swift/**/.build/
-sdks/flutter/**/.dart_tool/
-sdks/flutter/**/build/
-sdks/react-native/**/node_modules/
-
 # misc
 *.log
 app.zip
@@ -33,13 +25,6 @@ app.zip
 # playwright
 test-results/
 playwright-report/
-
-sdks/swift/.build/
-sdks/swift/Package.resolved
-sdks/flutter/.dart_tool/
-sdks/flutter/pubspec.lock
-sdks/android/.gradle/
-sdks/android/build/
 
 # 도구 런타임 상태 — 커밋 대상 아님
 .bkit/
