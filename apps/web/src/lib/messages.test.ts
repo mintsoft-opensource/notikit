@@ -253,7 +253,7 @@ describe("캠페인별 재정의", () => {
   it("max_sends_per_minute 를 저장한다 — 0 은 '이 발송은 제한 없음'이다", async () => {
     const rows: Array<Record<string, unknown>> = [];
     const db = fakeInsertDb(rows);
-    const project = { id: PROJECT, quietStartHour: null, quietEndHour: null };
+    const project = { id: PROJECT, quietStartHour: null, quietEndHour: null, timezone: null };
     await enqueuePush(project, { type: "broadcast", title: "a", body: "b", max_sends_per_minute: 0 }, { db });
     expect(rows.at(-1)?.maxSendsPerMinute).toBe(0);
     await enqueuePush(project, { type: "broadcast", title: "a", body: "b" }, { db });

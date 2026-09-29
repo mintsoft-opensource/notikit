@@ -1,6 +1,7 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushClicks, pushLogs } from "@/db/schema";
+import { logSentAtSql } from "@/lib/log-sent-at";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject } from "@/lib/authz";
 
@@ -57,7 +58,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     // 발송 시각과의 차이 — 로그를 조인해야 하므로 클릭만으로는 못 낸다
     db
       .select({
-        seconds: sql<number>`extract(epoch from (${pushClicks.clickedAt} - ${pushLogs.createdAt}))::int`,
+        seconds: sql<number>`extract(epoch from (${pushClicks.clickedAt} - ${logSentAtSql()}))::int`,
         count: sql<number>`count(*)::int`,
       })
       .from(pushClicks)

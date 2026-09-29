@@ -89,9 +89,9 @@ describe("applyFrequencyCap", () => {
 
 describe("buildItems / multicastGroups", () => {
   const rows = [
-    { token: "t1", platform: "ios" },
-    { token: "t2", platform: "web" },
-    { token: "t3", platform: "android" },
+    { id: "d1", token: "t1", platform: "ios" },
+    { id: "d2", token: "t2", platform: "web" },
+    { id: "d3", token: "t3", platform: "android" },
   ];
 
   it("marks web as data-only and keeps content without a renderer", () => {
@@ -103,18 +103,18 @@ describe("buildItems / multicastGroups", () => {
     ]);
   });
 
-  it("assigns variants deterministically and renders per token", () => {
+  it("assigns variants by device id (stable across token rotation) and renders per token", () => {
     const variants = [{ title: "A", body: "a" }, { title: "B", body: "b" }];
     const items = buildItems(rows, { title: "T", body: "B" }, variants, (text, token) => `${text}:${token}`);
-    for (const it of items) {
-      expect(it.vi).toBe(variantIndex(it.token, 2));
+    for (const [i, it] of items.entries()) {
+      expect(it.vi).toBe(variantIndex(rows[i].id, 2));
       expect(it.title).toBe(`${variants[it.vi!].title}:${it.token}`);
     }
   });
 
   it("groups identical content per payload shape and splits at 500", () => {
-    const many = Array.from({ length: 1001 }, (_, i) => ({ token: `n${i}`, platform: "android" }));
-    const items = buildItems([...many, { token: "w", platform: "web" }], { title: "T", body: "B" }, null, null);
+    const many = Array.from({ length: 1001 }, (_, i) => ({ id: `d${i}`, token: `n${i}`, platform: "android" }));
+    const items = buildItems([...many, { id: "dw", token: "w", platform: "web" }], { title: "T", body: "B" }, null, null);
     const groups = multicastGroups(items);
     expect(groups.map((g) => [g.dataOnly, g.tokens.length])).toEqual([
       [false, 500],
@@ -309,6 +309,33 @@ describe("settleFailure", () => {
     expect(t.sets[0].status).toBe("failed");
     expect(t.sets[0].failureReason).toBe(`attempt ${MAX_SEND_ATTEMPTS}/${MAX_SEND_ATTEMPTS}: still down`);
     expect(parseAttempts(t.sets[0].resumeCursor as string)).toBe(MAX_SEND_ATTEMPTS);
+  });
+
+  it("failed 로 닫을 때 그때까지 보낸 수를 로그에 남긴다 — 0 으로 남기면 이미 받은 사람이 없던 일이 된다", async () => {
+    const state = {
+      ...initialState({ users: 9, devices: 12 }, null),
+      attempts: MAX_SEND_ATTEMPTS - 1,
+      total: 7,
+      success: 6,
+      failure: 1,
+    };
+    const t = db();
+    await settleFailure(t.db, LOG, TOKEN, new Error("still down"), JSON.stringify(state));
+    const set = t.sets[0];
+    expect(set.status).toBe("failed");
+    // 줄어드는 쪽으로는 쓰지 않는다(다른 경합이 더 큰 값을 적었을 수 있다) — greatest(...) 식이어야 한다
+    const dialect = new PgDialect();
+    const text = (v: unknown) => dialect.sqlToQuery(v as SQL).sql;
+    expect(text(set.totalCount)).toMatch(/greatest/);
+    expect(dialect.sqlToQuery(set.successCount as SQL).params).toContain(6);
+    expect(set.audienceDeviceCount).toBe(12);
+  });
+
+  it("진행 상태 없이 failed 로 닫으면 집계 칸은 건드리지 않는다", async () => {
+    const t = db();
+    const raw = JSON.stringify({ attempts: MAX_SEND_ATTEMPTS - 1 });
+    await settleFailure(t.db, LOG, TOKEN, new Error("x"), raw);
+    expect(t.sets[0].totalCount).toBeUndefined();
   });
 
   it("사유는 길이를 잘라 로그 행이 비대해지지 않게 한다", async () => {

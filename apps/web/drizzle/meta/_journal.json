@@ -218,6 +218,13 @@
       "when": 1789090892492,
       "tag": "0030_journey_trigger_events",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1789090893492,
+      "tag": "0031_holdout_exposure",
+      "breakpoints": true
     }
   ]
 }

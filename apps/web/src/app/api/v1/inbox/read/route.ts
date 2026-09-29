@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { notifications, pushUsers } from "@/db/schema";
 import { resolveProjectPublic } from "@/lib/auth";
@@ -45,12 +45,14 @@ export async function POST(req: Request) {
   if (!user) return fail("User not found", 404);
 
   const now = new Date();
+  // 이미 읽은 것은 건드리지 않는다 — "전체 읽음"이 올 때마다 모든 알림의 읽은 시각이 지금으로 덮이면
+  // 처음 읽은 시각이 사라진다
   if (b.notification_id) {
     await db.update(notifications).set({ readAt: now })
-      .where(and(eq(notifications.id, b.notification_id), eq(notifications.userId, user.id)));
+      .where(and(eq(notifications.id, b.notification_id), eq(notifications.userId, user.id), isNull(notifications.readAt)));
   } else {
     await db.update(notifications).set({ readAt: now })
-      .where(and(eq(notifications.projectId, project.id), eq(notifications.userId, user.id)));
+      .where(and(eq(notifications.projectId, project.id), eq(notifications.userId, user.id), isNull(notifications.readAt)));
   }
   return ok({ read: true });
 }

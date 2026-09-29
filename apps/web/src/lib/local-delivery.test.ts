@@ -78,6 +78,31 @@ describe("splitDue", () => {
     expect(pass.deferAt).toBe(Date.parse("2026-09-24T09:00:00.000Z"));
   });
 
+  it("회차 중간에 이어받아도 이번 회차에 보낸 묶음과 미룬 시각을 잃지 않는다", () => {
+    // 1쪽: 서울은 보내고 런던은 미룬 채 죽었다
+    const first = openLocalPass(NINE, undefined, NOW, false);
+    splitDue(first, [dev("a"), dev("b")], zoneOf);
+    const mid = passState(first);
+
+    // 2쪽(서울 한 대)만 남은 채로 이어받아 회차를 닫는다
+    const resumed = openLocalPass(NINE, mid, NOW, false);
+    splitDue(resumed, [dev("c")], zoneOf);
+    // 1쪽에서 보낸 서울이 빠지면 다음 회차에서 또 보내고, 미룬 런던 시각이 빠지면 런던은 영영 못 받는다
+    expect(closeLocalPass(resumed)).toEqual({
+      sentOffsets: ["+09:00"],
+      passAt: null,
+      nextPassAt: "2026-09-24T08:00:00.000Z",
+    });
+  });
+
+  it("미룬 묶음만 남은 쪽에서 이어받아도 다음 회차 시각이 남는다", () => {
+    const first = openLocalPass(NINE, undefined, NOW, false);
+    splitDue(first, [dev("b")], zoneOf);
+    const resumed = openLocalPass(NINE, passState(first), NOW, false);
+    splitDue(resumed, [], zoneOf);
+    expect(closeLocalPass(resumed).nextPassAt).toBe("2026-09-24T08:00:00.000Z");
+  });
+
   it("회차 기준 시각은 이어받아도 고정된다 — 회차 중간에 새로 도래한 묶음이 생기면 앞쪽을 건너뛴다", () => {
     const first = openLocalPass(NINE, undefined, NOW, false);
     splitDue(first, rows, zoneOf);

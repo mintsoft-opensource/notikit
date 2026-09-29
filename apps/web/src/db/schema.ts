@@ -343,6 +343,11 @@ export const pushHoldouts = pgTable("push_holdouts", {
   logId: uuid("log_id").notNull().references(() => pushLogs.id, { onDelete: "cascade" }),
   deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
   userId: uuid("user_id").references(() => pushUsers.id, { onDelete: "set null" }),
+  /**
+   * true 면 대조군(받지 않음), false 면 발송군(실제로 보낸 기기). 홀드아웃이 걸린 발송만 두 쪽을 다 남긴다 —
+   * 리프트의 두 비율을 "발송 뒤 24시간 안의 전환"이라는 같은 규칙으로 재려면 발송군 명단도 필요하다.
+   */
+  held: boolean("held").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   pk: primaryKey({ name: "push_holdouts_pk", columns: [t.logId, t.deviceId] }),
@@ -559,6 +564,11 @@ export const pushConversions = pgTable("push_conversions", {
    * 같은 칸에 섞으면 "보낸 쪽의 전환"이 부풀어 리프트가 거꾸로 나온다.
    */
   holdout: boolean("holdout").notNull().default(false),
+  /**
+   * 클릭 없이 "받고 24시간 안에" 한 발송군 전환. 리프트 비교에만 쓴다 — 클릭 귀속 전환 지표
+   * (통계 KPI·로그 상세 전환·저니 퍼널)에는 넣지 않는다.
+   */
+  exposure: boolean("exposure").notNull().default(false),
   /** 금액(최소 화폐 단위). 금액 없는 전환은 null. */
   valueCents: integer("value_cents"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

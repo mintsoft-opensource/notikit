@@ -5,7 +5,7 @@ import { resolveProjectPublic } from "@/lib/auth";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { rateLimitShared, clientKey, principalKey } from "@/lib/rate-limit";
 import { isPlausibleRecipient } from "@/lib/click-eligibility";
-import { variantForToken } from "@/lib/push-variant";
+import { variantForDevice } from "@/lib/push-variant";
 import { ok, fail } from "@/lib/api-response";
 import { z } from "zod";
 
@@ -93,8 +93,9 @@ export async function POST(req: Request) {
         platform: device.platform,
         destination: b.destination,
         // 변형별 클릭률을 내려면 이 기기가 어느 변형을 받았는지 남겨야 한다.
-        // 배정은 발송기와 같은 해시 규칙(push-variant)이라 재계산해도 같은 값이 나온다.
-        variant: variantForToken(b.token, log.variants?.length),
+        // 배정은 발송기와 같은 해시 규칙(push-variant, 기기 id 기준)이라 재계산해도 같은 값이 나온다 —
+        // 토큰으로 계산하면 발송과 클릭 사이에 토큰이 교체된 기기가 엉뚱한 변형으로 잡힌다.
+        variant: variantForDevice(device.id, log.variants?.length),
       })
       .onConflictDoNothing({ target: [pushClicks.logId, pushClicks.deviceId] })
       .returning({ id: pushClicks.id });

@@ -93,20 +93,21 @@ export function abWinnerSend(v: AbTest | null | undefined): AbWinnerSend | null 
 }
 
 /**
- * 토큰 → 0~99 버킷 (FNV-1a). `variantIndex` 와 섞이지 않게 다른 해시를 쓴다.
- * 같은 토큰은 언제 계산해도 같은 버킷이라 표본/나머지 판정이 재클레임에도 흔들리지 않는다.
+ * 키 → 0~99 버킷 (FNV-1a). `variantIndex` 와 섞이지 않게 다른 해시를 쓴다.
+ * 키는 기기 id 다(토큰은 교체된다 — 토큰으로 가르면 교체된 기기가 표본과 승자 본발송을 둘 다 받는다).
+ * 같은 키는 언제 계산해도 같은 버킷이라 표본/나머지 판정이 재클레임에도 흔들리지 않는다.
  */
-export function abBucket(token: string): number {
+export function abBucket(key: string): number {
   let h = 0x811c9dc5;
-  for (let i = 0; i < token.length; i++) {
-    h ^= token.charCodeAt(i);
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h % AB_BUCKETS;
 }
 
-export function inAbSample(token: string, samplePercent: number): boolean {
-  return abBucket(token) < samplePercent;
+export function inAbSample(deviceId: string, samplePercent: number): boolean {
+  return abBucket(deviceId) < samplePercent;
 }
 
 /** 이 발송이 대상의 어느 쪽을 맡는지 */
@@ -120,10 +121,10 @@ export function abPart(v: AbTest | null | undefined): AbPart | null {
 }
 
 /** 이 발송이 맡은 쪽의 기기만 남긴다(순수 함수). 표본과 나머지는 서로소다. */
-export function abTargets<T extends { token: string }>(part: AbPart | null, rows: T[]): T[] {
+export function abTargets<T extends { id: string }>(part: AbPart | null, rows: T[]): T[] {
   if (!part) return rows;
   const want = part.part === "sample";
-  return rows.filter((r) => inAbSample(r.token, part.samplePercent) === want);
+  return rows.filter((r) => inAbSample(r.id, part.samplePercent) === want);
 }
 
 /**

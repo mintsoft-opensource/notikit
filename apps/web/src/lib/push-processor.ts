@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, lt, gt, ne, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushLogs, projects, devices, pushClicks, pushUsers, pushUserSends, notifications, type PushLog } from "@/db/schema";
+import { pushLogs, projects, devices, pushClicks, pushHoldouts, pushUsers, pushUserSends, notifications, type PushLog } from "@/db/schema";
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import type { FcmResult } from "@/lib/fcm";
@@ -20,7 +20,7 @@ import {
   type SendContext,
 } from "@/lib/send-dispatch";
 import { resolveLocaleContents } from "@/lib/locale-content";
-import { recordHoldout, splitHoldout } from "@/lib/holdout";
+import { holdoutScale, recordHoldout, splitHoldout } from "@/lib/holdout";
 import { recordCanceledProgress } from "@/lib/push-cancel";
 import {
   addErrors,
@@ -65,6 +65,7 @@ import {
   abTargets,
   abWinnerKey,
   decideWinner,
+  inAbSample,
   type AbDecision,
   type AbTestPlan,
 } from "@/lib/ab-test";
@@ -265,7 +266,13 @@ async function loadSendContext(db: Db, log: PushLog): Promise<SendContext | null
     holdoutPercent: log.isTest ? null : log.holdoutPercent,
     // 발송 한 건에 공통인 치환 값. 시각을 한 번 고정해야 페이지마다 {{time}} 이 달라지지 않는다.
     renderCtx: { appName: project.name, now: new Date() },
-    personalized: hasPlaceholders(log.title, log.body, ...variants.flatMap((v) => [v.title, v.body])),
+    // 로케일 문구도 본다 — 빠지면 기본 문구에 변수가 없을 때 한국어 사용자가 `{{name}}님` 을 그대로 받는다
+    personalized: hasPlaceholders(
+      log.title,
+      log.body,
+      ...variants.flatMap((v) => [v.title, v.body]),
+      ...Object.values(log.localeVariants ?? {}).flatMap((t) => [t.title, t.body])
+    ),
   };
 }
 
@@ -317,6 +324,8 @@ async function sendPage(db: Db, log: PushLog, run: Run, page: ScopedDevice[], st
   if (targets.length === 0) return { ...withHeld, cursor, ...local };
 
   const { allowed, reserved } = await admitPage(db, log, ctx, targets);
+  // 홀드아웃 실험이면 실제로 보내는 쪽도 남긴다 — 리프트를 대조군과 같은 규칙(받고 24시간 안의 전환)으로 잰다
+  if (ctx.holdoutPercent && allowed.length) await recordHoldout(db, log, [], allowed);
   const { items, fallback } = await pageItems(db, log, ctx, allowed);
 
   let next: ResumeState = {
@@ -376,11 +385,14 @@ async function runPages(db: Db, log: PushLog, run: Run, now: Date): Promise<Page
   if (waitUntil && waitUntil.getTime() > now.getTime()) return { state: resumed!, deferredUntil: waitUntil };
 
   // 상태가 깨졌어도 시도 횟수는 이어받는다 — 아니면 같은 실패를 한도 없이 반복한다
-  let state: ResumeState = resumed ?? initialState(abAudience(await countAudience(db, log), ctx.ab), log.variants?.length ?? null, parseAttempts(progress.raw));
+  let state: ResumeState = resumed ?? initialState(holdoutScale(abAudience(await countAudience(db, log), ctx.ab), ctx.holdoutPercent), log.variants?.length ?? null, parseAttempts(progress.raw));
   state = { ...state, nextPageAt: undefined };
   run.state = state;
+  // 하루 창은 **발송 시작 시각**부터 잰다 — 사흘 뒤로 예약한 발송을 큐잉 시각부터 재면 첫 회차부터
+  // 창이 지난 것으로 보고 모든 시간대에 한꺼번에 보낸다
+  const startedAt = Math.max(log.createdAt.getTime(), log.scheduledAt?.getTime() ?? 0);
   run.pass = ctx.localTime
-    ? openLocalPass(ctx.localTime, state.local, now, now.getTime() - log.createdAt.getTime() >= LOCAL_WINDOW_MS)
+    ? openLocalPass(ctx.localTime, state.local, now, now.getTime() - startedAt >= LOCAL_WINDOW_MS)
     : null;
 
   const scope = await resolveScope(db, log);
@@ -420,6 +432,9 @@ async function finishPass(db: Db, log: PushLog, run: Run, state: ResumeState): P
   if (!run.pass) return { state, deferredUntil: null };
   const local = closeLocalPass(run.pass);
   const next = { ...state, local, cursor: FIRST_CURSOR };
+  // 회차는 닫혔다 — defer 가 열린 회차 상태(passState)로 덮어쓰지 않게 비운다. 덮어쓰면 이번 회차에
+  // 보낸 묶음이 "보냄"에서 빠지고 지난 기준 시각이 남아, 다음 회차가 같은 사람들에게 다시 보낸다.
+  run.pass = null;
   if (!local.nextPassAt) return { state: next, deferredUntil: null };
   return defer(db, log, run, next, new Date(local.nextPassAt));
 }
@@ -491,6 +506,45 @@ async function loadFollowUpUsers(db: Db, log: PushLog): Promise<FollowUpUser[]> 
     })
     .from(pushUsers)
     .where(and(eq(pushUsers.projectId, log.projectId), inArray(pushUsers.externalId, ids), userNotSuppressed(log.projectId)));
+}
+
+/**
+ * 후속 채널(인박스·카카오)을 받을 사람 — 푸시를 받은 쪽과 같게 거른다.
+ *
+ * - 대조군(홀드아웃)은 뺀다: 인박스로 받으면 대조군이 아니게 되어 리프트 측정이 오염된다.
+ * - A/B 는 이 발송이 맡은 버킷의 기기가 있는 사람만: 표본 로그와 승자 로그가 각각 대상 전원에게
+ *   인박스를 넣으면 한 사람에게 두 통이 쌓인다. 기기가 없는 사람은 표본 쪽에 둔다 — 승자가 없으면
+ *   나머지 발송 자체가 나가지 않으므로, 그쪽에 두면 아무 것도 받지 못한다.
+ */
+async function followUpRecipients(db: Db, log: PushLog, ctx: SendContext, users: FollowUpUser[]): Promise<FollowUpUser[]> {
+  if (users.length === 0) return users;
+  const ids = users.map((u) => u.id);
+  const held = ctx.holdoutPercent
+    ? new Set(
+        (
+          await db
+            .select({ userId: pushHoldouts.userId })
+            .from(pushHoldouts)
+            .where(and(eq(pushHoldouts.logId, log.id), inArray(pushHoldouts.userId, ids)))
+        ).map((r) => r.userId)
+      )
+    : new Set<string | null>();
+  let kept = users.filter((u) => !held.has(u.id));
+  const ab = ctx.ab;
+  if (ab && kept.length) {
+    const rows = await db
+      .select({ userId: devices.userId, id: devices.id })
+      .from(devices)
+      .where(and(eq(devices.projectId, log.projectId), eq(devices.isActive, true), inArray(devices.userId, kept.map((u) => u.id))));
+    const buckets = new Map<string, boolean[]>();
+    for (const r of rows) if (r.userId) buckets.set(r.userId, [...(buckets.get(r.userId) ?? []), inAbSample(r.id, ab.samplePercent)]);
+    const wantSample = ab.part === "sample";
+    kept = kept.filter((u) => {
+      const b = buckets.get(u.id);
+      return b ? b.includes(wantSample) : wantSample;
+    });
+  }
+  return kept;
 }
 
 /** In-app 인박스. (log, user) 유니크라 재실행해도 한 번만 쌓인다. */
@@ -566,7 +620,7 @@ export async function runFollowUps(
 ): Promise<boolean> {
   let state: ResumeState = { ...sent, followUps: { ...sent.followUps } };
   if (!(await saveProgress(db, log.id, lockToken, state, progress))) return false;
-  const users = await loadFollowUpUsers(db, log);
+  const users = await followUpRecipients(db, log, ctx, await loadFollowUpUsers(db, log));
   const steps: Record<keyof FollowUps, () => Promise<void>> = {
     inbox: () => deliverInbox(db, log, ctx, users),
     kakao: () => deliverKakaoFallback(db, log, ctx, users, state.success),
@@ -699,7 +753,7 @@ async function countReclaim(db: Db, log: PushLog, lockToken: string, before: Pus
   const attempts = reclaimAttempts(before);
   if (attempts === null) return false;
   if (attempts >= MAX_SEND_ATTEMPTS) {
-    await failPermanently(db, log.id, lockToken, `attempt ${attempts}/${MAX_SEND_ATTEMPTS}: worker died without recording a failure`);
+    await failPermanently(db, log.id, lockToken, `attempt ${attempts}/${MAX_SEND_ATTEMPTS}: worker died without recording a failure`, progress.raw);
     return true;
   }
   const raw = withAttempts(progress.raw, attempts);

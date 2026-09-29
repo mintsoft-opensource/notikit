@@ -238,10 +238,12 @@ export const eventNameSchema = z
   .max(64)
   .regex(/^[^\p{C}]+$/u, "event must not contain control characters");
 
+// 제목·본문 모두 필수다. 발송기(finalizeMessage)는 둘 중 하나라도 비면 그 스텝을 건너뛰는데,
+// 저장 때 받아 주면 "저장됨"이 뜬 저니가 실제로는 아무에게도 보내지 않는다.
 const sendSchema = z.object({
   type: z.literal("send"),
-  title: z.string().max(255).optional(),
-  body: z.string().max(4000).optional(),
+  title: z.string().trim().min(1).max(255),
+  body: z.string().trim().min(1).max(4000),
 });
 const waitSchema = z.object({
   type: z.literal("wait"),

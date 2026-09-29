@@ -1,4 +1,5 @@
-import { and, arrayContains, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
+import { and, arrayContains, asc, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
+import { logSentAtSql } from "@/lib/log-sent-at";
 import { getDb } from "@/db/client";
 import { devices, journeys, journeyRuns, pushClicks, pushConversions, pushLogs, pushUsers } from "@/db/schema";
 import type { DbOrTx } from "@/lib/messages";
@@ -123,30 +124,38 @@ export async function conversionsSince(
 }
 
 /**
- * 분기가 보는 직전 발송 — 이 실행이 시작된 뒤 이 사람에게 나간 마지막 저니 발송.
+ * 분기가 보는 직전 발송 — 이 실행이 시작된 뒤 **이 저니가** 이 사람에게 보낸 마지막 발송.
+ *
+ * - `journey_id` 로 거른다: 한 사람이 저니 둘에 동시에 들어가 있으면 다른 저니의 발송·클릭으로
+ *   분기가 갈린다.
+ * - 보낸 시각은 큐잉 시각이 아니라 **실제로 나간 시각**(방해금지로 미뤄졌으면 그 종료 시각)이다.
+ *   큐잉 시각부터 재면 한밤중에 걸린 발송은 도착하기도 전에 창이 닫혀 전원이 no 로 간다.
+ * - 클릭은 **가장 이른** 것을 본다: 기기가 여럿이면 (로그, 기기)마다 클릭이 남는데, 가장 늦은 걸 보면
+ *   폰에서 곧바로 눌러도 태블릿에서 나중에 누른 클릭 때문에 창을 넘긴 것으로 판정된다.
  *
  * `created_at >= since` 로 훑는 범위를 묶는다. 없으면 저니 발송이 한 번도 없는 사람마다
  * 프로젝트의 발송 로그 전체를 역순으로 끝까지 훑는다(`push_logs_project_idx` 가
  * (project_id, created_at) 이라 범위가 없으면 멈출 자리가 없다).
- *
- * 한계: 한 사람이 저니 둘에 동시에 들어가 있으면 다른 저니의 발송을 집을 수 있다.
- * `journey_runs.last_send_log_id` 컬럼이 생기면 정확해진다.
  */
 export async function lastJourneySend(
   db: DbOrTx,
   projectId: string,
+  journeyId: string,
   userId: string,
   externalId: string,
   since: Date
 ): Promise<LastSend | null> {
   const log = (
     await db
-      .select({ id: pushLogs.id, createdAt: pushLogs.createdAt })
+      .select({
+        id: pushLogs.id,
+        sentAt: logSentAtSql().mapWith((v: string | Date) => new Date(v)),
+      })
       .from(pushLogs)
       .where(
         and(
           eq(pushLogs.projectId, projectId),
-          eq(pushLogs.sentBy, "journey"),
+          eq(pushLogs.journeyId, journeyId),
           eq(pushLogs.type, "single"),
           eq(pushLogs.target, externalId),
           gte(pushLogs.createdAt, since)
@@ -162,10 +171,10 @@ export async function lastJourneySend(
       .select({ clickedAt: pushClicks.clickedAt })
       .from(pushClicks)
       .where(and(eq(pushClicks.logId, log.id), eq(pushClicks.userId, userId)))
-      .orderBy(desc(pushClicks.clickedAt))
+      .orderBy(asc(pushClicks.clickedAt))
       .limit(1)
   )[0];
-  return { sentAt: log.createdAt, clickedAt: click?.clickedAt ?? null };
+  return { sentAt: log.sentAt, clickedAt: click?.clickedAt ?? null };
 }
 
 /**

@@ -1,7 +1,8 @@
-import { and, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { journeys, journeyRuns, projects, pushUsers } from "@/db/schema";
 import { enqueuePush, finalizeMessage } from "@/lib/messages";
+import { errorMessage, log } from "@/lib/logger";
 import {
   compileJourney,
   conversionsSince,
@@ -50,7 +51,7 @@ export async function processJourneyRun(runId: string): Promise<void> {
   const converted = await conversionsSince(db, run.projectId, run.userId, program.exitEvents, enrolledAt);
   const lastSend =
     instr?.kind === "branch" && user
-      ? await lastJourneySend(db, run.projectId, run.userId, user.externalId, enrolledAt)
+      ? await lastJourneySend(db, run.projectId, run.journeyId, run.userId, user.externalId, enrolledAt)
       : null;
 
   const plan = planStep(program, run.currentStep, {
@@ -92,7 +93,8 @@ export async function processJourneyRun(runId: string): Promise<void> {
 
     const project = (
       await tx
-        .select({ id: projects.id, quietStartHour: projects.quietStartHour, quietEndHour: projects.quietEndHour })
+        // 방해금지는 프로젝트 시간대로 판정한다 — 빠지면 UTC 로 계산돼 KST 프로젝트가 한밤중에 보낸다
+        .select({ id: projects.id, quietStartHour: projects.quietStartHour, quietEndHour: projects.quietEndHour, timezone: projects.timezone })
         .from(projects)
         .where(eq(projects.id, run.projectId))
         .limit(1)
@@ -117,16 +119,34 @@ export async function processJourneyRun(runId: string): Promise<void> {
 }
 
 /** 도래한 저니 실행 일괄 진행 (worker/cron). */
-export async function drainJourneys(projectId: string, limit = 100): Promise<{ processed: number }> {
+/** 처리하다 예외가 난 실행을 다시 집기까지 미루는 시간 — 같은 실행이 매 회차 맨 앞을 차지하지 않게 */
+const FAILED_RUN_BACKOFF_MS = 5 * 60_000;
+
+export async function drainJourneys(projectId: string, limit = 100): Promise<{ processed: number; failed: number }> {
   const db = getDb();
   const now = new Date();
   const due = await db
-    .select({ id: journeyRuns.id })
+    .select({ id: journeyRuns.id, currentStep: journeyRuns.currentStep })
     .from(journeyRuns)
     .where(and(eq(journeyRuns.projectId, projectId), eq(journeyRuns.status, "active"), lte(journeyRuns.nextRunAt, now)))
+    .orderBy(asc(journeyRuns.nextRunAt))
     .limit(limit);
-  for (const { id } of due) await processJourneyRun(id);
-  return { processed: due.length };
+  // 한 건이 던져도 나머지는 돈다 — 전에는 첫 예외에서 회차 전체가 멈췄고, 같은 행이 계속
+  // 실패하면 그 프로젝트의 저니가 통째로 막혔다. 실패한 실행은 조금 뒤로 미룬다.
+  let failed = 0;
+  for (const run of due) {
+    try {
+      await processJourneyRun(run.id);
+    } catch (e) {
+      failed++;
+      log.error("journey.run_failed", { projectId, runId: run.id, step: run.currentStep, error: errorMessage(e) });
+      await db
+        .update(journeyRuns)
+        .set({ nextRunAt: new Date(Date.now() + FAILED_RUN_BACKOFF_MS) })
+        .where(and(eq(journeyRuns.id, run.id), eq(journeyRuns.status, "active"), eq(journeyRuns.currentStep, run.currentStep)));
+    }
+  }
+  return { processed: due.length - failed, failed };
 }
 
 /**

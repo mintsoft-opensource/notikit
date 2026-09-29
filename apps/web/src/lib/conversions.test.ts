@@ -11,7 +11,7 @@ import {
   MAX_CONVERSION_NAMES_PER_PROJECT,
   VALUE_CENTS_MAX,
 } from "./conversions";
-import { variantForToken, variantIndex } from "./push-variant";
+import { variantForDevice, variantIndex } from "./push-variant";
 import { applyUserIdAlias } from "./user-id-alias";
 
 const now = new Date("2026-03-01T12:00:00Z");
@@ -159,22 +159,22 @@ describe("admitConversionName (프로젝트별 이름 카디널리티 상한)", 
   });
 });
 
-describe("variantForToken", () => {
+describe("variantForDevice", () => {
   it("변형이 없는 발송이면 null", () => {
-    expect(variantForToken("tok", null)).toBeNull();
-    expect(variantForToken("tok", 0)).toBeNull();
-    expect(variantForToken("tok", undefined)).toBeNull();
+    expect(variantForDevice("tok", null)).toBeNull();
+    expect(variantForDevice("tok", 0)).toBeNull();
+    expect(variantForDevice("tok", undefined)).toBeNull();
   });
 
   it("클릭에 기록하는 변형은 발송이 배정한 것과 같다", () => {
-    for (const token of ["a", "tok-1", "가나다", "x".repeat(200)]) {
-      expect(variantForToken(token, 2)).toBe(variantIndex(token, 2));
-      expect(variantForToken(token, 3)).toBe(variantIndex(token, 3));
+    for (const id of ["a", "dev-1", "가나다", "x".repeat(200)]) {
+      expect(variantForDevice(id, 2)).toBe(variantIndex(id, 2));
+      expect(variantForDevice(id, 3)).toBe(variantIndex(id, 3));
     }
   });
 
-  it("같은 토큰은 항상 같은 변형 — 재클레임으로 이어 보내도 뒤집히지 않는다", () => {
-    expect(variantForToken("tok", 2)).toBe(variantForToken("tok", 2));
-    expect(variantForToken("tok", 2)).toBeLessThan(2);
+  it("같은 기기는 항상 같은 변형 — 재클레임으로 이어 보내도, 토큰이 바뀌어도 뒤집히지 않는다", () => {
+    expect(variantForDevice("tok", 2)).toBe(variantForDevice("tok", 2));
+    expect(variantForDevice("tok", 2)).toBeLessThan(2);
   });
 });

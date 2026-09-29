@@ -15,7 +15,7 @@ import {
 import { variantIndex } from "./push-variant";
 
 const tokens = Array.from({ length: 4000 }, (_, i) => `tok-${i}-${(i * 7919) % 101}`);
-const rows = tokens.map((token) => ({ token }));
+const rows = tokens.map((id) => ({ id }));
 
 describe("해시 버킷 분할", () => {
   it("버킷은 0~99 이고 같은 토큰은 언제 계산해도 같다", () => {
@@ -31,15 +31,15 @@ describe("해시 버킷 분할", () => {
     const part = { samplePercent: 20 };
     const sample = abTargets({ part: "sample", ...part }, rows);
     const rest = abTargets({ part: "remainder", ...part }, rows);
-    const inSample = new Set(sample.map((r) => r.token));
+    const inSample = new Set(sample.map((r) => r.id));
     expect(sample.length + rest.length).toBe(rows.length);
-    expect(rest.some((r) => inSample.has(r.token))).toBe(false);
-    expect(new Set([...sample, ...rest].map((r) => r.token)).size).toBe(rows.length);
+    expect(rest.some((r) => inSample.has(r.id))).toBe(false);
+    expect(new Set([...sample, ...rest].map((r) => r.id)).size).toBe(rows.length);
   });
 
   it("표본 크기가 지정한 비율 근처다", () => {
     for (const pct of [5, 20, 50]) {
-      const n = rows.filter((r) => inAbSample(r.token, pct)).length;
+      const n = rows.filter((r) => inAbSample(r.id, pct)).length;
       expect(Math.abs(n / rows.length - pct / 100)).toBeLessThan(0.03);
     }
   });

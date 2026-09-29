@@ -12,6 +12,27 @@ export interface ClickDevice {
   createdAt: Date;
 }
 
+/** 아직 대상을 훑고 있는 상태 — 이 동안 등록된 기기도 뒤 페이지·다음 회차에서 받을 수 있다 */
+const STILL_SENDING = new Set(["queued", "scheduled", "processing"]);
+
+/**
+ * 이 발송이 마지막으로 기기에 나갔을 수 있는 시각.
+ *
+ * 큐잉·예약 시각 하나로 자르면 안 된다: 받는 사람 현지 시각 발송은 최대 하루에 걸쳐 회차마다
+ * 대상을 처음부터 다시 훑고, 속도 제한이 걸린 긴 발송도 뒤 페이지에서 새 기기를 만난다 —
+ * 그 기기의 수신·클릭이 전부 403 이 되어 도달률·클릭률이 과소 집계됐다.
+ * 보내는 중이면 지금까지, 끝났으면 마지막 하트비트(`locked_at`, 페이지마다 갱신)까지다.
+ */
+export function latestSendAt(log: Pick<PushLog, "createdAt" | "scheduledAt" | "lockedAt" | "status">, now: Date): Date {
+  if (STILL_SENDING.has(log.status)) return now;
+  const t = Math.max(
+    new Date(log.createdAt).getTime(),
+    log.scheduledAt ? new Date(log.scheduledAt).getTime() : 0,
+    log.lockedAt ? new Date(log.lockedAt).getTime() : 0
+  );
+  return new Date(t);
+}
+
 /**
  * 이 디바이스가 이 발송의 수신 대상이었을 수 있는가.
  *
@@ -27,16 +48,8 @@ export interface ClickDevice {
  * (log_id, device) 유니크가 받는다.
  */
 export async function isPlausibleRecipient(db: Db, log: PushLog, device: ClickDevice): Promise<boolean> {
-  // 발송 이후에 등록된 기기는 대상이 될 수 없다.
-  //
-  // 기준은 큐잉 시각이 아니라 **실제로 나간 시각**이다. 예약 발송은 수신자를 처리
-  // 시점에 고르므로, 큐잉 뒤에 등록된 기기도 정당한 수신자가 된다. 큐잉 시각으로
-  // 자르면 그 기기들의 클릭이 전부 403 이 되어 예약 발송의 클릭률이 과소 집계된다.
-  const sentAt = Math.max(
-    new Date(log.createdAt).getTime(),
-    log.scheduledAt ? new Date(log.scheduledAt).getTime() : 0
-  );
-  if (device.createdAt.getTime() > sentAt) return false;
+  // 발송이 마지막으로 나간 뒤에 등록된 기기는 대상이 될 수 없다(latestSendAt 참고).
+  if (device.createdAt.getTime() > latestSendAt(log, new Date()).getTime()) return false;
 
   const { id: deviceId, userId } = device;
   if (log.type === "broadcast") return true;

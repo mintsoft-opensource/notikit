@@ -91,9 +91,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; jou
     raw`select l.step_path as step_path,
                coalesce(sum(l.total_count), 0)::int as sent,
                coalesce(sum(l.click_count), 0)::int as clicks,
-               count(distinct v.id)::int as conversions
+               coalesce(sum(v.n), 0)::int as conversions
           from push_logs l
-          left join push_conversions v on v.log_id = l.id
+          -- 전환은 로그별로 먼저 센다. 그대로 조인하면 로그 한 행이 전환 행 수만큼 반복돼
+          -- sent·clicks 합계가 부풀려진다. 대조군 전환은 푸시가 만든 전환이 아니므로 뺀다.
+          left join (
+            select log_id, count(*) as n from push_conversions
+             where project_id = ${id} and holdout = false and exposure = false
+             group by log_id
+          ) v on v.log_id = l.id
          where l.project_id = ${id} and l.journey_id = ${journeyId} and l.step_path is not null
          group by l.step_path`
   )) as unknown as { step_path: string; sent: number; clicks: number; conversions: number }[];

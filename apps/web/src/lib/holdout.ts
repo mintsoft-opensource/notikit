@@ -23,13 +23,14 @@ export const HOLDOUT_MAX = 50;
 
 const HOLDOUT_SALT = "holdout:";
 
-export type HoldoutRow = { token: string; userId: string | null };
+export type HoldoutRow = { id: string; userId: string | null };
 
 /**
- * 버킷 키 — 사람이 있으면 사람, 없으면 기기. 사람이 기기를 바꿔도 같은 쪽에 남는다(순수 함수).
+ * 버킷 키 — 사람이 있으면 사람, 없으면 기기(id). 사람이 기기를 바꿔도 같은 쪽에 남고,
+ * 익명 기기는 토큰이 교체돼도 같은 쪽에 남는다(순수 함수).
  */
 export function holdoutKey(row: HoldoutRow): string {
-  return row.userId ? `${HOLDOUT_SALT}u:${row.userId}` : `${HOLDOUT_SALT}d:${row.token}`;
+  return row.userId ? `${HOLDOUT_SALT}u:${row.userId}` : `${HOLDOUT_SALT}d:${row.id}`;
 }
 
 /** 이 주체가 대조군인가(순수 함수). 같은 사람은 언제 계산해도 같은 답이 나온다. */
@@ -51,30 +52,42 @@ export function splitHoldout<T extends HoldoutRow>(rows: T[], percent: number | 
 }
 
 /**
- * 대조군 명단을 남긴다. 남기지 않으면 나중에 누가 대조군이었는지 복원할 방법이 없다 —
- * 기기 집합은 계속 변하고 해시만으로는 "그때 대상이었는가"를 되살릴 수 없다.
+ * 실험 명단을 남긴다 — 대조군(held)과, 실제로 보낸 발송군(sent). 남기지 않으면 나중에 누가 어느 쪽이었는지
+ * 복원할 방법이 없다 — 기기 집합은 계속 변하고 해시만으로는 "그때 대상이었는가"를 되살릴 수 없다.
+ * 발송군도 남겨야 두 쪽의 전환을 "발송 뒤 24시간 안"이라는 같은 규칙으로 잴 수 있다.
  * (log, device) 기본키라 재클레임이 같은 페이지를 다시 훑어도 한 행이다.
  */
 export async function recordHoldout(
   db: Db,
   log: Pick<PushLog, "id" | "projectId">,
-  held: Array<{ id: string; userId: string | null }>
+  held: Array<{ id: string; userId: string | null }>,
+  sent: Array<{ id: string; userId: string | null }> = []
 ): Promise<void> {
-  if (held.length === 0) return;
-  await db
-    .insert(pushHoldouts)
-    .values(held.map((d) => ({ projectId: log.projectId, logId: log.id, deviceId: d.id, userId: d.userId })))
-    .onConflictDoNothing();
+  const row = (d: { id: string; userId: string | null }, isHeld: boolean) => ({
+    projectId: log.projectId,
+    logId: log.id,
+    deviceId: d.id,
+    userId: d.userId,
+    held: isHeld,
+  });
+  const rows = [...held.map((d) => row(d, true)), ...sent.map((d) => row(d, false))];
+  if (rows.length === 0) return;
+  await db.insert(pushHoldouts).values(rows).onConflictDoNothing();
 }
 
 export type HoldoutSubject = { deviceId: string | null; userId: string | null };
 
 /**
- * 이 주체가 최근에 들어간 홀드아웃 발송. 전환 보고가 **클릭이 없을 때** 쓴다 —
- * 대조군은 정의상 푸시를 받지 않았으므로 클릭이 없고, 클릭만 보는 귀속으로는 영원히 0건이다.
- * 귀속 창(클릭 귀속과 같은 24시간) 안의 가장 최근 것 하나만 본다.
+ * 이 주체가 최근에 들어간 홀드아웃 실험 발송과 그 쪽(대조군/발송군). 전환 보고가 **클릭이 없을 때** 쓴다 —
+ * 대조군은 정의상 푸시를 받지 않았으므로 클릭이 없고, 발송군도 누르지 않고 전환할 수 있다. 두 쪽 모두
+ * "발송 뒤 24시간 안의 전환"으로 세야 리프트가 성립한다. 귀속 창 안의 가장 최근 것 하나만 본다.
  */
-export async function findHoldoutLog(db: Db, projectId: string, subject: HoldoutSubject, since: Date): Promise<string | null> {
+export async function findExperimentLog(
+  db: Db,
+  projectId: string,
+  subject: HoldoutSubject,
+  since: Date
+): Promise<{ logId: string; held: boolean } | null> {
   const scope = subject.userId
     ? eq(pushHoldouts.userId, subject.userId)
     : subject.deviceId
@@ -83,13 +96,24 @@ export async function findHoldoutLog(db: Db, projectId: string, subject: Holdout
   if (!scope) return null;
   const row = (
     await db
-      .select({ logId: pushHoldouts.logId })
+      .select({ logId: pushHoldouts.logId, held: pushHoldouts.held })
       .from(pushHoldouts)
       .where(and(eq(pushHoldouts.projectId, projectId), scope, gt(pushHoldouts.createdAt, since)))
       .orderBy(desc(pushHoldouts.createdAt))
       .limit(1)
   )[0];
-  return row?.logId ?? null;
+  return row ?? null;
+}
+
+/**
+ * 발송군 분모 — 대조군 비율만큼 대상 수를 줄인다(A/B 의 abScale 과 같은 어림).
+ * 대조군은 받지 않았으니 클릭할 수도 없다. 전체 대상을 분모로 두면 대조군 20% 인 발송의
+ * 클릭률이 20% 낮게 나오고, 로그 목록 순위·통계·CSV 에 그대로 번진다.
+ */
+export function holdoutScale(a: { users: number; devices: number }, percent: number | null | undefined) {
+  if (!percent) return a;
+  const keep = (n: number) => Math.round((n * (100 - percent)) / 100);
+  return { users: keep(a.users), devices: keep(a.devices) };
 }
 
 /** 리프트(%) — 대조군 전환율 대비. 대조군 전환율이 0 이면 비율을 낼 수 없어 null(순수 함수). */

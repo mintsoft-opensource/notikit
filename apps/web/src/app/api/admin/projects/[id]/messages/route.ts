@@ -35,7 +35,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const project = (
     await getDb()
-      .select({ id: projects.id, quietStartHour: projects.quietStartHour, quietEndHour: projects.quietEndHour })
+      // 방해금지는 프로젝트 시간대로 판정한다 — 빠지면 UTC 로 계산돼 KST 프로젝트가 한밤중에 보낸다
+        .select({ id: projects.id, quietStartHour: projects.quietStartHour, quietEndHour: projects.quietEndHour, timezone: projects.timezone })
       .from(projects)
       .where(eq(projects.id, id))
       .limit(1)

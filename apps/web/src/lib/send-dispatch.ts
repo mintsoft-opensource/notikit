@@ -75,14 +75,14 @@ export type SendItem = { token: string; vi: number | null; title: string; body: 
  * 두 축을 함께 주는 것을 막는다(`localeVariantsError`).
  */
 export function buildItems(
-  rows: Array<Pick<ScopedDevice, "token" | "platform">>,
+  rows: Array<Pick<ScopedDevice, "id" | "token" | "platform">>,
   base: { title: string; body: string },
   variants: { title: string; body: string }[] | null,
   render: ((text: string, token: string) => string) | null,
   contentOf?: Map<string, LocaleText> | null
 ): SendItem[] {
   return rows.map((r) => {
-    const vi = variants ? variantIndex(r.token, variants.length) : null;
+    const vi = variants ? variantIndex(r.id, variants.length) : null;
     const content = vi === null ? (contentOf?.get(r.token) ?? base) : variants![vi];
     return {
       token: r.token,

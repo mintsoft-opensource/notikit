@@ -4,7 +4,7 @@
  * push-processor 에서 떼어 낸 이유: 여기 규칙(커서·시도 횟수·락)이 처리기 본문과 섞이면
  * "어디까지 보냈는가"와 "무엇을 보내는가"를 같이 고쳐야 해서 둘 다 위험해진다.
  */
-import { and, eq, or, isNull, lt, lte } from "drizzle-orm";
+import { and, eq, or, isNull, lt, lte, sql } from "drizzle-orm";
 import { pushLogs, type PushLog } from "@/db/schema";
 import type { Db } from "@/lib/audience-count";
 import type { LocalState } from "@/lib/local-delivery";
@@ -88,10 +88,12 @@ function parseLocal(v: unknown): LocalState | undefined {
   if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
   const o = v as Record<string, unknown>;
   const offsets = Array.isArray(o.sentOffsets) ? o.sentOffsets.filter((x): x is string => typeof x === "string") : [];
+  const sending = Array.isArray(o.sending) ? o.sending.filter((x): x is string => typeof x === "string") : [];
   return {
     sentOffsets: offsets,
     passAt: isIso(o.passAt) ? o.passAt : null,
     nextPassAt: isIso(o.nextPassAt) ? o.nextPassAt : null,
+    ...(sending.length ? { sending } : {}),
   };
 }
 
@@ -260,12 +262,30 @@ function reasonOf(err: unknown, attempts: number): string {
   return `attempt ${attempts}/${MAX_SEND_ATTEMPTS}: ${msg}`.slice(0, FAILURE_REASON_MAX);
 }
 
+/**
+ * 실패로 닫을 때 그때까지 보낸 수 — 진행 상태에만 있고 로그 칸은 0 인 채로 닫히면
+ * "10만 건 중 5만 건이 나간 뒤 실패"가 "아무에게도 안 나감"으로 남는다.
+ * 줄어드는 쪽으로는 쓰지 않는다(취소 경로의 recordCanceledProgress 와 같은 규칙).
+ */
+function sentCounts(raw: string | null | undefined) {
+  const state = parseResumeState(raw);
+  if (!state) return {};
+  return {
+    totalCount: sql`greatest(${pushLogs.totalCount}, ${state.total})`,
+    successCount: sql`greatest(${pushLogs.successCount}, ${state.success})`,
+    failureCount: sql`greatest(${pushLogs.failureCount}, ${state.failure})`,
+    holdoutCount: sql`greatest(${pushLogs.holdoutCount}, ${state.holdout ?? 0})`,
+    audienceUserCount: state.audience.users,
+    audienceDeviceCount: state.audience.devices,
+  };
+}
+
 /** 다시 시도하지 않을 실패(대상이 사라진 경우 등) — 사유를 남기고 닫는다 */
-export async function failPermanently(db: Db, logId: string, lockToken: string, reason: string): Promise<void> {
+export async function failPermanently(db: Db, logId: string, lockToken: string, reason: string, raw?: string | null): Promise<void> {
   // 우리 소유일 때만 실패 표시 (새 워커의 클레임을 덮지 않음)
   await db
     .update(pushLogs)
-    .set({ status: "failed", failureReason: reason.slice(0, FAILURE_REASON_MAX) })
+    .set({ status: "failed", failureReason: reason.slice(0, FAILURE_REASON_MAX), ...sentCounts(raw) })
     .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
 }
 
@@ -294,7 +314,7 @@ export async function settleFailure(db: Db, logId: string, lockToken: string, er
     .set(
       retryable
         ? { resumeCursor: withAttempts(raw, attempts), lockToken: null }
-        : { status: "failed", resumeCursor: withAttempts(raw, attempts), failureReason: reasonOf(err, attempts) }
+        : { status: "failed", resumeCursor: withAttempts(raw, attempts), failureReason: reasonOf(err, attempts), ...sentCounts(raw) }
     )
     .where(and(eq(pushLogs.id, logId), eq(pushLogs.lockToken, lockToken)));
   return retryable;

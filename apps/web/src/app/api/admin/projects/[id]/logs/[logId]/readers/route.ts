@@ -96,6 +96,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
   const start = new Date(startMs);
   if (bucketMs === HOUR) start.setUTCMinutes(0, 0, 0);
   else start.setUTCHours(0, 0, 0, 0);
+  // SQL 의 date_trunc('week') 는 월요일 경계다 — 시작점도 그 주 월요일로 맞춰야 키가 맞는다.
+  // 안 맞추면 차트의 거의 모든 주가 0 으로 보인다.
+  if (bucketMs === 7 * DAY) start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
 
   const series: Array<{ ts: string; count: number; cumulative: number }> = [];
   let running = 0;

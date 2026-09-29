@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { pushClicks, pushLogs } from "@/db/schema";
+import { logSentAtSql } from "@/lib/log-sent-at";
 import { fail } from "@/lib/api-response";
 import { requireProject } from "@/lib/authz";
 import { beforeCursor, cursorExpr, type Cursor } from "@/lib/keyset";
@@ -57,7 +58,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
           type: pushLogs.type,
           platform: pushClicks.platform,
           variant: pushClicks.variant,
-          secondsToRead: sql<number | null>`extract(epoch from (${pushClicks.clickedAt} - ${pushLogs.createdAt}))::int`,
+          secondsToRead: sql<number | null>`extract(epoch from (${pushClicks.clickedAt} - ${logSentAtSql()}))::int`,
           dow: sql<number>`extract(dow from ${pushClicks.clickedAt} at time zone 'UTC')::int`,
           hour: sql<number>`extract(hour from ${pushClicks.clickedAt} at time zone 'UTC')::int`,
           clickedAt: pushClicks.clickedAt,

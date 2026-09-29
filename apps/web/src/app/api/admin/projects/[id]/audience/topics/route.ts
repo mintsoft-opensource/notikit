@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { topics } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
@@ -29,26 +29,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       name: topics.name,
       rules: topics.rules,
       createdAt: topics.createdAt,
-      // 서브쿼리 안에서는 별칭을 쓴다 — 바깥 topics.id 와 devices.id 가 섞여
-      // "column reference id is ambiguous" 로 터진다
-      deviceCount: sql<number>`(
-        select count(*)::int from subscriptions s
-        join devices d on d.id = s.device_id
-        where s.topic_id = topics.id and d.is_active = true
-      )`,
-      userCount: sql<number>`(
-        select count(distinct d.user_id)::int from subscriptions s
-        join devices d on d.id = s.device_id
-        where s.topic_id = topics.id and d.is_active = true
-      )`,
     })
     .from(topics)
     .where(eq(topics.projectId, id))
     .orderBy(desc(topics.createdAt));
 
+  // 구독식·규칙식 모두 상세·발송 추정과 같은 함수로 센다. 목록만 따로 세면 수신 거부한 기기가
+  // 목록에는 들어가고 발송에서는 빠져, 삭제 경고와 도달 인원이 서로 다른 숫자를 말한다.
   const withCounts = await Promise.all(
     rows.map(async (t) => {
-      if (!isRuleFilled(t.rules)) return t;
       const c = await countTopicAudience(db, id, t);
       return { ...t, deviceCount: c.devices, userCount: c.users };
     })
@@ -114,7 +103,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!existing) return fail("Topic was deleted concurrently — retry", 409);
   const sameKind = isRuleFilled(existing.rules) === isRuleFilled(rules ?? null);
   if (!sameKind) return fail("A topic with this name already exists with a different fill mode", 409);
+  // 같은 이름의 규칙식 토픽을 **다른 조건으로** 만들면 새 조건이 버려지는데 200 이면 콘솔이 "생성됨"을 띄운다.
+  // 같은 요청의 재시도(조건까지 같음)만 200 으로 멱등 처리하고, 조건이 다르면 수정하라고 알린다.
+  if (isRuleFilled(existing.rules) && stableJson(existing.rules) !== stableJson(rules ? toStoredRules(rules) : null)) {
+    return fail("A topic with this name already exists with different rules — edit that topic instead", 409);
+  }
   return ok({ topic: existing }, undefined, 200);
+}
+
+/** 키 순서와 무관한 JSON — jsonb 는 저장할 때 키 순서를 바꾸므로 그대로 비교하면 같은 규칙도 달라 보인다 */
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stableJson((v as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v ?? null);
 }
 
 /** [Web Admin] 토픽 삭제 — 구독은 cascade 로 함께 사라진다 */

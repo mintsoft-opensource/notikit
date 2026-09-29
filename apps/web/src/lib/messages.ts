@@ -357,14 +357,14 @@ export function targetError(b: Pick<MessageInput, "type" | "target" | "targets">
 
 /**
  * 큐잉에 필요한 프로젝트 값. `timezone` 은 방해금지 시간대를 재는 기준이다 —
- * 선택값으로 둔 건 호출부가 프로젝트 행 전체를 읽지 않고 필요한 칼럼만 고르기 때문이고,
- * 주지 않으면 UTC 로 본다(칼럼이 생기기 전과 같은 동작).
+ * 필수로 둔다: 선택값이던 때 콘솔 발송·저니가 이 칼럼을 빼먹어 UTC 로 판정했고,
+ * KST 프로젝트가 한밤중에 보냈다. 시간대가 정말 없으면 null 을 명시한다.
  */
 export type EnqueueProject = {
   id: string;
   quietStartHour: number | null;
   quietEndHour: number | null;
-  timezone?: string | null;
+  timezone: string | null;
 };
 
 export type EnqueueOptions = {

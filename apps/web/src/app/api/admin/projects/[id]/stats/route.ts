@@ -48,7 +48,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     .from(pushLogs)
     .where(and(eq(pushLogs.projectId, id), gte(pushLogs.createdAt, prevSince), lt(pushLogs.createdAt, since)));
 
-  /** 전환 집계 — 기간별 건수와 금액 합. 금액 없는 전환은 0 으로 더해진다(합계가 null 이 되지 않게) */
+  /**
+   * 전환 집계 — 기간별 건수와 금액 합. 금액 없는 전환은 0 으로 더해진다(합계가 null 이 되지 않게).
+   * 대조군 전환은 뺀다: 푸시를 받지 않은 사람의 전환이라 "푸시가 만든 전환" KPI 에 섞이면 안 된다.
+   */
   const conversionAgg = (from: Date, to?: Date) =>
     db
       .select({
@@ -59,6 +62,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       .where(
         and(
           eq(pushConversions.projectId, id),
+          eq(pushConversions.holdout, false),
+          // 클릭 없이 받기만 한 전환(리프트 비교용)도 뺀다 — 이 KPI 는 "클릭에 귀속된 전환"이다
+          eq(pushConversions.exposure, false),
           gte(pushConversions.createdAt, from),
           ...(to ? [lt(pushConversions.createdAt, to)] : [])
         )

@@ -59,6 +59,11 @@ export type LocalState = {
   passAt: string | null;
   /** 다음 회차를 열 시각(ISO). null 이면 미룬 묶음이 없다. */
   nextPassAt: string | null;
+  /**
+   * 진행 중인 회차에서 이미 보내기 시작한 묶음. 회차 중간에 죽었다 이어 가도 이 값이 있어야
+   * 회차를 닫을 때 앞쪽에서 보낸 묶음이 "보냄"으로 남는다 — 빠지면 다음 회차에서 또 보낸다.
+   */
+  sending?: string[];
 };
 
 /** 한 회차 동안의 누적 — 어떤 묶음을 보냈고 어떤 묶음을 언제로 미뤘는지 */
@@ -74,8 +79,16 @@ export type LocalPass = {
 };
 
 export function openLocalPass(time: LocalTime, prev: LocalState | undefined, now: Date, expired: boolean): LocalPass {
-  const at = prev?.passAt ? new Date(prev.passAt) : now;
-  return { time, at, expired, done: new Set(prev?.sentOffsets ?? []), sending: new Set(), deferAt: null };
+  // 회차 중간이면(passAt 있음) 보내던 묶음과 미뤄 둔 시각까지 이어받는다
+  const midPass = Boolean(prev?.passAt);
+  return {
+    time,
+    at: midPass ? new Date(prev!.passAt!) : now,
+    expired,
+    done: new Set(prev?.sentOffsets ?? []),
+    sending: new Set(midPass ? prev!.sending ?? [] : []),
+    deferAt: midPass && prev!.nextPassAt ? Date.parse(prev!.nextPassAt) : null,
+  };
 }
 
 export type ZoneRow = { token: string };
@@ -115,6 +128,7 @@ export function passState(pass: LocalPass): LocalState {
     sentOffsets: [...pass.done].sort(),
     passAt: pass.at.toISOString(),
     nextPassAt: pass.deferAt === null ? null : new Date(pass.deferAt).toISOString(),
+    sending: [...pass.sending].sort(),
   };
 }
 

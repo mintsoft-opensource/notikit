@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { pushClicks, pushConversions, pushLogs } from "@/db/schema";
+import { notifications, pushClicks, pushConversions, pushHoldouts, pushLogs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
 import { requireProject } from "@/lib/authz";
 import { conversionLift } from "@/lib/holdout";
@@ -81,7 +81,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
   if (!row) return fail("Not found", 404);
 
   // 로그가 이 프로젝트의 것임을 위에서 확인한 뒤에만 집계한다 — 없는 id 로 통계를 긁게 두지 않는다.
-  const [variantClicks, conversionTotal, conversionNames] = await Promise.all([
+  const [variantClicks, conversionTotal, conversionNames, inboxRow, treatedRow] = await Promise.all([
     db
       .select({ variant: pushClicks.variant, clicks: sql<number>`count(*)::int` })
       .from(pushClicks)
@@ -90,13 +90,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
     db
       .select({
         holdout: pushConversions.holdout,
+        exposure: pushConversions.exposure,
         count: sql<number>`count(*)::int`,
         valueCents: sql<number>`coalesce(sum(${pushConversions.valueCents}), 0)::int`,
       })
       .from(pushConversions)
       .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id)))
-      // 대조군 전환과 보낸 쪽 전환은 **같은 칸에 담지 않는다** — 섞으면 리프트가 거꾸로 나온다
-      .groupBy(pushConversions.holdout),
+      // 대조군 전환과 보낸 쪽 전환은 **같은 칸에 담지 않는다** — 섞으면 리프트가 거꾸로 나온다.
+      // 보낸 쪽도 클릭 귀속(exposure=false)과 무클릭(exposure=true)을 나눠 받는다 — 전환 카드는 앞쪽만,
+      // 리프트는 둘 다 쓴다(대조군과 같은 "받고 24시간 안" 규칙).
+      .groupBy(pushConversions.holdout, pushConversions.exposure),
     db
       .select({
         name: pushConversions.name,
@@ -104,18 +107,38 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
         valueCents: sql<number>`coalesce(sum(${pushConversions.valueCents}), 0)::int`,
       })
       .from(pushConversions)
-      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id), eq(pushConversions.holdout, false)))
+      .where(and(eq(pushConversions.logId, logId), eq(pushConversions.projectId, id), eq(pushConversions.holdout, false), eq(pushConversions.exposure, false)))
       .groupBy(pushConversions.name)
       .orderBy(desc(sql`count(*)`), pushConversions.name)
       .limit(CONVERSION_NAMES_SHOWN),
+    // 인박스 읽음 — 사람 단위다(인박스는 사람마다 한 통). 분모도 이 발송이 넣은 인박스 수여야
+    // 단위가 맞는다: 기기 단위인 FCM 접수 수로 나누면 비율이 의미를 잃는다.
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        read: sql<number>`count(${notifications.readAt})::int`,
+      })
+      .from(notifications)
+      .where(and(eq(notifications.logId, logId), eq(notifications.projectId, id))),
+    // 리프트의 보낸 쪽 분모 — 실제로 보낸 기기(held=false). 대조군 분모(held=true 기기 수)와 같은 단위다.
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(pushHoldouts)
+      .where(and(eq(pushHoldouts.logId, logId), eq(pushHoldouts.projectId, id), eq(pushHoldouts.held, false))),
   ]);
 
-  const sentConv = conversionTotal.find((r) => !r.holdout);
+  const sentConv = conversionTotal.find((r) => !r.holdout && !r.exposure);
+  const exposureConv = conversionTotal.find((r) => !r.holdout && r.exposure);
   const heldConv = conversionTotal.find((r) => r.holdout);
+  /** 리프트의 보낸 쪽 — 클릭 귀속 + 무클릭(받고 24시간 안). 대조군과 같은 규칙으로 센 수 */
+  const sentForLift = (sentConv?.count ?? 0) + (exposureConv?.count ?? 0);
+  // 발송군 명단이 없는 옛 로그(0031 이전)는 FCM 접수 수로 어림한다
+  const sentTotal = treatedRow[0]?.n || row.successCount;
   const holdoutConversions = { count: heldConv?.count ?? 0, valueCents: heldConv?.valueCents ?? 0 };
 
   return ok({
     log: row,
+    inbox: { total: inboxRow[0]?.total ?? 0, read: inboxRow[0]?.read ?? 0 },
     // 변형이 없던 발송의 클릭은 variant 가 null 이다 — 0번으로 접어 넣지 않는다
     clicks: { byVariant: variantClicks },
     conversions: {
@@ -133,9 +156,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string; log
       conversions: holdoutConversions,
       // 발송군의 전환/분모도 함께 준다 — 화면이 두 **비율**을 나란히 놓을 수 있어야
       // 비교가 성립한다. 분모가 다른 건수 두 개만 주면 화면에서 비교할 방법이 없다.
-      sent: { converted: sentConv?.count ?? 0, total: row.successCount },
+      sent: { converted: sentForLift, total: sentTotal },
       lift: conversionLift(
-        { converted: sentConv?.count ?? 0, total: row.successCount },
+        { converted: sentForLift, total: sentTotal },
         { converted: holdoutConversions.count, total: row.holdoutCount }
       ),
     },

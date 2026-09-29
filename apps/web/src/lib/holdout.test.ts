@@ -1,21 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { conversionLift, holdoutKey, inHoldout, splitHoldout, HOLDOUT_MAX, HOLDOUT_MIN } from "./holdout";
+import { conversionLift, holdoutKey, holdoutScale, inHoldout, splitHoldout, HOLDOUT_MAX, HOLDOUT_MIN } from "./holdout";
 import { abBucket, inAbSample } from "./ab-test";
 
-const rows = Array.from({ length: 4000 }, (_, i) => ({ token: `tok-${i}`, userId: `user-${i}` }));
+const rows = Array.from({ length: 4000 }, (_, i) => ({ id: `dev-${i}`, userId: `user-${i}` }));
 
 describe("홀드아웃 배정", () => {
   it("같은 사람은 언제 계산해도 같은 쪽이다 — 발송마다 다시 뽑으면 숫자가 의미를 잃는다", () => {
-    const row = { token: "tok-1", userId: "user-1" };
+    const row = { id: "dev-1", userId: "user-1" };
     const first = inHoldout(row, 20);
     for (let i = 0; i < 50; i++) expect(inHoldout(row, 20)).toBe(first);
     // 기기를 바꿔도 사람이 같으면 같은 쪽에 남는다
-    expect(inHoldout({ token: "다른-토큰", userId: "user-1" }, 20)).toBe(first);
+    expect(inHoldout({ id: "다른-기기", userId: "user-1" }, 20)).toBe(first);
   });
 
-  it("사람이 없는 익명 기기는 토큰으로 고정한다", () => {
-    expect(holdoutKey({ token: "t", userId: null })).not.toBe(holdoutKey({ token: "t", userId: "u" }));
-    const anon = { token: "anon-1", userId: null };
+  it("사람이 없는 익명 기기는 기기 id 로 고정한다 — 토큰이 교체돼도 같은 쪽에 남는다", () => {
+    expect(holdoutKey({ id: "d", userId: null })).not.toBe(holdoutKey({ id: "d", userId: "u" }));
+    const anon = { id: "anon-1", userId: null };
     expect(inHoldout(anon, 30)).toBe(inHoldout({ ...anon }, 30));
   });
 
@@ -30,14 +30,14 @@ describe("홀드아웃 배정", () => {
     expect(send.length + held.length).toBe(rows.length);
     expect(held.length / rows.length).toBeGreaterThan(0.15);
     expect(held.length / rows.length).toBeLessThan(0.25);
-    const heldTokens = new Set(held.map((r) => r.token));
-    expect(send.some((r) => heldTokens.has(r.token))).toBe(false);
+    const heldIds = new Set(held.map((r) => r.id));
+    expect(send.some((r) => heldIds.has(r.id))).toBe(false);
   });
 
   it("A/B 표본 버킷과 붙지 않는다 — 붙으면 '표본에 든 사람이 늘 대조군'이 된다", () => {
     // 해시 키에 접두사를 붙이지 않으면 두 축이 같은 버킷을 써서 상관계수가 1 이 된다
-    const both = rows.filter((r) => inAbSample(r.token, 50) && inHoldout(r, 50)).length;
-    const sample = rows.filter((r) => inAbSample(r.token, 50)).length;
+    const both = rows.filter((r) => inAbSample(r.id, 50) && inHoldout(r, 50)).length;
+    const sample = rows.filter((r) => inAbSample(r.id, 50)).length;
     // 독립이면 표본 중 대조군은 절반 근처여야 한다(같은 해시면 100% 나 0% 가 나온다)
     expect(both / sample).toBeGreaterThan(0.4);
     expect(both / sample).toBeLessThan(0.6);
@@ -61,5 +61,16 @@ describe("리프트", () => {
     expect(conversionLift({ converted: 20, total: 100 }, { converted: 0, total: 100 })).toBeNull();
     expect(conversionLift({ converted: 20, total: 100 }, { converted: 1, total: 0 })).toBeNull();
     expect(conversionLift({ converted: 0, total: 0 }, { converted: 1, total: 10 })).toBeNull();
+  });
+});
+
+describe("발송군 분모", () => {
+  it("대조군 비율만큼 분모를 줄인다 — 대조군은 받지 않았으니 클릭할 수도 없다", () => {
+    expect(holdoutScale({ users: 1000, devices: 1500 }, 20)).toEqual({ users: 800, devices: 1200 });
+  });
+
+  it("대조군이 없으면 그대로다", () => {
+    expect(holdoutScale({ users: 7, devices: 9 }, null)).toEqual({ users: 7, devices: 9 });
+    expect(holdoutScale({ users: 7, devices: 9 }, 0)).toEqual({ users: 7, devices: 9 });
   });
 });
