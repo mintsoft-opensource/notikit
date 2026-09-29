@@ -34,7 +34,7 @@ export async function GET(req: Request) {
   } catch (err) {
     // 원문은 서버에만 남긴다 — 이 엔드포인트는 운영자 전용이 아니라 admin 이면 누구나 읽는다.
     console.error("[update] status query failed:", err);
-    return fail("서버 오류 — 로그에서 [update] 항목을 확인하세요", 500);
+    return fail("서버 오류 — 로그에서 [update] 항목을 확인하세요", 500, { code: "update_status_failed" });
   }
 
   // 진행 상태는 누구나 봐도 되지만 백업 경로·업데이터 로그·레지스트리 주소는 아니다.
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
   if (!ctx) return fail("Unauthorized", 401);
   // 꺼져 있으면 존재를 알리지도 않는다 — 호스팅 배포에서 이 경로는 없는 것과 같다
   if (!selfUpdateEnabled()) return fail("Not found", 404);
-  if (!(await isInstanceOperator(ctx))) return fail("Forbidden: 인스턴스 운영자만 업데이트할 수 있습니다", 403);
+  if (!(await isInstanceOperator(ctx))) return fail("Forbidden: 인스턴스 운영자만 업데이트할 수 있습니다", 403, { code: "instance_operator_only" });
 
   let body: unknown;
   try {
@@ -99,10 +99,10 @@ export async function POST(req: Request) {
   // 무결성은 업데이터가 체크섬으로 다시 확인한다.
   if (parsed.data.bundle) {
     const bundle = await findBundle(parsed.data.bundle);
-    if (!bundle) return fail("반입된 번들을 찾을 수 없습니다", 404);
-    if (!bundle.verifiable) return fail("번들에 체크섬 파일(.sha256)이 없어 설치할 수 없습니다", 400);
-    if (bundle.version !== target) return fail("번들의 버전이 요청한 버전과 다릅니다", 400);
-    if (!isNewer(target, CURRENT_VERSION)) return fail("이미 최신 버전입니다", 409);
+    if (!bundle) return fail("반입된 번들을 찾을 수 없습니다", 404, { code: "bundle_not_found" });
+    if (!bundle.verifiable) return fail("번들에 체크섬 파일(.sha256)이 없어 설치할 수 없습니다", 400, { code: "bundle_unverifiable" });
+    if (bundle.version !== target) return fail("번들의 버전이 요청한 버전과 다릅니다", 400, { code: "bundle_version_mismatch" });
+    if (!isNewer(target, CURRENT_VERSION)) return fail("이미 최신 버전입니다", 409, { code: "already_latest" });
 
     return startJob(db, {
       target,
@@ -119,12 +119,15 @@ export async function POST(req: Request) {
   // 배포처가 지금 이 설치에 주기로 한 릴리스만 설치한다. 클라이언트가 버전을 고르게
   // 두면 만료된 구독이나 건너뛰면 안 되는 버전을 스스로 집어간다.
   const check = await checkForUpdate({ force: true });
-  if (check.status === "unlicensed") return fail("구독이 유효하지 않아 업데이트할 수 없습니다", 402);
-  if (!check.latest) return fail("업데이트 서버에 연결할 수 없습니다", 503);
-  if (target !== check.latest.version) return fail("배포된 최신 릴리스만 설치할 수 있습니다", 400);
-  if (!isNewer(target, CURRENT_VERSION)) return fail("이미 최신 버전입니다", 409);
+  if (check.status === "unlicensed") return fail("구독이 유효하지 않아 업데이트할 수 없습니다", 402, { code: "update_unlicensed" });
+  if (!check.latest) return fail("업데이트 서버에 연결할 수 없습니다", 503, { code: "update_server_unreachable" });
+  if (target !== check.latest.version) return fail("배포된 최신 릴리스만 설치할 수 있습니다", 400, { code: "update_not_latest_release" });
+  if (!isNewer(target, CURRENT_VERSION)) return fail("이미 최신 버전입니다", 409, { code: "already_latest" });
   if (check.blockedBy) {
-    return fail(`${check.blockedBy} 을(를) 먼저 설치해야 합니다 — 마이그레이션은 건너뛸 수 없습니다`, 409);
+    return fail(`${check.blockedBy} 을(를) 먼저 설치해야 합니다 — 마이그레이션은 건너뛸 수 없습니다`, 409, {
+      code: "update_blocked",
+      params: { version: check.blockedBy },
+    });
   }
 
   return startJob(db, {
@@ -154,7 +157,7 @@ async function startJob(db: ReturnType<typeof getDb>, args: StartArgs) {
     .from(updateJobs)
     .where(inArray(updateJobs.status, [...ACTIVE]))
     .limit(1);
-  if (active.length > 0) return fail("이미 진행 중인 업데이트가 있습니다", 409);
+  if (active.length > 0) return fail("이미 진행 중인 업데이트가 있습니다", 409, { code: "update_in_progress" });
 
   try {
     const [job] = await db
@@ -172,6 +175,6 @@ async function startJob(db: ReturnType<typeof getDb>, args: StartArgs) {
     return ok({ job });
   } catch {
     // 부분 유니크 인덱스가 동시 요청을 막는다 — 위 검사와 삽입 사이의 경합
-    return fail("이미 진행 중인 업데이트가 있습니다", 409);
+    return fail("이미 진행 중인 업데이트가 있습니다", 409, { code: "update_in_progress" });
   }
 }

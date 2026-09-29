@@ -53,7 +53,7 @@ export async function PUT(req: Request, ctx: Ctx) {
       .where(and(eq(messageTemplates.projectId, id), eq(messageTemplates.name, b.name), ne(messageTemplates.id, templateId)))
       .limit(1)
   )[0];
-  if (taken) return fail("A template with this name already exists", 409);
+  if (taken) return fail("A template with this name already exists", 409, { code: "template_name_taken" });
 
   let row;
   try {
@@ -66,7 +66,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     )[0];
   } catch (e) {
     // 위 확인과 update 사이에 같은 이름이 생긴 경우 — 유니크 인덱스가 막는다
-    if (isUniqueViolation(e)) return fail("A template with this name already exists", 409);
+    if (isUniqueViolation(e)) return fail("A template with this name already exists", 409, { code: "template_name_taken" });
     throw e;
   }
   if (!row) return fail("Not found", 404);

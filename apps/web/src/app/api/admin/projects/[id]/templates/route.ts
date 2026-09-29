@@ -50,7 +50,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       .onConflictDoNothing({ target: [messageTemplates.projectId, messageTemplates.name] })
       .returning()
   )[0];
-  if (!row) return fail("A template with this name already exists", 409);
+  if (!row) return fail("A template with this name already exists", 409, { code: "template_name_taken" });
   return ok({ template: row }, undefined, 201);
 }
 

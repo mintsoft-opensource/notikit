@@ -30,10 +30,10 @@ export async function POST(req: Request) {
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const auth = await requireAuth(req);
   if (!auth.ok) return fail(auth.error, auth.status);
-  if (auth.ctx.superadmin || !auth.ctx.userId) return fail("세션 계정이 아닙니다", 400);
+  if (auth.ctx.superadmin || !auth.ctx.userId) return fail("세션 계정이 아닙니다", 400, { code: "not_session_account" });
 
   // 현재 비밀번호 추측 시도 차단 (scrypt 검증 자체도 비싸다)
-  if (!await rateLimitShared(`me:password:${auth.ctx.userId}`, 5, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
+  if (!await rateLimitShared(`me:password:${auth.ctx.userId}`, 5, 60_000)) return fail("잠시 후 다시 시도하세요", 429, { code: "rate_limited" });
 
   let payload: unknown;
   try {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
-  if (b.current_password === b.new_password) return fail("현재 비밀번호와 다른 값을 입력하세요", 422);
+  if (b.current_password === b.new_password) return fail("현재 비밀번호와 다른 값을 입력하세요", 422, { code: "same_password" });
 
   const db = getDb();
   const user = (
@@ -60,10 +60,10 @@ export async function POST(req: Request) {
   let newHash: string;
   try {
     okCurrent = await verifyPassword(b.current_password, user.passwordHash);
-    if (!okCurrent) return fail("현재 비밀번호가 올바르지 않습니다", 403);
+    if (!okCurrent) return fail("현재 비밀번호가 올바르지 않습니다", 403, { code: "wrong_current_password" });
     newHash = await hashPassword(b.new_password);
   } catch (e) {
-    if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
+    if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503, { code: "server_busy" });
     throw e;
   }
 
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     .set({ passwordHash: newHash, sessionVersion: nextVer })
     .where(and(eq(adminUsers.id, auth.ctx.userId), eq(adminUsers.sessionVersion, user.ver)))
     .returning({ id: adminUsers.id });
-  if (updated.length === 0) return fail("세션이 변경되었습니다. 다시 시도하세요", 409);
+  if (updated.length === 0) return fail("세션이 변경되었습니다. 다시 시도하세요", 409, { code: "session_changed" });
 
   const res = ok({ changed: true });
   // 다른 기기는 끊고 현재 브라우저만 유지

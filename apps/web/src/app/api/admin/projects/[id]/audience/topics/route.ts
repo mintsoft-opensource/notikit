@@ -100,13 +100,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       .where(and(eq(topics.projectId, id), eq(topics.name, name)))
       .limit(1)
   )[0];
-  if (!existing) return fail("Topic was deleted concurrently — retry", 409);
+  if (!existing) return fail("Topic was deleted concurrently — retry", 409, { code: "topic_deleted_retry" });
   const sameKind = isRuleFilled(existing.rules) === isRuleFilled(rules ?? null);
-  if (!sameKind) return fail("A topic with this name already exists with a different fill mode", 409);
+  if (!sameKind) return fail("A topic with this name already exists with a different fill mode", 409, { code: "topic_name_conflict" });
   // 같은 이름의 규칙식 토픽을 **다른 조건으로** 만들면 새 조건이 버려지는데 200 이면 콘솔이 "생성됨"을 띄운다.
   // 같은 요청의 재시도(조건까지 같음)만 200 으로 멱등 처리하고, 조건이 다르면 수정하라고 알린다.
   if (isRuleFilled(existing.rules) && stableJson(existing.rules) !== stableJson(rules ? toStoredRules(rules) : null)) {
-    return fail("A topic with this name already exists with different rules — edit that topic instead", 409);
+    return fail("A topic with this name already exists with different rules — edit that topic instead", 409, {
+      code: "topic_name_conflict",
+    });
   }
   return ok({ topic: existing }, undefined, 200);
 }

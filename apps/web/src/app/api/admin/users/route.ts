@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  if (!canAssignRole(auth.ctx, b.role)) return fail("Forbidden: owner 는 owner 만 생성할 수 있습니다", 403);
+  if (!canAssignRole(auth.ctx, b.role)) return fail("Forbidden: owner 는 owner 만 생성할 수 있습니다", 403, { code: "owner_assign_owner_only" });
 
   // 세션 유저는 org_id 를 지정할 수 없다(타 org 침투 방지). superadmin 만 대상 org 선택.
   const orgId = auth.ctx.superadmin ? b.org_id : auth.ctx.orgId!;
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
   try {
     passwordHash = await hashPassword(b.password);
   } catch (e) {
-    if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
+    if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503, { code: "server_busy" });
     throw e;
   }
 
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
   } catch (e) {
     // email 은 전역 unique index — 타 org 존재 여부를 노출하지 않도록 동일 메시지
     if (e instanceof Error && /duplicate key|unique/i.test(e.message)) {
-      return fail("이미 사용 중인 이메일입니다", 409);
+      return fail("이미 사용 중인 이메일입니다", 409, { code: "email_taken" });
     }
     throw e;
   }

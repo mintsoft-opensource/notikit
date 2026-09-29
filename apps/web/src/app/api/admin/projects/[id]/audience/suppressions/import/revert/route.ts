@@ -57,13 +57,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const imported = entries.find((e) => e.action === "suppression.import");
   if (!imported) return fail("Import batch not found", 404);
   if (entries.some((e) => e.action === "suppression.import.revert")) {
-    return fail("This import batch was already reverted", 409);
+    return fail("This import batch was already reverted", 409, { code: "import_already_reverted" });
   }
 
   const entry = imported.metadata?.insertedIds as { after?: unknown } | undefined;
   const raw = entry?.after;
   const ids = Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : [];
-  if (ids.length === 0) return fail("Import batch has no rows to revert", 409);
+  if (ids.length === 0) return fail("Import batch has no rows to revert", 409, { code: "import_empty" });
 
   let deleted = 0;
   await db.transaction(async (tx) => {

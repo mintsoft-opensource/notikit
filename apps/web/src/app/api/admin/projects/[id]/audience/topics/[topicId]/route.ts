@@ -78,7 +78,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string; t
 
   const current = await load(id, topicId);
   if (!current) return fail("Not found", 404);
-  if (!isRuleFilled(current.rules)) return fail("Topic is subscription-filled — it has no rules to edit", 409);
+  if (!isRuleFilled(current.rules)) return fail("Topic is subscription-filled — it has no rules to edit", 409, { code: "topic_not_rule_filled" });
 
   const db = getDb();
   const rows = await db

@@ -38,8 +38,8 @@ export async function PATCH(req: Request) {
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const auth = await requireAuth(req, { write: true });
   if (!auth.ok) return fail(auth.error, auth.status);
-  if (!auth.ctx.superadmin && auth.ctx.role !== "owner") return fail("Forbidden: owner 만 변경할 수 있습니다", 403);
-  if (auth.ctx.superadmin) return fail("org 컨텍스트가 없습니다", 400);
+  if (!auth.ctx.superadmin && auth.ctx.role !== "owner") return fail("Forbidden: owner 만 변경할 수 있습니다", 403, { code: "owner_only" });
+  if (auth.ctx.superadmin) return fail("org 컨텍스트가 없습니다", 400, { code: "no_org_context" });
 
   let payload: unknown;
   try {

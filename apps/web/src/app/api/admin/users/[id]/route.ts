@@ -23,15 +23,15 @@ type TargetRow = { id: string; orgId: string; role: string };
 async function loadTarget(
   ctx: AuthContext,
   id: string
-): Promise<{ ok: true; target: TargetRow } | { ok: false; status: number; error: string }> {
+): Promise<{ ok: true; target: TargetRow } | { ok: false; status: number; error: string; code?: string }> {
   const db = getDb();
   const target = (
     await db.select({ id: adminUsers.id, orgId: adminUsers.orgId, role: adminUsers.role }).from(adminUsers).where(eq(adminUsers.id, id)).limit(1)
   )[0];
-  if (!target) return { ok: false, status: 404, error: "User not found" };
-  if (!ctx.superadmin && target.orgId !== ctx.orgId) return { ok: false, status: 404, error: "User not found" };
+  if (!target) return { ok: false, status: 404, error: "User not found", code: "user_not_found" };
+  if (!ctx.superadmin && target.orgId !== ctx.orgId) return { ok: false, status: 404, error: "User not found", code: "user_not_found" };
   if (target.role === "owner" && !ctx.superadmin && ctx.role !== "owner") {
-    return { ok: false, status: 403, error: "Forbidden: owner 계정은 owner 만 변경할 수 있습니다" };
+    return { ok: false, status: 403, error: "Forbidden: owner 계정은 owner 만 변경할 수 있습니다", code: "owner_account_owner_only" };
   }
   return { ok: true, target };
 }
@@ -62,7 +62,7 @@ async function failMember(
   actor: AuthContext,
   action: string,
   targetId: string,
-  denied: { status: number; error: string }
+  denied: { status: number; error: string; code?: string }
 ) {
   if (denied.status === 403 && actor.orgId) {
     await recordOrgAudit({
@@ -73,7 +73,7 @@ async function failMember(
       diff: { outcome: { before: "allowed", after: `denied (${denied.error})` } },
     });
   }
-  return fail(denied.error, denied.status);
+  return fail(denied.error, denied.status, { code: denied.code });
 }
 
 /** [Web Admin] 멤버 역할 변경 */
@@ -97,10 +97,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const role = parsed.data.role;
 
   if (!canAssignRole(auth.ctx, role)) {
-    return failMember(auth.ctx, "member.update", id, { status: 403, error: "Forbidden: owner 는 owner 만 지정할 수 있습니다" });
+    return failMember(auth.ctx, "member.update", id, {
+      status: 403,
+      error: "Forbidden: owner 는 owner 만 지정할 수 있습니다",
+      code: "owner_assign_owner_only",
+    });
   }
   // 자기 자신을 강등하면 그 자리에서 관리 권한을 잃는다 — 실수 방지
-  if (auth.ctx.userId === id && role !== auth.ctx.role) return fail("자기 자신의 역할은 변경할 수 없습니다", 400);
+  if (auth.ctx.userId === id && role !== auth.ctx.role) return fail("자기 자신의 역할은 변경할 수 없습니다", 400, { code: "self_role_change" });
 
   const demotingOwner = loaded.target.role === "owner" && role !== "owner";
   const updated = await withLastOwnerGuard(loaded.target.orgId, demotingOwner, async () => {
@@ -113,7 +117,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         .returning({ id: adminUsers.id, email: adminUsers.email, role: adminUsers.role })
     )[0];
   });
-  if (!updated) return fail("마지막 owner 는 강등할 수 없습니다", 409);
+  if (!updated) return fail("마지막 owner 는 강등할 수 없습니다", 409, { code: "last_owner_demote" });
 
   const diff = buildDiff({ role: loaded.target.role }, { role: updated.role });
   if (diff) {
@@ -136,7 +140,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   const { id } = await ctx.params;
 
   // 자기 삭제는 즉시 로그아웃 + 복구 불가 — 차단
-  if (auth.ctx.userId === id) return fail("자기 자신은 삭제할 수 없습니다", 400);
+  if (auth.ctx.userId === id) return fail("자기 자신은 삭제할 수 없습니다", 400, { code: "self_delete" });
 
   const loaded = await loadTarget(auth.ctx, id);
   if (!loaded.ok) return failMember(auth.ctx, "member.delete", id, loaded);
@@ -145,7 +149,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
     const db = getDb();
     return (await db.delete(adminUsers).where(eq(adminUsers.id, id)).returning({ id: adminUsers.id, email: adminUsers.email }))[0];
   });
-  if (!deleted) return fail("마지막 owner 는 삭제할 수 없습니다", 409);
+  if (!deleted) return fail("마지막 owner 는 삭제할 수 없습니다", 409, { code: "last_owner_delete" });
 
   await recordOrgAudit({
     orgId: loaded.target.orgId,

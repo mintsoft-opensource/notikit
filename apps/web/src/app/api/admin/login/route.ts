@@ -23,32 +23,32 @@ export async function POST(req: Request) {
     return e instanceof PayloadTooLargeError ? fail("Payload too large", 413) : fail("Invalid JSON", 400);
   }
   const parsed = schema.safeParse(payload);
-  if (!parsed.success) return fail("이메일/비밀번호를 확인하세요", 422);
+  if (!parsed.success) return fail("이메일/비밀번호를 확인하세요", 422, { code: "invalid_input" });
   const email = parsed.data.email.toLowerCase();
 
   // 계정별 제한만 사용 (전역 시간버킷은 정상 유저까지 막는 가용성 DoS 라 제거).
   // 미존재 이메일 회전으로 인한 CPU/메모리 고갈은 scrypt 동시성+큐 상한(fail-fast)으로 방어.
   // 동시 처리 admission 을 가장 먼저 — 거부되면 per-email 버킷조차 만들지 않음(리미터 포화 방지)
-  if (!acquireInflight("auth", 25)) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
+  if (!acquireInflight("auth", 25)) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503, { code: "server_busy" });
   try {
-    if (!await rateLimitShared(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429);
+    if (!await rateLimitShared(`login:${email}`, 10, 60_000)) return fail("잠시 후 다시 시도하세요", 429, { code: "rate_limited" });
     const db = getDb();
     const user = (await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1))[0];
 
     // 존재하지 않는 계정도 동일 비용 지불 (타이밍/존재여부 노출 방어)
     if (!user) {
       await dummyVerify(parsed.data.password);
-      return fail("이메일 또는 비밀번호가 올바르지 않습니다", 401);
+      return fail("이메일 또는 비밀번호가 올바르지 않습니다", 401, { code: "invalid_credentials" });
     }
     if (!(await verifyPassword(parsed.data.password, user.passwordHash))) {
-      return fail("이메일 또는 비밀번호가 올바르지 않습니다", 401);
+      return fail("이메일 또는 비밀번호가 올바르지 않습니다", 401, { code: "invalid_credentials" });
     }
 
     const res = ok({ user: { email: user.email, role: user.role } });
     res.cookies.set(SESSION_COOKIE, createSessionToken({ userId: user.id, ver: user.sessionVersion }), sessionCookieAttributes());
     return res;
   } catch (e) {
-    if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503);
+    if (e instanceof ScryptOverloadError) return fail("일시적으로 혼잡합니다. 잠시 후 다시 시도하세요", 503, { code: "server_busy" });
     throw e;
   } finally {
     releaseInflight("auth");

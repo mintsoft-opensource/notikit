@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   const ctx = await getAuthContext(req);
   if (!ctx) return fail("Unauthorized", 401);
   // 설치 전체의 상태가 담긴다. 고객사 소유자가 아니라 운영자만 가져갈 수 있다.
-  if (!(await isInstanceOperator(ctx))) return fail("Forbidden: 인스턴스 운영자만 받을 수 있습니다", 403);
+  if (!(await isInstanceOperator(ctx))) return fail("Forbidden: 인스턴스 운영자만 받을 수 있습니다", 403, { code: "instance_operator_only" });
 
   const db = getDb();
 
