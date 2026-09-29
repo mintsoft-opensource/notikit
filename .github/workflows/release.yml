@@ -59,6 +59,12 @@ jobs:
         working-directory: apps/web
         run: pnpm exec vitest run
 
+      # 빌드 없는 .mjs(워커·업데이터·업데이트 서버·릴리스 도구)는 vitest 범위 밖이라 node 내장 러너로 돈다
+      - name: 운영 스크립트 테스트
+        run: >-
+          node --test apps/web/worker.test.mjs apps/updater/bundle-meta.test.mjs
+          apps/update-server/catalog.test.mjs tools/release/previous-tag.test.mjs
+
       - name: web 빌드
         working-directory: apps/web
         run: pnpm build
@@ -105,7 +111,10 @@ jobs:
             echo "::error::태그 v$VERSION 와 package.json $PKG 가 다릅니다"
             exit 1
           fi
-          PREV=$(git tag --list 'v*' --sort=-v:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          # 같은 채널에서 현재보다 낮은 태그 중 가장 높은 것. `--sort=-v:refname` 은
+          # v1.3.0-beta.1 을 v1.3.0 보다 위로 올려, 정식 릴리스가 베타와만 비교되고
+          # 그 사이 마이그레이션이 "없음" 으로 나간다(백업을 건너뛴다).
+          PREV=$(node tools/release/previous-tag.mjs "$VERSION")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "previous=${PREV#v}" >> "$GITHUB_OUTPUT"
 
@@ -172,7 +181,8 @@ jobs:
         run: echo "::notice::UPDATE_SERVER_URL 이 없어 업데이트 서버 등록을 건너뛰었습니다. 이미지는 ${IMAGE}:${{ steps.v.outputs.version }} 에 있습니다."
 
       # 폐쇄망 고객은 레지스트리에 닿을 수 없다. 반입용 번들을 함께 만들어 둔다.
-      # buildx 는 푸시만 하고 로컬 데몬에 이미지를 남기지 않는다 — save 전에 받아 온다(러너 아키텍처분).
+      # buildx 는 푸시만 하고 로컬 데몬에 이미지를 남기지 않는다 — save 전에 받아 온다.
+      # **러너 아키텍처(amd64) 전용 번들이다.** docker save 는 멀티 아키텍처 인덱스를 담지 않는다.
       - name: 폐쇄망 번들
         run: |
           docker pull "${IMAGE}@${{ steps.build.outputs.digest }}"
@@ -186,8 +196,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: airgap-${{ steps.v.outputs.version }}
+          # .tar.json 은 콘솔이 번들 목록을 그릴 때 읽는 메타다. 빠지면 반입해도 목록에 나타나지 않는다.
           path: |
             notikit-*-airgap.tar
             notikit-*-airgap.tar.sha256
+            notikit-*-airgap.tar.json
             manifest.json
           retention-days: 90

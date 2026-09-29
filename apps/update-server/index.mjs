@@ -18,6 +18,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { timingSafeEqual } from "node:crypto";
 import { verifyLicense } from "@notikit/license";
+import { cmp, semver, isPublishableVersion, resolve, hasMigrationsSince } from "./catalog.mjs";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const RELEASES_DIR = process.env.RELEASES_DIR ?? path.join(import.meta.dirname, "releases");
@@ -37,19 +38,6 @@ if (!PUBLIC_KEY) {
 /** 파일은 릴리스·계약 변경 때만 바뀐다. 매 요청 디스크를 치지 않되, 재시작 없이 반영되게. */
 const CACHE_MS = 30_000;
 let cache = null;
-
-function semver(v) {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(v).trim());
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-}
-
-function cmp(a, b) {
-  const x = semver(a);
-  const y = semver(b);
-  if (!x || !y) return 0;
-  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
-  return 0;
-}
 
 async function loadCatalog() {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.value;
@@ -103,34 +91,6 @@ function bearer(req) {
   return h.startsWith("Bearer ") ? h.slice(7).trim() : "";
 }
 
-/**
- * 이 고객에게 줄 최신 릴리스.
- *
- * 고객별 `pin` 이 있으면 그 버전에 묶는다 — 검증이 끝난 버전에 세워 두거나, 사고가
- * 난 릴리스에서 특정 고객만 잡아 두기 위해서다. 그런 수단이 없으면 문제가 생겼을 때
- * 할 수 있는 일이 "모두에게 배포를 멈추는 것"뿐이다.
- */
-function resolve(catalog, license, requestedChannel) {
-  const override = catalog.customers[license.customerId] ?? {};
-  if (override.blocked) return null;
-
-  /**
-   * 채널은 **우리가** 정한다. 순서가 중요하다.
-   *
-   * 요청 채널을 라이선스보다 앞에 두면 고객사가 `.env` 한 줄로 채널을 바꾼다 —
-   * stable 계약 고객이 beta 를 끌어가는 길이 열린다. 버전을 못 고르게 만든 이유와
-   * 같은 이유로 채널도 못 고르게 한다.
-   *
-   * 요청 채널은 라이선스에 채널이 없을 때의 폴백으로만 쓴다(구버전 라이선스 호환).
-   */
-  const channel = override.channel ?? license.channel ?? requestedChannel ?? "stable";
-  const eligible = catalog.releases.filter((r) => (r.channel ?? "stable") === channel && !r.yanked);
-  if (eligible.length === 0) return null;
-
-  if (override.pin) return eligible.find((r) => cmp(r.version, override.pin) === 0) ?? null;
-  return eligible[eligible.length - 1];
-}
-
 /** 토큰 비교는 길이·내용이 새지 않게 상수 시간으로 */
 function timingSafeEqualStr(a, b) {
   const x = Buffer.from(String(a));
@@ -159,7 +119,9 @@ async function publish(req, res) {
     return json(res, 400, { error: "Invalid JSON" });
   }
 
-  if (!semver(body.version)) return json(res, 400, { error: "version must be semver" });
+  // 이 값이 그대로 파일 이름이 된다. 끝 앵커가 없던 시절엔 `1.2.0/../../x` 가 통과해
+  // RELEASES_DIR 밖에 JSON 을 쓸 수 있었다.
+  if (!isPublishableVersion(body.version)) return json(res, 400, { error: "version must be semver (x.y.z[-pre])" });
   // 다이제스트가 없으면 고객이 무엇을 받을지 고정되지 않는다. 여기서 막는다.
   if (!/^sha256:[a-f0-9]{64}$/.test(body.digest ?? "")) return json(res, 400, { error: "digest required" });
   if (!/^[a-z0-9.\-_/:]+$/i.test(body.image ?? "")) return json(res, 400, { error: "image required" });
@@ -203,18 +165,21 @@ const server = createServer(async (req, res) => {
   }
 
   const release = resolve(catalog, result.license, url.searchParams.get("channel"));
-  if (!release) return json(res, 204, {});
+  // 줄 릴리스가 없다(채널이 비었거나 이 고객 배포를 멈췄다). 예전엔 204 에 본문 `{}` 를 실어
+  // 보냈고, 인스턴스는 그 본문을 파싱하다 실패해 "업데이트 서버에 연결할 수 없음"으로 보였다.
+  // 200 + `latest: null` 로 "최신" 임을 분명히 한다.
+  if (!release) return json(res, 200, { latest: null });
 
-  console.log(
-    `[update-server] ${result.license.customerId} @ ${req.headers["x-notikit-version"] ?? "?"} → ${release.version}`
-  );
+  const installed = req.headers["x-notikit-version"];
+  console.log(`[update-server] ${result.license.customerId} @ ${installed ?? "?"} → ${release.version}`);
 
   return json(res, 200, {
     version: release.version,
     image: release.image,
     digest: release.digest,
     notes: release.notes ?? "",
-    hasMigrations: release.hasMigrations === true,
+    // 이 릴리스 하나가 아니라 설치본에서 여기까지 건너뛰는 구간 전체로 판정한다
+    hasMigrations: hasMigrationsSince(catalog.releases, release, installed),
     minUpgradeFrom: release.minUpgradeFrom ?? null,
     publishedAt: release.publishedAt ?? null,
   });

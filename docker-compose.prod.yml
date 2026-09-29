@@ -23,6 +23,9 @@
 #     docker compose up -d        # 이후로는 이대로
 #
 # `.notikit-image.env` 는 업데이터 소유다. 다른 설정을 같이 두면 업데이트 한 번에 사라진다.
+#
+# `.env` 에 NOTIKIT_HOST_DIR(이 파일이 있는 디렉터리의 절대 경로)를 적어 둔다. 업데이터가
+# 이 디렉터리를 같은 경로로 마운트해야 web 을 다시 띄울 때 상대 바인드가 호스트 경로로 풀린다.
 
 services:
   # 스키마 적용. web 은 이게 성공해야 뜬다 — 구버전 코드가 새 스키마를 만나거나
@@ -35,6 +38,12 @@ services:
     image: "${NOTIKIT_IMAGE:?NOTIKIT_IMAGE 가 비어 있습니다. --env-file .env --env-file .notikit-image.env 를 같이 넘기세요}"
     command: ["node", "apps/web/migrate.mjs"]
     env_file: [.env]
+    environment:
+      # .env 의 DATABASE_URL 은 호스트에서 직접 돌릴 때(localhost)용이다. 컨테이너 안에서
+      # localhost 는 자기 자신이라, 덮지 않으면 migrate 가 붙을 곳이 없어 스택 전체가 뜨지 않는다.
+      # 개발용 compose 와 같은 조립이다. 관리형 Postgres 는 .env 의 NOTIKIT_DATABASE_URL 로 덮는다 —
+      # DATABASE_URL 을 그대로 쓰지 않는 건 그 값이 호스트 실행용(localhost)이기 때문이다.
+      DATABASE_URL: ${NOTIKIT_DATABASE_URL:-postgres://${POSTGRES_USER:-notikit}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}@postgres:5432/${POSTGRES_DB:-notikit}}
     depends_on:
       postgres: { condition: service_healthy }
     restart: "no"
@@ -46,9 +55,12 @@ services:
       # 콘솔에서 업데이트를 누를 수 있게 한다. 끄면 업데이트 경로 자체가 404 가 된다.
       NOTIKIT_SELF_UPDATE: "true"
       BUNDLE_DIR: /bundles
-      # 공유 발송 한도. 아래 redis 서비스를 쓰면 이 값, 관리형 Redis 면 .env 로 덮는다.
-      # 비우면 인스턴스마다 따로 세므로 web 을 2대 이상 띄울 때 실제 허용치가 배로 늘어난다.
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # migrate 와 같은 이유로 컨테이너 네트워크의 postgres 를 가리킨다.
+      DATABASE_URL: ${NOTIKIT_DATABASE_URL:-postgres://${POSTGRES_USER:-notikit}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}@postgres:5432/${POSTGRES_DB:-notikit}}
+      # 공유 발송 한도. .env 의 REDIS_URL(localhost)을 컨테이너 네트워크 이름으로 덮는다 —
+      # 덮지 않으면 연결이 실패해도 요청은 막히지 않고 인스턴스별 계수로 조용히 내려앉는다.
+      # 관리형 Redis 는 .env 의 NOTIKIT_REDIS_URL 로 덮는다(REDIS_URL 은 호스트 실행용이다).
+      REDIS_URL: ${NOTIKIT_REDIS_URL:-redis://redis:6379}
     volumes:
       # 반입된 폐쇄망 번들 목록을 콘솔이 보여 주기 위해서만 필요하다 — 읽기 전용.
       # 설치는 업데이터가 한다.
@@ -107,16 +119,24 @@ services:
     image: "${NOTIKIT_UPDATER_IMAGE:?NOTIKIT_UPDATER_IMAGE 를 .env 에 설정하세요 (예 registry.example.com/notikit-updater:0.1.0). web 이미지는 업데이터가 아닙니다 - docker CLI 도 pg_dump 도 없습니다}"
     env_file: [.env]
     environment:
-      COMPOSE_FILE: /project/docker-compose.prod.yml
+      # 백업(pg_dump)과 작업 큐(update_jobs)가 이 DB 를 쓴다
+      DATABASE_URL: ${NOTIKIT_DATABASE_URL:-postgres://${POSTGRES_USER:-notikit}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}@postgres:5432/${POSTGRES_DB:-notikit}}
+      # 프로젝트 디렉터리를 **호스트와 같은 절대 경로**로 본다(아래 volumes). 업데이터 안의
+      # compose 가 `./bundles` 같은 상대 바인드를 이 경로로 풀어 호스트 데몬에 넘기기 때문이다.
+      # `/project` 로 마운트하면 데몬이 호스트의 /project/bundles 를 찾아, 업데이트 뒤의 web 이
+      # 빈 디렉터리를 보게 된다. 업데이터가 부르는 compose 도 이 값을 치환해야 하므로 넘겨 둔다.
+      NOTIKIT_HOST_DIR: ${NOTIKIT_HOST_DIR:-${PWD}}
+      COMPOSE_FILE: ${NOTIKIT_HOST_DIR:-${PWD}}/docker-compose.prod.yml
       COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-notikit}
-      IMAGE_ENV_FILE: /project/.notikit-image.env
+      IMAGE_ENV_FILE: ${NOTIKIT_HOST_DIR:-${PWD}}/.notikit-image.env
       BACKUP_DIR: /backups
       BUNDLE_DIR: /bundles
     volumes:
       # 소켓 — 컨테이너를 교체할 권한. 이 한 줄이 이 컨테이너를 특권으로 만든다.
       - /var/run/docker.sock:/var/run/docker.sock
       # compose 파일과 이미지 참조 파일이 있는 디렉터리. 쓰기가 필요하다(참조 갱신).
-      - ./:/project
+      # 양쪽 경로가 같아야 한다 — 위 NOTIKIT_HOST_DIR 설명 참고.
+      - ${NOTIKIT_HOST_DIR:-${PWD}}:${NOTIKIT_HOST_DIR:-${PWD}}
       # 마이그레이션 전 덤프. 되돌릴 길이 여기밖에 없으므로 호스트에 남긴다.
       - ./backups:/backups
       # 폐쇄망 반입 번들. 운영자가 여기에 파일을 두면 콘솔 목록에 나타난다.

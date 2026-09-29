@@ -20,6 +20,7 @@ import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { parseBundleMeta, matchesLoadedImage } from "./bundle-meta.mjs";
 
 const DB_URL = process.env.DATABASE_URL;
 const COMPOSE_FILE = process.env.COMPOSE_FILE ?? "/project/docker-compose.yml";
@@ -72,6 +73,21 @@ const REGISTRY_PASSWORD = process.env.REGISTRY_PASSWORD ?? "";
 
 if (!DB_URL) {
   console.error("[updater] DATABASE_URL is required");
+  process.exit(1);
+}
+
+/**
+ * compose 파일이 보여야 한다. 프로젝트 디렉터리는 호스트와 **같은 절대 경로**로 마운트된다
+ * (docker-compose.prod.yml 의 NOTIKIT_HOST_DIR). 경로가 비었거나 어긋나면 첫 업데이트에서야
+ * 알게 되므로 기동에서 멈춘다 — 콘솔에서 "대기" 로 영원히 남는 것보다 낫다.
+ */
+try {
+  await access(COMPOSE_FILE);
+} catch {
+  console.error(
+    `[updater] compose file not found at ${COMPOSE_FILE}. ` +
+      "Set NOTIKIT_HOST_DIR in .env to the absolute path of the directory holding docker-compose.prod.yml."
+  );
   process.exit(1);
 }
 
@@ -216,10 +232,15 @@ async function backup(jobId, version) {
 }
 
 /**
- * 반입 번들에서 이미지를 꺼낸다.
+ * 반입 번들에서 이미지를 꺼낸다. 돌려주는 값은 **로드된 이미지를 가리키는 로컬 참조**다.
  *
  * 체크섬을 먼저 본다. 번들은 USB 와 사람 손을 거쳐 오므로, 받은 것이 보낸 것과
  * 같은지 확인하지 않으면 무엇을 설치하는지 모르는 채로 설치하게 된다.
+ *
+ * 다이제스트 참조(`repo@sha256:…`)는 돌려주지 않는다. `docker load` 는 RepoDigests 를
+ * 복원하지 않아 그 참조로는 이미지를 찾을 수 없고, compose 는 없는 이미지를 레지스트리에서
+ * 받으려다 폐쇄망에서 실패한다. 번들에 적힌 태그로 찾고, 이미지 ID 가 번들에 적힌 것과
+ * 같은지 확인한 뒤 그 태그를 쓴다.
  */
 async function loadBundle(jobId, name, expectedRef) {
   // 콘솔이 고른 이름이지만 경로 조작으로 디렉터리 밖을 읽지 못하게 한다
@@ -237,18 +258,36 @@ async function loadBundle(jobId, name, expectedRef) {
   await log(jobId, `checksum ok (${actual.slice(0, 16)}…)`);
 
   const work = await mkdtemp(path.join(tmpdir(), "notikit-bundle-"));
+  let target;
   try {
     await run(jobId, "tar", ["-xf", file, "-C", work]);
 
     const meta = JSON.parse(await readFile(path.join(work, "bundle.json"), "utf8"));
-    // 번들이 가리키는 이미지와 콘솔에서 승인한 이미지가 달라선 안 된다
-    if (meta.image !== expectedRef) {
-      throw new Error(`번들의 이미지(${meta.image})가 승인된 이미지(${expectedRef})와 다릅니다`);
-    }
+    // 승인된 이미지인지, 태그·ID 가 온전한지 — 로드하기 전에 본다
+    target = parseBundleMeta(meta, expectedRef);
     await run(jobId, "docker", ["load", "-i", path.join(work, "images.tar")]);
   } finally {
     await rm(work, { recursive: true, force: true });
   }
+
+  const inspected = await run(jobId, "docker", [
+    "image",
+    "inspect",
+    target.tag,
+    "--format",
+    "{{.Id}} {{json .RootFS.Layers}}",
+  ]);
+  const line = inspected.trim().split("\n").pop() ?? "";
+  const space = line.indexOf(" ");
+  const loaded = { id: line.slice(0, space), layers: JSON.parse(line.slice(space + 1) || "null") };
+  const matched = matchesLoadedImage(target, loaded);
+  if (!matched) {
+    throw new Error(
+      `로드된 ${target.tag}(${loaded.id.slice(0, 19)}…)가 번들에 적힌 이미지(${target.imageId.slice(0, 19)}…)와 다릅니다`
+    );
+  }
+  await log(jobId, `loaded ${target.tag} (verified by ${matched})`);
+  return target.tag;
 }
 
 function sha256File(file) {
@@ -274,17 +313,20 @@ async function runJob(job) {
   const previous = await readCurrentImage();
 
   await setStep(id, "pull");
+  // compose 가 띄울 참조. 레지스트리 경로는 다이제스트 그대로, 폐쇄망은 로드된 태그다
+  // (loadBundle 이 이미지 ID 까지 확인한 뒤 돌려준다).
+  let installRef = ref;
   if (job.bundle_path) {
     // 폐쇄망 — 반입된 번들에서 꺼낸다. 레지스트리로 나가지 않는다.
-    await loadBundle(id, job.bundle_path, ref);
+    installRef = await loadBundle(id, job.bundle_path, ref);
   } else {
     await registryLogin(id);
     await log(id, `pulling ${ref}`);
     await run(id, "docker", ["pull", ref]);
+    // 받아 온 것이 승인한 그 이미지인지 확인한다. pull 은 다이제스트를 확인하지만,
+    // 로컬에 같은 태그가 있으면 조용히 그것을 쓸 수 있다.
+    await run(id, "docker", ["image", "inspect", ref, "--format", "{{.Id}}"]);
   }
-  // 받아 온 것이 승인한 그 이미지인지 확인한다. pull 은 다이제스트를 확인하지만,
-  // 로컬에 같은 태그가 있으면 조용히 그것을 쓸 수 있다. 번들 경로에서는 더욱 중요하다.
-  await run(id, "docker", ["image", "inspect", ref, "--format", "{{.Id}}"]);
 
   if (job.has_migrations) {
     await setStep(id, "backup");
@@ -295,13 +337,17 @@ async function runJob(job) {
   }
 
   // 여기서부터 새 이미지를 가리킨다. compose 가 이 파일을 읽는다.
-  await writeImage(ref);
+  await writeImage(installRef);
 
   // 마이그레이션을 먼저 돌린다. 여기서 실패하면 구버전 web 이 그대로 살아 있어
   // 서비스가 끊기지 않는다. 교체를 먼저 하면 실패한 순간 내려간 채로 남는다.
+  //
+  // `up` 이 아니라 `run` 이다. attach 한 `up` 은 컨테이너가 1 로 끝나도 0 을 돌려줘서,
+  // 실패한 마이그레이션이 "migrations applied" 로 기록되고 새 web 이 옛 스키마 위에 떴다.
+  // `run` 은 컨테이너의 종료 코드를 그대로 돌려준다. -T: TTY 가 없는 곳에서 돈다.
   await setStep(id, "migrate");
   try {
-    await compose(id, "up", "--no-deps", "--force-recreate", "migrate");
+    await compose(id, "run", "--rm", "-T", "--no-deps", "migrate");
   } catch (err) {
     // 스키마는 그대로다. 이미지 참조만 되돌리면 아무 일도 없던 것이 된다.
     if (previous) await writeImage(previous);

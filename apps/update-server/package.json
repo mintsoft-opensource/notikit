@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "main": "index.mjs",
-  "scripts": { "start": "node index.mjs" },
+  "scripts": { "start": "node index.mjs", "test": "node --test catalog.test.mjs" },
   "dependencies": { "@notikit/license": "workspace:*" }
 }

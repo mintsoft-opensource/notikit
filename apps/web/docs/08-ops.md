@@ -33,6 +33,23 @@ docker compose up -d
 두 파일 모두 `POSTGRES_PASSWORD` 에 **기본값이 없습니다**. 비어 있으면 compose 가 기동을
 거부합니다 — compose 파일에 박힌 비밀번호는 아무도 바꾸지 않기 때문입니다.
 
+두 파일 모두 DB 를 쓰는 컨테이너(`migrate`·`web`, 운영용은 `updater` 까지)에 `DATABASE_URL` 을
+`postgres://…@postgres:5432/…` 로 **덮어** 넣고, `web` 에는 `REDIS_URL=redis://redis:6379` 를
+덮어 넣습니다. `.env` 의 `localhost` 값은 호스트에서 직접 돌릴 때만 쓰입니다(컨테이너 안의
+localhost 는 자기 자신입니다). 운영용 파일에서 관리형 Postgres·Redis 를 쓰려면 `.env` 에
+따로 적습니다 — 업데이터가 web 을 다시 띄울 때도 같은 `.env` 로 치환하므로 그대로 유지됩니다:
+
+```bash
+NOTIKIT_DATABASE_URL=postgres://user:pass@db.internal:5432/notikit
+NOTIKIT_REDIS_URL=redis://cache.internal:6379
+```
+
+운영용 파일은 `.env` 에 **`NOTIKIT_HOST_DIR`**(compose 파일이 있는 디렉터리의 호스트 절대 경로)를
+적어 두세요. 업데이터는 이 디렉터리를 **같은 경로**로 마운트해서 compose 를 부릅니다 — 다른
+경로(예전의 `/project`)로 마운트하면 `./bundles` 같은 상대 바인드가 그 경로로 풀려 호스트
+데몬에 넘어가고, 업데이트 뒤의 `web` 이 빈 디렉터리를 봅니다. 비워 두면 compose 를 실행한 셸의
+`$PWD` 를 쓰며, 둘 다 비면 업데이터가 compose 파일을 찾지 못해 기동을 거부합니다.
+
 ## 명령어
 
 ```bash
@@ -80,6 +97,10 @@ npm run build && npx next start -p 3001  # 또는 npm run dev
 
 - `GET /api/health` — liveness. 프로세스가 살아 있는가. DB 가 죽어도 200
 - `GET /api/ready` — readiness. DB 에 붙고 스키마가 맞는가. **compose 의 healthcheck 는 이쪽**
+  - 스키마는 `drizzle.__drizzle_migrations` 에 적용된 마지막 마이그레이션이 이미지에 실린
+    `drizzle/meta/_journal.json` 의 마지막 항목에 닿았는지로 봅니다. 뒤처져 있으면
+    `503 {"reason":"schema behind","applied":…,"expected":…}` — migrate 가 실패했는데 web 만 뜬 상태입니다
+  - DB 가 저널보다 앞서 있는 것은 통과입니다(마이그레이션 없는 릴리스를 되돌린 직후 등)
 
 `web` 이 healthy 가 되어야 `worker` 가 시작합니다. 워커가 DB 도 못 붙은 웹을 폴링하며
 기동 로그를 실패 경고로 채우지 않게 하려는 것입니다.
@@ -95,6 +116,12 @@ npm run build && npx next start -p 3001  # 또는 npm run dev
 - 워커 없이 수동으로 밀어야 한다면 큐 화면의 "큐 처리" 버튼을 쓰세요
 
 워커는 프로젝트 목록을 커서로 끝까지 읽어 모든 프로젝트를 처리합니다. 큐 처리·저니 진행·웹훅 재시도·토큰 점검을 담당합니다.
+
+야간 작업(로그 리텐션 purge·죽은 토큰 점검)은 프로젝트마다 하루 한 번입니다. `TOKEN_CHECK_HOUR_UTC`
+시에 프로젝트별로 0-59분 흩어진 시각이 **지난 뒤 첫 tick** 에 돌고, 끝나지 않았으면(purge 가
+`done:false`, 토큰 점검이 partial, 요청 실패) 다음 tick 이 이어받습니다. 끝내면 다음 날 그 시각까지
+쉽니다. 앞선 tick 이 길어져도 그날을 건너뛰지 않습니다. 워커를 재기동하면 그날 한 번 더 돌 수
+있지만, purge 는 멱등이고 토큰 점검은 서버가 `TOKEN_CHECK_MIN_INTERVAL_HOURS` 로 거릅니다.
 
 ## 위치 데이터 적재
 
@@ -180,7 +207,8 @@ docker compose logs web | jq -r 'select(.event=="redis.fallback") | .reason' | s
 | `redis.breaker_open` | Redis 가 느려 한동안 묻지 않기로 했다 |
 | `ratelimit.memory_only` | `REDIS_URL` 이 없다 |
 | `webhook.dead_letter` | 5회를 다 쓰고 포기한 배달 — 이벤트가 그대로 사라진 것 |
-| `worker.token_sweep_failed` | 야간 토큰 점검이 실패했다(다음 창에 재시도) |
+| `worker.token_sweep_failed` | 야간 토큰 점검이 실패했다(다음 tick 에 재시도) |
+| `worker.project_list_failed` | 워커가 프로젝트 목록을 못 읽어 그 tick 을 건너뛰었다. `status` 가 401/403 이면 워커와 web 의 `ADMIN_TOKEN` 이 다르다 — 이 상태로는 **아무것도 발송되지 않는다** |
 
 ### 운영 지표 한 장
 

@@ -54,9 +54,11 @@ CI(`.github/workflows/release.yml`)가 나머지를 한다.
 - amd64/arm64 둘 다 빌드한다. 고객 하드웨어가 무엇일지 모른다
 - cosign 으로 서명한다
 - `hasMigrations` 를 **저널 비교로 판정한다.** 손으로 적으면 언젠가 틀리고, 틀리는 날은 고객 스키마가 백업 없이 바뀌는 날이다
+  - 비교 기준은 **같은 채널에서 현재보다 낮은 태그 중 가장 높은 것**이다(`tools/release/previous-tag.mjs`). 정식 릴리스는 정식 태그끼리, 베타는 베타끼리. `git tag --sort=-v:refname` 은 `v1.3.0-beta.1` 을 `v1.3.0` 보다 위로 올려 쓰지 않는다
+  - 매니페스트의 값은 직전 태그와의 차이일 뿐이다. 중간 버전을 건너뛰는 설치에는 업데이트 서버가 설치 버전부터 대상까지의 같은 채널 릴리스(yanked 포함)를 **모두 OR** 해서 내려보낸다
 - 다이제스트를 업데이트 서버에 등록한다. 태그가 아니다 — 태그는 나중에 다른 이미지를 가리키게 바뀔 수 있다
   - `UPDATE_SERVER_URL` 시크릿이 없으면 등록만 건너뛰고 나머지는 그대로 한다(업데이트 서버 없이 시작할 때)
-- 폐쇄망 번들을 만들어 아티팩트로 올린다
+- 폐쇄망 번들을 만들어 아티팩트로 올린다(`.tar`, `.tar.sha256`, `.tar.json`)
 
 레지스트리는 `REGISTRY_SERVER` 변수가 없으면 **GHCR**(`ghcr.io/mintsoft-opensource/notikit`, `…/notikit-updater`)이다.
 CI 는 `GITHUB_TOKEN` 으로 푸시하므로 준비할 계정·시크릿이 없다. 두 패키지 모두 공개라 설치할 서버는
@@ -83,6 +85,10 @@ docker compose -f docker-compose.prod.yml --env-file .env --env-file .notikit-im
 
 문제가 있는 릴리스는 해당 `releases/*.json` 에 `"yanked": true` 를 넣으면 아무에게도 나가지 않는다.
 
+줄 릴리스가 없는 고객(`blocked`, 빈 채널, 없는 `pin`)에게 업데이트 서버는 `200 {"latest": null}` 을 돌려준다. 콘솔은 이것을 "최신" 으로 보여 준다.
+
+릴리스 등록(`POST /v1/releases`)의 `version` 은 `x.y.z` 또는 `x.y.z-pre` 로 **끝까지** 맞아야 한다. 이 값이 그대로 `releases/<버전>.json` 파일 이름이 되기 때문이다.
+
 ## 5. 폐쇄망 설치
 
 금융·공공에서는 사실상 기본값이다.
@@ -93,9 +99,21 @@ docker compose -f docker-compose.prod.yml --env-file .env --env-file .notikit-im
 
 번들은 라이선스 없이도 설치할 수 있다.
 
+**번들은 CI 러너 아키텍처(amd64) 전용이다.** `docker save` 는 멀티 아키텍처 인덱스가 아니라 러너에
+받아 둔 이미지 하나를 담는다. arm64 폐쇄망 설치에는 arm64 머신에서 `tools/release/bundle.mjs` 로
+따로 만들어야 한다.
+
+번들 안의 web 이미지는 **버전 태그**(`<레지스트리>/notikit:<버전>`)로 저장된다. 다이제스트 참조로
+저장하면 `docker load` 뒤에 그 이미지를 찾을 방법이 없다(RepoDigests 는 레지스트리에서 받을 때만 붙는다).
+`bundle.json`·`.tar.json` 에는 콘솔이 승인하는 다이제스트 참조(`image`)와 함께 로드 뒤 찾을 태그
+(`imageTag`), 이미지 ID(`imageId`, 설정 다이제스트), 레이어 목록(`layers`)이 적힌다. 태그가 없는
+예전 형식 번들은 업데이터가 거부한다 — 다시 만들어 반입한다.
+
 `.sha256` 이 없으면 콘솔이 설치를 거부한다. 번들은 USB 와 사람 손을 거쳐 오므로, 받은 것이 보낸 것과 같은지 확인하지 못하면 무엇을 설치하는지 모르는 채로 설치하는 것이다.
 
 업데이터는 체크섬을 다시 확인하고, 번들이 가리키는 이미지가 콘솔에서 승인한 이미지와 같은지도 확인한다.
+로드한 뒤에는 태그로 이미지를 찾아 ID 가 번들에 적힌 것과 같은지 본다(containerd 이미지 저장소처럼
+ID 체계가 다른 곳에서는 레이어 목록으로 대조한다). 그다음 그 태그를 `.notikit-image.env` 에 적는다.
 
 ## 6. 장애 대응
 

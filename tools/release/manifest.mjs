@@ -5,6 +5,10 @@
  * `hasMigrations` 를 **사람이 적지 않는다.** 손으로 적으면 언젠가 틀리고, 틀리는
  * 날은 스키마가 백업 없이 바뀌는 날이다. 이전 태그와 drizzle 저널을 비교해 정한다.
  *
+ * 이 값은 **같은 채널의 직전 태그**(previous-tag.mjs)와의 차이다. 중간 버전을 건너뛰는
+ * 설치는 이 플래그 하나로 판정할 수 없다 — 업데이트 서버가 설치 버전부터 대상까지의
+ * 릴리스를 모두 OR 해서 내려보낸다(apps/update-server/catalog.mjs hasMigrationsSince).
+ *
  *   node tools/release/manifest.mjs --version 1.2.0 --previous 1.1.0 \
  *     --image registry.example.com/notikit --digest sha256:… > releases/1.2.0.json
  */

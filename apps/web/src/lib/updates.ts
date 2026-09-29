@@ -132,8 +132,13 @@ async function fetchLatest(): Promise<UpdateCheck> {
   // 구독이 끊겼다고 해서 돌고 있는 설치를 멈추지 않는다. 업데이트만 막힌다.
   if (res.status === 401 || res.status === 403) return { ...base, status: "unlicensed" };
   if (!res.ok) return { ...base, status: "unreachable" };
+  // 배포처가 줄 릴리스가 없다(채널이 비었거나 이 고객 배포를 멈췄다) — "최신"이지 "연결 불가"가 아니다.
+  // 204 는 예전 배포처의 응답이다. 본문이 없어 파싱하면 실패하므로 먼저 거른다.
+  if (res.status === 204) return base;
 
-  const latest = toRelease(await res.json().catch(() => null));
+  const json: unknown = await res.json().catch(() => null);
+  if (typeof json === "object" && json !== null && "latest" in json && json.latest === null) return base;
+  const latest = toRelease(json);
   if (!latest) return { ...base, status: "unreachable" };
 
   const outdated = isNewer(latest.version, CURRENT_VERSION);

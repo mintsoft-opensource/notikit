@@ -6,6 +6,9 @@
  *      WORKER_REQUEST_TIMEOUT_MS(기본 120000), WORKER_CONCURRENCY(기본 4),
  *      WORKER_WEBHOOK_SWEEP_MS(기본 60000), WORKER_SHUTDOWN_TIMEOUT_MS(기본 30000)
  */
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 const BASE = (process.env.WORKER_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const ADMIN = process.env.ADMIN_TOKEN;
 
@@ -75,13 +78,8 @@ const SHUTDOWN_TIMEOUT_MS = numEnv("WORKER_SHUTDOWN_TIMEOUT_MS", 30_000, { min: 
 const TOKEN_CHECK_ENABLED = process.env.TOKEN_CHECK_ENABLED !== "false";
 const TOKEN_CHECK_HOUR_UTC = numEnv("TOKEN_CHECK_HOUR_UTC", 0, { min: 0, max: 23 });
 const TOKEN_CHECK_MIN_INTERVAL_HOURS = numEnv("TOKEN_CHECK_MIN_INTERVAL_HOURS", 20, { min: 0, max: 720 });
-// partial 이어받기 상한 — 무한 루프로 tick 을 붙잡지 않게. 남으면 다음 창에서 이어진다.
+// partial 이어받기 상한 — 무한 루프로 tick 을 붙잡지 않게. 남으면 다음 tick 에서 이어진다.
 const TOKEN_CHECK_MAX_ROUNDS = numEnv("TOKEN_CHECK_MAX_ROUNDS", 20, { min: 1 });
-
-if (!ADMIN) {
-  log.error("worker.config_missing", { name: "ADMIN_TOKEN" });
-  process.exit(1);
-}
 
 const admin = { "x-admin-token": ADMIN, "content-type": "application/json" };
 
@@ -126,29 +124,41 @@ function staggerMinute(projectId) {
   return h % 60;
 }
 
-// 프로젝트별 마지막 스윕 시도 분 — tick 이 10초라 같은 분에 6번 걸린다.
-// 서버 CAS 가 중복을 막긴 하지만, 굳이 레이트리밋에 걸리는 호출을 반복할 이유가 없다.
-const lastSweepMinute = new Map();
+/** UTC 날짜 키(YYYY-MM-DD). 야간 작업을 "그날 끝냈는가"로 세는 단위다. */
+export function utcDay(now) {
+  return now.toISOString().slice(0, 10);
+}
+
+/** 오늘(UTC) 이 프로젝트의 야간 스윕 시각(ms). 시는 TOKEN_CHECK_HOUR_UTC, 분은 프로젝트별로 흩어진다. */
+export function sweepTimeFor(projectId, now, hourUtc = TOKEN_CHECK_HOUR_UTC) {
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hourUtc, staggerMinute(projectId));
+}
 
 /**
- * 이 프로젝트의 야간 스윕 시각인가 (UTC 기준, 분 단위로 분산) — 분당 1회만 true.
- * 성공 여부는 여기서 기록하지 않는다. 시도만으로 "오늘 끝"으로 치면 일시적 네트워크
- * 오류 한 번이 그날의 유일한 기회를 소진한다. 중복 방지는 서버 CAS 가 맡는다.
+ * 이 프로젝트의 야간 작업을 지금 돌려야 하는가 — 오늘의 스윕 시각이 **지났고**, 오늘 아직
+ * 끝내지 못했다. 예전엔 그 1분 창 안에 tick 이 걸려야만 돌았는데, 앞선 tick 이 길어지면
+ * (대형 발송·purge) 창을 통째로 건너뛰어 그날 purge 가 없었다. 로그가 쌓여 디스크가 차는 길이다.
+ *
+ * "끝냈다"는 성공했을 때만 기록한다(markNightlyDone). 실패나 done:false 는 다음 tick 이
+ * 이어받는다. 중복 실행은 서버가 막는다 — purge 는 멱등이고 토큰 점검은 CAS 로 클레임한다.
  */
-function isSweepWindow(projectId, now) {
-  if (now.getUTCHours() !== TOKEN_CHECK_HOUR_UTC) return false;
-  const minute = now.getUTCMinutes();
-  if (minute !== staggerMinute(projectId)) return false;
-  const key = `${now.getUTCDate()}:${minute}:${lastSweepSeq(now)}`;
-  if (lastSweepMinute.get(projectId) === key) return false;
-  lastSweepMinute.set(projectId, key);
-  return true;
+export function isSweepDue(projectId, now, doneDay, hourUtc = TOKEN_CHECK_HOUR_UTC) {
+  if (now.getTime() < sweepTimeFor(projectId, now, hourUtc)) return false;
+  return doneDay !== utcDay(now);
 }
 
-/** 스윕 창 안에서는 tick 마다 재시도할 수 있게 초 단위 구간을 키에 섞는다 */
-function lastSweepSeq(now) {
-  return Math.floor(now.getUTCSeconds() / Math.max(1, Math.round(INTERVAL / 1000)));
-}
+/** 응답을 보고 오늘 몫을 끝냈는지. 오류 본문(`{error}`)이나 무응답은 끝나지 않은 것이다. */
+export const nightlyDone = {
+  // done:false 는 한 호출에서 다 못 지웠다는 뜻이다(서버가 tick 독점을 막으려 끊는다)
+  purge: (res) => !!res?.data && res.data.done !== false,
+  // 이미 검사됐거나(alreadyChecked) 다른 워커가 리스를 가져갔으면(leaseLost) 우리 몫은 끝났다
+  tokens: (res) => !!res?.data && (res.data.alreadyChecked === true || res.data.leaseLost === true || !res.data.partial),
+};
+
+// 프로젝트별로 야간 작업을 끝낸 UTC 날짜. 메모리에만 둔다 — 재기동하면 한 번 더 돌 수 있지만
+// purge 는 멱등이고 토큰 점검은 서버가 min_interval_hours 로 거른다.
+const purgeDoneDay = new Map();
+const tokenDoneDay = new Map();
 
 let lastWebhookSweep = 0;
 
@@ -192,42 +202,66 @@ function reportLimiterHealth(rl) {
   }
 }
 
-async function tick() {
-  await sweepWebhooks(Date.now());
-
-  // 한 페이지만 읽으면 그 뒤의 프로젝트는 영영 처리되지 않는다 — 커서를 끝까지 따라간다.
-  // 페이지 수에 상한을 둬, 커서가 진전되지 않는 이상 상황에서 tick 이 멈추지 않게 한다.
-  let projects = [];
+/**
+ * 전 프로젝트 목록. 실패하면 null — 호출자는 그 tick 을 건너뛴다.
+ *
+ * 한 페이지만 읽으면 그 뒤의 프로젝트는 영영 처리되지 않는다 — 커서를 끝까지 따라간다.
+ * 페이지 수에 상한을 둬, 커서가 진전되지 않는 이상 상황에서 tick 이 멈추지 않게 한다.
+ *
+ * `!res.ok` 를 반드시 본다. 예전엔 401 본문을 그대로 파싱해 "프로젝트 0개"로 읽었고,
+ * ADMIN_TOKEN 이 web 과 어긋난 설치가 경고 한 줄 없이 아무것도 보내지 않았다.
+ */
+export async function listProjects(fetchImpl = fetch) {
+  const projects = [];
   try {
     let cursor = null;
     for (let page = 0; page < MAX_PROJECT_PAGES; page++) {
       const q = cursor ? `?before=${encodeURIComponent(cursor.ts)}&before_id=${cursor.id}` : "";
-      const res = await fetch(`${BASE}/api/admin/projects${q}`, {
+      const res = await fetchImpl(`${BASE}/api/admin/projects${q}`, {
         headers: { "x-admin-token": ADMIN },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        log.warn("worker.project_list_failed", {
+          status: res.status,
+          reason: body?.error ?? null,
+          // 401/403 은 거의 항상 worker 와 web 의 ADMIN_TOKEN 불일치다
+          hint: res.status === 401 || res.status === 403 ? "check ADMIN_TOKEN matches web" : undefined,
+        });
+        return null;
+      }
       const json = await res.json();
-      const batch = json?.data?.projects ?? [];
-      projects.push(...batch);
+      projects.push(...(json?.data?.projects ?? []));
       cursor = json?.data?.next ?? null;
       if (!cursor) break;
     }
   } catch (e) {
-    log.warn("worker.project_list_failed", { reason: reasonOf(e) });
-    return;
+    log.warn("worker.project_list_failed", { status: null, reason: reasonOf(e) });
+    return null;
   }
+  return projects;
+}
+
+async function tick() {
+  await sweepWebhooks(Date.now());
+
+  const projects = await listProjects();
+  // 목록을 못 읽었으면 이번 tick 은 건너뛴다. 빈 목록으로 진행하면 아래 정리가
+  // 야간 작업 기록을 모두 지워, 다음 tick 에 그날 끝낸 스윕을 다시 돈다.
+  if (!projects) return;
   // 사라진 프로젝트의 기록은 지운다 — 장기 실행 워커에서 무한히 쌓이지 않게
-  if (lastSweepMinute.size > projects.length) {
-    const live = new Set(projects.map((p) => p.id));
-    for (const id of lastSweepMinute.keys()) if (!live.has(id)) lastSweepMinute.delete(id);
+  const live = new Set(projects.map((p) => p.id));
+  for (const done of [purgeDoneDay, tokenDoneDay]) {
+    if (done.size <= projects.length) continue;
+    for (const id of done.keys()) if (!live.has(id)) done.delete(id);
   }
 
   await runLimited(projects, CONCURRENCY, processProject);
 }
 
 async function processProject(p) {
-  // 프로젝트마다 다시 읽는다 — 한 번 캡처하면 스윕이 길어졌을 때 뒤쪽 프로젝트가
-  // 이미 지나간 분(minute)으로 판정된다
+  // 프로젝트마다 다시 읽는다 — tick 이 자정(UTC)을 넘기면 뒤쪽 프로젝트는 다음 날로 판정돼야 한다
   const now = new Date();
   // 반복 예약이 먼저다 — 도래한 예약은 이번 tick 의 큐 처리에 바로 실려 나간다.
   // 뒤에 두면 만들어진 로그가 다음 tick(기본 10초)까지 그대로 앉아 있다.
@@ -240,101 +274,122 @@ async function processProject(p) {
   await post(`/api/admin/projects/${p.id}/journeys/process`);
   // 웹훅 재시도는 프로젝트별이 아니라 sweepWebhooks() 가 한 번에 처리한다.
 
-  // isSweepWindow 는 호출하면 창을 소비한다(분당 1회만 true). 야간 작업이 둘이므로
-  // **한 번만 물어보고 공유한다** — 두 번 부르면 뒤엣것이 조용히 건너뛰어진다.
-  const sweeping = isSweepWindow(p.id, now);
-
   // 로그 리텐션 purge — 로그가 코어 테이블과 같은 DB 에 있어서, 이게 멈추면
   // 디스크가 차고 푸시 전체가 선다. 한 번에 다 못 지우면 done:false 로 오고
-  // 다음 창에서 이어 간다(한 tick 을 독점하지 않게 서버가 끊는다).
-  if (sweeping) {
+  // 다음 tick 에서 이어 간다(한 tick 을 독점하지 않게 서버가 끊는다).
+  if (isSweepDue(p.id, now, purgeDoneDay.get(p.id))) {
     const res = await post(`/api/admin/projects/${p.id}/logs/purge`);
     if (res?.data?.purged > 0) {
       log.info("worker.logs_purged", { project_id: p.id, purged: res.data.purged, done: res.data.done });
     }
+    if (nightlyDone.purge(res)) purgeDoneDay.set(p.id, utcDay(now));
   }
 
   // 서버가 CAS 로 클레임하므로 하루 1회만 실제로 수행된다.
   // 토큰이 많으면 partial 로 끊겨 오므로 완주할 때까지 이어서 호출한다.
-  if (TOKEN_CHECK_ENABLED && sweeping) {
+  if (TOKEN_CHECK_ENABLED && isSweepDue(p.id, now, tokenDoneDay.get(p.id))) {
+    let res = null;
     for (let round = 0; round < TOKEN_CHECK_MAX_ROUNDS; round++) {
-      const res = await post(
+      res = await post(
         `/api/admin/projects/${p.id}/devices/check?min_interval_hours=${TOKEN_CHECK_MIN_INTERVAL_HOURS}`
       );
-      if (!res) {
+      if (!res?.data) {
         // 네트워크/서버 오류 — 커서는 서버에 남아 있으므로 다음 tick 이 이어받는다
-        log.warn("worker.token_sweep_failed", { project_id: p.id, reason: "no response" });
+        log.warn("worker.token_sweep_failed", { project_id: p.id, reason: res?.error ?? "no response" });
         break;
       }
-      if (res.data?.leaseLost) {
+      if (res.data.leaseLost) {
         log.warn("worker.token_sweep_lease_lost", { project_id: p.id });
         break;
       }
-      if (res.data?.unverified > 0) {
+      if (res.data.unverified > 0) {
         log.warn("worker.token_sweep_unverified", { project_id: p.id, unverified: res.data.unverified });
       }
-      if (!res.data?.partial) break;
+      if (!res.data.partial) break;
       if (round === TOKEN_CHECK_MAX_ROUNDS - 1) {
-        // 커서는 남아 있으므로 다음 창에서 이어진다. 조용히 끝난 것처럼 보이지 않게 남긴다.
+        // 커서는 남아 있으므로 다음 tick 에서 이어진다. 조용히 끝난 것처럼 보이지 않게 남긴다.
         log.warn("worker.token_sweep_round_cap", { project_id: p.id, rounds: TOKEN_CHECK_MAX_ROUNDS });
       }
     }
+    if (nightlyDone.tokens(res)) tokenDoneDay.set(p.id, utcDay(now));
   }
 }
-
-log.info("worker.started", {
-  base: BASE,
-  interval_ms: INTERVAL,
-  concurrency: CONCURRENCY,
-  request_timeout_ms: REQUEST_TIMEOUT_MS,
-  token_sweep_hour_utc: TOKEN_CHECK_ENABLED ? TOKEN_CHECK_HOUR_UTC : null,
-});
-// tick 은 스윕 창에서 한 번에 수 분이 걸릴 수 있다.
-// 겹쳐 돌면 그동안 큐/저니/웹훅 호출이 중복으로 쌓인다.
-let inFlight = null;
-let stopping = false;
-async function safeTick() {
-  if (inFlight || stopping) return;
-  inFlight = (async () => {
-    try {
-      await tick();
-    } catch (e) {
-      log.error("worker.tick_failed", { reason: reasonOf(e) }); // 다음 tick 에서 재시도
-    } finally {
-      inFlight = null;
-    }
-  })();
-  await inFlight;
-}
-
-const timer = setInterval(safeTick, INTERVAL);
-safeTick();
 
 /**
- * 종료 신호 — 진행 중인 tick 을 기다린다.
- * 그냥 죽으면 클레임해 둔 발송·배달이 stale 재클레임 시각까지 멈춰 있고, 무엇보다
- * FCM 에 이미 보낸 건의 결과 기록이 유실된다. 무한정 기다리지는 않는다(컨테이너가 SIGKILL 한다).
+ * 이 파일이 직접 실행됐을 때만 돈다. 테스트(worker.test.mjs)가 import 해서 스케줄 판정만
+ * 확인할 수 있게 — import 만으로 타이머가 돌고 ADMIN_TOKEN 이 없다며 죽으면 안 된다.
  */
-async function shutdown(signal) {
-  if (stopping) return;
-  stopping = true;
-  clearInterval(timer);
-  if (!inFlight) {
-    log.info("worker.shutdown", { signal, waited_ms: 0 });
-    process.exit(0);
+function isMain() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
   }
-  log.info("worker.shutdown_waiting", { signal, timeout_ms: SHUTDOWN_TIMEOUT_MS });
-  let timedOut = false;
-  const guard = new Promise((resolve) =>
-    setTimeout(() => {
-      timedOut = true;
-      resolve();
-    }, SHUTDOWN_TIMEOUT_MS).unref()
-  );
-  await Promise.race([inFlight.catch(() => {}), guard]);
-  if (timedOut) log.warn("worker.shutdown_timeout", { signal, timeout_ms: SHUTDOWN_TIMEOUT_MS });
-  process.exit(0);
 }
 
-process.on("SIGTERM", () => void shutdown("SIGTERM"));
-process.on("SIGINT", () => void shutdown("SIGINT"));
+function main() {
+  if (!ADMIN) {
+    log.error("worker.config_missing", { name: "ADMIN_TOKEN" });
+    process.exit(1);
+  }
+
+  log.info("worker.started", {
+    base: BASE,
+    interval_ms: INTERVAL,
+    concurrency: CONCURRENCY,
+    request_timeout_ms: REQUEST_TIMEOUT_MS,
+    token_sweep_hour_utc: TOKEN_CHECK_ENABLED ? TOKEN_CHECK_HOUR_UTC : null,
+  });
+  // tick 은 스윕 창에서 한 번에 수 분이 걸릴 수 있다.
+  // 겹쳐 돌면 그동안 큐/저니/웹훅 호출이 중복으로 쌓인다.
+  let inFlight = null;
+  let stopping = false;
+  async function safeTick() {
+    if (inFlight || stopping) return;
+    inFlight = (async () => {
+      try {
+        await tick();
+      } catch (e) {
+        log.error("worker.tick_failed", { reason: reasonOf(e) }); // 다음 tick 에서 재시도
+      } finally {
+        inFlight = null;
+      }
+    })();
+    await inFlight;
+  }
+
+  const timer = setInterval(safeTick, INTERVAL);
+  safeTick();
+
+  /**
+   * 종료 신호 — 진행 중인 tick 을 기다린다.
+   * 그냥 죽으면 클레임해 둔 발송·배달이 stale 재클레임 시각까지 멈춰 있고, 무엇보다
+   * FCM 에 이미 보낸 건의 결과 기록이 유실된다. 무한정 기다리지는 않는다(컨테이너가 SIGKILL 한다).
+   */
+  async function shutdown(signal) {
+    if (stopping) return;
+    stopping = true;
+    clearInterval(timer);
+    if (!inFlight) {
+      log.info("worker.shutdown", { signal, waited_ms: 0 });
+      process.exit(0);
+    }
+    log.info("worker.shutdown_waiting", { signal, timeout_ms: SHUTDOWN_TIMEOUT_MS });
+    let timedOut = false;
+    const guard = new Promise((resolve) =>
+      setTimeout(() => {
+        timedOut = true;
+        resolve();
+      }, SHUTDOWN_TIMEOUT_MS).unref()
+    );
+    await Promise.race([inFlight.catch(() => {}), guard]);
+    if (timedOut) log.warn("worker.shutdown_timeout", { signal, timeout_ms: SHUTDOWN_TIMEOUT_MS });
+    process.exit(0);
+  }
+
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+}
+
+if (isMain()) main();
