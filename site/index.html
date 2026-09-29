@@ -464,6 +464,7 @@ docker compose ps</code></pre></div>
             el("h3", { text: sdk.name }),
             el("span", { class: "badge", text: "사용 가능" }),
             el("div", { class: "panel-links" }, [
+              el("a", { href: "docs/sdk-" + sdk.id + ".html", text: "문서" }),
               el("a", { href: sdk.registry.url, text: sdk.registry.label }),
               el("a", { href: sdk.repo, text: "소스" })
             ])

@@ -7,6 +7,10 @@ on:
   push:
     branches: [master]
     paths: ["site/**", "apps/web/docs/**", ".github/workflows/pages.yml"]
+  # SDK 문서는 각 SDK 저장소의 README 를 빌드 때 받아 온다. 그쪽 커밋은 여기를 깨우지 못하므로
+  # 하루 한 번 다시 빌드해 README 수정이 늦어도 하루 안에 반영되게 한다.
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:

@@ -20,7 +20,7 @@
   text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 0 10px;
 }
 .side-menu summary::-webkit-details-marker { display: none; }
-@media (min-width: 901px) { .side-menu summary { pointer-events: none; } }
+@media (min-width: 901px) { .side-menu summary { display: none; } }
 @media (max-width: 900px) {
   .side-menu { border: 1px solid var(--border); border-radius: 12px; padding: 8px 14px; background: var(--surface); }
   .side-menu summary { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
@@ -95,3 +95,8 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
+
+/* SDK 문서 — 사이드바 묶음 제목과 원본 안내 */
+.side nav .group { margin: 14px 0 4px; padding: 0 12px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.side nav .group:first-child { margin-top: 0; }
+.source { margin: -12px 0 24px; font-size: 14px; color: var(--muted); }
