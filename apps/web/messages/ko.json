@@ -28,7 +28,7 @@
     "topics": "토픽",
     "suppressions": "수신 거부",
     "logsSingle": "단건 푸시",
-    "logsTopic": "토픽 푸시",
+    "logsTopic": "토픽·전체 푸시",
     "stats": "통계",
     "statsActivity": "접속",
     "statsEngagement": "참여",
@@ -67,7 +67,13 @@
     "processing": "처리 중…",
     "created": "관리자 계정 생성됨",
     "loggedIn": "로그인되었습니다",
-    "failed": "실패"
+    "failed": "실패",
+    "errInvalidCredentials": "이메일 또는 비밀번호가 올바르지 않습니다",
+    "errTooMany": "시도가 너무 많습니다. 잠시 후 다시 시도하세요",
+    "errBusy": "일시적으로 혼잡합니다. 잠시 후 다시 시도하세요",
+    "errBootstrap": "부트스트랩 토큰이 올바르지 않습니다. 서버 로그의 등록 토큰을 확인하세요",
+    "errAlreadyInitialized": "이미 관리자가 있습니다. 로그인하세요",
+    "errInvalidInput": "이메일과 비밀번호(8자 이상)를 확인하세요"
   },
   "dashboard": {
     "title": "개요",
@@ -490,7 +496,8 @@
     "rateCap": "분당 최대 발송 수",
     "rateCapHint": "1분에 이만큼까지만 기기로 내보냅니다 ({min}~{max}, 비우면 제한 없음). 넘으면 멈추지 않고 다음 분에 이어 보냅니다.",
     "rateCapUnlimited": "제한 없음",
-    "rateCapInvalid": "분당 최대 발송 수는 {min}~{max} 사이 정수이거나 비워 두어야 합니다"
+    "rateCapInvalid": "분당 최대 발송 수는 {min}~{max} 사이 정수이거나 비워 두어야 합니다",
+    "quietInvalid": "방해금지 시간은 시작과 끝을 둘 다 정하고 서로 달라야 켜집니다. 끄려면 둘 다 비우세요."
   },
   "logs": {
     "title": "발송 로그",
@@ -522,6 +529,7 @@
     "colSentAt": "발송 시각",
     "colDelivered": "성공/대상",
     "colReadRate": "읽음률",
+    "colInboxRead": "인박스 읽음",
     "colStatus": "상태",
     "rangeFrom": "시작일",
     "rangeTo": "종료일",
@@ -751,6 +759,7 @@
     "stepHere": "{count}명",
     "exitedRuns": "종료 조건으로 끝난 실행",
     "errTitleRequired": "제목을 입력하세요",
+    "errBodyRequired": "본문을 입력하세요",
     "errEventRequired": "이벤트 이름을 입력하세요",
     "errHoursInvalid": "시간을 숫자로 입력하세요",
     "emptyTitle": "저니가 없습니다",
@@ -1218,6 +1227,7 @@
     "renameWarning": "이름을 바꾸면 \"{name}\" 으로 부르던 API 요청은 템플릿을 찾지 못해 404 가 됩니다."
   },
   "schedules": {
+    "messageLocked": "이 예약의 메시지는 API 로 만들어져 이 화면에서 고칠 수 없습니다(여러 명 대상·무음 등). 이름과 주기만 바꿀 수 있고, 메시지는 그대로 유지됩니다.",
     "title": "반복 예약",
     "subtitle": "매일·매주·매월 같은 시각에 자동으로 보냅니다. 시각은 프로젝트 타임존 기준입니다.",
     "newSchedule": "새 예약",

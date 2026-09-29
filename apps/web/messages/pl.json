@@ -67,7 +67,13 @@
     "processing": "Przetwarzanie…",
     "created": "Utworzono konto administratora",
     "loggedIn": "Zalogowano",
-    "failed": "Niepowodzenie"
+    "failed": "Niepowodzenie",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Przegląd",
@@ -492,7 +498,8 @@
     "rateCap": "Maks. wysyłek na minutę",
     "rateCapHint": "Wysyła do co najwyżej tylu urządzeń na minutę ({min}–{max}, puste oznacza bez limitu). Przekroczenie niczego nie odrzuca — reszta jest kontynuowana w następnej minucie.",
     "rateCapUnlimited": "Bez limitu",
-    "rateCapInvalid": "Maksymalna liczba wysyłek na minutę musi być liczbą całkowitą od {min} do {max} lub być pusta"
+    "rateCapInvalid": "Maksymalna liczba wysyłek na minutę musi być liczbą całkowitą od {min} do {max} lub być pusta",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Logi wysyłek",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} tutaj",
     "exitedRuns": "Przebiegi zakończone przez wyjście",
     "errTitleRequired": "Podaj tytuł",
+    "errBodyRequired": "Podaj treść",
     "errEventRequired": "Podaj nazwę zdarzenia",
     "errHoursInvalid": "Podaj godziny jako liczbę",
     "emptyTitle": "Brak podróży",
@@ -1199,6 +1208,7 @@
     "renameWarning": "Zmiana nazwy sprawi, że żądania API wciąż używające \"{name}\" nie znajdą szablonu i otrzymają błąd 404."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Cykliczne harmonogramy",
     "subtitle": "Wysyła automatycznie o tej samej porze każdego dnia, tygodnia lub miesiąca — w strefie czasowej projektu.",
     "newSchedule": "Nowy harmonogram",

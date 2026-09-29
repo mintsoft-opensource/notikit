@@ -36,7 +36,6 @@ type Log = {
   failureCount: number;
   /** 단말이 받았다고 보고한 수. FCM 접수(successCount)와 **다른 축**이다 — 접수는 기기가 꺼져 있어도 성공한다 */
   deliveredCount: number;
-  readCount: number;
   scheduledAt: string | null;
   canceledAt: string | null;
   canceledBy: string | null;
@@ -96,7 +95,10 @@ type Conversions = {
   byName: Array<{ name: string; count: number; valueCents: number }>;
 };
 
-type LogDetailResponse = { log: Log; clicks?: VariantClicks; conversions?: Conversions; holdout?: Holdout };
+/** 이 발송이 넣은 인박스와 그중 읽힌 수 — 사람 단위 */
+type Inbox = { total: number; read: number };
+
+type LogDetailResponse = { log: Log; clicks?: VariantClicks; conversions?: Conversions; holdout?: Holdout; inbox?: Inbox };
 
 type Reader = {
   id: string;
@@ -122,6 +124,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
   const [variantClicks, setVariantClicks] = React.useState<VariantClicks | null>(null);
   const [conversions, setConversions] = React.useState<Conversions | null>(null);
   const [holdout, setHoldout] = React.useState<Holdout | null>(null);
+  const [inbox, setInbox] = React.useState<Inbox | null>(null);
   const [readers, setReaders] = React.useState<Reader[] | null>(null);
   const [readersNext, setReadersNext] = React.useState<Cursor>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
@@ -139,6 +142,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
     setVariantClicks(null);
     setConversions(null);
     setHoldout(null);
+    setInbox(null);
     setMissing(false);
     setFailed(false);
     (async () => {
@@ -149,6 +153,7 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
         setVariantClicks(d.clicks ?? null);
         setConversions(d.conversions ?? null);
         setHoldout(d.holdout ?? null);
+        setInbox(d.inbox ?? null);
       } catch (e) {
         if (stale) return;
         if (e instanceof AdminApiError && e.status === 404) return setMissing(true);
@@ -234,7 +239,8 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
   }, []);
   const cancel = useCancelSend(projectId, onCanceled);
 
-  const backHref = `/projects/${projectId}/logs/${log?.type === "topic" ? "topic" : "single"}`;
+  // 목록과 같은 묶음으로 돌아간다 — 사람을 지정한 발송(single·multi)만 "단건", 나머지는 "토픽·전체"
+  const backHref = `/projects/${projectId}/logs/${log?.type === "single" || log?.type === "multi" ? "single" : "topic"}`;
 
   // "없음"과 "못 가져옴"은 같은 껍데기(Card + EmptyState)로 낸다 — 한쪽만 맨 버튼이면
   // 같은 자리에서 다른 화면처럼 보이고, 되돌아갈 버튼이 매번 다른 곳에 선다.
@@ -389,7 +395,10 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
                     : `${nf.format(log.deliveredCount)} (${rate(log.deliveredCount, log.successCount)})`
                 }
               />
-              <DataRow label={t("colReadRate")} value={`${nf.format(log.readCount)} (${rate(log.readCount, log.successCount)})`} />
+              {/* 인박스를 넣은 발송(single·multi)만 보여 준다 — 없는 발송에 0% 를 적으면 "아무도 안 읽었다"로 읽힌다 */}
+              {inbox && inbox.total > 0 && (
+                <DataRow label={t("colInboxRead")} value={`${nf.format(inbox.read)} / ${nf.format(inbox.total)} (${rate(inbox.read, inbox.total)})`} />
+              )}
               <DataRow label={t("readers")} value={`${nf.format(log.clickUserCount)} / ${nf.format(log.audienceUserCount)} (${rate(log.clickUserCount, log.audienceUserCount)})`} />
               {log.kakaoFallback && <DataRow label="Kakao" value={nf.format(log.kakaoCount)} />}
               <DataRow label={t("sentBy")} value={sentByText(log.sentBy)} />

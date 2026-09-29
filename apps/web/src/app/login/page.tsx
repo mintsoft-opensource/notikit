@@ -41,6 +41,16 @@ export default function LoginPage() {
     })();
   }, [router]);
 
+  /** 상태 코드 → 번역 키. 서버 문구는 한국어 고정이라 그대로 띄우면 다른 언어 화면에 한국어가 섞인다 */
+  function authErrorKey(status: number): string | null {
+    if (status === 401) return "errInvalidCredentials";
+    if (status === 429) return "errTooMany";
+    if (status === 503) return "errBusy";
+    if (status === 422) return "errInvalidInput";
+    if (status === 403 && mode === "register") return tokenRequired ? "errBootstrap" : "errAlreadyInitialized";
+    return null;
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -50,8 +60,8 @@ export default function LoginPage() {
       const headers: Record<string, string> = { "content-type": "application/json" };
       if (mode === "register" && tokenRequired) headers["x-bootstrap-token"] = bootstrapToken;
       const r = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
-      const j = await r.json();
-      if (!r.ok || !j.success) throw new Error(j.error ?? t("failed"));
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.success) throw new Error(authErrorKey(r.status) ? t(authErrorKey(r.status)!) : (j.error ?? t("failed")));
       toast.success(mode === "register" ? t("created") : t("loggedIn"));
       router.replace("/dashboard");
     } catch (err) {

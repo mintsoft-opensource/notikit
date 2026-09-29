@@ -58,7 +58,10 @@ async function ensureLogin(page: Page) {
     await page.context().clearCookies();
   }
   const headers = { origin: ORIGIN };
-  const reg = await page.request.post("/api/admin/register", { data: { org_name: "E2E", ...SESSION_ADMIN }, headers });
+  const reg = await page.request.post("/api/admin/register", {
+    data: { org_name: "E2E", ...SESSION_ADMIN },
+    headers: { ...headers, "x-bootstrap-token": process.env.BOOTSTRAP_TOKEN ?? "e2e-bootstrap-token" },
+  });
   if (!reg.ok()) {
     const login = await page.request.post("/api/admin/login", { data: SESSION_ADMIN, headers });
     expect(login.ok()).toBeTruthy();
@@ -77,6 +80,20 @@ async function sessionProjectId(page: Page): Promise<string> {
 }
 
 test.describe("W4 기능 보강", () => {
+  test("같은 이름의 규칙식 토픽: 조건이 다르면 409, 같은 요청의 재시도면 200", async ({ request }) => {
+    const p = await createProject(request, "dup-topic");
+    const mk = (value: string) =>
+      request.post(`/api/admin/projects/${p.pid}/audience/topics`, {
+        headers: admin,
+        data: { name: "vip", rules: [{ attribute: "plan", op: "eq", value }] },
+      });
+    expect((await mk("pro")).status()).toBe(201);
+    // 새 조건이 조용히 버려지는데 성공처럼 보이면 안 된다
+    expect((await mk("free")).status()).toBe(409);
+    // jsonb 가 키 순서를 바꿔도 같은 규칙은 같은 요청이다
+    expect((await mk("pro")).status()).toBe(200);
+  });
+
   test("토픽 규칙 연산자: 숫자 비교·다름·포함, 숫자 아닌 속성은 오류 없이 제외", async ({ request }) => {
     const p = await createProject(request, "ops");
     await identifyWithDevice(request, p, "teen", { age: "15", plan: "free", email: "a@corp.example" });
@@ -1366,7 +1383,9 @@ test.describe("감사 로그와 리포트 내보내기", () => {
   test("설정 변경이 누가·무엇에서 무엇으로 바뀌었는지까지 남는다", async ({ request }) => {
     const p = await createProject(request, "audit-settings");
 
-    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 22 } });
+    // 방해금지는 시작·끝을 함께 정해야 켜진다 — 한쪽만 보내면 422
+    expect((await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 22 } })).status()).toBe(422);
+    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 22, quiet_end_hour: 7 } });
     await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 23 } });
     // 같은 값으로 다시 저장한 요청은 기록하지 않는다 — 잡음이 쌓이면 진짜 변경을 못 찾는다
     await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 23 } });
@@ -1468,7 +1487,7 @@ test.describe("감사 로그와 리포트 내보내기", () => {
 
   test("CSV 내보내기는 화면에 건 필터와 같은 범위만 담는다", async ({ request }) => {
     const p = await createProject(request, "audit-export");
-    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 3 } });
+    await request.patch(`/api/admin/projects/${p.pid}`, { headers: admin, data: { quiet_start_hour: 3, quiet_end_hour: 6 } });
     await request.post(`/api/admin/projects/${p.pid}/audience/topics`, { headers: admin, data: { name: `export-topic-${Date.now()}` } });
 
     const all = await request.get(`/api/admin/projects/${p.pid}/export/audit`, { headers: admin });
@@ -1494,7 +1513,7 @@ test.describe("감사 로그와 리포트 내보내기", () => {
   test("감사 화면: 최신순 목록과 행위 필터, 내보내기 단추", async ({ page }) => {
     await ensureLogin(page);
     const pid = await sessionProjectId(page);
-    await page.request.patch(`/api/admin/projects/${pid}`, { headers: { origin: ORIGIN }, data: { quiet_end_hour: 7 } });
+    await page.request.patch(`/api/admin/projects/${pid}`, { headers: { origin: ORIGIN }, data: { quiet_start_hour: Date.now() % 6, quiet_end_hour: 7 } });
 
     await page.goto(`/projects/${pid}/audit`);
     await expect(page.getByRole("heading", { name: "감사 로그" })).toBeVisible();
@@ -1611,7 +1630,10 @@ test.describe("발송 취소 · 로케일 문구 · 홀드아웃 · 수신 보�
 
     const sql = postgres(E2E_DATABASE_URL, { max: 1 });
     try {
-      const held = await sql`select log_id, device_id from push_holdouts where project_id = ${p.pid}`;
+      // 발송군(held=false)도 남는다 — 대조군 명단은 held=true 만
+      const held = await sql`select log_id, device_id from push_holdouts where project_id = ${p.pid} and held`;
+      const treated = await sql`select count(*)::int as n from push_holdouts where project_id = ${p.pid} and not held`;
+      expect(treated[0].n).toBeGreaterThan(0);
       const a = new Set(held.filter((r) => r.log_id === first).map((r) => r.device_id));
       const b = new Set(held.filter((r) => r.log_id === second).map((r) => r.device_id));
       expect(a.size).toBeGreaterThan(0);

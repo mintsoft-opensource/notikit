@@ -67,7 +67,13 @@
     "processing": "Bezig…",
     "created": "Beheerdersaccount aangemaakt",
     "loggedIn": "Ingelogd",
-    "failed": "Mislukt"
+    "failed": "Mislukt",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Overzicht",
@@ -492,7 +498,8 @@
     "rateCap": "Max. verzendingen per minuut",
     "rateCapHint": "Verzendt naar maximaal dit aantal apparaten per minuut ({min}–{max}, leeg betekent onbeperkt). Overschrijding laat niets vallen — de rest gaat door in de volgende minuut.",
     "rateCapUnlimited": "Onbeperkt",
-    "rateCapInvalid": "Het maximum aantal verzendingen per minuut moet een geheel getal tussen {min} en {max} zijn, of leeg"
+    "rateCapInvalid": "Het maximum aantal verzendingen per minuut moet een geheel getal tussen {min} en {max} zijn, of leeg",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Verzendlogboeken",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} hier",
     "exitedRuns": "Uitvoeringen beëindigd door afsluiten",
     "errTitleRequired": "Voer een titel in",
+    "errBodyRequired": "Voer een inhoud in",
     "errEventRequired": "Voer een gebeurtenisnaam in",
     "errHoursInvalid": "Voer de uren in als een getal",
     "emptyTitle": "Nog geen journeys",
@@ -1199,6 +1208,7 @@
     "renameWarning": "Hernoemen zorgt ervoor dat API-verzoeken die nog \"{name}\" gebruiken het sjabloon niet vinden en een 404 krijgen."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Terugkerende schema's",
     "subtitle": "Verzendt automatisch op hetzelfde tijdstip elke dag, week of maand — in de tijdzone van het project.",
     "newSchedule": "Nieuw schema",

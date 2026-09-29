@@ -87,8 +87,13 @@ export function InstallsConsole({ projectId }: { projectId: string }) {
         setEvents(d.events);
         setNext(d.next);
       })
-      .catch(() => evtRef.current === my && setEvents([]));
-  }, [projectId, event]);
+      .catch((e) => {
+        if (evtRef.current !== my) return;
+        setEvents([]);
+        // 실패를 삼키면 "이벤트 없음"으로 보인다 — 조회가 안 된 것과 정말 없는 것은 다르다
+        toast.error(errorText(e, tc("loadFailed")));
+      });
+  }, [projectId, event, errorText, tc]);
 
   async function loadMore() {
     if (!next || more) return;

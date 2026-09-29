@@ -28,7 +28,7 @@
     "topics": "Topics",
     "suppressions": "Suppressions",
     "logsSingle": "Direct pushes",
-    "logsTopic": "Topic pushes",
+    "logsTopic": "Topic & broadcast",
     "stats": "Analytics",
     "statsActivity": "Activity",
     "statsEngagement": "Engagement",
@@ -67,7 +67,13 @@
     "processing": "Processing…",
     "created": "Admin account created",
     "loggedIn": "Logged in",
-    "failed": "Failed"
+    "failed": "Failed",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Overview",
@@ -490,7 +496,8 @@
     "rateCap": "Max sends per minute",
     "rateCapHint": "Push to at most this many devices per minute ({min}–{max}, empty means unlimited). Going over doesn't drop anything — the rest continues next minute.",
     "rateCapUnlimited": "Unlimited",
-    "rateCapInvalid": "Max sends per minute must be a whole number between {min} and {max}, or empty"
+    "rateCapInvalid": "Max sends per minute must be a whole number between {min} and {max}, or empty",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Delivery logs",
@@ -522,6 +529,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Accepted/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -751,6 +759,7 @@
     "stepHere": "{count} here",
     "exitedRuns": "Runs ended by exit",
     "errTitleRequired": "Enter a title",
+    "errBodyRequired": "Enter a body",
     "errEventRequired": "Enter an event name",
     "errHoursInvalid": "Enter hours as a number",
     "emptyTitle": "No journeys yet",
@@ -1218,6 +1227,7 @@
     "renameWarning": "Renaming breaks API requests that still use \"{name}\" — they will get a 404."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Recurring schedules",
     "subtitle": "Send automatically at the same time every day, week, or month — in the project timezone.",
     "newSchedule": "New schedule",

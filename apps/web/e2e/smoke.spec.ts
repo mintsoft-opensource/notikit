@@ -27,7 +27,10 @@ async function ensureLogin(page: Page) {
     return;
   }
   const headers = { origin: ORIGIN };
-  const reg = await page.request.post("/api/admin/register", { data: { org_name: "E2E", ...ADMIN }, headers });
+  const reg = await page.request.post("/api/admin/register", {
+    data: { org_name: "E2E", ...ADMIN },
+    headers: { ...headers, "x-bootstrap-token": process.env.BOOTSTRAP_TOKEN ?? "e2e-bootstrap-token" },
+  });
   if (!reg.ok()) {
     const login = await page.request.post("/api/admin/login", { data: ADMIN, headers });
     expect(login.ok()).toBeTruthy();

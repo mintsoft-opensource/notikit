@@ -67,7 +67,13 @@
     "processing": "प्रोसेस हो रहा है…",
     "created": "एडमिन खाता बन गया",
     "loggedIn": "लॉग इन हो गए",
-    "failed": "विफल"
+    "failed": "विफल",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "अवलोकन",
@@ -492,7 +498,8 @@
     "rateCap": "प्रति मिनट अधिकतम भेजना",
     "rateCapHint": "प्रति मिनट अधिकतम इतने डिवाइस को पुश करता है ({min}–{max}, खाली का मतलब असीमित है)। सीमा पार करने पर कुछ भी नहीं छूटता — बाकी अगले मिनट में जारी रहता है।",
     "rateCapUnlimited": "असीमित",
-    "rateCapInvalid": "प्रति मिनट अधिकतम भेजना {min} से {max} के बीच पूर्णांक होना चाहिए, या खाली"
+    "rateCapInvalid": "प्रति मिनट अधिकतम भेजना {min} से {max} के बीच पूर्णांक होना चाहिए, या खाली",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "भेजे जाने के लॉग",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "यहां {count}",
     "exitedRuns": "निकास द्वारा समाप्त रन",
     "errTitleRequired": "एक शीर्षक दर्ज करें",
+    "errBodyRequired": "एक मुख्य भाग दर्ज करें",
     "errEventRequired": "एक घटना नाम दर्ज करें",
     "errHoursInvalid": "घंटों को संख्या के रूप में दर्ज करें",
     "emptyTitle": "अभी तक कोई यात्रा नहीं है",
@@ -1199,6 +1208,7 @@
     "renameWarning": "नाम बदलने पर, अभी भी \"{name}\" का उपयोग करने वाले API अनुरोधों को टेम्पलेट नहीं मिलेगा और उन्हें 404 मिलेगा।"
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "आवर्ती शेड्यूल",
     "subtitle": "हर दिन, सप्ताह या महीने एक ही समय पर स्वचालित रूप से भेजता है — प्रोजेक्ट के समय क्षेत्र में।",
     "newSchedule": "नया शेड्यूल",

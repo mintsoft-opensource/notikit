@@ -12,16 +12,12 @@ import { DataTable, TableHeader, TableBody, TableRow, TableCell } from "@/compon
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
+import { cursorQuery, type Cursor } from "@/lib/cursor-query";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { useNumberFormat } from "@/lib/number-format";
 
 /** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
-type Cursor = { ts: string; id: string } | null;
 
-/** 커서를 쿼리스트링으로 */
-function cursorQuery(c: Cursor): string {
-  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
-}
 
 type PushUser = {
   id: string;

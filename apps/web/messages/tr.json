@@ -67,7 +67,13 @@
     "processing": "İşleniyor…",
     "created": "Yönetici hesabı oluşturuldu",
     "loggedIn": "Giriş yapıldı",
-    "failed": "Başarısız"
+    "failed": "Başarısız",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Genel bakış",
@@ -492,7 +498,8 @@
     "rateCap": "Dakika başına maksimum gönderim",
     "rateCapHint": "Dakikada en fazla bu kadar cihaza push gönderir ({min}–{max}, boş sınırsız anlamına gelir). Aşmak hiçbir şeyi düşürmez — kalan sonraki dakikada devam eder.",
     "rateCapUnlimited": "Sınırsız",
-    "rateCapInvalid": "Dakika başına maksimum gönderim {min} ile {max} arasında bir tam sayı veya boş olmalıdır"
+    "rateCapInvalid": "Dakika başına maksimum gönderim {min} ile {max} arasında bir tam sayı veya boş olmalıdır",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Gönderim günlükleri",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "Burada {count}",
     "exitedRuns": "Çıkışla sona eren çalıştırmalar",
     "errTitleRequired": "Bir başlık girin",
+    "errBodyRequired": "Bir gövde girin",
     "errEventRequired": "Bir olay adı girin",
     "errHoursInvalid": "Saatleri sayı olarak girin",
     "emptyTitle": "Henüz yolculuk yok",
@@ -1199,6 +1208,7 @@
     "renameWarning": "Yeniden adlandırma, hâlâ \"{name}\" kullanan API isteklerinin şablonu bulamayıp 404 almasına neden olur."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Yinelenen zamanlamalar",
     "subtitle": "Her gün, hafta veya ay aynı saatte otomatik olarak gönderir — proje saat diliminde.",
     "newSchedule": "Yeni zamanlama",

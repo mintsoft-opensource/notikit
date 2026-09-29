@@ -28,7 +28,8 @@ type MessageState = {
 
 const POLL_MS = 2000;
 const MAX_POLLS = 15;
-const SETTLED = new Set(["completed", "failed", "logged", "scheduled"]);
+// 취소도 끝난 상태다 — 빠지면 취소된 발송을 폴링 한도까지 계속 따라간다
+const SETTLED = new Set(["completed", "failed", "logged", "scheduled", "canceled"]);
 
 /**
  * 이 메시지 ID 의 실제 상태. "큐 처리 요청이 성공했다"는 다른 발송까지 섞인 결과라

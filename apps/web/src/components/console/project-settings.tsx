@@ -86,6 +86,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       toast.error(t("rateCapInvalid", { min: RATE_MIN, max: RATE_MAX }));
       return;
     }
+    // 서버와 같은 규칙: 둘 다 비우거나, 둘 다 정하고 서로 달라야 방해금지가 실제로 켜진다
+    if ((quietStart === "") !== (quietEnd === "") || (quietStart !== "" && quietStart === quietEnd)) {
+      toast.error(t("quietInvalid"));
+      return;
+    }
     setSaving(true);
     try {
       await adminApi(`/api/admin/projects/${projectId}`, {

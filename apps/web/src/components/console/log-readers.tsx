@@ -7,6 +7,7 @@ import { LiveChart } from "@/components/system/live-chart";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { cursorQuery, type Cursor } from "@/lib/cursor-query";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { useNumberFormat } from "@/lib/number-format";
 
@@ -18,13 +19,6 @@ type Reader = {
   clickedAt: string;
 };
 
-/** 서버가 준 복합 커서 — 타임스탬프만으로는 동시각 행이 누락된다 */
-type Cursor = { ts: string; id: string } | null;
-
-/** 커서를 쿼리스트링으로 */
-function cursorQuery(c: Cursor): string {
-  return c ? `before=${encodeURIComponent(c.ts)}&before_id=${encodeURIComponent(c.id)}` : "";
-}
 
 type ReadPoint = { ts: string; count: number; cumulative: number };
 type ReadersResponse = { readers: Reader[]; series: ReadPoint[]; bucket: "hour" | "day" | "week"; next: Cursor };

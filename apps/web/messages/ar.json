@@ -67,7 +67,13 @@
     "processing": "جارٍ المعالجة…",
     "created": "تم إنشاء حساب المسؤول",
     "loggedIn": "تم تسجيل الدخول",
-    "failed": "فشل"
+    "failed": "فشل",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "نظرة عامة",
@@ -492,7 +498,8 @@
     "rateCap": "الحد الأقصى للإرسالات في الدقيقة",
     "rateCapHint": "يُرسل إلى ما لا يزيد عن هذا العدد من الأجهزة في الدقيقة ({min}–{max}، الفراغ يعني بلا حد). تجاوز الحد لا يُسقط أي شيء — يستمر الباقي في الدقيقة التالية.",
     "rateCapUnlimited": "بلا حدود",
-    "rateCapInvalid": "يجب أن يكون الحد الأقصى للإرسالات في الدقيقة رقمًا صحيحًا بين {min} و{max}، أو فارغًا"
+    "rateCapInvalid": "يجب أن يكون الحد الأقصى للإرسالات في الدقيقة رقمًا صحيحًا بين {min} و{max}، أو فارغًا",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "سجلات الإرسال",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} هنا",
     "exitedRuns": "عمليات التشغيل التي انتهت بالخروج",
     "errTitleRequired": "أدخل عنوانًا",
+    "errBodyRequired": "أدخل نصًا",
     "errEventRequired": "أدخل اسم حدث",
     "errHoursInvalid": "أدخل الساعات كرقم",
     "emptyTitle": "لا توجد رحلات بعد",
@@ -1199,6 +1208,7 @@
     "renameWarning": "إعادة التسمية تُعطّل طلبات API التي لا تزال تستخدم \"{name}\" — ستحصل على خطأ 404."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "الجداول المتكررة",
     "subtitle": "يُرسل تلقائيًا في نفس الوقت كل يوم أو أسبوع أو شهر — بالتوقيت المحلي للمشروع.",
     "newSchedule": "جدول جديد",

@@ -65,6 +65,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   // 변경 **전** 값을 먼저 읽는다. update 의 returning 만으로는 "무엇이었는지" 를 영영 알 수 없고,
   // 감사 로그가 답해야 하는 질문은 대개 "이걸 누가 켰고 원래 뭐였나" 다.
   const previous = (await db.select(policyFields).from(projects).where(eq(projects.id, id)).limit(1))[0];
+  if (!previous) return fail("Project not found", 404);
+  // 방해금지는 시작·끝이 **둘 다 있고 서로 달라야** 켜진다(quiet-hours.ts). 한쪽만 주거나 같게 주면
+  // 저장은 되는데 실제로는 꺼져 있어, "저장됨"을 본 운영자가 한밤중 발송을 막았다고 믿는다.
+  const quietStart = b.quiet_start_hour !== undefined ? b.quiet_start_hour : previous.quietStartHour;
+  const quietEnd = b.quiet_end_hour !== undefined ? b.quiet_end_hour : previous.quietEndHour;
+  if ((quietStart === null) !== (quietEnd === null) || (quietStart !== null && quietStart === quietEnd)) {
+    return fail("quiet hours need both start and end, and they must differ", 422);
+  }
   const row = (
     await db.update(projects).set(set).where(eq(projects.id, id)).returning(policyFields)
   )[0];

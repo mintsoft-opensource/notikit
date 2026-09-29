@@ -67,7 +67,13 @@
     "processing": "处理中…",
     "created": "已创建管理员账号",
     "loggedIn": "已登录",
-    "failed": "失败"
+    "failed": "失败",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "概览",
@@ -492,7 +498,8 @@
     "rateCap": "每分钟最大发送数",
     "rateCapHint": "每分钟最多推送给这么多设备({min}–{max}，留空表示不限)。超出部分不会丢弃 — 剩余的会在下一分钟继续发送。",
     "rateCapUnlimited": "无限制",
-    "rateCapInvalid": "每分钟最大发送数必须是 {min} 到 {max} 之间的整数，或留空"
+    "rateCapInvalid": "每分钟最大发送数必须是 {min} 到 {max} 之间的整数，或留空",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "发送日志",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "当前有 {count} 人在此",
     "exitedRuns": "因退出而结束的运行数",
     "errTitleRequired": "请输入标题",
+    "errBodyRequired": "请输入正文",
     "errEventRequired": "请输入事件名称",
     "errHoursInvalid": "请输入数字作为小时数",
     "emptyTitle": "暂无旅程",
@@ -1199,6 +1208,7 @@
     "renameWarning": "重命名后，仍使用 \"{name}\" 的 API 请求将找不到模板，返回 404。"
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "定期发送",
     "subtitle": "每天、每周或每月的相同时间自动发送 — 按项目所在时区计算。",
     "newSchedule": "新建定时任务",

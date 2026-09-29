@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { Dialog } from "@/components/ui/dialog";
+import { cursorQuery, type Cursor } from "@/lib/cursor-query";
 import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 import { SuppressionsImport, SuppressionsImportBatches } from "./suppressions-import";
 
@@ -47,15 +48,43 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
   /** 가져오기가 끝날 때마다 올린다 — 배치 목록이 방금 올린 회차를 바로 보여야 한다 */
   const [imported, setImported] = React.useState(0);
 
+  /** 서버는 쪽 단위로 준다 — 첫 쪽만 보여 주면 그 뒤의 억제는 콘솔에서 조회도 해제도 할 수 없다 */
+  const [next, setNext] = React.useState<Cursor>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  /** 다시 불러오면 올린다 — 이전 목록의 "더 보기" 응답을 새 목록에 붙이지 않는다 */
+  const genRef = React.useRef(0);
+
   const load = React.useCallback(async () => {
+    const my = ++genRef.current;
     try {
-      const d = await adminApi<{ suppressions: Suppression[] }>(`/api/admin/projects/${projectId}/audience/suppressions`);
+      const d = await adminApi<{ suppressions: Suppression[]; next: Cursor }>(`/api/admin/projects/${projectId}/audience/suppressions`);
+      if (my !== genRef.current) return;
       setRows(d.suppressions);
+      setNext(d.next);
     } catch (e) {
+      if (my !== genRef.current) return;
       setRows([]);
       toast.error(errorText(e, tc("loadFailed")));
     }
-  }, [projectId, tc]);
+  }, [projectId, tc, errorText]);
+
+  async function loadMore() {
+    if (!next || loadingMore) return;
+    const my = genRef.current;
+    setLoadingMore(true);
+    try {
+      const d = await adminApi<{ suppressions: Suppression[]; next: Cursor }>(
+        `/api/admin/projects/${projectId}/audience/suppressions?${cursorQuery(next)}`
+      );
+      if (my !== genRef.current) return;
+      setRows((cur) => [...(cur ?? []), ...d.suppressions]);
+      setNext(d.next);
+    } catch (e) {
+      if (my === genRef.current) toast.error(errorText(e, tc("loadFailed")));
+    } finally {
+      if (my === genRef.current) setLoadingMore(false);
+    }
+  }
 
   const [open, setOpen] = React.useState(false);
   /**
@@ -211,6 +240,13 @@ export function SuppressionsConsole({ projectId }: { projectId: string }) {
                 </TableRow>
               ))}
             </TableBody>
+            {next && (
+              <div className="flex justify-center border-t border-border p-3">
+                <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? tc("loading") : tc("loadMore")}
+                </Button>
+              </div>
+            )}
             </DataTable>
             </>
           )}

@@ -67,7 +67,13 @@
     "processing": "Bearbetar…",
     "created": "Administratörskonto skapat",
     "loggedIn": "Inloggad",
-    "failed": "Misslyckades"
+    "failed": "Misslyckades",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Översikt",
@@ -492,7 +498,8 @@
     "rateCap": "Max utskick per minut",
     "rateCapHint": "Skickar till högst så här många enheter per minut ({min}–{max}, tomt betyder obegränsat). Att överskrida detta tappar inget — resten fortsätter nästa minut.",
     "rateCapUnlimited": "Obegränsat",
-    "rateCapInvalid": "Max utskick per minut måste vara ett heltal mellan {min} och {max}, eller tomt"
+    "rateCapInvalid": "Max utskick per minut måste vara ett heltal mellan {min} och {max}, eller tomt",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Utskicksloggar",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} här",
     "exitedRuns": "Körningar avslutade genom avslut",
     "errTitleRequired": "Ange en titel",
+    "errBodyRequired": "Ange en text",
     "errEventRequired": "Ange ett händelsenamn",
     "errHoursInvalid": "Ange timmar som ett tal",
     "emptyTitle": "Inga journeys än",
@@ -1199,6 +1208,7 @@
     "renameWarning": "Att byta namn gör att API-anrop som fortfarande använder \"{name}\" inte hittar mallen och får ett 404-fel."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Återkommande scheman",
     "subtitle": "Skickar automatiskt vid samma tid varje dag, vecka eller månad — i projektets tidszon.",
     "newSchedule": "Nytt schema",

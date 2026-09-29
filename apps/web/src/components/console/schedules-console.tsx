@@ -15,7 +15,18 @@ import { adminApi, useAdminErrorText } from "@/lib/admin-client";
 type Kind = "daily" | "weekly" | "monthly";
 type TargetType = "single" | "topic" | "broadcast";
 
-type ScheduleMessage = { title?: string; body?: string; type: TargetType; target?: string };
+/** 폼이 다루지 않는 칸(deep_link·data·options·locales 등)도 들고 있다 — 편집이 그대로 보존한다 */
+type ScheduleMessage = { title?: string; body?: string; type: string; target?: string; [key: string]: unknown };
+
+const FORM_TYPES: readonly string[] = ["single", "topic", "broadcast"];
+
+/**
+ * 이 폼으로 메시지를 고칠 수 있는가. API 로 만든 multi 대상·무음(제목 없음) 예약은 폼이 표현하지 못한다 —
+ * 그런 예약은 이름·주기만 고치게 하고 메시지는 손대지 않는다.
+ */
+function messageEditable(m: ScheduleMessage): boolean {
+  return FORM_TYPES.includes(m.type) && Boolean(m.title?.trim());
+}
 
 type Schedule = {
   id: string;
@@ -74,12 +85,24 @@ function toDraft(s: Schedule): Draft {
     name: s.name,
     title: s.message.title ?? "",
     body: s.message.body ?? "",
-    type: s.message.type,
+    type: (FORM_TYPES.includes(s.message.type) ? s.message.type : "broadcast") as TargetType,
     target: s.message.target ?? "",
     kind: s.kind,
     weekday: String(s.weekday ?? 1),
     dayOfMonth: String(s.dayOfMonth ?? 1),
     time: `${pad(s.hour)}:${pad(s.minute)}`,
+  };
+}
+
+/** 폼 값으로 메시지를 만든다. 원본의 다른 칸은 보존하고, 대상이 전체로 바뀌면 target 을 뺀다 */
+function formMessage(original: ScheduleMessage | undefined, d: Draft): ScheduleMessage {
+  const { title: _title, body: _body, type: _type, target: _target, ...kept } = original ?? { type: d.type };
+  return {
+    ...kept,
+    title: d.title.trim(),
+    body: d.body.trim(),
+    type: d.type,
+    ...(d.type === "broadcast" ? {} : { target: d.target.trim() }),
   };
 }
 
@@ -159,12 +182,16 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
     newBtnRef.current?.focus();
   }
 
+  const messageLocked = editing !== null && !messageEditable(editing.message);
+
   function validate(d: Draft): Errors {
     const next: Errors = {};
     if (!d.name.trim()) next.name = t("errName");
-    if (!d.title.trim()) next.title = t("errTitle");
-    if (!d.body.trim()) next.body = t("errBody");
-    if (d.type !== "broadcast" && !d.target.trim()) next.target = t("errTarget");
+    if (!messageLocked) {
+      if (!d.title.trim()) next.title = t("errTitle");
+      if (!d.body.trim()) next.body = t("errBody");
+      if (d.type !== "broadcast" && !d.target.trim()) next.target = t("errTarget");
+    }
     if (!parseTime(d.time)) next.time = t("errTime");
     return next;
   }
@@ -182,12 +209,8 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
       day_of_month: draft.kind === "monthly" ? Number(draft.dayOfMonth) : null,
       hour: at.hour,
       minute: at.minute,
-      message: {
-        title: draft.title.trim(),
-        body: draft.body.trim(),
-        type: draft.type,
-        ...(draft.type === "broadcast" ? {} : { target: draft.target.trim() }),
-      },
+      // 서버는 message 를 통째로 바꾼다 — 폼에 없는 칸(딥링크·데이터·옵션 등)은 원본에서 그대로 가져간다
+      message: messageLocked ? editing!.message : formMessage(editing?.message, draft),
       enabled: editing ? editing.enabled : true,
     };
 
@@ -324,6 +347,10 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
             </Field>
           )}
 
+          {messageLocked ? (
+            <p className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">{t("messageLocked")}</p>
+          ) : (
+          <>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("targetTypeLabel")}>
               <Select
@@ -368,6 +395,8 @@ export function SchedulesConsole({ projectId }: { projectId: string }) {
               disabled={saving}
             />
           </Field>
+          </>
+          )}
         </div>
       </Dialog>
 

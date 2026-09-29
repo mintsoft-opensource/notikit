@@ -67,7 +67,13 @@
     "processing": "処理中…",
     "created": "管理者アカウントを作成しました",
     "loggedIn": "ログインしました",
-    "failed": "失敗"
+    "failed": "失敗",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "概要",
@@ -492,7 +498,8 @@
     "rateCap": "1分あたりの最大送信数",
     "rateCapHint": "1分あたりこの件数までのデバイスにプッシュします({min}–{max}、空欄は無制限)。超えても破棄されず、残りは次の1分で続けて送信されます。",
     "rateCapUnlimited": "無制限",
-    "rateCapInvalid": "1分あたりの最大送信数は{min}〜{max}の整数、または空欄にしてください"
+    "rateCapInvalid": "1分あたりの最大送信数は{min}〜{max}の整数、または空欄にしてください",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "送信ログ",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count}人がここにいます",
     "exitedRuns": "終了により完了した実行数",
     "errTitleRequired": "タイトルを入力してください",
+    "errBodyRequired": "本文を入力してください",
     "errEventRequired": "イベント名を入力してください",
     "errHoursInvalid": "時間を数値で入力してください",
     "emptyTitle": "まだジャーニーがありません",
@@ -1199,6 +1208,7 @@
     "renameWarning": "名前を変更すると、\"{name}\" を使っていたAPIリクエストはテンプレートが見つからず404になります。"
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "定期スケジュール",
     "subtitle": "毎日・毎週・毎月同じ時刻に自動送信します — プロジェクトのタイムゾーンで判定されます。",
     "newSchedule": "新規スケジュール",

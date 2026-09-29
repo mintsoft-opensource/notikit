@@ -67,7 +67,13 @@
     "processing": "Wird verarbeitet…",
     "created": "Admin-Konto erstellt",
     "loggedIn": "Angemeldet",
-    "failed": "Fehlgeschlagen"
+    "failed": "Fehlgeschlagen",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Übersicht",
@@ -492,7 +498,8 @@
     "rateCap": "Max. Versände pro Minute",
     "rateCapHint": "Sendet höchstens an so viele Geräte pro Minute ({min}–{max}, leer bedeutet unbegrenzt). Eine Überschreitung verwirft nichts — der Rest wird in der nächsten Minute fortgesetzt.",
     "rateCapUnlimited": "Unbegrenzt",
-    "rateCapInvalid": "Die maximalen Versände pro Minute müssen eine ganze Zahl zwischen {min} und {max} sein oder leer bleiben"
+    "rateCapInvalid": "Die maximalen Versände pro Minute müssen eine ganze Zahl zwischen {min} und {max} sein oder leer bleiben",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Sendeprotokolle",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} hier",
     "exitedRuns": "Durch Austritt beendete Durchläufe",
     "errTitleRequired": "Gib einen Titel ein",
+    "errBodyRequired": "Gib einen Text ein",
     "errEventRequired": "Gib einen Ereignisnamen ein",
     "errHoursInvalid": "Gib die Stunden als Zahl ein",
     "emptyTitle": "Noch keine Journeys",
@@ -1199,6 +1208,7 @@
     "renameWarning": "Durch das Umbenennen schlagen API-Anfragen fehl, die noch \"{name}\" verwenden — sie erhalten einen 404-Fehler."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Wiederkehrende Zeitpläne",
     "subtitle": "Sendet automatisch zur gleichen Zeit jeden Tag, jede Woche oder jeden Monat — in der Zeitzone des Projekts.",
     "newSchedule": "Neuer Zeitplan",

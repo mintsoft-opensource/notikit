@@ -173,6 +173,7 @@ export function validateDraft(draft: JourneyDraft, t: (k: string) => string): St
   const walk = (steps: StepDraft[]) => {
     for (const s of steps) {
       if (s.type === "send" && !s.title.trim()) errors[s.rowId] = t("errTitleRequired");
+      else if (s.type === "send" && !s.body.trim()) errors[s.rowId] = t("errBodyRequired");
       if (s.type === "exit" && !s.event.trim()) errors[s.rowId] = t("errEventRequired");
       if (s.type === "wait" && s.hours.trim() !== "" && !Number.isFinite(Number(s.hours))) {
         errors[s.rowId] = t("errHoursInvalid");

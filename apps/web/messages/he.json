@@ -67,7 +67,13 @@
     "processing": "מעבד…",
     "created": "חשבון מנהל נוצר",
     "loggedIn": "מחובר",
-    "failed": "נכשל"
+    "failed": "נכשל",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "סקירה",
@@ -492,7 +498,8 @@
     "rateCap": "מקסימום שליחות לדקה",
     "rateCapHint": "שולח לכל היותר למספר זה של מכשירים לדקה ({min}–{max}, ריק פירושו ללא הגבלה). חריגה לא מפילה כלום — השאר ממשיך בדקה הבאה.",
     "rateCapUnlimited": "ללא הגבלה",
-    "rateCapInvalid": "מקסימום השליחות לדקה חייב להיות מספר שלם בין {min} ל-{max}, או ריק"
+    "rateCapInvalid": "מקסימום השליחות לדקה חייב להיות מספר שלם בין {min} ל-{max}, או ריק",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "יומני שליחה",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} כאן",
     "exitedRuns": "הרצות שהסתיימו ביציאה",
     "errTitleRequired": "הזן כותרת",
+    "errBodyRequired": "הזן גוף",
     "errEventRequired": "הזן שם אירוע",
     "errHoursInvalid": "הזן שעות כמספר",
     "emptyTitle": "אין עדיין מסעות",
@@ -1199,6 +1208,7 @@
     "renameWarning": "שינוי השם גורם לבקשות API שעדיין משתמשות ב-\"{name}\" לא למצוא את התבנית ולקבל שגיאת 404."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "לוחות זמנים חוזרים",
     "subtitle": "שולח אוטומטית באותה שעה בכל יום, שבוע או חודש — באזור הזמן של הפרויקט.",
     "newSchedule": "לוח זמנים חדש",

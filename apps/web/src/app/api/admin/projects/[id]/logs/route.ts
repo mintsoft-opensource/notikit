@@ -66,6 +66,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const conds = [eq(pushLogs.projectId, id)];
   // "단건 푸시" 화면은 사람을 지정한 발송을 본다 — 한 명(single)이든 여러 명(multi)이든
   if (type === "single") conds.push(inArray(pushLogs.type, ["single", "multi"]));
+  // "토픽·전체 푸시" 화면은 사람을 지정하지 않은 발송 전부다. topic 만 걸면 전체 발송(broadcast)과
+  // 옛 segment 발송이 어느 목록에도 나오지 않는다.
+  else if (type === "topic") conds.push(inArray(pushLogs.type, ["topic", "broadcast", "segment"]));
   else if (type) conds.push(eq(pushLogs.type, type));
   if (from) conds.push(gte(pushLogs.createdAt, from));
   if (to) conds.push(lt(pushLogs.createdAt, to));

@@ -67,7 +67,13 @@
     "processing": "กำลังดำเนินการ…",
     "created": "สร้างบัญชีผู้ดูแลแล้ว",
     "loggedIn": "เข้าสู่ระบบแล้ว",
-    "failed": "ล้มเหลว"
+    "failed": "ล้มเหลว",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "ภาพรวม",
@@ -492,7 +498,8 @@
     "rateCap": "การส่งสูงสุดต่อนาที",
     "rateCapHint": "ส่งไปยังอุปกรณ์ได้ไม่เกินจำนวนนี้ต่อนาที ({min}–{max} เว้นว่างหมายถึงไม่จำกัด) การเกินขีดจำกัดจะไม่ทำให้สูญหาย — ส่วนที่เหลือจะดำเนินต่อในนาทีถัดไป",
     "rateCapUnlimited": "ไม่จำกัด",
-    "rateCapInvalid": "การส่งสูงสุดต่อนาทีต้องเป็นจำนวนเต็มระหว่าง {min} ถึง {max} หรือเว้นว่างไว้"
+    "rateCapInvalid": "การส่งสูงสุดต่อนาทีต้องเป็นจำนวนเต็มระหว่าง {min} ถึง {max} หรือเว้นว่างไว้",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "บันทึกการส่ง",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} คนที่นี่",
     "exitedRuns": "การทำงานที่สิ้นสุดโดยการออก",
     "errTitleRequired": "กรอกหัวข้อ",
+    "errBodyRequired": "กรอกเนื้อหา",
     "errEventRequired": "กรอกชื่อเหตุการณ์",
     "errHoursInvalid": "กรอกชั่วโมงเป็นตัวเลข",
     "emptyTitle": "ยังไม่มีเส้นทาง",
@@ -1199,6 +1208,7 @@
     "renameWarning": "การเปลี่ยนชื่อจะทำให้คำขอ API ที่ยังใช้ \"{name}\" หาเทมเพลตไม่พบ และจะได้รับ 404"
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "กำหนดการที่เกิดซ้ำ",
     "subtitle": "ส่งอัตโนมัติในเวลาเดียวกันทุกวัน สัปดาห์ หรือเดือน — ตามเขตเวลาของโปรเจกต์",
     "newSchedule": "กำหนดการใหม่",

@@ -67,7 +67,13 @@
     "processing": "Обробка…",
     "created": "Обліковий запис адміністратора створено",
     "loggedIn": "Вхід виконано",
-    "failed": "Помилка"
+    "failed": "Помилка",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Огляд",
@@ -492,7 +498,8 @@
     "rateCap": "Макс. надсилань за хвилину",
     "rateCapHint": "Надсилає не більше ніж на стільки пристроїв за хвилину ({min}–{max}, порожньо означає без обмежень). Перевищення нічого не відкидає — решта продовжується наступної хвилини.",
     "rateCapUnlimited": "Без обмежень",
-    "rateCapInvalid": "Максимум надсилань за хвилину має бути цілим числом від {min} до {max} або порожнім"
+    "rateCapInvalid": "Максимум надсилань за хвилину має бути цілим числом від {min} до {max} або порожнім",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Журнали надсилань",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "Тут: {count}",
     "exitedRuns": "Прогони, завершені виходом",
     "errTitleRequired": "Введіть заголовок",
+    "errBodyRequired": "Введіть текст",
     "errEventRequired": "Введіть назву події",
     "errHoursInvalid": "Введіть години як число",
     "emptyTitle": "Поки що немає подорожей",
@@ -1199,6 +1208,7 @@
     "renameWarning": "Після перейменування запити API, що досі використовують \"{name}\", не знайдуть шаблон і отримають помилку 404."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Повторювані розклади",
     "subtitle": "Надсилає автоматично в один і той самий час щодня, щотижня або щомісяця — у часовому поясі проєкту.",
     "newSchedule": "Новий розклад",

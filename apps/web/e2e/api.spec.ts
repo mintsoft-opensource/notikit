@@ -778,7 +778,15 @@ test.describe("App SDK API 전체 플로우", () => {
     const hash = idHash(ext, apiSecret);
     const idf = await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: hash, phone: "01012345678" } });
     expect(idf.status()).toBe(200);
-    expect((await idf.json()).data.user.phone).toBe("01012345678");
+    // identify 는 PII 를 응답에 싣지 않는다 — 저장 여부는 DB 로 본다
+    expect((await idf.json()).data.user).not.toHaveProperty("phone");
+    const sql = postgres(E2E_DATABASE_URL, { max: 1 });
+    try {
+      const [u] = await sql`select phone from push_users where external_id = ${ext} and project_id = ${pid}`;
+      expect(u.phone).toBe("01012345678");
+    } finally {
+      await sql.end();
+    }
   });
 
   test("저니: 다단계(send→wait→send) 진행", async ({ request }) => {
@@ -1000,13 +1008,14 @@ test.describe("App SDK API 전체 플로우", () => {
     const topicSend = await request.post("/api/v1/messages", { headers: priv, data: { title: "토픽", body: "b", type: "topic", target: "news" } });
     const topicLog = (await topicSend.json()).data.message.id as string;
     await request.post("/api/v1/messages", { headers: priv, data: { title: "단건", body: "b", type: "single", target: ext } });
+    await request.post("/api/v1/messages", { headers: priv, data: { title: "전체", body: "b", type: "broadcast" } });
     await request.post(`/api/admin/projects/${pid}/process-queue`, { headers: admin, data: {} });
 
-    // type 필터가 실제로 갈라놓는다
+    // type 필터가 실제로 갈라놓는다 — 전체 발송은 "토픽·전체" 쪽에 나온다(전에는 어느 목록에도 없었다)
     const topics = await request.get(`/api/admin/projects/${pid}/logs?type=topic`, { headers: admin });
     const tl = (await topics.json()).data.logs;
-    expect(tl).toHaveLength(1);
-    expect(tl[0]).toMatchObject({ type: "topic", target: "news" });
+    expect(tl.map((l: { type: string }) => l.type).sort()).toEqual(["broadcast", "topic"]);
+    expect(tl.find((l: { type: string }) => l.type === "topic")).toMatchObject({ target: "news" });
 
     const singles = await request.get(`/api/admin/projects/${pid}/logs?type=single`, { headers: admin });
     const sl = (await singles.json()).data.logs;

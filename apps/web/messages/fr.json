@@ -67,7 +67,13 @@
     "processing": "Traitement…",
     "created": "Compte administrateur créé",
     "loggedIn": "Connecté",
-    "failed": "Échec"
+    "failed": "Échec",
+    "errInvalidCredentials": "Incorrect email or password",
+    "errTooMany": "Too many attempts. Try again shortly",
+    "errBusy": "The server is busy. Try again shortly",
+    "errBootstrap": "Invalid bootstrap token. Check the registration token in the server log",
+    "errAlreadyInitialized": "An admin already exists. Sign in instead",
+    "errInvalidInput": "Check the email and password (8+ characters)"
   },
   "dashboard": {
     "title": "Aperçu",
@@ -492,7 +498,8 @@
     "rateCap": "Nombre max. d'envois par minute",
     "rateCapHint": "Envoie à au plus ce nombre d'appareils par minute ({min}–{max}, vide signifie illimité). Le dépasser ne perd rien — le reste continue la minute suivante.",
     "rateCapUnlimited": "Illimité",
-    "rateCapInvalid": "Le nombre max. d'envois par minute doit être un nombre entier compris entre {min} et {max}, ou vide"
+    "rateCapInvalid": "Le nombre max. d'envois par minute doit être un nombre entier compris entre {min} et {max}, ou vide",
+    "quietInvalid": "Quiet hours need both a start and an end that differ. Clear both to turn them off."
   },
   "logs": {
     "title": "Journaux d'envoi",
@@ -524,6 +531,7 @@
     "colSentAt": "Sent at",
     "colDelivered": "Delivered/Audience",
     "colReadRate": "Read rate",
+    "colInboxRead": "Inbox read",
     "colStatus": "Status",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -742,6 +750,7 @@
     "stepHere": "{count} ici",
     "exitedRuns": "Exécutions terminées par une sortie",
     "errTitleRequired": "Saisissez un titre",
+    "errBodyRequired": "Saisissez un corps",
     "errEventRequired": "Saisissez un nom d'événement",
     "errHoursInvalid": "Saisissez les heures sous forme de nombre",
     "emptyTitle": "Aucun parcours pour l'instant",
@@ -1199,6 +1208,7 @@
     "renameWarning": "Renommer casse les requêtes API qui utilisent encore \"{name}\" — elles recevront une erreur 404."
   },
   "schedules": {
+    "messageLocked": "This schedule's message was created through the API and can't be edited here (multiple recipients, silent push, etc.). You can change the name and timing; the message stays as it is.",
     "title": "Programmations récurrentes",
     "subtitle": "Envoie automatiquement à la même heure chaque jour, semaine ou mois — dans le fuseau horaire du projet.",
     "newSchedule": "Nouvelle programmation",
