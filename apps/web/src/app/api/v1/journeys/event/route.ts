@@ -45,13 +45,16 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 422);
   const b = parsed.data;
 
-  // 대상 해석(DB 조회) 전에 주체별 한도를 먼저 본다 — 남용이 DB 까지 내려가지 않게
-  if (!(await rateLimitShared(principalKey(project.id, "journeys", b.external_id), PRINCIPAL_LIMIT_PER_MIN))) {
-    return fail("Rate limit exceeded", 429);
-  }
-
+  // 신원 검증이 **먼저**다. 주체별 한도를 먼저 태우면 공개 api-key 만 가진 누구나 가짜 hash 로 남의
+  // external_id 버킷을 채워 그 사람의 진짜 저니 이벤트를 전부 429 로 막을 수 있다(v1/events 와 같은 순서).
+  // 검증은 HMAC 계산뿐이라 DB 까지 내려가지 않는다.
   if (!b.identity_hash || !verifyIdentity(b.external_id, b.identity_hash, project.apiSecretEnc)) {
     return fail("identity_hash invalid or missing", 403);
+  }
+
+  // 대상 해석(DB 조회) 전에 주체별 한도를 본다 — 남용이 DB 까지 내려가지 않게
+  if (!(await rateLimitShared(principalKey(project.id, "journeys", b.external_id), PRINCIPAL_LIMIT_PER_MIN))) {
+    return fail("Rate limit exceeded", 429);
   }
 
   const r = await onJourneyEvent(getDb(), project.id, b.event, { externalId: b.external_id });

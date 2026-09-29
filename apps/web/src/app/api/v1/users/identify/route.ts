@@ -74,7 +74,9 @@ export async function POST(req: Request) {
         timezone: b.timezone,
       },
     })
-    .returning();
+    .returning({ id: pushUsers.id, externalId: pushUsers.externalId });
 
+  // 저장된 행 전체(전화번호·속성·이름)를 돌려주지 않는다. identity 검증을 끈 프로젝트에서는
+  // 공개 api-key 만 가진 누구나 남의 external_id 로 불러 그 사람의 PII 를 읽을 수 있다.
   return ok({ user: rows[0] });
 }

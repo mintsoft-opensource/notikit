@@ -5,7 +5,7 @@ import { ok, fail } from "@/lib/api-response";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { requireProject, checkOrigin } from "@/lib/authz";
 import { buildDiff, failAudited, recordAudit } from "@/lib/audit";
-import { generateWebhookSecret, assertSafeWebhookUrl } from "@/lib/webhooks";
+import { generateWebhookSecret, assertSafeWebhookUrl, WEBHOOK_EVENTS } from "@/lib/webhooks";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
 const createSchema = z.object({
   url: z.string().url().max(2048),
-  events: z.array(z.string().max(64)).max(30).default([]),
+  events: z.array(z.enum(WEBHOOK_EVENTS, { message: `events must be one of: ${WEBHOOK_EVENTS.join(", ")}` })).max(30).default([]),
 });
 
 /** [Web Admin] 웹훅 등록 — secret(HMAC) 1회 반환 */

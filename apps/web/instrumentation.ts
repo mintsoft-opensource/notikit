@@ -13,4 +13,5 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   await (await import("./src/lib/verify-env")).verifyEnvOrExit();
+  await (await import("./src/lib/bootstrap-token")).announceBootstrapToken();
 }

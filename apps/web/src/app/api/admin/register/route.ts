@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { adminUsers, organizations } from "@/db/schema";
+import { bootstrapToken } from "@/lib/bootstrap-token";
 import { ok, fail } from "@/lib/api-response";
 import { hashPassword, createSessionToken, SESSION_COOKIE, sessionCookieAttributes, ScryptOverloadError } from "@/lib/session";
 import { checkOrigin } from "@/lib/authz";
@@ -18,14 +19,15 @@ const schema = z.object({
 
 /**
  * [Web Admin] 최초 관리자 부트스트랩 — 관리자가 0명일 때만.
- * - BOOTSTRAP_TOKEN 설정 시 x-bootstrap-token 헤더 일치 필요(무단 선점 방지).
+ * - 운영에서는 x-bootstrap-token 헤더가 필요하다(무단 선점 방지). BOOTSTRAP_TOKEN 이 없으면
+ *   암호화 키에서 파생한 값이고 부팅 로그에 찍힌다(bootstrap-token.ts).
  * - advisory lock + 트랜잭션으로 동시 요청 경합 차단.
  */
 export async function POST(req: Request) {
   if (!checkOrigin(req)) return fail("Invalid origin", 403);
 
-  const bootstrapToken = process.env.BOOTSTRAP_TOKEN;
-  if (bootstrapToken && req.headers.get("x-bootstrap-token") !== bootstrapToken) {
+  const required = bootstrapToken();
+  if (required && req.headers.get("x-bootstrap-token") !== required) {
     return fail("부트스트랩 토큰이 필요합니다", 403);
   }
 

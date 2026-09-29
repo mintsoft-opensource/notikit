@@ -132,7 +132,7 @@ export function WebhooksConsole({ projectId }: { projectId?: string }) {
                   <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/hooks/notikit" />
                 </Field>
                 <Field label={t("eventsLabel")}>
-                  <Input value={events} onChange={(e) => setEvents(e.target.value)} placeholder="message.sent, message.failed" />
+                  <Input value={events} onChange={(e) => setEvents(e.target.value)} placeholder="message.sent" />
                 </Field>
                 <Button onClick={create} disabled={!url.trim() || creating} className="justify-self-end md:justify-self-auto">
                   <Plus aria-hidden="true" className="size-4" /> {creating ? t("registering") : t("registerBtn")}

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { updateJobs } from "@/db/schema";
 import { ok, fail } from "@/lib/api-response";
-import { getAuthContext } from "@/lib/authz";
+import { checkOrigin, getAuthContext } from "@/lib/authz";
 import { readJsonLimited, PayloadTooLargeError } from "@/lib/read-json";
 import { checkForUpdate, isNewer, CURRENT_VERSION } from "@/lib/updates";
 import { isInstanceOperator, selfUpdateEnabled } from "@/lib/instance-operator";
@@ -73,6 +73,9 @@ const startSchema = z.object({
 
 /** [Web Admin] 업데이트 시작 — 행을 남기면 업데이터 사이드카가 집어 간다 */
 export async function POST(req: Request) {
+  // 쿠키로 인증되는 상태 변경이다 — 다른 사이트의 폼이 운영자 브라우저로 업데이트(재시작·마이그레이션)를
+  // 시작하지 못하게 다른 쓰기 라우트와 같이 Origin 을 먼저 본다
+  if (!checkOrigin(req)) return fail("Invalid origin", 403);
   const ctx = await getAuthContext(req);
   if (!ctx) return fail("Unauthorized", 401);
   // 꺼져 있으면 존재를 알리지도 않는다 — 호스팅 배포에서 이 경로는 없는 것과 같다

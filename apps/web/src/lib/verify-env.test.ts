@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { missingEnv } from "./verify-env";
+import { insecureEnv, missingEnv } from "./verify-env";
 
 describe("missingEnv", () => {
   const full = {
@@ -35,5 +35,35 @@ describe("missingEnv", () => {
 
   it("빈 문자열은 설정된 것으로 치지 않는다", () => {
     expect(missingEnv({ ...full, DATABASE_URL: "" }).join()).toContain("DATABASE_URL");
+  });
+});
+
+describe("insecureEnv", () => {
+  const ok = {
+    NOTIKIT_ENCRYPTION_KEY: "k".repeat(32),
+    SESSION_SECRET: "s".repeat(32),
+    ADMIN_TOKEN: "a-real-admin-token",
+  };
+
+  it("제대로 된 값이면 빈 배열", () => {
+    expect(insecureEnv(ok)).toEqual([]);
+  });
+
+  it(".env.example 의 예시값을 그대로 두면 잡는다 — 공개 저장소에 있는 값이라 누구나 superadmin 이 된다", () => {
+    const flagged = insecureEnv({
+      NOTIKIT_ENCRYPTION_KEY: "change-me-32-byte-secret-minimum",
+      ADMIN_TOKEN: "change-me-admin-token",
+    }).join();
+    expect(flagged).toContain("NOTIKIT_ENCRYPTION_KEY");
+    expect(flagged).toContain("ADMIN_TOKEN");
+  });
+
+  it("암호화·세션 키가 32자보다 짧으면 잡는다", () => {
+    expect(insecureEnv({ ...ok, NOTIKIT_ENCRYPTION_KEY: "short" }).join()).toContain("NOTIKIT_ENCRYPTION_KEY");
+    expect(insecureEnv({ ...ok, SESSION_SECRET: "short" }).join()).toContain("SESSION_SECRET");
+  });
+
+  it("비어 있는 선택값은 문제로 보지 않는다(없음은 missingEnv 가 본다)", () => {
+    expect(insecureEnv({ NOTIKIT_ENCRYPTION_KEY: "k".repeat(32) })).toEqual([]);
   });
 });

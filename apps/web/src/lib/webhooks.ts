@@ -100,8 +100,15 @@ async function attempt(
   }
 }
 
+/**
+ * 발행하는 이벤트 이름. 웹훅 등록은 이 목록만 받는다 — 자유 입력이면 오타 난 이름이 저장되고
+ * 그 웹훅은 영원히 한 번도 불리지 않는다(빈 목록은 "전부"다).
+ */
+export const WEBHOOK_EVENTS = ["message.sent"] as const;
+export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
+
 /** 프로젝트의 구독 웹훅에 이벤트 발행 (HMAC 서명). 비동기·논블로킹. */
-export async function emitWebhook(projectId: string, event: string, data: Record<string, unknown>): Promise<void> {
+export async function emitWebhook(projectId: string, event: WebhookEvent, data: Record<string, unknown>): Promise<void> {
   const db = getDb();
   const hooks = await db.select().from(webhooks).where(and(eq(webhooks.projectId, projectId), eq(webhooks.isActive, true)));
   const matching = hooks.filter((h) => h.events.length === 0 || h.events.includes(event));

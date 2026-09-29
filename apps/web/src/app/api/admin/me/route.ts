@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { adminUsers } from "@/db/schema";
+import { bootstrapToken } from "@/lib/bootstrap-token";
 import { ok } from "@/lib/api-response";
 import { getAuthContext } from "@/lib/authz";
 
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
   const db = getDb();
   const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(adminUsers);
   const needsBootstrap = count === 0;
-  const bootstrapTokenRequired = needsBootstrap && !!process.env.BOOTSTRAP_TOKEN;
+  const bootstrapTokenRequired = needsBootstrap && bootstrapToken() !== null;
 
   const ctx = await getAuthContext(req);
   if (!ctx) return ok({ authenticated: false, user: null, needsBootstrap, bootstrapTokenRequired });

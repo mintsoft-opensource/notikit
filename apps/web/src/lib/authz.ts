@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { adminUsers, projects } from "@/db/schema";
@@ -16,15 +17,25 @@ export async function isSessionValid(tokenValue: string | undefined | null): Pro
 export type AuthContext = { userId: string | null; orgId: string | null; role: string; superadmin: boolean };
 
 /**
+ * x-admin-token 이 ADMIN_TOKEN 과 같은가 — 상수 시간 비교.
+ * `===` 는 앞에서부터 다른 글자에서 멈추므로 응답 시간으로 토큰을 한 글자씩 맞춰 갈 수 있다.
+ * 길이가 다르면 timingSafeEqual 이 던지므로 먼저 같은 길이의 해시로 바꿔 비교한다.
+ */
+function isAdminToken(token: string | null): boolean {
+  const expected = process.env.ADMIN_TOKEN;
+  if (!expected || !token) return false;
+  const digest = (v: string) => createHash("sha256").update(v).digest();
+  return timingSafeEqual(digest(token), digest(expected));
+}
+
+/**
  * 인증 컨텍스트 해석 (DB 검증).
  * - x-admin-token == ADMIN_TOKEN → superadmin(전체 org, role owner). 하위호환(E2E/curl).
  * - 세션 쿠키 → 유저 존재 + sessionVersion 일치 확인 후 **현재** org/role 반환
  *   (삭제/로그아웃/권한변경 즉시 반영).
  */
 export async function getAuthContext(req: Request): Promise<AuthContext | null> {
-  const token = req.headers.get("x-admin-token");
-  const expected = process.env.ADMIN_TOKEN;
-  if (expected && token && token === expected) {
+  if (isAdminToken(req.headers.get("x-admin-token"))) {
     return { userId: null, orgId: null, role: "owner", superadmin: true };
   }
 
@@ -95,8 +106,7 @@ export function checkOrigin(req: Request): boolean {
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return true;
 
   // **유효한** superadmin 토큰만 면제 (서버-투-서버/curl). 잘못된 토큰은 쿠키로 폴백되므로 면제 금지.
-  const token = req.headers.get("x-admin-token");
-  if (token && process.env.ADMIN_TOKEN && token === process.env.ADMIN_TOKEN) return true;
+  if (isAdminToken(req.headers.get("x-admin-token"))) return true;
 
   const origin = req.headers.get("origin");
   if (!origin) return false; // 브라우저 상태변경엔 Origin 필수

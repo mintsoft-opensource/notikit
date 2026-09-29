@@ -27,7 +27,11 @@ export default defineConfig({
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
       ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "e2e-admin-token",
+      // 운영 모드에서는 첫 관리자 등록에 토큰이 필요하다 — 테스트는 값을 정해 두고 헤더로 보낸다
+      BOOTSTRAP_TOKEN: process.env.BOOTSTRAP_TOKEN ?? "e2e-bootstrap-token",
       NOTIKIT_ENCRYPTION_KEY: process.env.NOTIKIT_ENCRYPTION_KEY ?? "e2e-encryption-key-32bytes-minimum",
+      // 명시한다 — 안 주면 apps/web/.env 의 로컬 값(예시값일 수 있다)을 읽어 운영 모드 검사에 걸린다
+      SESSION_SECRET: process.env.SESSION_SECRET ?? "e2e-session-secret-32bytes-minimum!",
       NODE_ENV: "production",
       COOKIE_INSECURE: "true", // http 테스트 서버 — Secure 쿠키 비활성
       APP_ORIGIN: `http://localhost:${PORT}`,
