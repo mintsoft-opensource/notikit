@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseBundleMeta, matchesLoadedImage } from "./bundle-meta.mjs";
+import { waitForTable } from "./wait-for-schema.mjs";
 
 const DB_URL = process.env.DATABASE_URL;
 const COMPOSE_FILE = process.env.COMPOSE_FILE ?? "/project/docker-compose.yml";
@@ -148,18 +149,21 @@ async function envFileArgs() {
   return args;
 }
 
+/**
+ * compose 는 파일 **전체**를 치환한다. docker-compose.prod.yml 의 `${NOTIKIT_HOST_DIR:-${PWD}}` 는
+ * 호스트 셸의 PWD 를 기대하는데, 이 프로세스에는 PWD 가 없어 명령마다 경고가 작업 로그를 덮었고
+ * NOTIKIT_HOST_DIR 를 빠뜨린 설치에서는 빈 경로로 풀렸다. 호스트에서 compose 를 부르던 그
+ * 디렉터리(= 같은 경로로 마운트된 프로젝트 디렉터리)를 PWD 로 준다.
+ */
+const COMPOSE_ENV = { ...process.env, PWD: PROJECT_DIR };
+
 const compose = async (jobId, ...args) =>
-  run(jobId, "docker", [
-    "compose",
-    "-f",
-    COMPOSE_FILE,
-    "--project-directory",
-    PROJECT_DIR,
-    ...(await envFileArgs()),
-    "-p",
-    PROJECT,
-    ...args,
-  ]);
+  run(
+    jobId,
+    "docker",
+    ["compose", "-f", COMPOSE_FILE, "--project-directory", PROJECT_DIR, ...(await envFileArgs()), "-p", PROJECT, ...args],
+    { cwd: PROJECT_DIR, env: COMPOSE_ENV }
+  );
 
 async function readCurrentImage() {
   try {
@@ -424,6 +428,21 @@ async function safePoll() {
   }
 }
 
+// 신규 설치에서는 migrate 가 아직 스키마를 만들기 전일 수 있다 — 죽지 않고 기다린다
+await waitForTable(
+  async () => {
+    const [row] = await sql`select to_regclass('update_jobs')::text as name`;
+    return !!row?.name;
+  },
+  {
+    intervalMs: POLL_MS,
+    onWait: (attempt, err) => {
+      if (attempt === 1 || attempt % 30 === 0) {
+        console.log(`[updater] waiting for the schema (update_jobs)${err ? `: ${err.message}` : ""}`);
+      }
+    },
+  }
+);
 await recoverOrphans();
 console.log(`[updater] watching for update jobs every ${POLL_MS}ms`);
 setInterval(safePoll, POLL_MS);

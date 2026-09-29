@@ -10,7 +10,7 @@ WORKDIR /app
 COPY apps/updater/package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-COPY apps/updater/index.mjs apps/updater/bundle-meta.mjs ./
+COPY apps/updater/index.mjs apps/updater/bundle-meta.mjs apps/updater/wait-for-schema.mjs ./
 
 # docker:cli 의 ENTRYPOINT(docker-entrypoint.sh)는 인자 앞에 `docker` 를 붙인다.
 # 그대로 두면 CMD 가 `docker node index.mjs` 로 해석돼 스웜 도움말만 찍고 죽고,

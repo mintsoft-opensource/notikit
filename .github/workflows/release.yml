@@ -62,7 +62,7 @@ jobs:
       # 빌드 없는 .mjs(워커·업데이터·업데이트 서버·릴리스 도구)는 vitest 범위 밖이라 node 내장 러너로 돈다
       - name: 운영 스크립트 테스트
         run: >-
-          node --test apps/web/worker.test.mjs apps/updater/bundle-meta.test.mjs
+          node --test apps/web/worker.test.mjs apps/updater/bundle-meta.test.mjs apps/updater/wait-for-schema.test.mjs
           apps/update-server/catalog.test.mjs tools/release/previous-tag.test.mjs
 
       - name: web 빌드

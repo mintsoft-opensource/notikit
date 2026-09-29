@@ -380,7 +380,7 @@ docker compose ps</code></pre></div>
           id: "android", installLang: "Gradle (Kotlin DSL)", usageLang: "Kotlin", name: "Android", sub: "Kotlin · JitPack", logo: "Kt", color: "linear-gradient(135deg,#7f52ff,#e24462)",
           desc: "모든 메서드가 suspend 라 메인 스레드에서 불러도 안전합니다. Java 는 NotikitBlocking 을 씁니다.",
           registry: { label: "JitPack", url: "https://jitpack.io/#mintsoft-opensource/notikit-android" }, repo: GH + "notikit-android",
-          install: '// settings.gradle.kts\nmaven("https://jitpack.io")\n\n// build.gradle.kts\nimplementation("com.github.mintsoft-opensource:notikit-android:0.1.0")',
+          install: '// settings.gradle.kts\nmaven("https://jitpack.io")\n\n// build.gradle.kts\nimplementation("com.github.mintsoft-opensource:notikit-android:0.2.0")',
           usage: 'import com.google.firebase.messaging.FirebaseMessaging\nimport dev.notikit.Notikit\n\nval notikit = Notikit(baseUrl = "https://push.example.com", apiKey = "nk_xxx")\n\nlifecycleScope.launch {\n    val token = FirebaseMessaging.getInstance().token.await()\n    notikit.registerDevice(\n        token = token,\n        platform = "android",\n        userId = "user-123",\n        identityHash = "<서버에서 계산한 HMAC>",\n    )\n}'
         },
         {
