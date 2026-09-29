@@ -41,3 +41,6 @@ license-public.pem
 apps/web/.claude/
 .claude/agent-memory/
 push-oss-plan/
+
+# 소개 사이트 빌드 결과 (site/build-docs.mjs)
+_site/
