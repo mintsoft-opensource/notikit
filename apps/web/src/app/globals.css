@@ -83,31 +83,33 @@
 }
 
 .dark {
+  /* 다크는 웜 그레이(gy)를 쓰지 않는다 — 어두운 면에서 올리브 기가 갈색으로 읽힌다.
+   * 중립 검정 계열을 따로 둔다. 값은 doc-style.ts · docs/route.ts 에도 같이 옮길 것. */
   --primary: var(--mint300);
   --primary-foreground: var(--mint900);
-  --background: var(--gy900);
-  --background-alt: #141613;
-  --surface: var(--gy800);
-  --surface-alt: #141613;
-  --surface-muted: var(--gy700);
+  --background: #101113;
+  --background-alt: #09090b;
+  --surface: #18191c;
+  --surface-alt: #09090b;
+  --surface-muted: #25272c;
   --accent-soft: rgba(143, 195, 174, 0.14);
-  --foreground: var(--gy100);
-  /* surface gy800 6.57 · background gy900 8.04 · surface-muted gy700 4.97 (gy400 은 surface-muted 4.32 로 미달) */
-  --muted-foreground: #aeb2a8;
-  /* 카드 경계가 보이도록 한 단계 밝게 (gy700 은 카드와 대비 1.3 로 사실상 안 보임) */
-  --border: var(--gy600);
-  --border-strong: var(--gy500);
-  /* 포커스 링 인접색 대비 — surface 7.14 · background 8.74 · surface-muted 5.40 */
+  --foreground: #ededef;
+  /* surface 7.36 · background 7.92 · surface-muted 6.26 */
+  --muted-foreground: #a4a8af;
+  /* 카드 경계가 보이도록 surface 와 대비 1.80 을 둔다 (surface-muted 는 1.18 로 사실상 안 보임) */
+  --border: #41444b;
+  --border-strong: #5c606a;
+  /* 포커스 링 인접색 대비 — surface 8.86 · background 9.52 · surface-muted 7.53 */
   --ring: var(--mint300);
   /* 라이트 상태색은 어두운 면에서 2.1~3.0 으로 읽히지 않는다. surface / background / surface-muted / 10% 칩 순:
-   * error   #f4948a 6.37 / 7.81 / 4.82 / 5.34
-   * success #5cc792 6.77 / 8.29 / 5.12 / 5.56
-   * warning #e8a24a 6.54 / 8.01 / 4.95 / 5.41 */
+   * error   #f4948a 7.91 / 8.50 / 6.72 / 6.70
+   * success #5cc792 8.40 / 9.03 / 7.14 / 7.07
+   * warning #e8a24a 8.12 / 8.72 / 6.90 / 6.81 */
   --error: #f4948a;
-  --error-foreground: var(--gy900); /* bg-error 위 글자 7.81 */
+  --error-foreground: #101113; /* bg-error 위 글자 8.50 */
   --success: #5cc792;
   --warning: #e8a24a;
-  --overlay: rgba(6, 8, 6, 0.62);
+  --overlay: rgba(0, 0, 0, 0.62);
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   --elevated-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
   --chart-1: #21a06f;

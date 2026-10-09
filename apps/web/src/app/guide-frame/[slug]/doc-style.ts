@@ -21,8 +21,8 @@ export const DOC_STYLE = `
   --accent:var(--mint500); --accent-soft:var(--mint50); --accent-line:var(--mint300);
 }
 html.dark {
-  --surface:var(--gy800); --surface-muted:var(--gy700); --surface-sunken:#141613;
-  --fg:var(--gy100); --muted:var(--gy400); --border:var(--gy600); --border-strong:var(--gy500);
+  --surface:#18191c; --surface-muted:#25272c; --surface-sunken:#09090b;
+  --fg:#ededef; --muted:#a4a8af; --border:#41444b; --border-strong:#5c606a;
   --accent:var(--mint300); --accent-soft:rgba(143,195,174,0.14); --accent-line:var(--mint300);
 }
 

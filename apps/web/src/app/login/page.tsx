@@ -72,7 +72,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center bg-surface-muted px-4">
+    <main className="flex min-h-[100dvh] items-center justify-center bg-surface-muted px-4 dark:bg-background-alt">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <LogoMark className="h-12 w-12" />

@@ -61,7 +61,7 @@ function page(strings: FrameStrings): string {
 <style>
   /* globals.css 의 팔레트를 그대로 옮긴다 — 비슷한 색을 새로 고르면 콘솔과 어긋난다 */
   :root { --bg: #ffffff; --fg: #1c1f1c; --border: #e5e6e1; --muted: #6f746a; }
-  html.dark { --bg: #292c26; --fg: #f3f4f0; --border: #52564d; --muted: #a2a69c; }
+  html.dark { --bg: #18191c; --fg: #ededef; --border: #41444b; --muted: #a4a8af; }
   body { margin: 0; background: var(--bg); color: var(--fg); }
 
   /* 토글 — 콘솔 헤더의 버튼과 같은 모양 */
@@ -90,7 +90,7 @@ function page(strings: FrameStrings): string {
 
   /*
    * 우측 예제 패널의 선택된 탭("Payload" 등). Redoc 이 배경과 글자를 **같은 값**으로
-   * 칠해서(둘 다 #f3f4f0) 다크에서 레이블이 통째로 사라진다 — 흰 박스만 남는다.
+   * 칠해서(둘 다 #ededef) 다크에서 레이블이 통째로 사라진다 — 흰 박스만 남는다.
    * 배경은 그대로 두고 글자만 어둡게 되돌린다.
    */
   #redoc .react-tabs__tab--selected { color: #1c1f1c !important; }
@@ -144,16 +144,16 @@ function page(strings: FrameStrings): string {
       ? Object.assign({}, common, {
           colors: {
             primary: { main: accent },
-            text: { primary: "#f3f4f0", secondary: "#a2a69c" },
+            text: { primary: "#ededef", secondary: "#a4a8af" },
             http: method,
-            border: { dark: "#52564d", light: "#52564d" },
+            border: { dark: "#41444b", light: "#41444b" },
           },
           typography: Object.assign({}, common.typography, {
-            code: Object.assign({}, common.typography.code, { color: "#f3f4f0", backgroundColor: "#141613" }),
+            code: Object.assign({}, common.typography.code, { color: "#ededef", backgroundColor: "#09090b" }),
           }),
-          sidebar: { backgroundColor: "#292c26", textColor: "#f3f4f0", activeTextColor: accent },
-          rightPanel: { backgroundColor: "#141613", textColor: "#f3f4f0" },
-          schema: { nestedBackground: "#3c3f38", typeNameColor: "#a2a69c" },
+          sidebar: { backgroundColor: "#18191c", textColor: "#ededef", activeTextColor: accent },
+          rightPanel: { backgroundColor: "#09090b", textColor: "#ededef" },
+          schema: { nestedBackground: "#25272c", typeNameColor: "#a4a8af" },
         })
       : Object.assign({}, common, {
           colors: {
@@ -166,7 +166,7 @@ function page(strings: FrameStrings): string {
             code: Object.assign({}, common.typography.code, { backgroundColor: "#f3f4f0" }),
           }),
           sidebar: { backgroundColor: "#fafaf8", textColor: "#1c1f1c", activeTextColor: accent },
-          rightPanel: { backgroundColor: "#292c26", textColor: "#f3f4f0" },
+          rightPanel: { backgroundColor: "#18191c", textColor: "#ededef" },
           schema: { nestedBackground: "#f3f4f0", typeNameColor: "#6f746a" },
         });
   }
