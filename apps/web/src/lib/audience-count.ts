@@ -30,7 +30,7 @@ export function notSuppressed(projectId: string): SQL {
 }
 
 /**
- * 사람 단위 억제 제외 — external_id 로 수신거부한 유저. 인박스·알림톡 같은 후속 채널은
+ * 사람 단위 억제 제외 — external_id 로 수신거부한 유저. 인박스 같은 후속 채널은
  * 기기가 아니라 사람에게 가므로 이 조건을 건다(push_users 를 대상으로 하는 쿼리에서).
  */
 export function userNotSuppressed(projectId: string): SQL {

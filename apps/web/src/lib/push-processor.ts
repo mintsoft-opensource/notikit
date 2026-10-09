@@ -5,8 +5,7 @@ import { pushLogs, projects, devices, pushClicks, pushHoldouts, pushUsers, pushU
 import { decryptSecret } from "@/lib/keys";
 import { parseServiceAccount } from "@/lib/firebase-credentials";
 import type { FcmResult } from "@/lib/fcm";
-import { emitWebhook, assertSafeWebhookUrl } from "@/lib/webhooks";
-import { parseKakaoConfig, sendAlimtalk } from "@/lib/kakao";
+import { emitWebhook } from "@/lib/webhooks";
 import { recordUninstalls, markVerified } from "@/lib/device-events";
 import { countAudience, resolveScope, scopedDevicePage, userNotSuppressed, type Db, type ScopedDevice } from "@/lib/audience-count";
 import { hasPlaceholders, renderTemplate, type Recipient } from "@/lib/personalize";
@@ -487,9 +486,9 @@ async function saveCounts(db: Db, log: PushLog, lockToken: string, state: Resume
   return saved.length > 0;
 }
 
-type FollowUpUser = Recipient & { id: string; phone: string | null };
+type FollowUpUser = Recipient & { id: string };
 
-/** 후속 채널(인박스·알림톡)의 받는 사람 — 사람을 지정한 발송만, 수신거부한 사람은 뺀다 */
+/** 후속 채널(인박스)의 받는 사람 — 사람을 지정한 발송만, 수신거부한 사람은 뺀다 */
 async function loadFollowUpUsers(db: Db, log: PushLog): Promise<FollowUpUser[]> {
   if (log.type !== "single" && log.type !== "multi") return [];
   const ids = log.type === "single" ? (log.target ? [log.target] : []) : (log.targets ?? []);
@@ -502,14 +501,13 @@ async function loadFollowUpUsers(db: Db, log: PushLog): Promise<FollowUpUser[]> 
       attributes: pushUsers.attributes,
       timezone: pushUsers.timezone,
       locale: pushUsers.locale,
-      phone: pushUsers.phone,
     })
     .from(pushUsers)
     .where(and(eq(pushUsers.projectId, log.projectId), inArray(pushUsers.externalId, ids), userNotSuppressed(log.projectId)));
 }
 
 /**
- * 후속 채널(인박스·카카오)을 받을 사람 — 푸시를 받은 쪽과 같게 거른다.
+ * 후속 채널(인박스)을 받을 사람 — 푸시를 받은 쪽과 같게 거른다.
  *
  * - 대조군(홀드아웃)은 뺀다: 인박스로 받으면 대조군이 아니게 되어 리프트 측정이 오염된다.
  * - A/B 는 이 발송이 맡은 버킷의 기기가 있는 사람만: 표본 로그와 승자 로그가 각각 대상 전원에게
@@ -566,23 +564,6 @@ async function deliverInbox(db: Db, log: PushLog, ctx: SendContext, users: Follo
     .onConflictDoNothing();
 }
 
-/** 카카오 알림톡 폴백: 단건만. device 발송 성공 0 + phone + 설정 존재 시 */
-async function deliverKakaoFallback(db: Db, log: PushLog, ctx: SendContext, users: FollowUpUser[], success: number): Promise<void> {
-  const u = log.type === "single" ? users[0] : undefined;
-  if (!u || !log.kakaoFallback || !u.phone || !ctx.project.kakaoConfigEnc || success !== 0) return;
-  try {
-    const cfg = parseKakaoConfig(decryptSecret(ctx.project.kakaoConfigEnc));
-    await assertSafeWebhookUrl(cfg.provider_url); // 발송 시점 SSRF 재검증(DNS 변경 대응)
-    const text = `${renderTemplate(log.title, u, ctx.renderCtx)}\n${renderTemplate(log.body, u, ctx.renderCtx)}`;
-    const r = await sendAlimtalk(cfg, u.phone, text);
-    if (r.ok) await db.update(pushLogs).set({ kakaoCount: 1 }).where(eq(pushLogs.id, log.id));
-    else console.warn(`[push] kakao fallback rejected for log ${log.id}`);
-  } catch (e) {
-    // 폴백 실패가 발송 완료를 되돌리지는 않지만, 조용히 삼키면 운영자가 원인을 알 수 없다(전화번호는 남기지 않는다)
-    console.warn(`[push] kakao fallback failed for log ${log.id}: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
-
 /**
  * message.sent 웹훅. **삼키지 않는다.**
  *
@@ -590,7 +571,7 @@ async function deliverKakaoFallback(db: Db, log: PushLog, ctx: SendContext, user
  * 회수하지만, 행을 넣기 **전에** 터지면(DB 순단) 회수할 근거 자체가 없다 — 스윕은 행을 보고 돈다.
  * 예전에는 그 예외를 삼키고 단계를 완료로 표시해, 그 이벤트가 영영 사라졌다.
  * 그래서 던진다: 단계가 완료로 표시되지 않고, 로그는 `processing` 으로 남아 재클레임이 이 단계만
- * 다시 돈다(앞선 인박스·알림톡은 표시가 남아 건너뛴다).
+ * 다시 돈다(앞선 인박스는 표시가 남아 건너뛴다).
  *
  * 대가로 웹훅이 **중복 배달**될 수 있다(행을 넣은 구독과 못 넣은 구독이 섞인 경우). 발송 자체가
  * at-least-once 이므로 같은 약속이고, 구독자는 배달 id 로 중복을 거를 수 있다.
@@ -606,7 +587,7 @@ async function notifySent(log: PushLog, status: string, state: ResumeState): Pro
 }
 
 /**
- * 후속 단계(인박스 → 알림톡 → 웹훅)를 **완료 표시 전에** 돈다. 완료 뒤에 돌면 그 사이에 죽었을 때 영영 유실된다.
+ * 후속 단계(인박스 → 웹훅)를 **완료 표시 전에** 돈다. 완료 뒤에 돌면 그 사이에 죽었을 때 영영 유실된다.
  * 단계마다 끝났다는 표시를 resume_cursor 에 남겨, 재클레임한 워커는 남은 단계만 이어 간다.
  */
 export async function runFollowUps(
@@ -623,7 +604,6 @@ export async function runFollowUps(
   const users = await followUpRecipients(db, log, ctx, await loadFollowUpUsers(db, log));
   const steps: Record<keyof FollowUps, () => Promise<void>> = {
     inbox: () => deliverInbox(db, log, ctx, users),
-    kakao: () => deliverKakaoFallback(db, log, ctx, users, state.success),
     webhook: () => notifySent(log, status, state),
   };
   for (const key of FOLLOW_UP_KEYS) {
@@ -671,7 +651,6 @@ async function sendAbWinner(db: Db, log: PushLog, ctx: SendContext, plan: AbTest
     type: log.type as ReadyMessage["type"],
     title: content.title,
     body: content.body,
-    kakao_fallback: log.kakaoFallback,
     ...(log.target ? { target: log.target } : {}),
     ...(log.targets ? { targets: log.targets } : {}),
     ...(log.deepLink ? { deep_link: log.deepLink } : {}),

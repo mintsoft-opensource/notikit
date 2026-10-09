@@ -760,21 +760,14 @@ test.describe("App SDK API 전체 플로우", () => {
     expect(log.totalCount).toBe(6);
   });
 
-  test("카카오 알림톡: 설정 업로드 검증 + phone 저장", async ({ request }) => {
-    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `kakao-${Date.now()}` } });
+  test("identify: phone 은 저장하되 응답에 싣지 않는다", async ({ request }) => {
+    const created = await request.post("/api/admin/projects", { headers: { "x-admin-token": ADMIN }, data: { name: `phone-${Date.now()}` } });
     const cj = await created.json();
     const apiKey = cj.data.project.apiKey as string;
     const apiSecret = cj.data.api_secret as string;
     const pid = cj.data.project.id as string;
 
-    const bad = await request.post(`/api/admin/projects/${pid}/kakao`, { headers: { "x-admin-token": ADMIN }, data: { config: { foo: "bar" } } });
-    expect(bad.status()).toBe(422);
-
-    const good = await request.post(`/api/admin/projects/${pid}/kakao`, { headers: { "x-admin-token": ADMIN }, data: { config: { provider_url: "https://example.com/send", api_key: "K", sender_key: "S" } } });
-    expect(good.status()).toBe(200);
-    expect((await good.json()).data.configured).toBe(true);
-
-    const ext = "kakao-user";
+    const ext = "phone-user";
     const hash = idHash(ext, apiSecret);
     const idf = await request.post("/api/v1/users/identify", { headers: { "api-key": apiKey }, data: { external_id: ext, identity_hash: hash, phone: "01012345678" } });
     expect(idf.status()).toBe(200);

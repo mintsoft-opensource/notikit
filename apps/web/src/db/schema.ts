@@ -61,8 +61,6 @@ export const projects = pgTable("projects", {
   timezone: text("timezone"),
   // Firebase service account JSON — AES-256-GCM 암호문
   firebaseCredentialsEnc: text("firebase_credentials_enc"),
-  // 카카오 알림톡 설정(provider_url/api_key/sender_key) — AES-256-GCM 암호문
-  kakaoConfigEnc: text("kakao_config_enc"),
   // 마지막으로 **완주한** 토큰 스윕 시각 — 하루 1회 판단 기준
   tokensCheckedAt: timestamp("tokens_checked_at", { withTimezone: true }),
   // 스윕 재개 지점(devices.id). null 이면 진행 중인 스윕이 없다.
@@ -101,7 +99,7 @@ export const pushUsers = pgTable("push_users", {
   externalId: text("external_id").notNull(), // 고객 시스템의 유저 ID
   name: text("name"), // 표시·치환({{name}})용 이름
   attributes: jsonb("attributes").$type<Record<string, unknown>>().default({}),
-  phone: text("phone"), // 카카오 알림톡 폴백용
+  phone: text("phone"),
   locale: text("locale"),
   timezone: text("timezone"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -278,9 +276,6 @@ export const pushLogs = pgTable("push_logs", {
   // A/B 자동 승자. 표본 발송이면 설정과 판정 결과(role:"test"), 승자 본발송이면 어느 발송의
   // 어떤 변형인지(role:"winner"). 표본과 나머지는 토큰 해시 버킷으로 갈라 절대 겹치지 않는다.
   abTest: jsonb("ab_test").$type<AbTest>(),
-  // 카카오 알림톡 폴백 (단건 발송에서 device 실패/부재 시 phone 으로)
-  kakaoFallback: boolean("kakao_fallback").notNull().default(false),
-  kakaoCount: integer("kakao_count").notNull().default(0),
   // 클릭률 분모 — 발송 시점 스냅샷. 구독은 계속 변하므로 나중에 세면 과거 발송의 비율이 흔들린다.
   audienceUserCount: integer("audience_user_count").notNull().default(0),
   // clickCount(디바이스 단위 분자)의 짝. 익명 디바이스는 유저 분모에 0으로 잡히므로

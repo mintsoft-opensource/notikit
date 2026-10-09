@@ -158,7 +158,6 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
           </div>
           <div className="flex items-center gap-2">
             {project.hasFirebase ? <Badge variant="success">{t("firebaseConfigured")}</Badge> : <Badge variant="neutral">{tc("logOnly")}</Badge>}
-            {project.hasKakao && <Badge variant="success">{t("kakaoConfigured")}</Badge>}
           </div>
         </Card>
       )}

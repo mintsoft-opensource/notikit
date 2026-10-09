@@ -50,9 +50,9 @@ export type ResumeState = {
 };
 
 /** 후속 단계 완료 표시. 끝난 단계는 재클레임 때 다시 돌지 않는다. */
-export type FollowUps = { inbox?: boolean; kakao?: boolean; webhook?: boolean };
+export type FollowUps = { inbox?: boolean; webhook?: boolean };
 
-export const FOLLOW_UP_KEYS = ["inbox", "kakao", "webhook"] as const;
+export const FOLLOW_UP_KEYS = ["inbox", "webhook"] as const;
 
 function parseFollowUps(v: unknown): FollowUps | undefined {
   if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;

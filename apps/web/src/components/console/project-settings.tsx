@@ -73,8 +73,6 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
 
   const [firebase, setFirebase] = React.useState("");
   const [firebaseBusy, setFirebaseBusy] = React.useState(false);
-  const [kakao, setKakao] = React.useState({ provider_url: "", api_key: "", sender_key: "" });
-  const [kakaoBusy, setKakaoBusy] = React.useState(false);
 
   async function savePolicy() {
     if (saving) return;
@@ -137,22 +135,7 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
     }
   }
 
-  async function uploadKakao() {
-    if (kakaoBusy) return;
-    setKakaoBusy(true);
-    try {
-      await adminApi(`/api/admin/projects/${projectId}/kakao`, { method: "POST", body: JSON.stringify(kakao) });
-      toast.success(t("kakaoSaved"));
-      setKakao({ provider_url: "", api_key: "", sender_key: "" });
-      reload();
-    } catch (e) {
-      toast.error(errorText(e, t("failed")));
-    } finally {
-      setKakaoBusy(false);
-    }
-  }
-
-  const [tab, setTab] = React.useState<"policy" | "firebase" | "kakao">("policy");
+  const [tab, setTab] = React.useState<"policy" | "firebase">("policy");
 
   return (
     <div className="w-full space-y-4">
@@ -166,7 +149,6 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
         items={[
           { value: "policy", label: t("policyTitle") },
           { value: "firebase", label: "Firebase", icon: <Upload aria-hidden="true" className="size-4" /> },
-          { value: "kakao", label: t("kakaoTitle"), icon: <Upload aria-hidden="true" className="size-4" /> },
         ]}
       />
 
@@ -274,48 +256,6 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
             </Field>
             <Button size="sm" variant="outline" onClick={uploadFirebase} disabled={firebaseBusy || !firebase.trim()}>
               {firebaseBusy ? t("uploading") : t("upload")}
-            </Button>
-          </CardContent>
-        </Card>
-      </TabPanel>
-      )}
-
-      {tab === "kakao" && (
-      <TabPanel idPrefix="project-settings" value="kakao">
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle className="flex items-center gap-1.5"><Upload aria-hidden="true" className="size-4" /> {t("kakaoTitle")}</CardTitle>
-              <CardDescription>{project?.hasKakao ? t("fbConfigured") : t("kakaoNotConfigured")}</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Field label={t("providerUrl")}>
-              <Input
-                type="url"
-                inputMode="url"
-                spellCheck={false}
-                autoComplete="off"
-                value={kakao.provider_url}
-                onChange={(e) => setKakao({ ...kakao, provider_url: e.target.value })}
-                placeholder="https://provider.example.com/…"
-              />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label={t("apiKeyLabel")}>
-                <Input spellCheck={false} autoComplete="off" value={kakao.api_key} onChange={(e) => setKakao({ ...kakao, api_key: e.target.value })} placeholder="api_key" />
-              </Field>
-              <Field label={t("senderKey")}>
-                <Input spellCheck={false} autoComplete="off" value={kakao.sender_key} onChange={(e) => setKakao({ ...kakao, sender_key: e.target.value })} placeholder="sender_key" />
-              </Field>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={uploadKakao}
-              disabled={kakaoBusy || !kakao.provider_url || !kakao.api_key || !kakao.sender_key}
-            >
-              {kakaoBusy ? t("saving") : t("kakaoSave")}
             </Button>
           </CardContent>
         </Card>

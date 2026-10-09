@@ -62,9 +62,6 @@
   --success: #1a7347;
   --warning: #9a5207;
 
-  /* 외부 브랜드 */
-  --kakao-bg: #fee500;
-  --kakao-fg: #191919;
 
   /* 모달·드로어 뒤를 덮는 막. **두 테마 모두 어두운 값**이어야 한다 —
    * foreground 를 쓰면 다크에서 밝은 막이 되어 깊이가 뒤집힌다(뒤가 앞으로 나와 보인다). */
@@ -142,7 +139,6 @@
   --color-error-foreground: var(--error-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --color-kakao: var(--kakao-bg);
   --color-overlay: var(--overlay);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

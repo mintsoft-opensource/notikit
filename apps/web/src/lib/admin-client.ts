@@ -15,7 +15,6 @@ export type Project = {
   quietStartHour?: number | null;
   quietEndHour?: number | null;
   hasFirebase?: boolean;
-  hasKakao?: boolean;
 };
 export type SessionUser = { email: string; role: string };
 

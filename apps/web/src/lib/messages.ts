@@ -180,7 +180,6 @@ export const messageSchema = z.object({
    * 주지 않으면 프로젝트 설정을 그대로 따른다.
    */
   max_sends_per_minute: z.number().int().min(0).max(1_000_000).optional(),
-  kakao_fallback: z.boolean().optional(),
   /** 알림 옵션(소리·배지·collapse·TTL·우선순위·무음·액션 버튼) */
   options: pushOptionsSchema.optional(),
 });
@@ -464,7 +463,6 @@ export async function enqueuePush(
       // 0 = "이 발송은 제한 없음". undefined 와 구분해야 프로젝트 설정을 덮는지 알 수 있다.
       maxSendsPerMinute: b.max_sends_per_minute ?? null,
       options: b.options ?? null,
-      kakaoFallback: b.kakao_fallback ?? false,
       scheduledAt,
       localTime: b.local_time ?? null,
       status: isScheduled ? "scheduled" : "queued",

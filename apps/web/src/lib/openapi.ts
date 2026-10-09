@@ -291,7 +291,6 @@ export const openapi = {
                     description:
                       "이 발송에만 적용할 분당 상한. 프로젝트 설정을 덮는다. `0` 은 \"이 발송은 제한 없음\"이고, 주지 않으면 프로젝트 설정을 따른다.",
                   },
-                  kakao_fallback: { type: "boolean", description: "미도달 유저에게 카카오 알림톡 대체 발송" },
                   options: {
                     type: "object",
                     description:
@@ -667,31 +666,6 @@ export const openapi = {
         security: [{ adminToken: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: { "200": { description: "통계" } },
-      },
-    },
-    "/api/admin/projects/{id}/kakao": {
-      post: {
-        tags: ["Web Admin"],
-        summary: "카카오 알림톡 설정 업로드 — 검증 후 암호화 저장",
-        security: [{ adminToken: [] }],
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["provider_url", "api_key", "sender_key"],
-                properties: {
-                  provider_url: { type: "string", format: "uri" },
-                  api_key: { type: "string" },
-                  sender_key: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: { "200": { description: "저장됨" }, "422": { description: "유효하지 않은 설정" } },
       },
     },
     "/api/admin/projects/{id}/audience/estimate": {

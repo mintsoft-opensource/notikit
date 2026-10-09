@@ -225,6 +225,13 @@
       "when": 1789090893492,
       "tag": "0031_holdout_exposure",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791530702718,
+      "tag": "0032_drop_kakao",
+      "breakpoints": true
     }
   ]
 }

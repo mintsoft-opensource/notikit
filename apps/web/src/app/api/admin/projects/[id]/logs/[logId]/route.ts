@@ -49,8 +49,6 @@ const columns = {
   variantStats: pushLogs.variantStats,
   // A/B 자동 승자 설정·판정 — 상세 화면이 "왜 승자가 없는지"를 말할 수 있는 유일한 값이다
   abTest: pushLogs.abTest,
-  kakaoFallback: pushLogs.kakaoFallback,
-  kakaoCount: pushLogs.kakaoCount,
   audienceUserCount: pushLogs.audienceUserCount,
   audienceDeviceCount: pushLogs.audienceDeviceCount,
   clickCount: pushLogs.clickCount,

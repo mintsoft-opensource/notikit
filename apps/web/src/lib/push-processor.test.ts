@@ -203,8 +203,8 @@ describe("parseResumeState follow-ups", () => {
   });
 
   it("treats a malformed follow-up record as finalizing with nothing done", () => {
-    const raw = JSON.stringify({ ...base, followUps: { inbox: "yes", kakao: true, bogus: true } });
-    expect(parseResumeState(raw)?.followUps).toEqual({ kakao: true });
+    const raw = JSON.stringify({ ...base, followUps: { inbox: "yes", webhook: true, bogus: true } });
+    expect(parseResumeState(raw)?.followUps).toEqual({ webhook: true });
     expect(parseResumeState(JSON.stringify({ ...base, followUps: 3 }))?.followUps).toEqual({});
   });
 
@@ -372,7 +372,7 @@ const PROJ = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 /** 후속 단계는 broadcast 에서 받는 사람 조회 없이 돈다 — db 는 진행 상태 저장에만 쓰인다 */
 const broadcastLog = { id: LOG_ID, projectId: PROJ, type: "broadcast", title: "T", body: "B" } as unknown as PushLog;
 const ctx = {
-  project: { id: PROJ, name: "P", kakaoConfigEnc: null } as unknown as Project,
+  project: { id: PROJ, name: "P" } as unknown as Project,
   sa: null,
   cap: null,
   renderCtx: { appName: "P", now: new Date() },
@@ -393,19 +393,16 @@ describe("runFollowUps", () => {
     const t = updateSpy([{ id: LOG_ID }]);
     const sent = initialState({ users: 1, devices: 1 }, null);
     expect(await runFollowUps(t.db, broadcastLog, ctx, "mine", sent, "completed")).toBe(true);
-    expect(savedSteps(t.sets)).toEqual([[], ["inbox"], ["inbox", "kakao"], ["inbox", "kakao", "webhook"]]);
+    expect(savedSteps(t.sets)).toEqual([[], ["inbox"], ["inbox", "webhook"]]);
     expect(emitted).toHaveLength(1);
   });
 
   it("재클레임하면 남은 단계만 돈다 — 끝난 표시는 그대로 들고 간다", async () => {
     emitted.length = 0;
     const t = updateSpy([{ id: LOG_ID }]);
-    const sent: ResumeState = { ...initialState({ users: 1, devices: 1 }, null), followUps: { inbox: true, kakao: true } };
+    const sent: ResumeState = { ...initialState({ users: 1, devices: 1 }, null), followUps: { inbox: true } };
     expect(await runFollowUps(t.db, broadcastLog, ctx, "mine", sent, "completed")).toBe(true);
-    expect(savedSteps(t.sets)).toEqual([
-      ["inbox", "kakao"],
-      ["inbox", "kakao", "webhook"],
-    ]);
+    expect(savedSteps(t.sets)).toEqual([["inbox"], ["inbox", "webhook"]]);
     expect(emitted).toHaveLength(1);
   });
 
@@ -595,9 +592,9 @@ describe("runFollowUps 웹훅 실패", () => {
     const sent = initialState({ users: 1, devices: 1 }, null);
     try {
       await expect(runFollowUps(t.db, broadcastLog, ctx, "mine", sent, "completed")).rejects.toThrow("db down");
-      // 인박스·알림톡까지만 완료 표시 — 재클레임은 웹훅 단계만 다시 돈다
+      // 인박스까지만 완료 표시 — 재클레임은 웹훅 단계만 다시 돈다
       const last = parseResumeState(t.sets[t.sets.length - 1].resumeCursor as string)!;
-      expect(Object.keys(last.followUps ?? {}).sort()).toEqual(["inbox", "kakao"]);
+      expect(Object.keys(last.followUps ?? {}).sort()).toEqual(["inbox"]);
     } finally {
       webhook.fail = false;
     }

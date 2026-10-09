@@ -15,7 +15,6 @@ const buttonVariants = cva(
           "border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted",
         ghost: "hover:bg-surface-muted text-foreground",
         destructive: "bg-error text-error-foreground hover:opacity-90",
-        kakao: "bg-kakao text-[#191919] hover:opacity-90",
       },
       // 컨트롤 높이는 하나(36px)로 통일한다 — 입력칸·선택 상자·날짜 선택과 한 줄에 놓여도 어긋나지 않게.
       // sm 은 좌우 여백만 줄인다(표 안의 행 동작처럼 폭이 좁은 곳).

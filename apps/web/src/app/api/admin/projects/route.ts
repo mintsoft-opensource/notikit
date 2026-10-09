@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 type ProjectRow = typeof projects.$inferSelect;
 
-/** 응답용 공개 필드 화이트리스트 — 암호문(secret/firebase/kakao)은 노출 금지, 설정 여부만 boolean */
+/** 응답용 공개 필드 화이트리스트 — 암호문(secret/firebase)은 노출 금지, 설정 여부만 boolean */
 function publicProject(p: ProjectRow) {
   return {
     id: p.id,
@@ -24,7 +24,6 @@ function publicProject(p: ProjectRow) {
     quietStartHour: p.quietStartHour,
     quietEndHour: p.quietEndHour,
     hasFirebase: !!p.firebaseCredentialsEnc,
-    hasKakao: !!p.kakaoConfigEnc,
     createdAt: p.createdAt,
   };
 }

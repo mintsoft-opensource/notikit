@@ -52,8 +52,6 @@ type Log = {
   variantStats: Record<string, { sent: number; success: number }> | null;
   /** A/B 자동 승자 — 표본 발송이면 설정·판정, 승자 본발송이면 어느 발송의 어떤 변형인지 */
   abTest?: AbTest | null;
-  kakaoFallback: boolean;
-  kakaoCount: number;
   audienceUserCount: number;
   audienceDeviceCount: number;
   clickCount: number;
@@ -400,7 +398,6 @@ export function LogDetail({ projectId, logId }: { projectId: string; logId: stri
                 <DataRow label={t("colInboxRead")} value={`${nf.format(inbox.read)} / ${nf.format(inbox.total)} (${rate(inbox.read, inbox.total)})`} />
               )}
               <DataRow label={t("readers")} value={`${nf.format(log.clickUserCount)} / ${nf.format(log.audienceUserCount)} (${rate(log.clickUserCount, log.audienceUserCount)})`} />
-              {log.kakaoFallback && <DataRow label="Kakao" value={nf.format(log.kakaoCount)} />}
               <DataRow label={t("sentBy")} value={sentByText(log.sentBy)} />
               {log.canceledAt && <DataRow label={t("canceledAt")} value={new Date(log.canceledAt).toLocaleString(locale)} />}
               {log.canceledBy && <DataRow label={t("canceledBy")} value={log.canceledBy} />}
