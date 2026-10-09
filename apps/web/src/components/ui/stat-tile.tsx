@@ -21,14 +21,23 @@ export type StatDelta = {
   label?: string;
 };
 
+/**
+ * 값의 색은 **상태**만 말한다. 브랜드 초록은 "누를 수 있다·선택됐다"는 뜻이라 수치에 쓰면
+ * 버튼처럼 읽히므로 primary 는 본문색으로 둔다.
+ */
 const accentClass: Record<StatTileAccent, string> = {
   default: "text-foreground",
-  primary: "text-primary",
+  primary: "text-foreground",
   success: "text-success",
   warning: "text-warning",
   danger: "text-error",
   muted: "text-muted-foreground",
 };
+
+/** 0 이거나 값이 없으면 좋지도 나쁘지도 않다 — "삭제 0" 이 빨갛거나 "—" 가 초록이면 색이 거짓말을 한다 */
+function isEmptyValue(value: string | number): boolean {
+  return typeof value === "number" ? value === 0 : !/[1-9]/.test(value);
+}
 
 /**
  * 변화량 한 줄 — ▲▼ 글리프 + success/error 색.
@@ -119,8 +128,9 @@ export function StatTile({
           </p>
           {Icon && (
             // 보조 아이콘 컨테이너 규칙 — 28px(h-7), 조작 요소는 36px
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft">
-              <Icon aria-hidden="true" className="size-4 text-primary" strokeWidth={2.25} />
+            // 장식 아이콘은 회색 — 초록이면 타일마다 누를 수 있는 것처럼 보인다
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-muted">
+              <Icon aria-hidden="true" className="size-4 text-muted-foreground" strokeWidth={2.25} />
             </div>
           )}
         </div>
@@ -128,7 +138,7 @@ export function StatTile({
           <Skeleton className="mt-2 h-7 w-20" />
         ) : (
           // 값은 자르지 않는다 — 200~400% 확대에서 고정폭으로 자르면 수치 자체가 사라진다
-          <p className={cn("mt-2 break-words text-xl font-extrabold tracking-tight tabular-nums", accentClass[accent])}>
+          <p className={cn("mt-2 break-words text-xl font-extrabold tracking-tight tabular-nums", accentClass[isEmptyValue(value) ? "default" : accent])}>
             {value}
             {suffix && <span className="ms-1 text-xs font-bold text-muted-foreground">{suffix}</span>}
           </p>

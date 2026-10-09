@@ -60,8 +60,8 @@ function page(strings: FrameStrings): string {
 <title>${escapeHtml(strings.title)}</title>
 <style>
   /* globals.css 의 팔레트를 그대로 옮긴다 — 비슷한 색을 새로 고르면 콘솔과 어긋난다 */
-  :root { --bg: #ffffff; --fg: #1c1f1c; --border: #e5e6e1; --muted: #6f746a; }
-  html.dark { --bg: #18191c; --fg: #ededef; --border: #41444b; --muted: #a4a8af; }
+  :root { --bg: #ffffff; --fg: #17191d; --border: #dfe2e7; --muted: #59606b; }
+  html.dark { --bg: #191b1f; --fg: #ededf0; --border: #3a3d45; --muted: #a3a8b1; }
   body { margin: 0; background: var(--bg); color: var(--fg); }
 
   /* 토글 — 콘솔 헤더의 버튼과 같은 모양 */
@@ -90,10 +90,10 @@ function page(strings: FrameStrings): string {
 
   /*
    * 우측 예제 패널의 선택된 탭("Payload" 등). Redoc 이 배경과 글자를 **같은 값**으로
-   * 칠해서(둘 다 #ededef) 다크에서 레이블이 통째로 사라진다 — 흰 박스만 남는다.
+   * 칠해서(둘 다 #ededf0) 다크에서 레이블이 통째로 사라진다 — 흰 박스만 남는다.
    * 배경은 그대로 두고 글자만 어둡게 되돌린다.
    */
-  #redoc .react-tabs__tab--selected { color: #1c1f1c !important; }
+  #redoc .react-tabs__tab--selected { color: #17191d !important; }
   /* 선택 안 된 탭은 배경이 투명하므로 본문 색을 따라가야 읽힌다 */
   #redoc .react-tabs__tab:not(.react-tabs__tab--selected) { color: var(--fg) !important; }
 
@@ -118,7 +118,7 @@ function page(strings: FrameStrings): string {
 
   function themeFor(dark) {
     // mint500 / mint300 — 콘솔의 --primary 와 같은 값
-    var accent = dark ? "#8fc3ae" : "#2e7d5b";
+    var accent = dark ? "#3ecf8e" : "#087a4b";
     // HTTP 메서드 색은 검증된 차트 팔레트(--chart-1..5)를 쓴다
     var method = dark
       ? { get: "#3f9ae0", post: accent, put: "#d0791d", delete: "#e04f7f", patch: "#8a6ff0" }
@@ -144,30 +144,30 @@ function page(strings: FrameStrings): string {
       ? Object.assign({}, common, {
           colors: {
             primary: { main: accent },
-            text: { primary: "#ededef", secondary: "#a4a8af" },
+            text: { primary: "#ededf0", secondary: "#a3a8b1" },
             http: method,
-            border: { dark: "#41444b", light: "#41444b" },
+            border: { dark: "#3a3d45", light: "#3a3d45" },
           },
           typography: Object.assign({}, common.typography, {
-            code: Object.assign({}, common.typography.code, { color: "#ededef", backgroundColor: "#09090b" }),
+            code: Object.assign({}, common.typography.code, { color: "#ededf0", backgroundColor: "#0c0d10" }),
           }),
-          sidebar: { backgroundColor: "#18191c", textColor: "#ededef", activeTextColor: accent },
-          rightPanel: { backgroundColor: "#09090b", textColor: "#ededef" },
-          schema: { nestedBackground: "#25272c", typeNameColor: "#a4a8af" },
+          sidebar: { backgroundColor: "#191b1f", textColor: "#ededf0", activeTextColor: accent },
+          rightPanel: { backgroundColor: "#0c0d10", textColor: "#ededf0" },
+          schema: { nestedBackground: "#272a30", typeNameColor: "#a3a8b1" },
         })
       : Object.assign({}, common, {
           colors: {
             primary: { main: accent },
-            text: { primary: "#1c1f1c", secondary: "#6f746a" },
+            text: { primary: "#17191d", secondary: "#59606b" },
             http: method,
-            border: { dark: "#e5e6e1", light: "#e5e6e1" },
+            border: { dark: "#dfe2e7", light: "#dfe2e7" },
           },
           typography: Object.assign({}, common.typography, {
-            code: Object.assign({}, common.typography.code, { backgroundColor: "#f3f4f0" }),
+            code: Object.assign({}, common.typography.code, { backgroundColor: "#f3f4f6" }),
           }),
-          sidebar: { backgroundColor: "#fafaf8", textColor: "#1c1f1c", activeTextColor: accent },
-          rightPanel: { backgroundColor: "#18191c", textColor: "#ededef" },
-          schema: { nestedBackground: "#f3f4f0", typeNameColor: "#6f746a" },
+          sidebar: { backgroundColor: "#f7f8fa", textColor: "#17191d", activeTextColor: accent },
+          rightPanel: { backgroundColor: "#191b1f", textColor: "#ededf0" },
+          schema: { nestedBackground: "#f3f4f6", typeNameColor: "#59606b" },
         });
   }
 

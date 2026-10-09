@@ -24,7 +24,10 @@ function NavLink({ item, label, pathname }: { item: NavItem; label: string; path
         // 지금 어느 항목에 있는지 보이지 않는다(Button 과 같은 링을 쓴다).
         "relative flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-md font-semibold transition-colors",
         FOCUS_RING,
-        active ? "bg-accent-soft text-primary" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+        // 현재 위치는 면 색 + 시작 쪽 막대 둘로 표시한다 — 틴트만으로는 hover 와 구분이 약하다
+        active
+          ? "bg-accent-soft text-primary before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-primary"
+          : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       )}
     >
       <Icon aria-hidden="true" className={cn("size-4", active ? "text-primary" : "text-muted-foreground")} strokeWidth={2} />

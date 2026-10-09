@@ -10,20 +10,20 @@
  */
 export const DOC_STYLE = `
 :root {
-  --gy50:#fafaf8; --gy100:#f3f4f0; --gy200:#e5e6e1; --gy300:#d2d4cc;
-  --gy400:#a2a69c; --gy500:#6f746a; --gy600:#52564d; --gy700:#3c3f38;
-  --gy800:#292c26; --gy900:#191b17;
-  --mint50:#f0f7f4; --mint100:#dcede5; --mint300:#8fc3ae;
-  --mint500:#2e7d5b; --mint700:#1f5540;
+  --gy50:#f7f8fa; --gy100:#f3f4f6; --gy200:#dfe2e7; --gy300:#c6cad2;
+  --gy400:#9aa0aa; --gy500:#6a707b; --gy600:#4c515b; --gy700:#373b43;
+  --gy800:#25282d; --gy900:#16181b;
+  --mint50:#e3f6ec; --mint100:#c8ecd9; --mint300:#3ecf8e;
+  --mint500:#087a4b; --mint700:#055c37;
 
   --surface:#ffffff; --surface-muted:var(--gy100); --surface-sunken:var(--gy50);
-  --fg:#1c1f1c; --muted:var(--gy500); --border:var(--gy200); --border-strong:var(--gy300);
+  --fg:#17191d; --muted:#59606b; --border:var(--gy200); --border-strong:var(--gy300);
   --accent:var(--mint500); --accent-soft:var(--mint50); --accent-line:var(--mint300);
 }
 html.dark {
-  --surface:#18191c; --surface-muted:#25272c; --surface-sunken:#09090b;
-  --fg:#ededef; --muted:#a4a8af; --border:#41444b; --border-strong:#5c606a;
-  --accent:var(--mint300); --accent-soft:rgba(143,195,174,0.14); --accent-line:var(--mint300);
+  --surface:#191b1f; --surface-muted:#272a30; --surface-sunken:#0c0d10;
+  --fg:#ededf0; --muted:#a3a8b1; --border:#3a3d45; --border-strong:#555a64;
+  --accent:var(--mint300); --accent-soft:rgba(62,207,142,0.16); --accent-line:var(--mint300);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

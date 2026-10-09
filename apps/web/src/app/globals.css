@@ -5,58 +5,65 @@
 
 /* ============================================================
  * Notikit 디자인 토큰
- * 브랜드 민트-그린 #2E7D5B · 웜 뉴트럴 그레이 스케일 · 시맨틱 매핑
+ * 중립 그레이 스케일 · 브랜드 그린 · 시맨틱 매핑
+ *
+ * 색의 역할은 셋으로 나눈다 — 섞이면 화면에서 무엇이 중요한지 읽히지 않는다.
+ *   초록(primary)  = 누를 수 있는 주 동작, 지금 선택된 것
+ *   상태색          = 성공·경고·실패. 뜻이 있을 때만 쓴다
+ *   그레이          = 그 밖의 전부(면·글자·장식 아이콘)
  * ============================================================ */
 :root {
-  /* Warm Neutral Gray */
-  --gy50: #fafaf8;
-  --gy100: #f3f4f0;
-  --gy200: #e5e6e1;
-  --gy300: #d2d4cc;
-  --gy400: #a2a69c;
-  --gy500: #6f746a;
-  --gy600: #52564d;
-  --gy700: #3c3f38;
-  --gy800: #292c26;
-  --gy900: #191b17;
+  /* Neutral Gray */
+  --gy50: #f7f8fa;
+  --gy100: #f3f4f6;
+  --gy200: #dfe2e7;
+  --gy300: #c6cad2;
+  --gy400: #9aa0aa;
+  --gy500: #6a707b;
+  --gy600: #4c515b;
+  --gy700: #373b43;
+  --gy800: #25282d;
+  --gy900: #16181b;
 
-  /* Brand mint-green */
-  --mint50: #f0f7f4;
-  --mint100: #dcede5;
-  --mint300: #8fc3ae;
-  --mint500: #2e7d5b;
-  --mint700: #1f5540;
-  --mint800: #183f31;
-  --mint900: #102b22;
+  /* Brand green */
+  --mint50: #e3f6ec;
+  --mint100: #c8ecd9;
+  --mint300: #3ecf8e;
+  --mint500: #087a4b;
+  --mint700: #055c37;
+  --mint800: #06452b;
+  --mint900: #05150d;
 
   /* Semantic */
+  /* 글자로도 쓴다(4.5:1) — surface 5.39 · background-alt 4.90 · surface-muted 4.52 · accent-soft 4.79 */
   --primary: var(--mint500);
   --primary-hover: var(--mint700);
-  --primary-foreground: #ffffff;
+  --primary-foreground: #ffffff; /* bg-primary 위 글자 5.39 */
   --secondary: var(--mint100);
 
+  /* 면은 세 단계다: 페이지(background-alt) < 카드·사이드바(surface) 이고, surface-muted 는
+   * 둘 어디에 놓여도 보이도록 페이지보다 한 단계 더 진하다(hover·칩·세그먼트). */
   --background: #ffffff;
-  --background-alt: var(--gy50);
+  --background-alt: var(--gy100);
   --surface: #ffffff;
   --surface-alt: var(--background-alt);
-  --surface-muted: var(--gy100);
+  --surface-muted: #e9ebef;
   /* 활성 네비/뱃지용 소프트 브랜드 틴트 */
   --accent-soft: var(--mint50);
 
-  --foreground: #1c1f1c;
-  /* WCAG 대비(텍스트 4.5:1) — surface #fff 5.81 · background-alt 5.55 · surface-muted 5.25.
-   * gy500 은 surface-muted 위에서 4.34 로 미달이라 한 단계 어둡게 따로 둔다. */
-  --muted-foreground: #62675d;
+  --foreground: #17191d;
+  /* WCAG 대비(텍스트 4.5:1) — surface 6.34 · background-alt 5.76 · surface-muted 5.32 */
+  --muted-foreground: #59606b;
 
   --border: var(--gy200);
   --border-strong: var(--gy300);
-  /* 포커스 링은 불투명으로 쓴다(ring-ring). 인접색 대비(3:1) — surface 5.00 · background-alt 4.78 · surface-muted 4.53 */
+  /* 포커스 링은 불투명으로 쓴다(ring-ring). 인접색 대비(3:1) — surface 5.39 · background-alt 4.90 · surface-muted 4.52 */
   --ring: var(--mint500);
 
-  /* 상태색은 글자로도 쓴다(4.5:1). surface / background-alt / surface-muted / 10% 틴트 칩 순:
-   * error   #b8352a 5.86 / 5.61 / 5.31 / 5.04
-   * success #1a7347 5.85 / 5.60 / 5.30 / 5.08
-   * warning #9a5207 5.86 / 5.61 / 5.30 / 5.09 */
+  /* 상태색은 글자로도 쓴다(4.5:1). surface / background-alt / surface-muted / 12% 틴트 칩 순:
+   * error   #b8352a 5.86 / 5.33 / 4.91 / 4.88
+   * success #1a7347 5.85 / 5.32 / 4.90 / 4.94
+   * warning #9a5207 5.86 / 5.32 / 4.91 / 4.93 */
   --error: #b8352a;
   --error-foreground: #ffffff; /* bg-error 위 글자 5.86 */
   --success: #1a7347;
@@ -65,11 +72,11 @@
 
   /* 모달·드로어 뒤를 덮는 막. **두 테마 모두 어두운 값**이어야 한다 —
    * foreground 를 쓰면 다크에서 밝은 막이 되어 깊이가 뒤집힌다(뒤가 앞으로 나와 보인다). */
-  --overlay: rgba(25, 27, 23, 0.45);
+  --overlay: rgba(15, 17, 20, 0.45);
   /* 그림자도 모드별로 다른 값이다. 다크에서 같은 옅은 잉크를 쓰면 아무것도 안 보이고,
    * 밝은 그림자는 존재하지 않는다(빛은 위에서 온다) — 더 진한 검정으로 깊이를 만든다. */
-  --card-shadow: 0 1px 2px rgba(24, 30, 45, 0.04);
-  --elevated-shadow: 0 8px 24px rgba(24, 30, 45, 0.08);
+  --card-shadow: 0 1px 2px rgba(24, 30, 45, 0.06);
+  --elevated-shadow: 0 8px 24px rgba(24, 30, 45, 0.1);
 
   /* 차트 카테고리 — scripts/validate_palette.js 로 검증(밝기밴드/채도/CVD/대비 전부 PASS).
    * 순서 고정: 시리즈에 순번대로 배정하고 절대 순환시키지 않는다. 눈으로 고르지 말 것. */
@@ -83,30 +90,34 @@
 }
 
 .dark {
-  /* 다크는 웜 그레이(gy)를 쓰지 않는다 — 어두운 면에서 올리브 기가 갈색으로 읽힌다.
-   * 중립 검정 계열을 따로 둔다. 값은 doc-style.ts · docs/route.ts 에도 같이 옮길 것. */
+  /* 다크는 그레이 스케일을 뒤집어 쓰지 않고 값을 따로 둔다 — 어두운 면은 한 단계 차이가
+   * 훨씬 작게 보여서 같은 간격으로는 면이 구분되지 않는다.
+   * 값은 doc-style.ts · docs/route.ts 에도 같이 옮길 것. */
+  /* 다크의 주 버튼은 밝은 초록 면 + 어두운 글자다. 옅은 민트는 회색 면 위에서 "꺼진 버튼"으로 읽힌다.
+   * 글자로 쓸 때 — surface 8.64 · background-alt 9.74 · surface-muted 7.21 */
   --primary: var(--mint300);
-  --primary-foreground: var(--mint900);
-  --background: #101113;
-  --background-alt: #09090b;
-  --surface: #18191c;
-  --surface-alt: #09090b;
-  --surface-muted: #25272c;
-  --accent-soft: rgba(143, 195, 174, 0.14);
-  --foreground: #ededef;
-  /* surface 7.36 · background 7.92 · surface-muted 6.26 */
-  --muted-foreground: #a4a8af;
-  /* 카드 경계가 보이도록 surface 와 대비 1.80 을 둔다 (surface-muted 는 1.18 로 사실상 안 보임) */
-  --border: #41444b;
-  --border-strong: #5c606a;
-  /* 포커스 링 인접색 대비 — surface 8.86 · background 9.52 · surface-muted 7.53 */
+  --primary-hover: #63dba6;
+  --primary-foreground: var(--mint900); /* bg-primary 위 글자 9.40 */
+  --background: #111215;
+  --background-alt: #0c0d10;
+  --surface: #191b1f;
+  --surface-alt: #0c0d10;
+  --surface-muted: #272a30;
+  --accent-soft: rgba(62, 207, 142, 0.16);
+  --foreground: #ededf0;
+  /* surface 7.22 · background-alt 8.14 · surface-muted 6.02 */
+  --muted-foreground: #a3a8b1;
+  /* 카드 경계가 보이도록 surface 와 대비 1.59 을 둔다 (surface-muted 는 1.20 로 사실상 안 보임) */
+  --border: #3a3d45;
+  --border-strong: #555a64;
+  /* 포커스 링 인접색 대비 — surface 8.64 · background-alt 9.74 · surface-muted 7.21 */
   --ring: var(--mint300);
-  /* 라이트 상태색은 어두운 면에서 2.1~3.0 으로 읽히지 않는다. surface / background / surface-muted / 10% 칩 순:
-   * error   #f4948a 7.91 / 8.50 / 6.72 / 6.70
-   * success #5cc792 8.40 / 9.03 / 7.14 / 7.07
-   * warning #e8a24a 8.12 / 8.72 / 6.90 / 6.81 */
+  /* 라이트 상태색은 어두운 면에서 2.1~3.0 으로 읽히지 않는다. surface / background-alt / surface-muted / 12% 칩 순:
+   * error   #f4948a 7.76 / 8.74 / 6.47 / 6.26
+   * success #5cc792 8.24 / 9.29 / 6.88 / 6.58
+   * warning #e8a24a 7.96 / 8.97 / 6.64 / 6.44 */
   --error: #f4948a;
-  --error-foreground: #101113; /* bg-error 위 글자 8.50 */
+  --error-foreground: #111215; /* bg-error 위 글자 8.43 */
   --success: #5cc792;
   --warning: #e8a24a;
   --overlay: rgba(0, 0, 0, 0.62);
