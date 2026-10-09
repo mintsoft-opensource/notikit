@@ -29,10 +29,16 @@ const server = new McpServer({ name: "notikit", version: "0.1.0" });
 server.registerTool(
   "create_project",
   {
-    description: "새 Notikit 프로젝트 생성 후 api-key/secret 발급 (Web Admin).",
-    inputSchema: { name: z.string().describe("프로젝트 이름") },
+    description:
+      "새 Notikit 프로젝트 생성 후 api-key/secret 발급 (Web Admin). org_id 를 주지 않으면 조직이 새로 만들어져 콘솔 계정에서는 보이지 않는다 — 콘솔에서 쓸 프로젝트면 list_projects 의 orgId 를 넘긴다.",
+    inputSchema: {
+      name: z.string().describe("프로젝트 이름"),
+      org_id: z.string().uuid().optional().describe("프로젝트를 넣을 조직 ID (list_projects 의 orgId)"),
+      environment: z.enum(["dev", "staging", "production"]).optional(),
+    },
   },
-  async ({ name }) => text(await api("/api/admin/projects", { method: "POST", headers: { "x-admin-token": ADMIN_TOKEN }, body: JSON.stringify({ name }) }))
+  async ({ name, org_id, environment }) =>
+    text(await api("/api/admin/projects", { method: "POST", headers: { "x-admin-token": ADMIN_TOKEN }, body: JSON.stringify({ name, org_id, environment }) }))
 );
 
 server.registerTool(
