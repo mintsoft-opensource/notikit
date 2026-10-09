@@ -80,13 +80,7 @@ export function projectNavGroups(id: string): NavGroup[] {
   return [
     {
       labelKey: "project",
-      // 설정은 프로젝트 그룹 안에 둔다 — 따로 "설정" 그룹을 만들면 그룹·항목 이름이 겹친다
-      items: [
-        { labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true },
-        { labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings },
-        // 감사 로그는 읽기 전용이라 설정 바로 옆에 둔다 — "방금 뭘 바꿨더라" 를 같은 자리에서 확인한다
-        { labelKey: "audit", href: `/projects/${id}/audit`, icon: ScrollText },
-      ],
+      items: [{ labelKey: "overview", href: `/projects/${id}`, icon: LayoutDashboard, exact: true }],
     },
     {
       labelKey: "send",
@@ -129,6 +123,16 @@ export function projectNavGroups(id: string): NavGroup[] {
       items: [
         { labelKey: "journeys", href: `/projects/${id}/journeys`, icon: GitBranch },
         { labelKey: "webhooks", href: `/projects/${id}/webhooks`, icon: Webhook },
+      ],
+    },
+    {
+      // 매일 쓰는 발송·로그가 위에 오도록 설정은 맨 아래에 둔다.
+      // 그룹 이름을 "settings" 로 두면 안의 "설정" 항목과 겹쳐 헤더 경로가 "설정 › 설정" 이 된다
+      labelKey: "manage",
+      items: [
+        { labelKey: "settings", href: `/projects/${id}/settings`, icon: Settings },
+        // 감사 로그는 읽기 전용이라 설정 바로 옆에 둔다 — "방금 뭘 바꿨더라" 를 같은 자리에서 확인한다
+        { labelKey: "audit", href: `/projects/${id}/audit`, icon: ScrollText },
       ],
     },
   ];
