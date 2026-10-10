@@ -43,7 +43,8 @@
     "templates": "템플릿",
     "organization": "계정·조직",
     "schedules": "반복 예약",
-    "audit": "감사 로그"
+    "audit": "감사 로그",
+    "mcp": "MCP 연결"
   },
   "header": {
     "openMenu": "메뉴 열기",
@@ -1342,7 +1343,9 @@
       "member_delete": "멤버 삭제",
       "send_create": "발송",
       "send_purge": "로그 삭제",
-      "send_cancel": "발송 취소"
+      "send_cancel": "발송 취소",
+      "mcp_token_create": "MCP 토큰 발급",
+      "mcp_token_delete": "MCP 토큰 폐기"
     },
     "logType": {
       "single": "단건",
@@ -1398,5 +1401,42 @@
     "topic_not_rule_filled": "구독으로 채워지는 토픽이라 수정할 규칙이 없습니다",
     "import_already_reverted": "이미 되돌린 가져오기입니다",
     "import_empty": "되돌릴 행이 없는 가져오기입니다"
+  },
+  "mcp": {
+    "title": "MCP 연결",
+    "subtitle": "AI 코딩 도구가 이 프로젝트를 직접 다루게 합니다. 설치 없이 주소와 토큰만 등록하면 됩니다.",
+    "tokenTitle": "연결 토큰",
+    "tokenHint": "이 프로젝트만 다룰 수 있는 토큰입니다. 발급할 때 한 번만 보이고, 다시 발급하면 이전 토큰은 바로 쓸 수 없게 됩니다.",
+    "tokenNone": "미발급",
+    "tokenIssuedAt": "{date} 발급",
+    "issue": "토큰 발급",
+    "reissue": "다시 발급",
+    "revoke": "폐기",
+    "issued": "토큰을 발급했습니다",
+    "revoked": "토큰을 폐기했습니다",
+    "issueFailed": "토큰 발급 실패",
+    "revokeFailed": "토큰 폐기 실패",
+    "tokenOnce": "지금만 보입니다. 복사해 두세요",
+    "tokenCopied": "토큰 복사됨",
+    "configCopied": "설정 복사됨",
+    "reissueTitle": "토큰을 다시 발급할까요?",
+    "reissueDescription": "지금 연결된 AI 도구는 새 토큰으로 바꿀 때까지 끊깁니다.",
+    "revokeTitle": "토큰을 폐기할까요?",
+    "revokeDescription": "이 프로젝트에 연결된 AI 도구가 모두 끊깁니다.",
+    "confirmNote": "이전 토큰은 되살릴 수 없습니다.",
+    "connectTitle": "연결 방법",
+    "connectHint": "토큰을 발급하면 아래 설정의 {placeholder} 자리에 자동으로 채워집니다.",
+    "connectHintFilled": "방금 발급한 토큰이 채워져 있습니다. 그대로 복사해 쓰세요.",
+    "clientsLabel": "AI 도구",
+    "claudeCodeHint": "터미널에서 실행합니다.",
+    "cursorHint": "~/.cursor/mcp.json 파일에 넣습니다.",
+    "claudeDesktopHint": "설정 > 개발자 > 설정 편집으로 연 파일에 넣고 앱을 다시 시작합니다. Node.js 가 필요합니다.",
+    "toolsTitle": "쓸 수 있는 도구",
+    "toolsHint": "연결하면 AI 도구가 아래 기능을 이 프로젝트에 한해 쓸 수 있습니다.",
+    "tool_get_project": "프로젝트 이름·환경·api-key·서버 주소와 Firebase 설정 여부를 확인합니다.",
+    "tool_get_integration_snippet": "플랫폼별 SDK 연동 코드를 서버 주소와 api-key 가 채워진 상태로 받습니다.",
+    "tool_send_test_push": "유저 한 명에게 테스트 푸시를 보냅니다. 통계에는 잡히지 않습니다.",
+    "tool_list_recent_sends": "최근 발송의 상태와 성공·실패 수를 확인합니다.",
+    "tool_get_openapi": "API 스펙을 읽어 추측 없이 연동 코드를 작성합니다."
   }
 }

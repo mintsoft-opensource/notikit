@@ -43,7 +43,8 @@
     "templates": "範本",
     "organization": "帳戶與組織",
     "schedules": "排程",
-    "audit": "稽核紀錄"
+    "audit": "稽核紀錄",
+    "mcp": "MCP 連線"
   },
   "header": {
     "openMenu": "開啟選單",
@@ -1323,7 +1324,9 @@
       "member_delete": "成員已移除",
       "send_create": "推播已發送",
       "send_purge": "紀錄已清除",
-      "send_cancel": "取消發送"
+      "send_cancel": "取消發送",
+      "mcp_token_create": "核發 MCP 權杖",
+      "mcp_token_delete": "撤銷 MCP 權杖"
     },
     "logType": {
       "single": "單發",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP 連線",
+    "subtitle": "讓 AI 程式開發工具直接操作此專案。無需安裝，只要登錄位址與權杖即可。",
+    "tokenTitle": "連線權杖",
+    "tokenHint": "此權杖只能存取此專案。僅在核發時顯示一次，重新核發後舊權杖會立即失效。",
+    "tokenNone": "尚未核發",
+    "tokenIssuedAt": "{date} 核發",
+    "issue": "核發權杖",
+    "reissue": "重新核發",
+    "revoke": "撤銷",
+    "issued": "已核發權杖",
+    "revoked": "已撤銷權杖",
+    "issueFailed": "權杖核發失敗",
+    "revokeFailed": "權杖撤銷失敗",
+    "tokenOnce": "僅此時顯示，請複製並妥善保存",
+    "tokenCopied": "已複製權杖",
+    "configCopied": "已複製設定",
+    "reissueTitle": "要重新核發權杖嗎？",
+    "reissueDescription": "目前已連線的 AI 工具在換成新權杖之前將無法使用。",
+    "revokeTitle": "要撤銷權杖嗎？",
+    "revokeDescription": "連線到此專案的所有 AI 工具都會中斷連線。",
+    "confirmNote": "舊權杖無法復原。",
+    "connectTitle": "連線方式",
+    "connectHint": "核發權杖後，會自動填入下方設定中的 {placeholder}。",
+    "connectHintFilled": "已填入剛核發的權杖，直接複製使用即可。",
+    "clientsLabel": "AI 工具",
+    "claudeCodeHint": "在終端機中執行。",
+    "cursorHint": "加入 ~/.cursor/mcp.json。",
+    "claudeDesktopHint": "透過 設定 > 開發人員 > 編輯設定 開啟檔案，加入此內容後重新啟動應用程式。需要 Node.js。",
+    "toolsTitle": "可用工具",
+    "toolsHint": "連線後，AI 工具只能在此專案中使用下列功能。",
+    "tool_get_project": "讀取專案名稱、環境、api-key、伺服器位址，以及是否已設定 Firebase。",
+    "tool_get_integration_snippet": "依平台回傳已填入伺服器位址與 api-key 的 SDK 整合程式碼。",
+    "tool_send_test_push": "向一位使用者傳送測試推播。不計入統計。",
+    "tool_list_recent_sends": "查看近期傳送的狀態及成功／失敗數量。",
+    "tool_get_openapi": "讀取 API 規格，不必猜測即可撰寫整合程式碼。"
   }
 }

@@ -43,7 +43,8 @@
     "templates": "תבניות",
     "organization": "חשבון וארגון",
     "schedules": "לוחות זמנים",
-    "audit": "יומן ביקורת"
+    "audit": "יומן ביקורת",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "פתח תפריט",
@@ -1323,7 +1324,9 @@
       "member_delete": "החבר הוסר",
       "send_create": "התראה נשלחה",
       "send_purge": "היומנים נוקו",
-      "send_cancel": "ביטול שליחה"
+      "send_cancel": "ביטול שליחה",
+      "mcp_token_create": "אסימון MCP הונפק",
+      "mcp_token_delete": "אסימון MCP בוטל"
     },
     "logType": {
       "single": "בודד",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "חיבור MCP",
+    "subtitle": "אפשרו לכלי תכנות מבוססי AI לעבוד ישירות עם הפרויקט הזה. אין צורך בהתקנה: מספיק לרשום את הכתובת ואסימון.",
+    "tokenTitle": "אסימון חיבור",
+    "tokenHint": "האסימון הזה יכול לגשת רק לפרויקט הזה. הוא מוצג פעם אחת בלבד בעת ההנפקה, והנפקה מחדש משביתה מיד את האסימון הקודם.",
+    "tokenNone": "לא הונפק",
+    "tokenIssuedAt": "הונפק ב-{date}",
+    "issue": "הנפק אסימון",
+    "reissue": "הנפק מחדש",
+    "revoke": "בטל",
+    "issued": "האסימון הונפק",
+    "revoked": "האסימון בוטל",
+    "issueFailed": "הנפקת האסימון נכשלה",
+    "revokeFailed": "ביטול האסימון נכשל",
+    "tokenOnce": "מוצג רק עכשיו. העתיקו ושמרו במקום בטוח",
+    "tokenCopied": "האסימון הועתק",
+    "configCopied": "התצורה הועתקה",
+    "reissueTitle": "להנפיק את האסימון מחדש?",
+    "reissueDescription": "כלי ה-AI המחוברים כעת יפסיקו לפעול עד שתספקו להם את האסימון החדש.",
+    "revokeTitle": "לבטל את האסימון?",
+    "revokeDescription": "כל כלי ה-AI המחוברים לפרויקט הזה ינותקו.",
+    "confirmNote": "לא ניתן לשחזר את האסימון הקודם.",
+    "connectTitle": "איך מתחברים",
+    "connectHint": "לאחר הנפקת אסימון, הוא יחליף אוטומטית את {placeholder} בתצורה שלמטה.",
+    "connectHintFilled": "האסימון שהנפקתם זה עתה כבר משובץ. העתיקו כמות שהוא.",
+    "clientsLabel": "כלי AI",
+    "claudeCodeHint": "הריצו את זה בטרמינל.",
+    "cursorHint": "הוסיפו את זה ל-~/.cursor/mcp.json.",
+    "claudeDesktopHint": "פתחו את הקובץ דרך הגדרות > מפתחים > עריכת תצורה, הוסיפו את זה והפעילו מחדש את האפליקציה. נדרש Node.js.",
+    "toolsTitle": "כלים זמינים",
+    "toolsHint": "לאחר החיבור, כלי AI יכול להשתמש בהם בפרויקט הזה בלבד.",
+    "tool_get_project": "קורא את שם הפרויקט, הסביבה, api-key, כתובת השרת והאם Firebase מוגדר.",
+    "tool_get_integration_snippet": "מחזיר קוד שילוב SDK לפי פלטפורמה, עם כתובת השרת ו-api-key כבר משובצים.",
+    "tool_send_test_push": "שולח פוש בדיקה למשתמש אחד. אינו נכלל בסטטיסטיקות.",
+    "tool_list_recent_sends": "מציג את הסטטוס ואת מספר ההצלחות והכישלונות של השליחות האחרונות.",
+    "tool_get_openapi": "קורא את מפרט ה-API כדי שקוד השילוב ייכתב ללא ניחושים."
   }
 }

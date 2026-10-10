@@ -25,6 +25,8 @@ export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
  */
 export const AUDIT_ACTIONS = [
   "project.settings.update",
+  "mcp_token.create",
+  "mcp_token.delete",
   "topic.create",
   "topic.update",
   "topic.delete",

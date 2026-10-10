@@ -43,7 +43,8 @@
     "templates": "Mallar",
     "organization": "Konto och organisation",
     "schedules": "Scheman",
-    "audit": "Granskningslogg"
+    "audit": "Granskningslogg",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Öppna meny",
@@ -1323,7 +1324,9 @@
       "member_delete": "Medlem borttagen",
       "send_create": "Push skickad",
       "send_purge": "Loggar rensade",
-      "send_cancel": "Avbryt utskick"
+      "send_cancel": "Avbryt utskick",
+      "mcp_token_create": "MCP-token utfärdad",
+      "mcp_token_delete": "MCP-token återkallad"
     },
     "logType": {
       "single": "Enskild",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP-anslutning",
+    "subtitle": "Låt AI-kodverktyg arbeta direkt med det här projektet. Inget att installera: registrera bara adressen och en token.",
+    "tokenTitle": "Anslutningstoken",
+    "tokenHint": "Denna token ger bara åtkomst till det här projektet. Den visas en gång när den utfärdas, och om du utfärdar en ny slutar den tidigare att gälla direkt.",
+    "tokenNone": "Inte utfärdad",
+    "tokenIssuedAt": "Utfärdad {date}",
+    "issue": "Utfärda token",
+    "reissue": "Utfärda på nytt",
+    "revoke": "Återkalla",
+    "issued": "Token utfärdad",
+    "revoked": "Token återkallad",
+    "issueFailed": "Det gick inte att utfärda token",
+    "revokeFailed": "Det gick inte att återkalla token",
+    "tokenOnce": "Visas bara nu. Kopiera den och förvara den säkert",
+    "tokenCopied": "Token kopierad",
+    "configCopied": "Konfiguration kopierad",
+    "reissueTitle": "Utfärda token på nytt?",
+    "reissueDescription": "AI-verktyg som är anslutna nu slutar fungera tills du ger dem den nya token.",
+    "revokeTitle": "Återkalla token?",
+    "revokeDescription": "Alla AI-verktyg som är anslutna till det här projektet kopplas från.",
+    "confirmNote": "Den tidigare token kan inte återställas.",
+    "connectTitle": "Så ansluter du",
+    "connectHint": "När du utfärdar en token ersätter den {placeholder} i konfigurationen nedan.",
+    "connectHintFilled": "Den token du just utfärdade är ifylld. Kopiera den som den är.",
+    "clientsLabel": "AI-verktyg",
+    "claudeCodeHint": "Kör detta i en terminal.",
+    "cursorHint": "Lägg till detta i ~/.cursor/mcp.json.",
+    "claudeDesktopHint": "Öppna filen via Inställningar > Utvecklare > Redigera konfiguration, lägg till detta och starta om appen. Kräver Node.js.",
+    "toolsTitle": "Tillgängliga verktyg",
+    "toolsHint": "När ett AI-verktyg är anslutet kan det använda dessa enbart i det här projektet.",
+    "tool_get_project": "Läser projektets namn, miljö, api-key, serveradress och om Firebase är konfigurerat.",
+    "tool_get_integration_snippet": "Returnerar SDK-integrationskod per plattform med serveradress och api-key ifyllda.",
+    "tool_send_test_push": "Skickar en testpush till en användare. Den räknas inte med i statistiken.",
+    "tool_list_recent_sends": "Visar status och antal lyckade och misslyckade för de senaste utskicken.",
+    "tool_get_openapi": "Läser API-specifikationen så att integrationskod skrivs utan gissningar."
   }
 }

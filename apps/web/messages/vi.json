@@ -43,7 +43,8 @@
     "templates": "Mẫu",
     "organization": "Tài khoản và tổ chức",
     "schedules": "Lịch trình",
-    "audit": "Nhật ký kiểm toán"
+    "audit": "Nhật ký kiểm toán",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Mở menu",
@@ -1323,7 +1324,9 @@
       "member_delete": "Đã xóa thành viên",
       "send_create": "Đã gửi push",
       "send_purge": "Đã xóa nhật ký",
-      "send_cancel": "Hủy lượt gửi"
+      "send_cancel": "Hủy lượt gửi",
+      "mcp_token_create": "Đã cấp token MCP",
+      "mcp_token_delete": "Đã thu hồi token MCP"
     },
     "logType": {
       "single": "Đơn lẻ",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "Kết nối MCP",
+    "subtitle": "Cho phép các công cụ lập trình AI làm việc trực tiếp với dự án này. Không cần cài đặt: chỉ cần đăng ký địa chỉ và token.",
+    "tokenTitle": "Token kết nối",
+    "tokenHint": "Token này chỉ truy cập được dự án này. Token chỉ hiển thị một lần khi cấp, và cấp lại sẽ vô hiệu hóa token trước đó ngay lập tức.",
+    "tokenNone": "Chưa cấp",
+    "tokenIssuedAt": "Cấp ngày {date}",
+    "issue": "Cấp token",
+    "reissue": "Cấp lại",
+    "revoke": "Thu hồi",
+    "issued": "Đã cấp token",
+    "revoked": "Đã thu hồi token",
+    "issueFailed": "Cấp token thất bại",
+    "revokeFailed": "Thu hồi token thất bại",
+    "tokenOnce": "Chỉ hiển thị lúc này. Hãy sao chép và lưu giữ cẩn thận",
+    "tokenCopied": "Đã sao chép token",
+    "configCopied": "Đã sao chép cấu hình",
+    "reissueTitle": "Cấp lại token?",
+    "reissueDescription": "Các công cụ AI đang kết nối sẽ ngừng hoạt động cho đến khi bạn cung cấp token mới.",
+    "revokeTitle": "Thu hồi token?",
+    "revokeDescription": "Mọi công cụ AI đang kết nối với dự án này sẽ bị ngắt kết nối.",
+    "confirmNote": "Không thể khôi phục token trước đó.",
+    "connectTitle": "Cách kết nối",
+    "connectHint": "Khi bạn cấp token, token sẽ thay cho {placeholder} trong cấu hình bên dưới.",
+    "connectHintFilled": "Token bạn vừa cấp đã được điền sẵn. Sao chép nguyên như vậy.",
+    "clientsLabel": "Công cụ AI",
+    "claudeCodeHint": "Chạy lệnh này trong terminal.",
+    "cursorHint": "Thêm nội dung này vào ~/.cursor/mcp.json.",
+    "claudeDesktopHint": "Mở tệp qua Cài đặt > Nhà phát triển > Chỉnh sửa cấu hình, thêm nội dung này rồi khởi động lại ứng dụng. Yêu cầu Node.js.",
+    "toolsTitle": "Công cụ khả dụng",
+    "toolsHint": "Sau khi kết nối, công cụ AI chỉ có thể dùng các chức năng này trên dự án này.",
+    "tool_get_project": "Đọc tên dự án, môi trường, api-key, địa chỉ máy chủ và việc Firebase đã được cấu hình hay chưa.",
+    "tool_get_integration_snippet": "Trả về mã tích hợp SDK theo từng nền tảng với địa chỉ máy chủ và api-key đã điền sẵn.",
+    "tool_send_test_push": "Gửi push thử nghiệm tới một người dùng. Không được tính vào thống kê.",
+    "tool_list_recent_sends": "Hiển thị trạng thái và số lượt thành công/thất bại của các lần gửi gần đây.",
+    "tool_get_openapi": "Đọc đặc tả API để viết mã tích hợp mà không phải phỏng đoán."
   }
 }

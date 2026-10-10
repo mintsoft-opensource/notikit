@@ -43,7 +43,8 @@
     "templates": "Şablonlar",
     "organization": "Hesap ve kuruluş",
     "schedules": "Zamanlamalar",
-    "audit": "Denetim günlüğü"
+    "audit": "Denetim günlüğü",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Menüyü aç",
@@ -1323,7 +1324,9 @@
       "member_delete": "Üye kaldırıldı",
       "send_create": "Push gönderildi",
       "send_purge": "Günlükler temizlendi",
-      "send_cancel": "Gönderimi iptal et"
+      "send_cancel": "Gönderimi iptal et",
+      "mcp_token_create": "MCP token'ı oluşturuldu",
+      "mcp_token_delete": "MCP token'ı iptal edildi"
     },
     "logType": {
       "single": "Tekli",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP bağlantısı",
+    "subtitle": "Yapay zekâ kodlama araçlarının bu projeyle doğrudan çalışmasını sağlayın. Kurulum gerekmez: adresi ve bir token'ı kaydetmeniz yeterli.",
+    "tokenTitle": "Bağlantı token'ı",
+    "tokenHint": "Bu token yalnızca bu projeye erişebilir. Oluşturulduğunda yalnızca bir kez gösterilir; yeniden oluşturmak öncekini hemen geçersiz kılar.",
+    "tokenNone": "Oluşturulmadı",
+    "tokenIssuedAt": "{date} tarihinde oluşturuldu",
+    "issue": "Token oluştur",
+    "reissue": "Yeniden oluştur",
+    "revoke": "İptal et",
+    "issued": "Token oluşturuldu",
+    "revoked": "Token iptal edildi",
+    "issueFailed": "Token oluşturulamadı",
+    "revokeFailed": "Token iptal edilemedi",
+    "tokenOnce": "Yalnızca şimdi gösterilir. Kopyalayıp güvenli bir yerde saklayın",
+    "tokenCopied": "Token kopyalandı",
+    "configCopied": "Yapılandırma kopyalandı",
+    "reissueTitle": "Token yeniden oluşturulsun mu?",
+    "reissueDescription": "Şu anda bağlı olan yapay zekâ araçları, yeni token'ı girene kadar çalışmaz.",
+    "revokeTitle": "Token iptal edilsin mi?",
+    "revokeDescription": "Bu projeye bağlı tüm yapay zekâ araçlarının bağlantısı kesilir.",
+    "confirmNote": "Önceki token geri getirilemez.",
+    "connectTitle": "Nasıl bağlanılır",
+    "connectHint": "Token oluşturduğunuzda aşağıdaki yapılandırmada {placeholder} yerine otomatik olarak yerleştirilir.",
+    "connectHintFilled": "Az önce oluşturduğunuz token yerleştirildi. Olduğu gibi kopyalayın.",
+    "clientsLabel": "Yapay zekâ araçları",
+    "claudeCodeHint": "Bunu terminalde çalıştırın.",
+    "cursorHint": "Bunu ~/.cursor/mcp.json dosyasına ekleyin.",
+    "claudeDesktopHint": "Ayarlar > Geliştirici > Yapılandırmayı Düzenle ile açılan dosyaya bunu ekleyin ve uygulamayı yeniden başlatın. Node.js gerektirir.",
+    "toolsTitle": "Kullanılabilir araçlar",
+    "toolsHint": "Bağlandıktan sonra bir yapay zekâ aracı bunları yalnızca bu projede kullanabilir.",
+    "tool_get_project": "Proje adını, ortamı, api-key'i, sunucu adresini ve Firebase'in yapılandırılıp yapılandırılmadığını okur.",
+    "tool_get_integration_snippet": "Sunucu adresi ve api-key doldurulmuş olarak platforma göre SDK entegrasyon kodunu döndürür.",
+    "tool_send_test_push": "Tek bir kullanıcıya test push'u gönderir. İstatistiklere dahil edilmez.",
+    "tool_list_recent_sends": "Son gönderimlerin durumunu ve başarılı/başarısız sayılarını gösterir.",
+    "tool_get_openapi": "Entegrasyon kodunun tahmin yürütmeden yazılması için API spesifikasyonunu okur."
   }
 }

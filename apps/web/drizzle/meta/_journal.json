@@ -232,6 +232,13 @@
       "when": 1791530702718,
       "tag": "0032_drop_kakao",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791556551284,
+      "tag": "0033_mcp_token",
+      "breakpoints": true
     }
   ]
 }

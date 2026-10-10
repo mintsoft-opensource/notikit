@@ -43,7 +43,8 @@
     "templates": "Vorlagen",
     "organization": "Konto und Organisation",
     "schedules": "Zeitpläne",
-    "audit": "Prüfprotokoll"
+    "audit": "Prüfprotokoll",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Menü öffnen",
@@ -1323,7 +1324,9 @@
       "member_delete": "Mitglied entfernt",
       "send_create": "Push gesendet",
       "send_purge": "Protokolle gelöscht",
-      "send_cancel": "Versand abbrechen"
+      "send_cancel": "Versand abbrechen",
+      "mcp_token_create": "MCP-Token ausgestellt",
+      "mcp_token_delete": "MCP-Token widerrufen"
     },
     "logType": {
       "single": "Einzeln",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP-Verbindung",
+    "subtitle": "Lassen Sie KI-Coding-Tools direkt mit diesem Projekt arbeiten. Keine Installation nötig: Adresse und Token eintragen genügt.",
+    "tokenTitle": "Verbindungstoken",
+    "tokenHint": "Dieses Token hat nur Zugriff auf dieses Projekt. Es wird nur einmal bei der Ausstellung angezeigt; eine Neuausstellung macht das vorherige sofort ungültig.",
+    "tokenNone": "Nicht ausgestellt",
+    "tokenIssuedAt": "Ausgestellt am {date}",
+    "issue": "Token ausstellen",
+    "reissue": "Neu ausstellen",
+    "revoke": "Widerrufen",
+    "issued": "Token ausgestellt",
+    "revoked": "Token widerrufen",
+    "issueFailed": "Token konnte nicht ausgestellt werden",
+    "revokeFailed": "Token konnte nicht widerrufen werden",
+    "tokenOnce": "Wird nur jetzt angezeigt. Kopieren und sicher aufbewahren",
+    "tokenCopied": "Token kopiert",
+    "configCopied": "Konfiguration kopiert",
+    "reissueTitle": "Token neu ausstellen?",
+    "reissueDescription": "Derzeit verbundene KI-Tools funktionieren erst wieder, wenn Sie das neue Token eintragen.",
+    "revokeTitle": "Token widerrufen?",
+    "revokeDescription": "Alle mit diesem Projekt verbundenen KI-Tools werden getrennt.",
+    "confirmNote": "Das vorherige Token kann nicht wiederhergestellt werden.",
+    "connectTitle": "So verbinden Sie",
+    "connectHint": "Sobald Sie ein Token ausstellen, ersetzt es {placeholder} in der Konfiguration unten.",
+    "connectHintFilled": "Das soeben ausgestellte Token ist bereits eingetragen. Einfach so kopieren.",
+    "clientsLabel": "KI-Tools",
+    "claudeCodeHint": "Im Terminal ausführen.",
+    "cursorHint": "In ~/.cursor/mcp.json einfügen.",
+    "claudeDesktopHint": "Datei über Einstellungen > Entwickler > Konfiguration bearbeiten öffnen, dies einfügen und die App neu starten. Erfordert Node.js.",
+    "toolsTitle": "Verfügbare Tools",
+    "toolsHint": "Nach dem Verbinden kann ein KI-Tool diese Funktionen nur für dieses Projekt nutzen.",
+    "tool_get_project": "Liest Projektname, Umgebung, api-key, Serveradresse und ob Firebase konfiguriert ist.",
+    "tool_get_integration_snippet": "Liefert SDK-Integrationscode je Plattform, mit Serveradresse und api-key bereits eingetragen.",
+    "tool_send_test_push": "Sendet einen Test-Push an einen Nutzer. Er wird nicht in die Statistik aufgenommen.",
+    "tool_list_recent_sends": "Zeigt Status sowie Erfolgs- und Fehlerzahlen der letzten Sendungen.",
+    "tool_get_openapi": "Liest die API-Spezifikation, damit Integrationscode ohne Raten geschrieben wird."
   }
 }

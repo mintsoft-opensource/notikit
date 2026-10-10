@@ -43,7 +43,8 @@
     "templates": "เทมเพลต",
     "organization": "บัญชีและองค์กร",
     "schedules": "กำหนดการ",
-    "audit": "บันทึกการตรวจสอบ"
+    "audit": "บันทึกการตรวจสอบ",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "เปิดเมนู",
@@ -1323,7 +1324,9 @@
       "member_delete": "ลบสมาชิกแล้ว",
       "send_create": "ส่งพุชแล้ว",
       "send_purge": "ล้างบันทึกแล้ว",
-      "send_cancel": "ยกเลิกการส่ง"
+      "send_cancel": "ยกเลิกการส่ง",
+      "mcp_token_create": "ออกโทเคน MCP แล้ว",
+      "mcp_token_delete": "เพิกถอนโทเคน MCP แล้ว"
     },
     "logType": {
       "single": "ส่งตรง",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "การเชื่อมต่อ MCP",
+    "subtitle": "ให้เครื่องมือเขียนโค้ด AI ทำงานกับโปรเจกต์นี้ได้โดยตรง ไม่ต้องติดตั้งอะไร เพียงลงทะเบียนที่อยู่และโทเคน",
+    "tokenTitle": "โทเคนการเชื่อมต่อ",
+    "tokenHint": "โทเคนนี้เข้าถึงได้เฉพาะโปรเจกต์นี้ จะแสดงเพียงครั้งเดียวตอนออก และเมื่อออกใหม่ โทเคนเดิมจะใช้ไม่ได้ทันที",
+    "tokenNone": "ยังไม่ได้ออก",
+    "tokenIssuedAt": "ออกเมื่อ {date}",
+    "issue": "ออกโทเคน",
+    "reissue": "ออกใหม่",
+    "revoke": "เพิกถอน",
+    "issued": "ออกโทเคนแล้ว",
+    "revoked": "เพิกถอนโทเคนแล้ว",
+    "issueFailed": "ออกโทเคนไม่สำเร็จ",
+    "revokeFailed": "เพิกถอนโทเคนไม่สำเร็จ",
+    "tokenOnce": "แสดงเฉพาะตอนนี้เท่านั้น คัดลอกและเก็บไว้ให้ปลอดภัย",
+    "tokenCopied": "คัดลอกโทเคนแล้ว",
+    "configCopied": "คัดลอกการตั้งค่าแล้ว",
+    "reissueTitle": "ออกโทเคนใหม่หรือไม่",
+    "reissueDescription": "เครื่องมือ AI ที่เชื่อมต่ออยู่จะหยุดทำงานจนกว่าคุณจะใส่โทเคนใหม่",
+    "revokeTitle": "เพิกถอนโทเคนหรือไม่",
+    "revokeDescription": "เครื่องมือ AI ทั้งหมดที่เชื่อมต่อกับโปรเจกต์นี้จะถูกตัดการเชื่อมต่อ",
+    "confirmNote": "ไม่สามารถกู้คืนโทเคนเดิมได้",
+    "connectTitle": "วิธีเชื่อมต่อ",
+    "connectHint": "เมื่อออกโทเคนแล้ว โทเคนจะถูกแทนที่ {placeholder} ในการตั้งค่าด้านล่างโดยอัตโนมัติ",
+    "connectHintFilled": "ใส่โทเคนที่เพิ่งออกไว้ให้แล้ว คัดลอกไปใช้ได้เลย",
+    "clientsLabel": "เครื่องมือ AI",
+    "claudeCodeHint": "เรียกใช้คำสั่งนี้ในเทอร์มินัล",
+    "cursorHint": "เพิ่มสิ่งนี้ลงใน ~/.cursor/mcp.json",
+    "claudeDesktopHint": "เปิดไฟล์ผ่าน การตั้งค่า > นักพัฒนา > แก้ไขการกำหนดค่า เพิ่มสิ่งนี้ แล้วรีสตาร์ตแอป ต้องใช้ Node.js",
+    "toolsTitle": "เครื่องมือที่ใช้ได้",
+    "toolsHint": "เมื่อเชื่อมต่อแล้ว เครื่องมือ AI จะใช้ฟังก์ชันเหล่านี้ได้เฉพาะกับโปรเจกต์นี้",
+    "tool_get_project": "อ่านชื่อโปรเจกต์ สภาพแวดล้อม api-key ที่อยู่เซิร์ฟเวอร์ และสถานะการตั้งค่า Firebase",
+    "tool_get_integration_snippet": "ส่งคืนโค้ดเชื่อมต่อ SDK แยกตามแพลตฟอร์ม โดยใส่ที่อยู่เซิร์ฟเวอร์และ api-key ไว้ให้แล้ว",
+    "tool_send_test_push": "ส่งพุชทดสอบถึงผู้ใช้หนึ่งคน ไม่นับรวมในสถิติ",
+    "tool_list_recent_sends": "แสดงสถานะและจำนวนสำเร็จ/ล้มเหลวของการส่งล่าสุด",
+    "tool_get_openapi": "อ่านสเปก API เพื่อเขียนโค้ดเชื่อมต่อโดยไม่ต้องเดา"
   }
 }

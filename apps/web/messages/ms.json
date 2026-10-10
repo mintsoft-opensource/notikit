@@ -43,7 +43,8 @@
     "templates": "Templat",
     "organization": "Akaun & organisasi",
     "schedules": "Jadual",
-    "audit": "Log audit"
+    "audit": "Log audit",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Buka menu",
@@ -1323,7 +1324,9 @@
       "member_delete": "Ahli dibuang",
       "send_create": "Push dihantar",
       "send_purge": "Log dibersihkan",
-      "send_cancel": "Batalkan hantaran"
+      "send_cancel": "Batalkan hantaran",
+      "mcp_token_create": "Token MCP dikeluarkan",
+      "mcp_token_delete": "Token MCP dibatalkan"
     },
     "logType": {
       "single": "Tunggal",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "Sambungan MCP",
+    "subtitle": "Benarkan alat pengekodan AI bekerja terus dengan projek ini. Tiada pemasangan diperlukan: daftarkan alamat dan token sahaja.",
+    "tokenTitle": "Token sambungan",
+    "tokenHint": "Token ini hanya boleh mengakses projek ini. Ia dipaparkan sekali sahaja semasa dikeluarkan, dan mengeluarkannya semula akan terus menyahaktifkan token sebelumnya.",
+    "tokenNone": "Belum dikeluarkan",
+    "tokenIssuedAt": "Dikeluarkan {date}",
+    "issue": "Keluarkan token",
+    "reissue": "Keluarkan semula",
+    "revoke": "Batalkan",
+    "issued": "Token dikeluarkan",
+    "revoked": "Token dibatalkan",
+    "issueFailed": "Gagal mengeluarkan token",
+    "revokeFailed": "Gagal membatalkan token",
+    "tokenOnce": "Dipaparkan sekarang sahaja. Salin dan simpan dengan selamat",
+    "tokenCopied": "Token disalin",
+    "configCopied": "Konfigurasi disalin",
+    "reissueTitle": "Keluarkan semula token?",
+    "reissueDescription": "Alat AI yang bersambung sekarang akan berhenti berfungsi sehingga anda memberikan token baharu.",
+    "revokeTitle": "Batalkan token?",
+    "revokeDescription": "Semua alat AI yang bersambung ke projek ini akan diputuskan.",
+    "confirmNote": "Token sebelumnya tidak boleh dipulihkan.",
+    "connectTitle": "Cara menyambung",
+    "connectHint": "Sebaik sahaja anda mengeluarkan token, ia menggantikan {placeholder} dalam konfigurasi di bawah.",
+    "connectHintFilled": "Token yang baru anda keluarkan telah diisi. Salin seadanya.",
+    "clientsLabel": "Alat AI",
+    "claudeCodeHint": "Jalankan ini dalam terminal.",
+    "cursorHint": "Tambahkan ini ke ~/.cursor/mcp.json.",
+    "claudeDesktopHint": "Buka fail melalui Tetapan > Pembangun > Edit Konfigurasi, tambahkan ini dan mulakan semula aplikasi. Memerlukan Node.js.",
+    "toolsTitle": "Alat tersedia",
+    "toolsHint": "Setelah bersambung, alat AI boleh menggunakan fungsi ini pada projek ini sahaja.",
+    "tool_get_project": "Membaca nama projek, persekitaran, api-key, alamat pelayan dan sama ada Firebase telah dikonfigurasi.",
+    "tool_get_integration_snippet": "Mengembalikan kod integrasi SDK mengikut platform dengan alamat pelayan dan api-key yang telah diisi.",
+    "tool_send_test_push": "Menghantar push ujian kepada seorang pengguna. Ia tidak dikira dalam statistik.",
+    "tool_list_recent_sends": "Memaparkan status serta bilangan berjaya/gagal bagi penghantaran terkini.",
+    "tool_get_openapi": "Membaca spesifikasi API supaya kod integrasi ditulis tanpa meneka."
   }
 }

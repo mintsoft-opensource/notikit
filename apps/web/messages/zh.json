@@ -43,7 +43,8 @@
     "templates": "模板",
     "organization": "账户与组织",
     "schedules": "定时任务",
-    "audit": "审计日志"
+    "audit": "审计日志",
+    "mcp": "MCP 连接"
   },
   "header": {
     "openMenu": "打开菜单",
@@ -1323,7 +1324,9 @@
       "member_delete": "成员已移除",
       "send_create": "推送已发送",
       "send_purge": "日志已清除",
-      "send_cancel": "取消发送"
+      "send_cancel": "取消发送",
+      "mcp_token_create": "签发 MCP 令牌",
+      "mcp_token_delete": "吊销 MCP 令牌"
     },
     "logType": {
       "single": "单发",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP 连接",
+    "subtitle": "让 AI 编程工具直接操作此项目。无需安装，只需登记地址和令牌。",
+    "tokenTitle": "连接令牌",
+    "tokenHint": "此令牌只能访问此项目。仅在签发时显示一次，重新签发后旧令牌立即失效。",
+    "tokenNone": "未签发",
+    "tokenIssuedAt": "{date} 签发",
+    "issue": "签发令牌",
+    "reissue": "重新签发",
+    "revoke": "吊销",
+    "issued": "令牌已签发",
+    "revoked": "令牌已吊销",
+    "issueFailed": "令牌签发失败",
+    "revokeFailed": "令牌吊销失败",
+    "tokenOnce": "仅此时显示，请复制并妥善保存",
+    "tokenCopied": "已复制令牌",
+    "configCopied": "已复制配置",
+    "reissueTitle": "重新签发令牌？",
+    "reissueDescription": "当前已连接的 AI 工具在换用新令牌之前将无法使用。",
+    "revokeTitle": "吊销令牌？",
+    "revokeDescription": "连接到此项目的所有 AI 工具都将断开。",
+    "confirmNote": "旧令牌无法恢复。",
+    "connectTitle": "连接方法",
+    "connectHint": "签发令牌后，它会自动填入下方配置中的 {placeholder}。",
+    "connectHintFilled": "已填入刚签发的令牌，直接复制使用即可。",
+    "clientsLabel": "AI 工具",
+    "claudeCodeHint": "在终端中运行。",
+    "cursorHint": "添加到 ~/.cursor/mcp.json。",
+    "claudeDesktopHint": "通过 设置 > 开发者 > 编辑配置 打开文件，添加此内容后重启应用。需要 Node.js。",
+    "toolsTitle": "可用工具",
+    "toolsHint": "连接后，AI 工具只能在此项目中使用以下功能。",
+    "tool_get_project": "读取项目名称、环境、api-key、服务器地址以及 Firebase 是否已配置。",
+    "tool_get_integration_snippet": "按平台返回已填入服务器地址和 api-key 的 SDK 集成代码。",
+    "tool_send_test_push": "向一位用户发送测试推送。不计入统计。",
+    "tool_list_recent_sends": "查看近期发送的状态及成功/失败数量。",
+    "tool_get_openapi": "读取 API 规范，无需猜测即可编写集成代码。"
   }
 }

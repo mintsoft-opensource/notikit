@@ -43,7 +43,8 @@
     "templates": "Modèles",
     "organization": "Compte et organisation",
     "schedules": "Programmations",
-    "audit": "Journal d'audit"
+    "audit": "Journal d'audit",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Ouvrir le menu",
@@ -1323,7 +1324,9 @@
       "member_delete": "Membre supprimé",
       "send_create": "Push envoyé",
       "send_purge": "Journaux purgés",
-      "send_cancel": "Annuler l'envoi"
+      "send_cancel": "Annuler l'envoi",
+      "mcp_token_create": "Jeton MCP émis",
+      "mcp_token_delete": "Jeton MCP révoqué"
     },
     "logType": {
       "single": "Individuel",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "Connexion MCP",
+    "subtitle": "Laissez les outils de développement IA travailler directement sur ce projet. Rien à installer : enregistrez l'adresse et un jeton.",
+    "tokenTitle": "Jeton de connexion",
+    "tokenHint": "Ce jeton ne donne accès qu'à ce projet. Il n'est affiché qu'une fois lors de son émission, et le réémettre désactive immédiatement le précédent.",
+    "tokenNone": "Non émis",
+    "tokenIssuedAt": "Émis le {date}",
+    "issue": "Émettre un jeton",
+    "reissue": "Réémettre",
+    "revoke": "Révoquer",
+    "issued": "Jeton émis",
+    "revoked": "Jeton révoqué",
+    "issueFailed": "Échec de l'émission du jeton",
+    "revokeFailed": "Échec de la révocation du jeton",
+    "tokenOnce": "Affiché uniquement maintenant. Copiez-le et conservez-le en lieu sûr",
+    "tokenCopied": "Jeton copié",
+    "configCopied": "Configuration copiée",
+    "reissueTitle": "Réémettre le jeton ?",
+    "reissueDescription": "Les outils IA actuellement connectés cesseront de fonctionner tant que vous ne leur aurez pas fourni le nouveau jeton.",
+    "revokeTitle": "Révoquer le jeton ?",
+    "revokeDescription": "Tous les outils IA connectés à ce projet seront déconnectés.",
+    "confirmNote": "Le jeton précédent ne peut pas être restauré.",
+    "connectTitle": "Comment se connecter",
+    "connectHint": "Dès que vous émettez un jeton, il remplace {placeholder} dans la configuration ci-dessous.",
+    "connectHintFilled": "Le jeton que vous venez d'émettre est déjà renseigné. Copiez-le tel quel.",
+    "clientsLabel": "Outils IA",
+    "claudeCodeHint": "Exécutez ceci dans un terminal.",
+    "cursorHint": "Ajoutez ceci à ~/.cursor/mcp.json.",
+    "claudeDesktopHint": "Ouvrez le fichier via Paramètres > Développeur > Modifier la configuration, ajoutez ceci et redémarrez l'application. Nécessite Node.js.",
+    "toolsTitle": "Outils disponibles",
+    "toolsHint": "Une fois connecté, un outil IA peut les utiliser sur ce projet uniquement.",
+    "tool_get_project": "Lit le nom du projet, l'environnement, l'api-key, l'adresse du serveur et si Firebase est configuré.",
+    "tool_get_integration_snippet": "Renvoie le code d'intégration du SDK par plateforme, avec l'adresse du serveur et l'api-key déjà renseignées.",
+    "tool_send_test_push": "Envoie un push de test à un utilisateur. Il est exclu des statistiques.",
+    "tool_list_recent_sends": "Affiche le statut et le nombre de succès et d'échecs des envois récents.",
+    "tool_get_openapi": "Lit la spécification de l'API pour écrire le code d'intégration sans rien deviner."
   }
 }

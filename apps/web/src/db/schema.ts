@@ -75,9 +75,14 @@ export const projects = pgTable("projects", {
   // 빈도 상한(사람 단위 하루)과 다른 축이다: 이쪽은 프로젝트 단위 초당 유량이라
   // 앱 서버·FCM 쿼터가 한 번에 밀려 터지는 것을 막는다.
   maxSendsPerMinute: integer("max_sends_per_minute"),
+  // MCP 연결 토큰의 SHA-256. 원문은 발급 응답에만 실리고 저장하지 않는다 —
+  // api-secret 과 달리 서버가 다시 읽을 일이 없어 복호화 가능한 형태로 둘 이유가 없다.
+  mcpTokenHash: text("mcp_token_hash"),
+  mcpTokenCreatedAt: timestamp("mcp_token_created_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   apiKeyIdx: uniqueIndex("projects_api_key_idx").on(t.apiKey),
+  mcpTokenHashIdx: uniqueIndex("projects_mcp_token_hash_idx").on(t.mcpTokenHash),
   orgIdx: index("projects_org_idx").on(t.orgId),
 }));
 

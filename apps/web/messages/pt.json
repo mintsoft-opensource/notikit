@@ -43,7 +43,8 @@
     "templates": "Modelos",
     "organization": "Conta e organização",
     "schedules": "Agendamentos",
-    "audit": "Registo de auditoria"
+    "audit": "Registo de auditoria",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Abrir menu",
@@ -1323,7 +1324,9 @@
       "member_delete": "Membro removido",
       "send_create": "Push enviado",
       "send_purge": "Registos purgados",
-      "send_cancel": "Cancelar envio"
+      "send_cancel": "Cancelar envio",
+      "mcp_token_create": "Token MCP emitido",
+      "mcp_token_delete": "Token MCP revogado"
     },
     "logType": {
       "single": "Individual",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "Ligação MCP",
+    "subtitle": "Permita que ferramentas de programação com IA trabalhem diretamente neste projeto. Nada para instalar: basta registar o endereço e um token.",
+    "tokenTitle": "Token de ligação",
+    "tokenHint": "Este token só pode aceder a este projeto. É mostrado uma única vez ao ser emitido, e emiti-lo novamente desativa de imediato o anterior.",
+    "tokenNone": "Não emitido",
+    "tokenIssuedAt": "Emitido em {date}",
+    "issue": "Emitir token",
+    "reissue": "Emitir novamente",
+    "revoke": "Revogar",
+    "issued": "Token emitido",
+    "revoked": "Token revogado",
+    "issueFailed": "Falha ao emitir o token",
+    "revokeFailed": "Falha ao revogar o token",
+    "tokenOnce": "Mostrado apenas agora. Copie e guarde em local seguro",
+    "tokenCopied": "Token copiado",
+    "configCopied": "Configuração copiada",
+    "reissueTitle": "Emitir o token novamente?",
+    "reissueDescription": "As ferramentas de IA atualmente ligadas deixarão de funcionar até lhes fornecer o novo token.",
+    "revokeTitle": "Revogar o token?",
+    "revokeDescription": "Todas as ferramentas de IA ligadas a este projeto serão desligadas.",
+    "confirmNote": "O token anterior não pode ser recuperado.",
+    "connectTitle": "Como ligar",
+    "connectHint": "Assim que emitir um token, este substitui {placeholder} na configuração abaixo.",
+    "connectHintFilled": "O token que acabou de emitir já está preenchido. Copie tal como está.",
+    "clientsLabel": "Ferramentas de IA",
+    "claudeCodeHint": "Execute isto num terminal.",
+    "cursorHint": "Adicione isto a ~/.cursor/mcp.json.",
+    "claudeDesktopHint": "Abra o ficheiro em Definições > Programador > Editar configuração, adicione isto e reinicie a app. Requer Node.js.",
+    "toolsTitle": "Ferramentas disponíveis",
+    "toolsHint": "Depois de ligada, uma ferramenta de IA pode usá-las apenas neste projeto.",
+    "tool_get_project": "Lê o nome do projeto, o ambiente, a api-key, o endereço do servidor e se o Firebase está configurado.",
+    "tool_get_integration_snippet": "Devolve o código de integração do SDK por plataforma com o endereço do servidor e a api-key já preenchidos.",
+    "tool_send_test_push": "Envia um push de teste a um utilizador. Não é incluído nas estatísticas.",
+    "tool_list_recent_sends": "Mostra o estado e as contagens de sucesso e falha dos envios recentes.",
+    "tool_get_openapi": "Lê a especificação da API para escrever o código de integração sem adivinhar."
   }
 }

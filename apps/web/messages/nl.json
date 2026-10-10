@@ -43,7 +43,8 @@
     "templates": "Sjablonen",
     "organization": "Account en organisatie",
     "schedules": "Schema's",
-    "audit": "Auditlogboek"
+    "audit": "Auditlogboek",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Menu openen",
@@ -1323,7 +1324,9 @@
       "member_delete": "Lid verwijderd",
       "send_create": "Push verzonden",
       "send_purge": "Logboeken gewist",
-      "send_cancel": "Verzending annuleren"
+      "send_cancel": "Verzending annuleren",
+      "mcp_token_create": "MCP-token uitgegeven",
+      "mcp_token_delete": "MCP-token ingetrokken"
     },
     "logType": {
       "single": "Enkel",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP-verbinding",
+    "subtitle": "Laat AI-codeertools rechtstreeks met dit project werken. Niets te installeren: registreer alleen het adres en een token.",
+    "tokenTitle": "Verbindingstoken",
+    "tokenHint": "Dit token heeft alleen toegang tot dit project. Het wordt eenmalig getoond bij uitgifte, en opnieuw uitgeven maakt het vorige direct ongeldig.",
+    "tokenNone": "Niet uitgegeven",
+    "tokenIssuedAt": "Uitgegeven op {date}",
+    "issue": "Token uitgeven",
+    "reissue": "Opnieuw uitgeven",
+    "revoke": "Intrekken",
+    "issued": "Token uitgegeven",
+    "revoked": "Token ingetrokken",
+    "issueFailed": "Token uitgeven mislukt",
+    "revokeFailed": "Token intrekken mislukt",
+    "tokenOnce": "Alleen nu zichtbaar. Kopieer het en bewaar het veilig",
+    "tokenCopied": "Token gekopieerd",
+    "configCopied": "Configuratie gekopieerd",
+    "reissueTitle": "Token opnieuw uitgeven?",
+    "reissueDescription": "AI-tools die nu verbonden zijn, werken niet meer totdat je ze het nieuwe token geeft.",
+    "revokeTitle": "Token intrekken?",
+    "revokeDescription": "Alle AI-tools die met dit project verbonden zijn, worden losgekoppeld.",
+    "confirmNote": "Het vorige token kan niet worden hersteld.",
+    "connectTitle": "Zo maak je verbinding",
+    "connectHint": "Zodra je een token uitgeeft, vervangt het {placeholder} in de onderstaande configuratie.",
+    "connectHintFilled": "Het zojuist uitgegeven token is al ingevuld. Kopieer het ongewijzigd.",
+    "clientsLabel": "AI-tools",
+    "claudeCodeHint": "Voer dit uit in een terminal.",
+    "cursorHint": "Voeg dit toe aan ~/.cursor/mcp.json.",
+    "claudeDesktopHint": "Open het bestand via Instellingen > Ontwikkelaar > Configuratie bewerken, voeg dit toe en herstart de app. Vereist Node.js.",
+    "toolsTitle": "Beschikbare tools",
+    "toolsHint": "Eenmaal verbonden kan een AI-tool deze alleen voor dit project gebruiken.",
+    "tool_get_project": "Leest de projectnaam, omgeving, api-key, het serveradres en of Firebase is geconfigureerd.",
+    "tool_get_integration_snippet": "Geeft SDK-integratiecode per platform terug met het serveradres en de api-key al ingevuld.",
+    "tool_send_test_push": "Stuurt een testpush naar één gebruiker. Deze telt niet mee in de statistieken.",
+    "tool_list_recent_sends": "Toont de status en het aantal geslaagde en mislukte recente verzendingen.",
+    "tool_get_openapi": "Leest de API-specificatie zodat integratiecode zonder giswerk wordt geschreven."
   }
 }

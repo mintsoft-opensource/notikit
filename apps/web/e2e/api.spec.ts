@@ -1533,3 +1533,112 @@ test.describe("발송 data 예약 키 · 참여 순위 기간", () => {
     expect(log.audienceDeviceCount).toBe(3);
   });
 });
+
+test.describe("MCP 엔드포인트", () => {
+  const rpc = (request: APIRequestContext, token: string | null, body: unknown) =>
+    request.post("/api/mcp", {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      data: body,
+    });
+
+  async function projectWithToken(request: APIRequestContext) {
+    const created = await request.post("/api/admin/projects", {
+      headers: { "x-admin-token": ADMIN },
+      data: { name: `mcp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` },
+    });
+    const project = (await created.json()).data.project as { id: string; apiKey: string };
+    const issued = await request.post(`/api/admin/projects/${project.id}/mcp-token`, {
+      headers: { "x-admin-token": ADMIN },
+      data: {},
+    });
+    expect(issued.status()).toBe(201);
+    return { ...project, token: (await issued.json()).data.token as string };
+  }
+
+  test("토큰 없이는 401, 프로젝트 토큰으로는 그 프로젝트만 보인다", async ({ request }) => {
+    const a = await projectWithToken(request);
+    const b = await projectWithToken(request);
+
+    expect((await rpc(request, null, { jsonrpc: "2.0", id: 1, method: "tools/list" })).status()).toBe(401);
+    expect((await rpc(request, "nkm_wrong", { jsonrpc: "2.0", id: 1, method: "tools/list" })).status()).toBe(401);
+    // 관리자 토큰은 MCP 인증이 아니다 — 전체 권한 값이 AI 도구 설정에 들어가는 길을 열지 않는다
+    expect((await rpc(request, ADMIN, { jsonrpc: "2.0", id: 1, method: "tools/list" })).status()).toBe(401);
+
+    const init = await rpc(request, a.token, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "e2e", version: "0" } },
+    });
+    expect(init.status()).toBe(200);
+    expect((await init.json()).result.protocolVersion).toBe("2025-06-18");
+
+    // 알림에는 본문 없이 202
+    expect((await rpc(request, a.token, { jsonrpc: "2.0", method: "notifications/initialized" })).status()).toBe(202);
+
+    const call = (token: string) =>
+      rpc(request, token, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "get_project", arguments: {} } });
+    const fromA = JSON.parse((await (await call(a.token)).json()).result.content[0].text);
+    const fromB = JSON.parse((await (await call(b.token)).json()).result.content[0].text);
+    expect(fromA.id).toBe(a.id);
+    expect(fromA.api_key).toBe(a.apiKey);
+    expect(fromB.id).toBe(b.id);
+  });
+
+  test("send_test_push 는 발송을 큐에 넣고 list_recent_sends 에 보인다", async ({ request }) => {
+    const p = await projectWithToken(request);
+    const sent = await rpc(request, p.token, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "send_test_push", arguments: { target: "mcp-user", title: "MCP 테스트", body: "본문" } },
+    });
+    const sentResult = (await sent.json()).result;
+    expect(sentResult.isError).toBeUndefined();
+    const messageId = JSON.parse(sentResult.content[0].text).message.id as string;
+
+    const list = await rpc(request, p.token, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "list_recent_sends", arguments: { limit: 5 } },
+    });
+    const rows = JSON.parse((await list.json()).result.content[0].text) as { id: string; title: string }[];
+    expect(rows.map((r) => r.id)).toContain(messageId);
+
+    // 잘못된 인자는 프로토콜 오류가 아니라 isError 결과다 — 모델이 읽고 고친다
+    const bad = await rpc(request, p.token, {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "send_test_push", arguments: { target: "mcp-user", title: "", body: "본문" } },
+    });
+    expect((await bad.json()).result.isError).toBe(true);
+  });
+
+  test("다시 발급하면 이전 토큰이 죽고, 폐기하면 전부 끊긴다", async ({ request }) => {
+    const p = await projectWithToken(request);
+    const ping = (token: string) => rpc(request, token, { jsonrpc: "2.0", id: 1, method: "ping" });
+    expect((await ping(p.token)).status()).toBe(200);
+
+    const status = await request.get(`/api/admin/projects/${p.id}/mcp-token`, { headers: { "x-admin-token": ADMIN } });
+    const statusBody = (await status.json()).data;
+    expect(statusBody.issued).toBe(true);
+    expect(JSON.stringify(statusBody)).not.toContain(p.token); // 원문은 다시 내주지 않는다
+
+    const reissued = await request.post(`/api/admin/projects/${p.id}/mcp-token`, { headers: { "x-admin-token": ADMIN }, data: {} });
+    const next = (await reissued.json()).data.token as string;
+    expect(next).not.toBe(p.token);
+    expect((await ping(p.token)).status()).toBe(401);
+    expect((await ping(next)).status()).toBe(200);
+
+    const revoked = await request.delete(`/api/admin/projects/${p.id}/mcp-token`, { headers: { "x-admin-token": ADMIN } });
+    expect(revoked.status()).toBe(200);
+    expect((await ping(next)).status()).toBe(401);
+
+    // 발급은 로그인한 관리자만
+    expect((await request.post(`/api/admin/projects/${p.id}/mcp-token`, { data: {} })).status()).toBeGreaterThanOrEqual(401);
+    // 서버가 먼저 여는 스트림은 지원하지 않는다
+    expect((await request.get("/api/mcp")).status()).toBe(405);
+  });
+});

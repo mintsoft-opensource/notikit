@@ -43,7 +43,8 @@
     "templates": "テンプレート",
     "organization": "アカウントと組織",
     "schedules": "スケジュール",
-    "audit": "監査ログ"
+    "audit": "監査ログ",
+    "mcp": "MCP 接続"
   },
   "header": {
     "openMenu": "メニューを開く",
@@ -1323,7 +1324,9 @@
       "member_delete": "メンバーを削除",
       "send_create": "プッシュを送信",
       "send_purge": "ログを削除",
-      "send_cancel": "送信をキャンセル"
+      "send_cancel": "送信をキャンセル",
+      "mcp_token_create": "MCPトークンを発行",
+      "mcp_token_delete": "MCPトークンを失効"
     },
     "logType": {
       "single": "個別",
@@ -1379,5 +1382,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP 接続",
+    "subtitle": "AI コーディングツールがこのプロジェクトを直接扱えるようにします。インストール不要で、アドレスとトークンを登録するだけです。",
+    "tokenTitle": "接続トークン",
+    "tokenHint": "このプロジェクトだけを扱えるトークンです。発行時に一度だけ表示され、再発行すると以前のトークンはすぐに使えなくなります。",
+    "tokenNone": "未発行",
+    "tokenIssuedAt": "{date} に発行",
+    "issue": "トークンを発行",
+    "reissue": "再発行",
+    "revoke": "失効",
+    "issued": "トークンを発行しました",
+    "revoked": "トークンを失効させました",
+    "issueFailed": "トークンの発行に失敗",
+    "revokeFailed": "トークンの失効に失敗",
+    "tokenOnce": "今だけ表示されます。コピーして安全に保管してください",
+    "tokenCopied": "トークンをコピーしました",
+    "configCopied": "設定をコピーしました",
+    "reissueTitle": "トークンを再発行しますか？",
+    "reissueDescription": "現在接続中の AI ツールは、新しいトークンに差し替えるまで使えなくなります。",
+    "revokeTitle": "トークンを失効させますか？",
+    "revokeDescription": "このプロジェクトに接続している AI ツールはすべて切断されます。",
+    "confirmNote": "以前のトークンは復元できません。",
+    "connectTitle": "接続方法",
+    "connectHint": "トークンを発行すると、下の設定の {placeholder} に自動で入ります。",
+    "connectHintFilled": "発行したばかりのトークンが入っています。そのままコピーして使ってください。",
+    "clientsLabel": "AI ツール",
+    "claudeCodeHint": "ターミナルで実行します。",
+    "cursorHint": "~/.cursor/mcp.json に追加します。",
+    "claudeDesktopHint": "設定 > 開発者 > 設定を編集 で開いたファイルに追加し、アプリを再起動します。Node.js が必要です。",
+    "toolsTitle": "利用できるツール",
+    "toolsHint": "接続すると、AI ツールは以下の機能をこのプロジェクトに限って使えます。",
+    "tool_get_project": "プロジェクト名・環境・api-key・サーバーアドレスと Firebase の設定有無を確認します。",
+    "tool_get_integration_snippet": "プラットフォーム別の SDK 連携コードを、サーバーアドレスと api-key が入った状態で返します。",
+    "tool_send_test_push": "ユーザー 1 人にテストプッシュを送信します。統計には含まれません。",
+    "tool_list_recent_sends": "最近の送信のステータスと成功・失敗数を確認します。",
+    "tool_get_openapi": "API 仕様を読み取り、推測なしで連携コードを書けるようにします。"
   }
 }

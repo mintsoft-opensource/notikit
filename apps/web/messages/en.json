@@ -43,7 +43,8 @@
     "templates": "Templates",
     "organization": "Account & organization",
     "schedules": "Schedules",
-    "audit": "Audit log"
+    "audit": "Audit log",
+    "mcp": "MCP"
   },
   "header": {
     "openMenu": "Open menu",
@@ -1342,7 +1343,9 @@
       "member_delete": "Member removed",
       "send_create": "Push sent",
       "send_purge": "Logs purged",
-      "send_cancel": "Cancel send"
+      "send_cancel": "Cancel send",
+      "mcp_token_create": "MCP token issued",
+      "mcp_token_delete": "MCP token revoked"
     },
     "logType": {
       "single": "Single",
@@ -1398,5 +1401,42 @@
     "topic_not_rule_filled": "This topic is filled by subscriptions, so it has no rules to edit",
     "import_already_reverted": "This import was already reverted",
     "import_empty": "This import has no rows to revert"
+  },
+  "mcp": {
+    "title": "MCP connection",
+    "subtitle": "Let AI coding tools work with this project directly. Nothing to install: register the address and a token.",
+    "tokenTitle": "Connection token",
+    "tokenHint": "This token can only access this project. It is shown once when issued, and reissuing it disables the previous one immediately.",
+    "tokenNone": "Not issued",
+    "tokenIssuedAt": "Issued {date}",
+    "issue": "Issue token",
+    "reissue": "Reissue",
+    "revoke": "Revoke",
+    "issued": "Token issued",
+    "revoked": "Token revoked",
+    "issueFailed": "Failed to issue token",
+    "revokeFailed": "Failed to revoke token",
+    "tokenOnce": "Shown only now. Copy it and keep it safe",
+    "tokenCopied": "Token copied",
+    "configCopied": "Configuration copied",
+    "reissueTitle": "Reissue the token?",
+    "reissueDescription": "AI tools connected now will stop working until you give them the new token.",
+    "revokeTitle": "Revoke the token?",
+    "revokeDescription": "Every AI tool connected to this project will be disconnected.",
+    "confirmNote": "The previous token cannot be restored.",
+    "connectTitle": "How to connect",
+    "connectHint": "Once you issue a token, it replaces {placeholder} in the configuration below.",
+    "connectHintFilled": "The token you just issued is filled in. Copy it as is.",
+    "clientsLabel": "AI tools",
+    "claudeCodeHint": "Run this in a terminal.",
+    "cursorHint": "Add this to ~/.cursor/mcp.json.",
+    "claudeDesktopHint": "Open the file via Settings > Developer > Edit Config, add this, and restart the app. Requires Node.js.",
+    "toolsTitle": "Available tools",
+    "toolsHint": "Once connected, an AI tool can use these on this project only.",
+    "tool_get_project": "Reads the project name, environment, api-key, server address and whether Firebase is configured.",
+    "tool_get_integration_snippet": "Returns SDK integration code per platform with the server address and api-key filled in.",
+    "tool_send_test_push": "Sends a test push to one user. It is excluded from statistics.",
+    "tool_list_recent_sends": "Shows the status and success/failure counts of recent sends.",
+    "tool_get_openapi": "Reads the API spec so integration code is written without guessing."
   }
 }
