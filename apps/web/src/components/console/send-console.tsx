@@ -228,14 +228,20 @@ export function SendConsole({
   );
   const audience = useAudienceEstimate(projectId, estimateReq);
 
+  // 서버와 브라우저는 시각·시간대가 달라 {{time}} 예시가 하이드레이션에서 어긋난다 — 붙은 뒤에 실제 값으로 바꾼다
+  const [clock, setClock] = React.useState({ now: new Date(0), timezone: "UTC" });
+  React.useEffect(() => {
+    setClock({ now: new Date(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  }, []);
+
   /** 미리보기는 고른 첫 사용자 기준으로 치환한다. 토픽·전체는 누가 받을지 모르니 기본값으로 보여 준다. */
   const previewAs = picksUsers && users[0] ? users[0] : null;
-  const previewCtx = { appName, now: new Date() };
+  const previewCtx = { appName, now: clock.now };
   const previewRecipient = previewAs ?? {
     externalId: "",
     name: null,
     attributes: null,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezone: clock.timezone,
     locale: uiLocale,
   };
   const renderedTitle = renderTemplate(title, previewRecipient, previewCtx);
