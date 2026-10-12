@@ -1,5 +1,6 @@
 ---
 title: MCP 서버
+description: Notikit MCP 서버 — Claude Code·Cursor·Claude Desktop 에서 프로젝트 토큰으로 연결해 연동 코드 삽입과 테스트 발송을 AI 에 맡기는 방법.
 ---
 
 # MCP 서버

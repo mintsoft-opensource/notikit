@@ -1,5 +1,6 @@
 ---
 title: 발송
+description: Notikit 발송 API — 개별(single)·다중(multi)·토픽(topic)·전체(broadcast) 발송, 개인화 변수, 예약, 받는 사람 현지 시각 발송, A/B 자동 승자.
 ---
 
 # 발송

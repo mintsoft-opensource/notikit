@@ -1,5 +1,6 @@
 ---
 title: 운영
+description: Notikit 운영 가이드 — 운영용 docker-compose.prod.yml, 마이그레이션, 헬스체크, 구조화 로그와 운영 지표, 웹훅 재시도.
 ---
 
 # 운영

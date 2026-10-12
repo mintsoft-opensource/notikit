@@ -24,6 +24,8 @@ const { Marked } = await import(pathToFileURL(markedEntry).href);
 const OUT = path.resolve(ROOT, outArg);
 const GH = "https://github.com/mintsoft-opensource/";
 const RAW = "https://raw.githubusercontent.com/mintsoft-opensource/";
+const SITE = "https://notikit.mint-soft.com";
+const DESCRIPTION_MAX = 155;
 
 const SDK_DOCS = [
   { slug: "sdk-web", title: "Web", repo: "notikit-js", file: "packages/sdk-web/README.md" },
@@ -61,6 +63,29 @@ function makeSlugger() {
   };
 }
 
+/** 검색 결과·링크 미리보기에 쓸 한 줄 요약 — 본문에서 처음 나오는 문단을 평문으로 만든다. */
+function summarize(body, title) {
+  const text = body
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/<[^>]+>/g, "")
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter((block) => block && !/^(#|\||[-*] |\d+\. |!\[|\[!\[)/.test(block))
+    .map((block) => block
+      .replace(/^>\s?/gm, "")
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/[*`]/g, "")
+      .replace(/\s+/g, " ")
+      .trim())
+    .find((block) => block.length >= 20);
+  if (!text) return `Notikit ${title} 문서`;
+  return text.length > DESCRIPTION_MAX ? `${text.slice(0, DESCRIPTION_MAX - 1).trimEnd()}…` : text;
+}
+
+/** JSON-LD 를 <script> 안에 넣는다 — 본문에 `</script>` 가 있어도 태그가 닫히지 않게 한다. */
+const jsonLd = (data) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+
 const guides = readdirSync(DOCS_DIR)
   .filter((f) => f.endsWith(".md"))
   .sort()
@@ -69,7 +94,7 @@ const guides = readdirSync(DOCS_DIR)
     const slug = file.replace(/\.md$/, "").replace(ORDER_PREFIX, "");
     const title = meta.title || body.match(/^#\s+(.+)$/m)?.[1] || slug;
     return {
-      group: "가이드", slug, title, body,
+      group: "가이드", slug, title, body, description: meta.description,
       editUrl: `${GH}notikit/edit/master/apps/web/docs/${file}`,
       linkBase: `${GH}notikit/blob/master/apps/web/docs/`,
     };
@@ -93,7 +118,11 @@ const sdks = await Promise.all(
   })
 );
 
-const docs = [...guides, ...sdks];
+const docs = [...guides, ...sdks].map((d) => ({
+  ...d,
+  url: `${SITE}/docs/${d.slug}.html`,
+  description: d.description || summarize(d.body.replace(/^\s*#\s+.+\n/, ""), d.title),
+}));
 const known = new Set(docs.map((d) => d.slug));
 
 /**
@@ -154,13 +183,56 @@ function page({ doc, html, toc, prev, next }) {
     prev ? `<a class="prev" href="${prev.slug}.html"><small>이전</small>${escapeHtml(prev.title)}</a>` : "<span></span>",
     next ? `<a class="next" href="${next.slug}.html"><small>다음</small>${escapeHtml(next.title)}</a>` : "<span></span>",
   ].join("");
+  const pageTitle = `${doc.title} — Notikit 문서`;
+  const structured = jsonLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        headline: doc.title,
+        description: doc.description,
+        url: doc.url,
+        mainEntityOfPage: doc.url,
+        inLanguage: "ko",
+        image: `${SITE}/assets/og.png`,
+        isPartOf: { "@type": "WebSite", "@id": `${SITE}/#site`, url: `${SITE}/`, name: "Notikit" },
+        about: { "@type": "SoftwareApplication", "@id": `${SITE}/#app`, name: "Notikit" },
+        author: { "@type": "Organization", "@id": `${SITE}/#org`, name: "MintSoft" },
+        publisher: { "@type": "Organization", "@id": `${SITE}/#org`, name: "MintSoft" },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Notikit", item: `${SITE}/` },
+          { "@type": "ListItem", position: 2, name: "문서", item: `${SITE}/docs/` },
+          { "@type": "ListItem", position: 3, name: doc.title, item: doc.url },
+        ],
+      },
+    ],
+  });
   return `<!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(doc.title)} — Notikit 문서</title>
-  <meta name="description" content="Notikit 가이드: ${escapeHtml(doc.title)}">
+  <title>${escapeHtml(pageTitle)}</title>
+  <meta name="description" content="${escapeHtml(doc.description)}">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <link rel="canonical" href="${doc.url}">
+  <meta property="og:site_name" content="Notikit">
+  <meta property="og:title" content="${escapeHtml(pageTitle)}">
+  <meta property="og:description" content="${escapeHtml(doc.description)}">
+  <meta property="og:url" content="${doc.url}">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:image" content="${SITE}/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${escapeHtml(pageTitle)}">
+  <meta name="twitter:description" content="${escapeHtml(doc.description)}">
+  <meta name="twitter:image" content="${SITE}/assets/og.png">
+  ${structured}
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M16 7a6 6 0 0 0-6 6v4l-2 3h16l-2-3v-4a6 6 0 0 0-6-6zm-2.5 15a2.5 2.5 0 0 0 5 0z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="../assets/base.css">
@@ -249,6 +321,57 @@ docs.forEach((doc, i) => {
 // /docs/ 는 첫 문서로 보낸다(목차 페이지를 따로 두면 사이드바와 내용이 겹친다)
 writeFileSync(
   path.join(OUT, "docs", "index.html"),
-  `<!doctype html><meta charset="utf-8"><title>Notikit 문서</title><meta http-equiv="refresh" content="0; url=${docs[0].slug}.html"><link rel="canonical" href="${docs[0].slug}.html"><a href="${docs[0].slug}.html">문서로 이동</a>\n`
+  `<!doctype html><meta charset="utf-8"><title>Notikit 문서</title><meta name="robots" content="noindex, follow"><meta http-equiv="refresh" content="0; url=${docs[0].slug}.html"><link rel="canonical" href="${docs[0].url}"><a href="${docs[0].slug}.html">문서로 이동</a>\n`
+);
+
+// 검색 엔진용 — 랜딩과 문서 전부
+writeFileSync(
+  path.join(OUT, "sitemap.xml"),
+  `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${[`${SITE}/`, ...docs.map((d) => d.url)].map((loc) => `  <url><loc>${loc}</loc></url>`).join("\n")}
+</urlset>
+`
+);
+
+// AI 답변 엔진용(llmstxt.org) — llms.txt 는 목차, llms-full.txt 는 문서 원문 전체
+const SUMMARY = "Notikit 은 FCM 위에 사용자 identity 레이어를 얹은 오픈소스(Apache-2.0) 셀프호스트 푸시 알림 툴킷입니다. 기기 토큰이 아니라 사용자 ID 로 보내면 그 사람의 모든 기기로 전달됩니다. 서버 · 관리 콘솔 · 멀티플랫폼 SDK 로 이루어져 있습니다.";
+const llmsSection = (group) => docs
+  .filter((d) => d.group === group)
+  .map((d) => `- [${d.title}](${d.url}): ${d.description}`)
+  .join("\n");
+writeFileSync(
+  path.join(OUT, "llms.txt"),
+  `# Notikit
+
+> ${SUMMARY}
+
+- 사이트: ${SITE}/
+- 서버 저장소: ${GH}notikit
+- 컨테이너 이미지: ghcr.io/mintsoft-opensource/notikit
+- 문서 원문 전체: ${SITE}/llms-full.txt
+
+## 가이드
+
+${llmsSection("가이드")}
+
+## SDK
+
+${llmsSection("SDK")}
+
+## 저장소
+
+- [notikit](${GH}notikit): 서버 · 관리 콘솔 · MCP
+- [notikit-js](${GH}notikit-js): Web · React · React Native · Node SDK (npm)
+- [notikit-ios](${GH}notikit-ios): iOS SDK (SwiftPM)
+- [notikit-android](${GH}notikit-android): Android SDK (JitPack)
+- [notikit-flutter](${GH}notikit-flutter): Flutter SDK (pub.dev)
+`
+);
+writeFileSync(
+  path.join(OUT, "llms-full.txt"),
+  `# Notikit\n\n> ${SUMMARY}\n\n` + docs
+    .map((d) => `---\n\n# ${d.title}\n\nSource: ${d.url}\n\n${d.body.replace(/^\s*#\s+.+\n/, "").trim()}\n`)
+    .join("\n")
 );
 console.log(`built ${docs.length} docs → ${path.relative(ROOT, OUT)}/docs`);

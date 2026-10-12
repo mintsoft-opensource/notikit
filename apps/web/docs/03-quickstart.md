@@ -1,5 +1,6 @@
 ---
 title: 빠른 시작
+description: Notikit 빠른 시작 — 디바이스 등록부터 첫 푸시 발송까지. Firebase 없이 log-only 모드로 흐름부터 확인할 수 있습니다.
 ---
 
 # 빠른 시작

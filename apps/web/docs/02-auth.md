@@ -1,5 +1,6 @@
 ---
 title: 인증
+description: Notikit 인증 — 공개용 api-key 와 서버 전용 api-secret 의 차이, identity_hash(HMAC)로 계정 도용을 막는 방법.
 ---
 
 # 인증

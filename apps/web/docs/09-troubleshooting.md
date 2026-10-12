@@ -1,5 +1,6 @@
 ---
 title: 자주 겪는 문제
+description: Notikit 자주 겪는 문제 — 알림이 안 오거나 두 번 오는 경우, 클릭 미집계, identity_hash 403 등 증상별 원인과 조치.
 ---
 
 # 자주 겪는 문제

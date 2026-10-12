@@ -1,5 +1,6 @@
 ---
 title: 클릭 추적
+description: Notikit 클릭 추적 — notikit_log_id 로 알림 클릭을 집계하는 방식. SDK 를 쓰면 자동으로 보고됩니다.
 ---
 
 # 클릭 추적

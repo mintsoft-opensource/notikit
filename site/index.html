@@ -3,12 +3,157 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Notikit — 유저 중심 푸시 알림</title>
-  <meta name="description" content="토큰이 아니라 사람에게 보내는 셀프호스트 푸시 알림 툴킷. FCM 위에 사용자 identity, 멀티플랫폼 SDK, 관리 콘솔.">
-  <meta property="og:title" content="Notikit — 유저 중심 푸시 알림">
+  <title>Notikit — 유저 중심 오픈소스 푸시 알림 툴킷</title>
+  <meta name="description" content="토큰이 아니라 사람에게 보내는 오픈소스 셀프호스트 푸시 알림 툴킷. FCM 위에 사용자 identity, 멀티플랫폼 SDK, 관리 콘솔을 얹었습니다.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <link rel="canonical" href="https://notikit.mint-soft.com/">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0d15" media="(prefers-color-scheme: dark)">
+  <meta property="og:site_name" content="Notikit">
+  <meta property="og:title" content="Notikit — 유저 중심 오픈소스 푸시 알림 툴킷">
   <meta property="og:description" content="토큰이 아니라 사람에게 보내는 셀프호스트 푸시 알림 툴킷.">
   <meta property="og:url" content="https://notikit.mint-soft.com/">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:image" content="https://notikit.mint-soft.com/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Notikit — 토큰이 아니라 사람에게 보내는 푸시">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Notikit — 유저 중심 오픈소스 푸시 알림 툴킷">
+  <meta name="twitter:description" content="토큰이 아니라 사람에게 보내는 셀프호스트 푸시 알림 툴킷.">
+  <meta name="twitter:image" content="https://notikit.mint-soft.com/assets/og.png">
+  <link rel="alternate" type="text/plain" href="https://notikit.mint-soft.com/llms.txt" title="llms.txt">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://notikit.mint-soft.com/#org",
+        "name": "MintSoft",
+        "url": "https://github.com/mintsoft-opensource",
+        "sameAs": [
+          "https://github.com/mintsoft-opensource"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://notikit.mint-soft.com/#site",
+        "url": "https://notikit.mint-soft.com/",
+        "name": "Notikit",
+        "description": "토큰이 아니라 사람에게 보내는 오픈소스 셀프호스트 푸시 알림 툴킷. FCM 위에 사용자 identity, 멀티플랫폼 SDK, 관리 콘솔을 얹었습니다.",
+        "inLanguage": "ko",
+        "publisher": {
+          "@id": "https://notikit.mint-soft.com/#org"
+        }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://notikit.mint-soft.com/#app",
+        "name": "Notikit",
+        "url": "https://notikit.mint-soft.com/",
+        "description": "토큰이 아니라 사람에게 보내는 오픈소스 셀프호스트 푸시 알림 툴킷. FCM 위에 사용자 identity, 멀티플랫폼 SDK, 관리 콘솔을 얹었습니다.",
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "Push notification server",
+        "operatingSystem": "Docker (Linux)",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "image": "https://notikit.mint-soft.com/assets/og.png",
+        "downloadUrl": "https://github.com/mintsoft-opensource/notikit",
+        "softwareHelp": {
+          "@type": "CreativeWork",
+          "url": "https://notikit.mint-soft.com/docs/"
+        },
+        "featureList": [
+          "사용자 ID 기준 푸시 발송과 멀티디바이스",
+          "개별 · 토픽 · 전체 발송, 예약 · 현지 시각 발송",
+          "세그먼트",
+          "저니 자동화와 A/B 테스트",
+          "도달 · 참여 분석",
+          "멀티테넌트 관리 콘솔",
+          "MCP 서버"
+        ],
+        "author": {
+          "@id": "https://notikit.mint-soft.com/#org"
+        },
+        "publisher": {
+          "@id": "https://notikit.mint-soft.com/#org"
+        }
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "Notikit",
+        "codeRepository": "https://github.com/mintsoft-opensource/notikit",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "programmingLanguage": "TypeScript",
+        "targetProduct": {
+          "@id": "https://notikit.mint-soft.com/#app"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://notikit.mint-soft.com/#faq",
+        "inLanguage": "ko",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Notikit 은 무엇인가요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Notikit 은 FCM(Firebase Cloud Messaging) 위에 사용자 identity 레이어를 얹은 오픈소스 푸시 알림 툴킷입니다. 서버·관리 콘솔·SDK 를 자체 인프라에 띄우고, 기기 토큰이 아니라 사용자 ID 로 푸시를 보냅니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "FCM 만 쓰는 것과 무엇이 다른가요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "FCM 은 기기 토큰 단위로 보내므로 어떤 토큰이 누구 것인지, 어떤 토큰이 죽었는지를 앱이 직접 관리해야 합니다. Notikit 은 사용자 한 명에 여러 기기를 묶어 두고 “유저 X 에게” 보내면 그 사람의 모든 기기로 전달하며, 무효 토큰은 자동으로 정리합니다. FCM 을 대체하지 않고 FCM 을 통해 발송합니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "어떤 플랫폼을 지원하나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Web, React · Next.js, React Native, iOS(Swift), Android(Kotlin), Flutter SDK 를 제공합니다. SDK 는 플랫폼별 저장소로 나뉘어 있고 npm, SwiftPM, JitPack, pub.dev 로 배포합니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "라이선스와 비용은 어떻게 되나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "서버·콘솔·SDK 모두 Apache-2.0 오픈소스입니다. 직접 호스팅하므로 발송 건수나 사용자 수에 따른 과금이 없고, 데이터는 자체 인프라에 남습니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "설치하려면 무엇이 필요한가요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Docker 만 있으면 됩니다. docker compose 가 PostgreSQL, Redis, 웹, 워커를 함께 띄웁니다. Firebase 자격증명이 없어도 실제 발송 대신 로그만 남기는 모드로 먼저 둘러볼 수 있습니다."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "AI 코딩 도구에서 쓸 수 있나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "네. Notikit 서버가 MCP 주소(/api/mcp)를 직접 엽니다. 프로젝트에서 토큰을 발급해 Claude Code, Cursor, Claude Desktop 에 등록하면 설치 없이 연동 코드 삽입과 테스트 발송을 맡길 수 있습니다."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M16 7a6 6 0 0 0-6 6v4l-2 3h16l-2-3v-4a6 6 0 0 0-6-6zm-2.5 15a2.5 2.5 0 0 0 5 0z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="assets/base.css">
@@ -192,6 +337,14 @@
     @keyframes swapIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
     /* ── 시작하기 ───────────────────────────────────── */
+    /* ── FAQ ────────────────────────────────────────── */
+    .faq { display: grid; gap: 12px; margin-top: 28px; }
+    .faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after { content: "+"; color: var(--muted); font-weight: 400; }
+    .faq details[open] summary::after { content: "−"; }
+    .faq p { color: var(--muted); margin: 12px 0 0; }
+
     .steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); counter-reset: step; }
     .steps .card h3 { display: flex; align-items: center; gap: 10px; }
     .num {
@@ -347,6 +500,38 @@ docker compose ps</code></pre></div>
           </div>
         </div>
         <p class="sub reveal" style="margin: 28px 0 0">운영 서버에는 소스 빌드 대신 서명된 공개 이미지(<code>ghcr.io/mintsoft-opensource/notikit</code>)와 <code>docker-compose.prod.yml</code> 을 씁니다. 발송·인증·운영까지 자세한 내용은 <a href="docs/">문서</a> 를 보세요.</p>
+      </div>
+    </section>
+    <section id="faq" class="soft" aria-labelledby="faq-h">
+      <div class="wrap">
+        <p class="kicker reveal">FAQ</p>
+        <h2 id="faq-h" class="reveal">자주 묻는 질문</h2>
+        <div class="faq">
+          <details class="card reveal">
+            <summary>Notikit 은 무엇인가요?</summary>
+            <p>Notikit 은 FCM(Firebase Cloud Messaging) 위에 사용자 identity 레이어를 얹은 오픈소스 푸시 알림 툴킷입니다. 서버·관리 콘솔·SDK 를 자체 인프라에 띄우고, 기기 토큰이 아니라 사용자 ID 로 푸시를 보냅니다.</p>
+          </details>
+          <details class="card reveal">
+            <summary>FCM 만 쓰는 것과 무엇이 다른가요?</summary>
+            <p>FCM 은 기기 토큰 단위로 보내므로 어떤 토큰이 누구 것인지, 어떤 토큰이 죽었는지를 앱이 직접 관리해야 합니다. Notikit 은 사용자 한 명에 여러 기기를 묶어 두고 “유저 X 에게” 보내면 그 사람의 모든 기기로 전달하며, 무효 토큰은 자동으로 정리합니다. FCM 을 대체하지 않고 FCM 을 통해 발송합니다.</p>
+          </details>
+          <details class="card reveal">
+            <summary>어떤 플랫폼을 지원하나요?</summary>
+            <p>Web, React · Next.js, React Native, iOS(Swift), Android(Kotlin), Flutter SDK 를 제공합니다. SDK 는 플랫폼별 저장소로 나뉘어 있고 npm, SwiftPM, JitPack, pub.dev 로 배포합니다.</p>
+          </details>
+          <details class="card reveal">
+            <summary>라이선스와 비용은 어떻게 되나요?</summary>
+            <p>서버·콘솔·SDK 모두 Apache-2.0 오픈소스입니다. 직접 호스팅하므로 발송 건수나 사용자 수에 따른 과금이 없고, 데이터는 자체 인프라에 남습니다.</p>
+          </details>
+          <details class="card reveal">
+            <summary>설치하려면 무엇이 필요한가요?</summary>
+            <p>Docker 만 있으면 됩니다. docker compose 가 PostgreSQL, Redis, 웹, 워커를 함께 띄웁니다. Firebase 자격증명이 없어도 실제 발송 대신 로그만 남기는 모드로 먼저 둘러볼 수 있습니다.</p>
+          </details>
+          <details class="card reveal">
+            <summary>AI 코딩 도구에서 쓸 수 있나요?</summary>
+            <p>네. Notikit 서버가 MCP 주소(/api/mcp)를 직접 엽니다. 프로젝트에서 토큰을 발급해 Claude Code, Cursor, Claude Desktop 에 등록하면 설치 없이 연동 코드 삽입과 테스트 발송을 맡길 수 있습니다.</p>
+          </details>
+        </div>
       </div>
     </section>
   </main>
